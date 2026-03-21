@@ -1,0 +1,35 @@
+# Local worktrees (parallel EPIC branches)
+.worktrees/
+worktrees/
+
+# Env & secrets
+.env
+.env.local
+*.pem
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# Node
+node_modules/
+frontend/dist/
+*.tsbuildinfo
+
+# SQLite (task-manager local DB, etc.)
+**/*.db
+**/*.db-shm
+**/*.db-wal
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

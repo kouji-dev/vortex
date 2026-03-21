@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "task-manager": {
+      "url": "http://localhost:3847/mcp"
+    },
+    "youtube-transcript-fabriqa": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@fabriqa.ai/youtube-transcript-mcp@latest"
+      ]
+    }
+  }
+}
