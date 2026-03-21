@@ -1,0 +1,1 @@
+"""AI Portal FastAPI application."""

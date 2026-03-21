@@ -4,9 +4,9 @@
 
 **Goal:** Establish a runnable **API + web** foundation with **health checks in the browser and API**, **local dev infra**, a **shared API contract story**, **CI**, and **Azure-oriented configuration**—so later MVPs can ship vertical slices without reworking scaffolding.
 
-**Architecture:** **FastAPI** backend (`backend/`) exposes `GET /health` and (optionally) `GET /openapi.json`; **Vite + React + TypeScript** frontend (`frontend/`) uses **TanStack Router** for routing, **TanStack Query** for server state (e.g. the health check), and **Tailwind CSS** for styling—so later MVPs extend the same stack. The UI proves the app runs in the browser and can call the API (or show a clear error if the API is down). **Local Postgres and Redis** use **Docker Compose** with project name **`local-dev`** (Compose “namespace”), matching the pattern in **`kouji-factory/docker-compose.yml`** (same `name`, `POSTGRES_*` / redis layout). This repo uses **`pgvector/pgvector:pg17`** for Postgres so `vector` is available for RAG, and **distinct container names + host ports (5434 / 6380)** so ai-portal can run **alongside** kouji-factory (5433 / 6379) on one machine. The API may connect lazily in MVP-0 (health can stay DB-free until Task 3). **GitHub Actions** (or equivalent) runs **Ruff + pytest** on the backend and **`npm run build`** on the frontend. Configuration is **env-driven** with `.env.example` documenting variables suitable for local dev and **Azure** (Key Vault references described in comments, not secrets in repo).
+**Architecture:** **FastAPI** backend (`backend/`) exposes `GET /health` and (optionally) `GET /openapi.json`; **TanStack Start** frontend (`frontend/`) — **Vite + React + TypeScript** with **`@tanstack/react-start`** — uses **TanStack Router** (file-based routes) for routing, **TanStack Query** for server state (e.g. the health check), and **Tailwind CSS** for styling—so later MVPs extend the same stack. The UI proves the app runs in the browser and can call the API (or show a clear error if the API is down). **Local Postgres and Redis** use **Docker Compose** with project name **`local-dev`** (Compose “namespace”), matching the pattern in **`kouji-factory/docker-compose.yml`** (same `name`, `POSTGRES_*` / redis layout). This repo uses **`pgvector/pgvector:pg17`** for Postgres so `vector` is available for RAG, and **distinct container names + host ports (5434 / 6380)** so ai-portal can run **alongside** kouji-factory (5433 / 6379) on one machine. The API may connect lazily in MVP-0 (health can stay DB-free until Task 3). **GitHub Actions** (or equivalent) runs **Ruff + pytest** on the backend and **`npm run build`** on the frontend. Configuration is **env-driven** with `.env.example` documenting variables suitable for local dev and **Azure** (Key Vault references described in comments, not secrets in repo).
 
-**Tech Stack:** Python 3.12+, FastAPI, Uvicorn, Pydantic Settings, Ruff, Pytest, HTTPX, SQLAlchemy 2, Alembic, Psycopg (sync), Docker Compose, Node 20+, Vite, React 18, TypeScript, **TanStack Router**, **TanStack Query**, **Tailwind CSS**, npm.
+**Tech Stack:** Python 3.12+, FastAPI, Uvicorn, Pydantic Settings, Ruff, Pytest, HTTPX, SQLAlchemy 2, Alembic, Psycopg (sync), Docker Compose, Node 20+, **TanStack Start** (Vite + **@tanstack/react-start**), React 19, TypeScript, **TanStack Router**, **TanStack Query**, **Tailwind CSS**, npm.
 
 **Spec:** [`docs/superpowers/specs/README.md`](../specs/README.md) — **MVP-0** row; capabilities **F-01–F-04** (foundation).
 
@@ -25,8 +25,9 @@
 | `backend/src/ai_portal/db/session.py` | Engine + session factory |
 | `backend/alembic/` | Alembic config + first migration |
 | `backend/tests/test_health.py` | Health contract test |
-| `frontend/` | Vite React TS app; **TanStack Router** + **TanStack Query** + **Tailwind**; minimal route + health query |
-| `frontend/src/routes/` | Router tree (start with a single index/home route) |
+| `frontend/` | **TanStack Start** app; **TanStack Router** + **TanStack Query** + **Tailwind**; home route + API health query |
+| `frontend/src/routes/` | File-based router tree (template demo routes OK; home proves API wiring) |
+| `frontend/vite.config.ts` | **`tanstackStart()`** from `@tanstack/react-start/plugin/vite` + Tailwind v4 |
 | `.github/workflows/ci.yml` | Lint, test, build |
 
 ---
@@ -121,27 +122,29 @@ Expected: import or assertion failure.
 
 ---
 
-### Task 4: Frontend scaffold — TanStack Router + Query + Tailwind + health check
+### Task 4: Frontend scaffold — TanStack Start + Query + Tailwind + health check
 
 **Files:**
-- Create: `frontend/package.json`, `frontend/vite.config.ts`, `frontend/tsconfig.json`, `frontend/index.html`
-- Create: `frontend/src/main.tsx`, `frontend/src/routes/__root.tsx`, `frontend/src/routes/index.tsx` (or equivalent single-route layout per TanStack Router conventions)
-- Create: `frontend/src/styles.css` (Tailwind entry: `@import "tailwindcss";` if using Tailwind v4 + `@tailwindcss/vite`, otherwise classic `@tailwind` directives)
+- Create: `frontend/package.json`, `frontend/vite.config.ts`, `frontend/tsconfig*.json` (as generated by the template)
+- Ensure: **`tanstackStart()`** in `vite.config.ts` (from `@tanstack/react-start/plugin/vite`) alongside `@tailwindcss/vite` and `@vitejs/plugin-react`
+- Create: `frontend/src/routes/__root.tsx`, `frontend/src/routes/index.tsx`, plus router wiring per Start (`router.tsx`, generated `routeTree.gen.ts`, etc.)
+- Create: `frontend/src/styles/app.css` (Tailwind v4: `@import "tailwindcss";` or equivalent per template)
+- Create: `frontend/.env.example` with `VITE_API_URL`
 - Modify: `README.md`
 
-- [ ] **Step 1:** `npm create vite@latest frontend -- --template react-ts` (or equivalent); ensure dev server runs on port **5173**.
+- [ ] **Step 1 — Bootstrap:** Scaffold from the official **TanStack Start** example **`start-basic-react-query`** (e.g. `npx gitpick TanStack/router/tree/main/examples/react/start-basic-react-query frontend` or the current TanStack CLI equivalent). Dev server should run on port **5173** (match root `CORS_ORIGINS`).
 
-- [ ] **Step 2 — Tailwind:** Add Tailwind for Vite (prefer **Tailwind v4** with `@tailwindcss/vite` in `vite.config.ts`, or v3 with `postcss` + `tailwind.config.js`). Wire a global stylesheet from `main.tsx`.
+- [ ] **Step 2 — Tailwind:** Keep template **Tailwind v4** + `@tailwindcss/vite`; do not strip unless replacing with an equivalent global stylesheet.
 
-- [ ] **Step 3 — TanStack:** Install `@tanstack/react-router` and `@tanstack/react-query`. Wrap the tree in **`QueryClientProvider`**. Define a **root route** and a single **index route** that renders the MVP-0 screen (use `RouterProvider` / `createRouter` per current TanStack Router docs).
+- [ ] **Step 3 — Router + Query:** Use the template’s **`QueryClient` + `createRouter`** / file routes. Extra demo routes from the example are fine; **home (`/`)** must carry the MVP-0 health UI.
 
-- [ ] **Step 4 — Health:** On the index route, use **`useQuery`** to `GET` `${import.meta.env.VITE_API_URL}/health` (default `http://localhost:8000`). Render **status**, **JSON body**, or **error** with simple Tailwind layout (proves Router + Query + API + styling).
+- [ ] **Step 4 — Health:** On the index route, use **`useQuery`** to `GET` `${VITE_API_URL}/health` (default e.g. `http://127.0.0.1:8000` if env unset). Render **success**, **JSON `status`**, or a **clear error** if the API is down.
 
-- [ ] **Step 5:** Add `frontend/.env.example` with `VITE_API_URL=http://localhost:8000`.
+- [ ] **Step 5:** Add `frontend/.env.example` with `VITE_API_URL=http://127.0.0.1:8000` (or `http://localhost:8000`; document copying to `frontend/.env` for local overrides).
 
-- [ ] **Step 6:** Document in `README.md`: terminal A `cd backend && uvicorn ai_portal.main:app --reload --port 8000`, terminal B `cd frontend && npm run dev`, open browser.
+- [ ] **Step 6:** Document in `README.md`: terminal A API, terminal B `cd frontend && npm run dev`, open browser at the Start dev URL/port.
 
-- [ ] **Step 7:** Commit: `feat(web): vite tanstack tailwind shell and api health query`
+- [ ] **Step 7:** Commit: `feat(web): tanstack start shell and api health query`
 
 ---
 
