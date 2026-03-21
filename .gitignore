@@ -23,6 +23,9 @@ node_modules/
 frontend/dist/
 *.tsbuildinfo
 
+# Optional local OpenAPI snapshot (see contracts/README.md)
+contracts/openapi.json
+
 # SQLite (task-manager local DB, etc.)
 **/*.db
 **/*.db-shm
