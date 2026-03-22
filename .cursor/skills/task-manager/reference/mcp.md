@@ -2,7 +2,7 @@
 
 The **task-manager** MCP server exposes **tools** (not resources) over **Streamable HTTP**. Connect the client to the server’s MCP endpoint (see [SKILL.md](../SKILL.md) for run instructions).
 
-- **Server name / version:** `task-manager` / `0.4.0`
+- **Server name / version:** `task-manager` / `0.5.0`
 - **Default base URL:** `http://localhost:3847` (override with `MCP_PORT`)
 - **MCP path:** `/mcp`
 - **Health:** `GET /health`
@@ -22,6 +22,26 @@ All tools return **text** content:
 Allowed values for **scopes**, **EPICs**, and **tickets**:
 
 `backlog` · `ready` · `in_progress` · `blocked` · `done` · `cancelled`
+
+### List filters (`filters` on `list_scopes`, `list_epics`, `list_tickets`)
+
+Optional **`filters`** is a JSON object: **keys = column names** (allowlisted per tool); **values** combine into SQL with **AND**; all values are **bound as parameters** (no raw SQL injection).
+
+| Value shape | SQL |
+| --- | --- |
+| scalar (string / number / boolean where allowed) | `column = ?` |
+| non-empty array | `column IN (?, …)` |
+| `{ "in": [ … ] }` | same as array |
+| `{ "like": "%foo%" }` | `column LIKE ? ESCAPE '\'` (SQLite `LIKE` is ASCII case-insensitive by default) |
+| `null` | `column IS NULL` |
+
+**Allowlisted columns**
+
+- **`list_scopes`:** `id`, `title`, `description`, `status`, `created_at`, `updated_at`
+- **`list_epics`:** `id`, `scope_id`, `title`, `description`, `status`, `created_at`, `updated_at`
+- **`list_tickets`:** `id`, `epic_id`, `title`, `description`, `status`, `agent`, `idea`, `locked`, `created_at`, `updated_at`
+
+**Notes:** `status` values are validated against [Status](#status-status). Integer columns (`id`, `scope_id`, `epic_id`) must be integers. **`locked`** accepts `true` / `false` or `0` / `1`. Omit **`filters`** or pass `{}` to list all rows.
 
 ### Ticket lock (`locked`)
 
@@ -82,12 +102,11 @@ Deletes a scope and **all EPICs in that scope and their tickets** (SQLite foreig
 
 ### `list_epics`
 
-Returns EPICs (JSON array). Each row includes **`scope_id`**. Multiple filters combine with **AND**.
+Returns EPICs (JSON array). Each row includes **`scope_id`**.
 
 | Argument | Type | Required | Notes |
 | --- | --- | --- | --- |
-| `scope_id` | number | no | Only EPICs in that scope. |
-| `status` | string | no | One of [Status](#status-status) values. |
+| `filters` | object | no | [List filters](#list-filters-filters-on-list_scopes-list_epics-list_tickets); keys must be epic columns. |
 
 ---
 
@@ -130,14 +149,11 @@ Deletes an EPIC and **all of its tickets** (SQLite CASCADE).
 
 ### `list_tickets`
 
-Lists tickets. Multiple filters combine with **AND**.
+Lists tickets.
 
 | Argument | Type | Required | Notes |
 | --- | --- | --- | --- |
-| `epic_id` | number | no | Only tickets for that EPIC. |
-| `status` | string | no | One of [Status](#status-status) values. |
-| `locked` | boolean | no | `true` = locked only; `false` = unlocked only. |
-| `agent` | string | no | Case-insensitive match on trimmed assignee label. |
+| `filters` | object | no | [List filters](#list-filters-filters-on-list_scopes-list_epics-list_tickets); keys must be ticket columns. Example: `{ "epic_id": 1 }`, `{ "status": "in_progress" }`, `{ "agent": { "like": "%auth%" } }`, `{ "locked": true }`. |
 
 ---
 
@@ -234,11 +250,15 @@ Do **not** pass both `epic_id` and `scope_id`.
 ```
 
 ```json
-{ "scope_id": 2 }
+{ "filters": { "scope_id": 2 } }
 ```
 
 ```json
-{ "epic_id": 1 }
+{ "filters": { "epic_id": 1, "status": ["backlog", "ready"] } }
+```
+
+```json
+{ "filters": { "title": { "like": "%OAuth%" } } }
 ```
 
 (Exact invocation depends on your MCP client: tool name + JSON arguments.)

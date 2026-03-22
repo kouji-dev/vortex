@@ -24,6 +24,19 @@ This folder holds **feature design specs**, created **lazily** as work starts. T
 | `in-progress` | Implementation underway |
 | `done` | Shipped for current scope |
 
+### Feature specs (this folder)
+
+| Document | Status | Notes |
+|----------|--------|--------|
+| [2026-03-22-auth-entra-design.md](./2026-03-22-auth-entra-design.md) | spec-approved | **MVP-1 identity (first impl):** Microsoft Entra — SPA + Bearer API JWT, app roles RBAC, user upsert, worker **client credentials** for org-wide jobs (**I-06**); plan: [../plans/2026-03-22-auth-entra.md](../plans/2026-03-22-auth-entra.md) |
+| [2026-03-22-chat-conversations-design.md](./2026-03-22-chat-conversations-design.md) | spec-draft | Conversations-first chat — **API + frontend** (streaming, capabilities, attachments, model, syllabus); **auth:** [auth-entra spec](./2026-03-22-auth-entra-design.md); assistants deferred |
+| [Worktree merge order (Entra → chat)](../plans/2026-03-22-git-worktree-merge-order.md) | plan | **Epic 10** merge before **epic 11**; paths `.worktrees/entra-auth-mvp`, `.worktrees/chat-post-auth` |
+
+### Registry integrity (feature specs ↔ MVP rows)
+
+- **MVP-3 “catalog + chat”** vs **conversations-first chat spec (assistants deferred):** the chat spec is a **delivery refinement** — implement **MVP-1 auth** first, then **conversations/chat API + UI**, then **assistant catalog** as follow-on tickets if the EPIC is split.
+- **MVP-1 I-08 entitlements:** the [auth-entra spec](./2026-03-22-auth-entra-design.md) can ship **without** full **I-08**; add entitlements payload and enforcement when gating catalog capabilities.
+
 ---
 
 ## Platform assumptions (current)
@@ -32,7 +45,7 @@ This folder holds **feature design specs**, created **lazily** as work starts. T
 |--------|-----------|
 | **Cloud (now)** | **Microsoft Azure** for hosted infra (containers, managed data stores, secrets, networking). Keep app logic portable where reasonable. |
 | **Models (now)** | **Azure OpenAI** is the **default** runtime for chat and embeddings in early delivery. All calls go through a **provider abstraction** in application code so other vendors (**Anthropic**, Google, OpenAI direct, local/OpenAI-compatible inference, etc.) can be added as **adapters** without rewriting chat/RAG orchestration. |
-| **Auth — identity** | **Multiple connectors** to customer **authorization / resource servers** (OIDC/OAuth2 primary; SAML or others per client). |
+| **Auth — identity** | **Multiple connectors** to customer IdPs (OIDC/OAuth2 primary; SAML optional). **First concrete slice:** [Microsoft Entra](./2026-03-22-auth-entra-design.md) (single tenant, SPA + API JWT); additional providers later under **I-01**. |
 | **Principal model** | Treat **tenant**, **workspace** (when introduced), **user**, **service account**, and **API key** as explicit first-class subjects. Ownership, access checks, budgets, and audit should always resolve against this model rather than ad hoc per feature. |
 | **Auth — AI usage** | **API key manager per user** (and later team/workspace) for **model API** access—separate from SSO identity; supports CLI, IDE, and automation. |
 | **Auth — feature access** | **Entitlements / allowances:** which **product features** a principal may use (e.g. RAG upload, pipeline builder, external API, FinOps dashboards). Sourced from **roles, groups, IdP claims, plan/license**, and **admin overrides**; enforced on **every API** and reflected in the **UI** (hide/disable, clear 403, upgrade hints)—same rules everywhere. |
@@ -49,7 +62,7 @@ flowchart TD
   P0[MVP0_Bootstrap_API_and_Web]
   P1[MVP1_Identity_and_feature_entitlements]
   P2[MVP2_User_API_keys]
-  P3[MVP3_Chat_assistants_catalog_and_sessions]
+  P3[MVP3_Chat_assistants_catalog_and_conversations]
   P4[MVP4_RAG_upload_and_grounding]
   P5[MVP5_Observability_and_admin_views]
   P6[MVP6_FinOps_stretch]
@@ -83,7 +96,7 @@ Stable IDs for the **whole product surface** (MVP + growth). Use these in specs,
 
 | ID | Capability | Description |
 |----|------------|-------------|
-| **I-01** | **OIDC / OAuth2 connector framework** | Register one or more IdPs per deployment; standard flows (auth code + PKCE); map claims to internal user profile and groups; session or JWT validation on API. |
+| **I-01** | **OIDC / OAuth2 connector framework** | Register one or more IdPs per deployment; standard flows (auth code + PKCE); map claims to internal user profile and groups; validate **Bearer JWTs** on the API (first slice: [Microsoft Entra](./2026-03-22-auth-entra-design.md)); optional cookie/BFF later. |
 | **I-02** | **SAML / enterprise SSO (optional connector)** | For customers requiring SAML; same internal user model as OIDC; often phased after OIDC. |
 | **I-03** | **User profile & directory sync** | Link external Id to internal user; optional SCIM or batch sync for large orgs; display name, email, group membership cache. |
 | **I-04** | **Roles, groups & RBAC** | Admin / builder / consumer (and extensions); enforce on API routes and UI routes; seed roles for dev. Often **feeds** feature entitlements (**I-08**) but is not the only source. |
@@ -114,15 +127,15 @@ Optional **quality-of-life** features for builders and power users; gate via **I
 
 ### Chat & assistants (catalog is part of chat)
 
-Assistants are **what you chat with**; the **catalog** is the **entry surface** (pick or manage an assistant), not a separate product area. IDs **A-*** and **C-*** ship together in one vertical slice.
+Assistants are **what you chat with**; the **catalog** is the **entry surface** (pick or manage an assistant), not a separate product area. **Target:** IDs **A-*** and **C-*** in one vertical slice; **conversations-first** delivery ([chat spec](./2026-03-22-chat-conversations-design.md)) may ship **C-01–C-04** before **A-01–A-03**.
 
 | ID | Capability | Description |
 |----|------------|-------------|
 | **A-01** | **Assistant registry & metadata** | Name, description, owner, visibility, tags, lifecycle (draft / published / deprecated)—the rows users see before opening a thread. |
 | **A-02** | **Assistant CRUD (builder flow)** | Create/edit system prompts, default model params, tool bindings; validation and preview; same slice as chat so builders immediately try the assistant. |
 | **A-03** | **Entitlements & catalog visibility** | Who sees which assistant; RBAC + assistant-level ACL enforced on **list, detail, and chat** consistently. |
-| **C-01** | **Conversational chat UI** | Message list, streaming responses, stop/regenerate, markdown/code rendering; opened **from** the assistant catalog. |
-| **C-02** | **Session persistence** | Thread per user per assistant; resume later; optional session titling and archive. |
+| **C-01** | **Conversational chat UI** | Message list, streaming responses, stop/regenerate, markdown/code rendering; entry from **assistant catalog** when present, or from **app chat shell** when [conversations ship first](./2026-03-22-chat-conversations-design.md). |
+| **C-02** | **Conversation persistence** | Persist **conversations** (threads) per user; resume later; optional titling and archive. When assistants exist, scope may include **per-assistant** threads; [conversations-first](./2026-03-22-chat-conversations-design.md) uses **user-owned conversations** without requiring a catalog row v1. |
 | **C-03** | **Multi-turn context & limits** | Context window strategy, summarization hooks; clear errors when limits exceeded. Implements **conversation-side** controls aligned with **M-06** (e.g. last-K turns, summary buffer, max completion tokens). |
 | **C-04** | **Attachments in chat (optional)** | User uploads for one-off context (distinct from long-term RAG corpus). |
 | **A-04** | **Versioning & publish workflow** | Version history, diff, rollback; optional approval before publish for regulated orgs. |
@@ -197,7 +210,7 @@ First-class product capabilities for **safe, compliant** use of models—**befor
 
 | ID | Capability | Description |
 |----|------------|-------------|
-| **X-01** | **Public / partner REST API** | Stable versioned API for “invoke assistant,” sessions, admin—OpenAPI published. |
+| **X-01** | **Public / partner REST API** | Stable versioned API for “invoke assistant,” **conversations** / messages, admin—OpenAPI published. |
 | **X-02** | **OpenAI-compatible endpoint** | Drop-in base URL for tools expecting Chat Completions shape; simplifies IDE/CLI adoption. |
 | **X-03** | **Webhooks** | Events: assistant published, ingestion done, budget threshold, policy violation. |
 | **X-04** | **API Management (Azure APIM)** | Rate limits, keys at edge, analytics; optional WAF integration. |
@@ -303,11 +316,11 @@ Each row is one **vertical EPIC** when you start it: **API + UI** for that slice
 | ID | Vertical slice | Status | Spec | Plan / notes |
 |----|----------------|--------|------|----------------|
 | **MVP-0** | **Bootstrap** — backend + frontend scaffolds, shared contract story, CI, local + Azure-oriented config, health checks **in browser and API** | backlog | — | First “done” = two apps run and deploy pipeline is green |
-| **MVP-1** | **Identity & access** — login/logout UX, callback handling, API auth middleware, OIDC (first); **feature entitlements** end-to-end (who can use which product features: resolve from roles/claims, expose to UI, enforce 403 on API—even if v1 is “all on” except admin routes) | backlog | — | **I-01–I-04 + I-08** thin slice; establish the base principal model early and deepen with plans/IdP later |
+| **MVP-1** | **Identity & access** — login/logout UX, API JWT validation, **Microsoft Entra** first; app roles → RBAC; `/api/me`; **all product routes protected**; **feature entitlements (I-08)** thin slice (e.g. “all on” + admin route) when ready | backlog | [2026-03-22-auth-entra-design.md](./2026-03-22-auth-entra-design.md) | Plan: [../plans/2026-03-22-auth-entra.md](../plans/2026-03-22-auth-entra.md). **I-08** may trail the first Entra vertical; **I-06** worker (client credentials) specified in auth spec for jobs. |
 | **MVP-2** | **User API keys** — key CRUD API + **my keys** UI; hashing, scopes, revoke | backlog | — | Pair with M-01 stub if needed |
-| **MVP-3** | **Chat & assistants** — **catalog + chat in one vertical slice**: registry/list/detail, builder CRUD (per role), ACL; chat API + streaming UI; sessions; users pick an assistant then converse | backlog | — | Models: **Azure OpenAI** first behind **M-01** abstraction; add providers later without changing orchestration |
-| **MVP-4** | **RAG** — upload UI + job status + retrieval in chat; storage on Azure when not local | backlog | — | Extends MVP-3 threads with grounding |
+| **MVP-3** | **Chat & assistants** — target: catalog + chat in one slice (**A-01–A-03**, **C-01–C-03**). **Refinement:** [conversations-first chat spec](./2026-03-22-chat-conversations-design.md) may ship **conversations before** full assistant catalog; adjust EPICs (auth → chat shell → assistants) without rewriting MVP phases | backlog | [2026-03-22-chat-conversations-design.md](./2026-03-22-chat-conversations-design.md) | Depends **MVP-1**; models: **Azure OpenAI** via **M-01** |
+| **MVP-4** | **RAG** — upload UI + job status + retrieval in chat; storage on Azure when not local | backlog | — | Extends MVP-3 **conversations** with grounding |
 | **MVP-5** | **Observability & admin** — logging/tracing (**O-01**); **metrics + LLM performance views** (**O-02**: latency, errors, trends, model compare, cost/caching signals); admin shell (**O-03**) | backlog | — | Can thin-start during MVP-3; includes a **thin slice of M-03** (usage metering needed to power O-02 cost/performance views) |
 | **MVP-6** | **FinOps / routing / token efficiency (stretch)** — budgets UI, model allowlist UI, gateway integration; **token dashboards** and **org defaults** for context caps, concise mode, RAG inject limits (**M-04**, **M-06**) | backlog | — | After stable chat; build on metering already started in MVP-5 |
 
-**Capability crosswalk (informal):** MVP-0 → F-01–F-04; MVP-1 → I-01–I-04, **I-08**; MVP-2 → I-05; MVP-3 → A-01–A-03, C-01–C-03, M-01; MVP-4 → R-01–R-04, **R-07** (thin eval start when useful); MVP-5 → O-01–O-03 + **M-03** (thin slice); MVP-6 → M-02, **M-04–M-06**.
+**Capability crosswalk (informal):** MVP-0 → F-01–F-04; MVP-1 → **I-01–I-04** (first impl [Entra](./2026-03-22-auth-entra-design.md)), **I-08** when entitlements ship; MVP-2 → I-05; MVP-3 → A-01–A-03, C-01–C-03, M-01 (conversations-first may reorder A vs C); MVP-4 → R-01–R-04, **R-07** (thin eval start when useful); MVP-5 → O-01–O-03 + **M-03** (thin slice); MVP-6 → M-02, **M-04–M-06**.

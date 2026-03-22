@@ -7,6 +7,8 @@ import * as q from './queries.js';
 
 const statusSchema = z.enum(STATUS_VALUES as unknown as [string, ...string[]]);
 
+const listFiltersSchema = z.record(z.string(), z.any()).optional();
+
 function textResult(body: string) {
   return { content: [{ type: 'text' as const, text: body }] };
 }
@@ -48,17 +50,18 @@ export function registerEpicTicketTools(server: McpServer, db: Database.Database
     {
       title: 'List scopes',
       description:
-        'List scopes (domains). Optional status filter. Omit filters to return every scope.',
+        'List scopes (domains). Optional `filters`: object whose keys are allowlisted column names (id, title, description, status, created_at, updated_at). Values: scalar (=), array or { in: [] } (IN), { like: "%pat%" } (LIKE), or null (IS NULL). Multiple keys AND. Omit filters to list all.',
       inputSchema: {
-        status: statusSchema.optional(),
+        filters: listFiltersSchema,
       },
     },
     async (args) => {
-      const a = args ?? {};
-      const filter =
-        a.status !== undefined ? { status: a.status as Status } : undefined;
-      const rows = q.listScopes(db, filter);
-      return textResult(JSON.stringify(rows, null, 2));
+      try {
+        const rows = q.listScopes(db, args?.filters);
+        return textResult(JSON.stringify(rows, null, 2));
+      } catch (e) {
+        return errText(e instanceof Error ? e.message : String(e));
+      }
     },
   );
 
@@ -135,23 +138,18 @@ export function registerEpicTicketTools(server: McpServer, db: Database.Database
     {
       title: 'List epics',
       description:
-        'List EPICs with id, scope_id, title, status, and timestamps. Optional scope_id and/or status filters (AND).',
+        'List EPICs. Optional `filters`: keys are allowlisted columns (id, scope_id, title, description, status, created_at, updated_at). Same value shapes as list_scopes (scalar, array / { in }, { like }, null). AND between keys.',
       inputSchema: {
-        scope_id: z.number().int().positive().optional(),
-        status: statusSchema.optional(),
+        filters: listFiltersSchema,
       },
     },
     async (args) => {
-      const a = args ?? {};
-      const filter =
-        a.scope_id !== undefined || a.status !== undefined
-          ? {
-              ...(a.scope_id !== undefined ? { scope_id: a.scope_id } : {}),
-              ...(a.status !== undefined ? { status: a.status as Status } : {}),
-            }
-          : undefined;
-      const rows = q.listEpics(db, filter);
-      return textResult(JSON.stringify(rows, null, 2));
+      try {
+        const rows = q.listEpics(db, args?.filters);
+        return textResult(JSON.stringify(rows, null, 2));
+      } catch (e) {
+        return errText(e instanceof Error ? e.message : String(e));
+      }
     },
   );
 
@@ -228,30 +226,18 @@ export function registerEpicTicketTools(server: McpServer, db: Database.Database
     {
       title: 'List tickets',
       description:
-        'List tickets. Optional filters: epic_id, status, locked, agent (case-insensitive trimmed match). All provided filters combine with AND.',
+        'List tickets. Optional `filters`: keys are allowlisted columns (id, epic_id, title, description, status, agent, idea, locked, created_at, updated_at). Same value shapes as list_scopes. `locked`: boolean or 0/1 for equality.',
       inputSchema: {
-        epic_id: z.number().int().positive().optional(),
-        status: statusSchema.optional(),
-        locked: z.boolean().optional(),
-        agent: z.string().optional(),
+        filters: listFiltersSchema,
       },
     },
     async (args) => {
-      const a = args ?? {};
-      const filter =
-        a.epic_id !== undefined ||
-        a.status !== undefined ||
-        a.locked !== undefined ||
-        (a.agent !== undefined && a.agent.trim() !== '')
-          ? {
-              ...(a.epic_id !== undefined ? { epic_id: a.epic_id } : {}),
-              ...(a.status !== undefined ? { status: a.status as Status } : {}),
-              ...(a.locked !== undefined ? { locked: a.locked } : {}),
-              ...(a.agent !== undefined && a.agent.trim() !== '' ? { agent: a.agent } : {}),
-            }
-          : undefined;
-      const rows = q.listTickets(db, filter);
-      return textResult(JSON.stringify(rows, null, 2));
+      try {
+        const rows = q.listTickets(db, args?.filters);
+        return textResult(JSON.stringify(rows, null, 2));
+      } catch (e) {
+        return errText(e instanceof Error ? e.message : String(e));
+      }
     },
   );
 
@@ -391,7 +377,7 @@ export function registerEpicTicketTools(server: McpServer, db: Database.Database
 export function createMcpServer(db: Database.Database): McpServer {
   const server = new McpServer({
     name: 'task-manager',
-    version: '0.4.0',
+    version: '0.5.0',
   });
   registerEpicTicketTools(server, db);
   return server;

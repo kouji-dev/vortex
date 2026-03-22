@@ -1,23 +1,19 @@
 import type Database from 'better-sqlite3';
 import { assertStatus, type EpicRow, type ScopeRow, type Status, type TicketRow } from './db.js';
+import { buildListWhere } from './whereBuilder.js';
 
 function agentsMatch(assigned: string, actor: string): boolean {
   return assigned.trim().toLowerCase() === actor.trim().toLowerCase();
 }
 
-/** Optional filters for `list_scopes` (AND semantics when multiple set). */
-export type ListScopesFilter = {
-  status?: Status;
-};
+/** Generic list filters: keys are allowlisted columns; see `whereBuilder` / MCP docs. */
+export type ListRowFilters = Record<string, unknown>;
 
-export function listScopes(db: Database.Database, filter?: ListScopesFilter): ScopeRow[] {
-  if (filter?.status !== undefined) {
-    assertStatus(filter.status);
-    return db
-      .prepare(`SELECT * FROM scopes WHERE status = ? ORDER BY id ASC`)
-      .all(filter.status) as ScopeRow[];
-  }
-  return db.prepare(`SELECT * FROM scopes ORDER BY id ASC`).all() as ScopeRow[];
+export function listScopes(db: Database.Database, filters?: ListRowFilters): ScopeRow[] {
+  const { sqlFragment, params } = buildListWhere('scopes', filters);
+  const sql = `SELECT * FROM scopes${sqlFragment ? ` ${sqlFragment}` : ''} ORDER BY id ASC`;
+  const stmt = db.prepare(sql);
+  return (params.length > 0 ? stmt.all(...params) : stmt.all()) as ScopeRow[];
 }
 
 export function getScope(db: Database.Database, id: number): ScopeRow | undefined {
@@ -81,33 +77,11 @@ export function defaultScopeId(db: Database.Database): number {
   return row.id;
 }
 
-/** Optional filters for `list_epics` (AND semantics when multiple set). */
-export type ListEpicsFilter = {
-  scope_id?: number;
-  status?: Status;
-};
-
-export function listEpics(db: Database.Database, filter?: ListEpicsFilter): EpicRow[] {
-  const scopeId = filter?.scope_id;
-  const status = filter?.status;
-  if (status !== undefined) assertStatus(status);
-
-  if (scopeId !== undefined && status !== undefined) {
-    return db
-      .prepare(`SELECT * FROM epics WHERE scope_id = ? AND status = ? ORDER BY id ASC`)
-      .all(scopeId, status) as EpicRow[];
-  }
-  if (scopeId !== undefined) {
-    return db
-      .prepare(`SELECT * FROM epics WHERE scope_id = ? ORDER BY id ASC`)
-      .all(scopeId) as EpicRow[];
-  }
-  if (status !== undefined) {
-    return db
-      .prepare(`SELECT * FROM epics WHERE status = ? ORDER BY id ASC`)
-      .all(status) as EpicRow[];
-  }
-  return db.prepare(`SELECT * FROM epics ORDER BY id ASC`).all() as EpicRow[];
+export function listEpics(db: Database.Database, filters?: ListRowFilters): EpicRow[] {
+  const { sqlFragment, params } = buildListWhere('epics', filters);
+  const sql = `SELECT * FROM epics${sqlFragment ? ` ${sqlFragment}` : ''} ORDER BY id ASC`;
+  const stmt = db.prepare(sql);
+  return (params.length > 0 ? stmt.all(...params) : stmt.all()) as EpicRow[];
 }
 
 export function getEpic(db: Database.Database, id: number): EpicRow | undefined {
@@ -175,42 +149,10 @@ export function deleteEpic(db: Database.Database, id: number): boolean {
   return info.changes > 0;
 }
 
-/** Optional filters for `list_tickets` (AND semantics when multiple set). */
-export type ListTicketsFilter = {
-  epic_id?: number;
-  status?: Status;
-  /** When set, matches rows where `locked` is 0 or 1. */
-  locked?: boolean;
-  /** Case-insensitive match on trimmed `agent`; ignored if empty after trim. */
-  agent?: string;
-};
-
-export function listTickets(db: Database.Database, filter?: ListTicketsFilter): TicketRow[] {
-  if (filter?.status !== undefined) assertStatus(filter.status);
-
-  const conditions: string[] = [];
-  const params: unknown[] = [];
-
-  if (filter?.epic_id !== undefined) {
-    conditions.push('epic_id = ?');
-    params.push(filter.epic_id);
-  }
-  if (filter?.status !== undefined) {
-    conditions.push('status = ?');
-    params.push(filter.status);
-  }
-  if (filter?.locked !== undefined) {
-    conditions.push('locked = ?');
-    params.push(filter.locked ? 1 : 0);
-  }
-  const agentTrim = filter?.agent?.trim();
-  if (agentTrim) {
-    conditions.push('LOWER(TRIM(COALESCE(agent, \'\'))) = LOWER(?)');
-    params.push(agentTrim);
-  }
-
-  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-  const stmt = db.prepare(`SELECT * FROM tickets ${where} ORDER BY id ASC`);
+export function listTickets(db: Database.Database, filters?: ListRowFilters): TicketRow[] {
+  const { sqlFragment, params } = buildListWhere('tickets', filters);
+  const sql = `SELECT * FROM tickets${sqlFragment ? ` ${sqlFragment}` : ''} ORDER BY id ASC`;
+  const stmt = db.prepare(sql);
   return (params.length > 0 ? stmt.all(...params) : stmt.all()) as TicketRow[];
 }
 

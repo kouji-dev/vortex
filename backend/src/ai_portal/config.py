@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -18,6 +19,10 @@ class Settings(BaseSettings):
 
     dev_bearer_token: str = "devtoken"
     dev_seed_user_email: str = "dev@localhost"
+
+    auth_mode: Literal["dev", "entra"] = "dev"
+    entra_tenant_id: str = ""
+    entra_api_audience: str = ""
 
     openai_api_base: str = "https://api.openai.com/v1"
     openai_api_key: str = ""

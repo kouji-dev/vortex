@@ -6,7 +6,7 @@
 
 **MVP-0 first:** Use the focused bootstrap plan [`2026-03-21-mvp-0-bootstrap.md`](./2026-03-21-mvp-0-bootstrap.md) (API + web + Compose + CI + health). This file stays the **full syllabus** and **chunk map** for later slices.
 
-**Architecture:** Single-tenant-first deployment (one organization) with **FastAPI** as the system of record for users (or SSO later), assistants, permissions, and chat sessions; **PostgreSQL + pgvector** for relational data and embeddings; **Redis + Celery** for ingestion and heavy jobs; **LiteLLM** (or direct provider SDK initially) as the model access layer; **React + TypeScript + TanStack Query/Router** for the web UI. Everything runnable via **Docker Compose** on a developer machine and portable to Kubernetes later.
+**Architecture:** Single-tenant-first deployment (one organization) with **FastAPI** as the system of record for users, assistants, permissions, and **chat conversations** (threads); **PostgreSQL + pgvector** for relational data and embeddings; **Redis + Celery** for ingestion and heavy jobs; **LiteLLM** (or direct provider SDK initially) as the model access layer; **React + TypeScript + TanStack Query/Router** for the web UI. Identity: [Entra auth spec](../specs/2026-03-22-auth-entra-design.md). Everything runnable via **Docker Compose** on a developer machine and portable to Kubernetes later.
 
 **Tech Stack:** Python 3.12+, FastAPI, Pydantic v2, SQLAlchemy 2 + Alembic, Celery, Redis, PostgreSQL 16+ with pgvector, uvicorn, React 18+, TypeScript, Vite, TanStack Query, TanStack Router, LiteLLM (optional container), Langfuse (optional container), Docker, Docker Compose.
 
@@ -33,7 +33,7 @@ This syllabus lists **everything a production-grade self-hosted AI portal typica
 
 | Topic | Outcomes / capabilities |
 |--------|---------------------------|
-| Authentication | Local accounts, API keys, **OIDC/SAML SSO**, optional SCIM provisioning. **(MVP: dev/stub auth)** |
+| Authentication | Local accounts, API keys, **OIDC/SAML SSO**, optional SCIM provisioning. MVP: **dev bearer** in repo today; production path — [auth Entra spec](../specs/2026-03-22-auth-entra-design.md), [implementation plan](./2026-03-22-auth-entra.md). |
 | Authorization (RBAC/ABAC) | Roles, groups, per-assistant entitlements; admin vs builder vs consumer. **(MVP: roles + ACL)** |
 | Data-level access for RAG | Document/collection ACLs enforced at retrieval time; tenant isolation for multi-tenant. **(MVP: per-assistant document scope)** |
 | AI usage policy | Link governance rules to features (e.g. block external paste, model allowlists). |
@@ -54,7 +54,7 @@ This syllabus lists **everything a production-grade self-hosted AI portal typica
 |--------|---------------------------|
 | Multi-provider routing | Unified gateway to many LLM providers and local inference (e.g. OpenAI-compatible stack). **(MVP: single base URL + key)** |
 | Model allowlists | Per environment and per role; block high-cost or non-approved models in prod. |
-| Usage metering | Tokens, requests, estimated cost; per user/team/project dashboards. **(MVP: persist sessions/messages; extend to spend)** |
+| Usage metering | Tokens, requests, estimated cost; per user/team/project dashboards. **(MVP: persist conversations/messages; extend to spend)** |
 | Budgets & alerts | Soft/hard caps, notifications, admin actions. |
 | Fallback & resilience | Retries, circuit breaking, degraded mode messaging. |
 
@@ -84,7 +84,7 @@ This syllabus lists **everything a production-grade self-hosted AI portal typica
 | Topic | Outcomes / capabilities |
 |--------|---------------------------|
 | Tracing | End-to-end traces for chat, retrieval, tool calls (e.g. Langfuse-class). **(Chunk 6 optional)** |
-| Audit logs | Who invoked what, which assistant, which API key; retention and export. **(MVP: session/message persistence)** |
+| Audit logs | Who invoked what, which assistant, which API key; retention and export. **(MVP: conversation/message persistence)** |
 | Application metrics | Latency, errors, queue depth, ingestion backlog, saturation. |
 | Security monitoring | Failed auth, abuse patterns, anomaly alerts. |
 | Data residency & retention | Configurable retention, deletion, backup/restore story for embeddings and logs. |
@@ -113,13 +113,13 @@ This syllabus lists **everything a production-grade self-hosted AI portal typica
 
 | Module | In MVP chunks below? |
 |--------|----------------------|
-| 1 — Product UX | Partial: catalog + chat shell; onboarding/training/FAQ later |
-| 2 — Identity & access | Partial: stub auth + RBAC/ACL; SSO/SCIM later |
+| 1 — Product UX | Partial: assistant catalog + **conversation** chat shell (order per [chat spec](../specs/2026-03-22-chat-conversations-design.md)); onboarding/training/FAQ later |
+| 2 — Identity & access | Partial: dev bearer today; **Microsoft Entra** per [auth spec](../specs/2026-03-22-auth-entra-design.md); RBAC/ACL; SAML/SCIM later |
 | 3 — APIs & lifecycle | Partial: assistant CRUD + chat API; versioning + public API keys later |
 | 4 — FinOps | Partial: logging foundation; LiteLLM/budgets later |
 | 5 — RAG | Partial: upload → embed → retrieve; OCR/connectors/evals later |
 | 6 — Agents & safety | Later (or thin guardrails only) |
-| 7 — Observability | Partial: logs/sessions; full traces/metrics later |
+| 7 — Observability | Partial: logs/conversations; full traces/metrics later |
 | 8 — Platform | Partial: Compose + CI; K8s/Terraform later |
 | 9 — Docs & ops | Ongoing (README first; runbooks as you harden) |
 

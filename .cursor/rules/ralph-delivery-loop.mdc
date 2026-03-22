@@ -14,8 +14,8 @@ alwaysApply: true
 
 ## 1. Sync state (start of a batch or session)
 
-1. `list_scopes` → `list_epics` → `list_tickets` — use optional filters when narrowing: **`status`** on scopes/epics/tickets; **`scope_id`** on epics; **`epic_id`**, **`locked`**, **`agent`** on tickets (all AND-combined per tool).
-2. Optional snapshot: `export_board_markdown` (same filters) for a readable overview.
+1. `list_scopes` → `list_epics` → `list_tickets` — optional **`filters`** object per tool: allowlisted column keys; values are scalar (`=`), arrays or `{ in: [] }` (`IN`), `{ like: "%x%" }` (`LIKE`), or `null` (`IS NULL`); multiple keys are AND-combined (see `task-manager` MCP reference).
+2. Optional snapshot: `export_board_markdown` (`scope_id` / `epic_id` only) for a readable overview.
 
 ## 2. Pick work
 

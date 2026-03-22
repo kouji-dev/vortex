@@ -2,20 +2,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import * as React from 'react'
 
+import { getAuthHeaders } from '~/lib/authorizedFetch'
+
 const apiBase = (
   typeof import.meta.env.VITE_API_URL === 'string' &&
   import.meta.env.VITE_API_URL.length > 0
     ? import.meta.env.VITE_API_URL
     : 'http://127.0.0.1:8000'
 ).replace(/\/$/, '')
-
-const authHeaders = (): HeadersInit => {
-  const t = import.meta.env.VITE_DEV_TOKEN
-  if (typeof t === 'string' && t.length > 0) {
-    return { Authorization: `Bearer ${t}` }
-  }
-  return {}
-}
 
 type Assistant = {
   id: number
@@ -40,7 +34,7 @@ function AssistantChat() {
     queryKey: ['assistant', assistantId],
     queryFn: async () => {
       const res = await fetch(`${apiBase}/api/assistants/${assistantId}`, {
-        headers: authHeaders(),
+        headers: await getAuthHeaders(),
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       return res.json() as Promise<Assistant>
@@ -58,7 +52,10 @@ function AssistantChat() {
       if (sessionId != null) body.session_id = sessionId
       const res = await fetch(`${apiBase}/api/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(await getAuthHeaders()),
+        },
         body: JSON.stringify(body),
       })
       if (!res.ok) {

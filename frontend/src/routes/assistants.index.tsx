@@ -1,20 +1,14 @@
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
 
+import { getAuthHeaders } from '~/lib/authorizedFetch'
+
 const apiBase = (
   typeof import.meta.env.VITE_API_URL === 'string' &&
   import.meta.env.VITE_API_URL.length > 0
     ? import.meta.env.VITE_API_URL
     : 'http://127.0.0.1:8000'
 ).replace(/\/$/, '')
-
-const authHeaders = (): HeadersInit => {
-  const t = import.meta.env.VITE_DEV_TOKEN
-  if (typeof t === 'string' && t.length > 0) {
-    return { Authorization: `Bearer ${t}` }
-  }
-  return {}
-}
 
 type Assistant = {
   id: number
@@ -32,10 +26,12 @@ function AssistantsCatalog() {
     queryKey: ['assistants'],
     queryFn: async () => {
       const res = await fetch(`${apiBase}/api/assistants`, {
-        headers: authHeaders(),
+        headers: await getAuthHeaders(),
       })
       if (res.status === 401) {
-        throw new Error('401 — set VITE_DEV_TOKEN=devtoken in frontend/.env')
+        throw new Error(
+          '401 — in dev set VITE_DEV_BEARER_TOKEN=devtoken (or sign in with Entra)',
+        )
       }
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       return res.json() as Promise<Assistant[]>
