@@ -10,6 +10,7 @@ from sqlalchemy import create_engine, pool
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from ai_portal.config import get_settings  # noqa: E402
+from ai_portal.models import Base  # noqa: E402
 
 config = context.config
 
@@ -17,7 +18,7 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 settings = get_settings()
-target_metadata = None
+target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:

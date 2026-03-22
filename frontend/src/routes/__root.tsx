@@ -93,6 +93,14 @@ function RootDocument({ children }: { children: React.ReactNode }) {
             Home
           </Link>{' '}
           <Link
+            to="/assistants"
+            activeProps={{
+              className: 'font-bold',
+            }}
+          >
+            Assistants
+          </Link>{' '}
+          <Link
             to="/posts"
             activeProps={{
               className: 'font-bold',

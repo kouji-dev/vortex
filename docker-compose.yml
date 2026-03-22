@@ -30,6 +30,75 @@ services:
     volumes:
       - ai-portal-redis-data:/data
 
+  api:
+    profiles: ["full"]
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: local-dev-ai-portal-api
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/ai_portal
+      REDIS_URL: redis://redis:6379/0
+      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:3000
+      DEV_BEARER_TOKEN: devtoken
+      DEV_SEED_USER_EMAIL: dev@localhost
+      UPLOAD_DIR: /app/data/uploads
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    volumes:
+      - ai-portal-uploads:/app/data/uploads
+    depends_on:
+      - db
+      - redis
+
+  worker:
+    profiles: ["full"]
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: local-dev-ai-portal-worker
+    restart: unless-stopped
+    command: ["celery", "-A", "ai_portal.worker", "worker", "-l", "info"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/ai_portal
+      REDIS_URL: redis://redis:6379/0
+      UPLOAD_DIR: /app/data/uploads
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    volumes:
+      - ai-portal-uploads:/app/data/uploads
+    depends_on:
+      - db
+      - redis
+
+  web:
+    profiles: ["full"]
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: local-dev-ai-portal-web
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+    depends_on:
+      - api
+
+  # Optional: `docker compose --profile litellm up -d litellm` then point OPENAI_API_BASE at http://litellm:4000/v1
+  litellm:
+    profiles: ["litellm"]
+    image: ghcr.io/berriai/litellm:main-latest
+    container_name: local-dev-ai-portal-litellm
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4000:4000"
+    environment:
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-changeme}
+
 volumes:
   ai-portal-db-data:
   ai-portal-redis-data:
+  ai-portal-uploads:

@@ -16,6 +16,20 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     api_port: int = 8000
 
+    dev_bearer_token: str = "devtoken"
+    dev_seed_user_email: str = "dev@localhost"
+
+    openai_api_base: str = "https://api.openai.com/v1"
+    openai_api_key: str = ""
+    embedding_model: str = "text-embedding-3-small"
+    chat_model: str = "gpt-4o-mini"
+
+    upload_dir: str = "data/uploads"
+
+    langfuse_public_key: str = ""
+    langfuse_secret_key: str = ""
+    langfuse_host: str = "https://cloud.langfuse.com"
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

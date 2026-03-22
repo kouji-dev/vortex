@@ -17,8 +17,10 @@ import { Route as PostsRouteRouteImport } from './routes/posts.route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as UsersIndexRouteImport } from './routes/users.index'
 import { Route as PostsIndexRouteImport } from './routes/posts.index'
+import { Route as AssistantsIndexRouteImport } from './routes/assistants.index'
 import { Route as UsersUserIdRouteImport } from './routes/users.$userId'
 import { Route as PostsPostIdRouteImport } from './routes/posts.$postId'
+import { Route as AssistantsIdRouteImport } from './routes/assistants.$id'
 import { Route as ApiUsersRouteImport } from './routes/api/users'
 import { Route as PathlessLayoutNestedLayoutRouteImport } from './routes/_pathlessLayout/_nested-layout'
 import { Route as PostsPostIdDeepRouteImport } from './routes/posts_.$postId.deep'
@@ -65,6 +67,11 @@ const PostsIndexRoute = PostsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => PostsRouteRoute,
 } as any)
+const AssistantsIndexRoute = AssistantsIndexRouteImport.update({
+  id: '/assistants/',
+  path: '/assistants/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const UsersUserIdRoute = UsersUserIdRouteImport.update({
   id: '/$userId',
   path: '/$userId',
@@ -74,6 +81,11 @@ const PostsPostIdRoute = PostsPostIdRouteImport.update({
   id: '/$postId',
   path: '/$postId',
   getParentRoute: () => PostsRouteRoute,
+} as any)
+const AssistantsIdRoute = AssistantsIdRouteImport.update({
+  id: '/assistants/$id',
+  path: '/assistants/$id',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiUsersRoute = ApiUsersRouteImport.update({
   id: '/api/users',
@@ -115,8 +127,10 @@ export interface FileRoutesByFullPath {
   '/deferred': typeof DeferredRoute
   '/redirect': typeof RedirectRoute
   '/api/users': typeof ApiUsersRouteWithChildren
+  '/assistants/$id': typeof AssistantsIdRoute
   '/posts/$postId': typeof PostsPostIdRoute
   '/users/$userId': typeof UsersUserIdRoute
+  '/assistants/': typeof AssistantsIndexRoute
   '/posts/': typeof PostsIndexRoute
   '/users/': typeof UsersIndexRoute
   '/route-a': typeof PathlessLayoutNestedLayoutRouteARoute
@@ -129,8 +143,10 @@ export interface FileRoutesByTo {
   '/deferred': typeof DeferredRoute
   '/redirect': typeof RedirectRoute
   '/api/users': typeof ApiUsersRouteWithChildren
+  '/assistants/$id': typeof AssistantsIdRoute
   '/posts/$postId': typeof PostsPostIdRoute
   '/users/$userId': typeof UsersUserIdRoute
+  '/assistants': typeof AssistantsIndexRoute
   '/posts': typeof PostsIndexRoute
   '/users': typeof UsersIndexRoute
   '/route-a': typeof PathlessLayoutNestedLayoutRouteARoute
@@ -148,8 +164,10 @@ export interface FileRoutesById {
   '/redirect': typeof RedirectRoute
   '/_pathlessLayout/_nested-layout': typeof PathlessLayoutNestedLayoutRouteWithChildren
   '/api/users': typeof ApiUsersRouteWithChildren
+  '/assistants/$id': typeof AssistantsIdRoute
   '/posts/$postId': typeof PostsPostIdRoute
   '/users/$userId': typeof UsersUserIdRoute
+  '/assistants/': typeof AssistantsIndexRoute
   '/posts/': typeof PostsIndexRoute
   '/users/': typeof UsersIndexRoute
   '/_pathlessLayout/_nested-layout/route-a': typeof PathlessLayoutNestedLayoutRouteARoute
@@ -166,8 +184,10 @@ export interface FileRouteTypes {
     | '/deferred'
     | '/redirect'
     | '/api/users'
+    | '/assistants/$id'
     | '/posts/$postId'
     | '/users/$userId'
+    | '/assistants/'
     | '/posts/'
     | '/users/'
     | '/route-a'
@@ -180,8 +200,10 @@ export interface FileRouteTypes {
     | '/deferred'
     | '/redirect'
     | '/api/users'
+    | '/assistants/$id'
     | '/posts/$postId'
     | '/users/$userId'
+    | '/assistants'
     | '/posts'
     | '/users'
     | '/route-a'
@@ -198,8 +220,10 @@ export interface FileRouteTypes {
     | '/redirect'
     | '/_pathlessLayout/_nested-layout'
     | '/api/users'
+    | '/assistants/$id'
     | '/posts/$postId'
     | '/users/$userId'
+    | '/assistants/'
     | '/posts/'
     | '/users/'
     | '/_pathlessLayout/_nested-layout/route-a'
@@ -216,6 +240,8 @@ export interface RootRouteChildren {
   DeferredRoute: typeof DeferredRoute
   RedirectRoute: typeof RedirectRoute
   ApiUsersRoute: typeof ApiUsersRouteWithChildren
+  AssistantsIdRoute: typeof AssistantsIdRoute
+  AssistantsIndexRoute: typeof AssistantsIndexRoute
   PostsPostIdDeepRoute: typeof PostsPostIdDeepRoute
 }
 
@@ -277,6 +303,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PostsIndexRouteImport
       parentRoute: typeof PostsRouteRoute
     }
+    '/assistants/': {
+      id: '/assistants/'
+      path: '/assistants'
+      fullPath: '/assistants/'
+      preLoaderRoute: typeof AssistantsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/users/$userId': {
       id: '/users/$userId'
       path: '/$userId'
@@ -290,6 +323,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/posts/$postId'
       preLoaderRoute: typeof PostsPostIdRouteImport
       parentRoute: typeof PostsRouteRoute
+    }
+    '/assistants/$id': {
+      id: '/assistants/$id'
+      path: '/assistants/$id'
+      fullPath: '/assistants/$id'
+      preLoaderRoute: typeof AssistantsIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/users': {
       id: '/api/users'
@@ -414,6 +454,8 @@ const rootRouteChildren: RootRouteChildren = {
   DeferredRoute: DeferredRoute,
   RedirectRoute: RedirectRoute,
   ApiUsersRoute: ApiUsersRouteWithChildren,
+  AssistantsIdRoute: AssistantsIdRoute,
+  AssistantsIndexRoute: AssistantsIndexRoute,
   PostsPostIdDeepRoute: PostsPostIdDeepRoute,
 }
 export const routeTree = rootRouteImport

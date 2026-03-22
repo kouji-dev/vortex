@@ -28,7 +28,25 @@ npm install
 npm run dev
 ```
 
-Implementation plan: [`docs/superpowers/plans/2026-03-21-mvp-0-bootstrap.md`](docs/superpowers/plans/2026-03-21-mvp-0-bootstrap.md).
+Copy `frontend/.env.example` → `frontend/.env` and set **`VITE_DEV_TOKEN=devtoken`** so catalog/chat routes can call the API.
+
+### Full stack in Docker (optional)
+
+With **Postgres + Redis** already up (`docker compose up -d`), build and run API, Celery worker, and web:
+
+```bash
+docker compose --profile full build
+docker compose --profile full run --rm api alembic upgrade head
+docker compose --profile full up -d api worker web
+```
+
+- API: [http://127.0.0.1:8000](http://127.0.0.1:8000) — web UI: [http://127.0.0.1:3000](http://127.0.0.1:3000)  
+- Set **`OPENAI_API_KEY`** in `.env` (or the shell) before `up` so chat/embeddings work.
+
+Optional LiteLLM proxy: `docker compose --profile litellm up -d litellm` (see comments in `docker-compose.yml`).
+
+Implementation plan: [`docs/superpowers/plans/2026-03-21-mvp-0-bootstrap.md`](docs/superpowers/plans/2026-03-21-mvp-0-bootstrap.md).  
+Full MVP chunk map: [`docs/superpowers/plans/2026-03-21-ai-portal-mvp-implementation.md`](docs/superpowers/plans/2026-03-21-ai-portal-mvp-implementation.md).
 
 ## API contract
 
