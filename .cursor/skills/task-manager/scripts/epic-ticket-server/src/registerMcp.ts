@@ -29,7 +29,7 @@ function exportBoard(db: Database.Database, epicId?: number, scopeId?: number): 
     const s = q.getScope(db, scopeId);
     if (!s) return '';
     scopes = [s];
-    epics = q.listEpics(db, scopeId);
+    epics = q.listEpics(db, { scope_id: scopeId });
   }
 
   const tickets = q.listTickets(db);
@@ -47,10 +47,17 @@ export function registerEpicTicketTools(server: McpServer, db: Database.Database
     'list_scopes',
     {
       title: 'List scopes',
-      description: 'List all scopes (domains). Each scope contains multiple EPICs.',
+      description:
+        'List scopes (domains). Optional status filter. Omit filters to return every scope.',
+      inputSchema: {
+        status: statusSchema.optional(),
+      },
     },
-    async () => {
-      const rows = q.listScopes(db);
+    async (args) => {
+      const a = args ?? {};
+      const filter =
+        a.status !== undefined ? { status: a.status as Status } : undefined;
+      const rows = q.listScopes(db, filter);
       return textResult(JSON.stringify(rows, null, 2));
     },
   );
@@ -127,11 +134,23 @@ export function registerEpicTicketTools(server: McpServer, db: Database.Database
     'list_epics',
     {
       title: 'List epics',
-      description: 'List EPICs with id, scope_id, title, status, and timestamps. Optional scope_id filter.',
-      inputSchema: { scope_id: z.number().int().positive().optional() },
+      description:
+        'List EPICs with id, scope_id, title, status, and timestamps. Optional scope_id and/or status filters (AND).',
+      inputSchema: {
+        scope_id: z.number().int().positive().optional(),
+        status: statusSchema.optional(),
+      },
     },
     async (args) => {
-      const rows = q.listEpics(db, args?.scope_id);
+      const a = args ?? {};
+      const filter =
+        a.scope_id !== undefined || a.status !== undefined
+          ? {
+              ...(a.scope_id !== undefined ? { scope_id: a.scope_id } : {}),
+              ...(a.status !== undefined ? { status: a.status as Status } : {}),
+            }
+          : undefined;
+      const rows = q.listEpics(db, filter);
       return textResult(JSON.stringify(rows, null, 2));
     },
   );
@@ -208,11 +227,30 @@ export function registerEpicTicketTools(server: McpServer, db: Database.Database
     'list_tickets',
     {
       title: 'List tickets',
-      description: 'List tickets, optionally filtered by epic_id.',
-      inputSchema: { epic_id: z.number().int().positive().optional() },
+      description:
+        'List tickets. Optional filters: epic_id, status, locked, agent (case-insensitive trimmed match). All provided filters combine with AND.',
+      inputSchema: {
+        epic_id: z.number().int().positive().optional(),
+        status: statusSchema.optional(),
+        locked: z.boolean().optional(),
+        agent: z.string().optional(),
+      },
     },
     async (args) => {
-      const rows = q.listTickets(db, args?.epic_id);
+      const a = args ?? {};
+      const filter =
+        a.epic_id !== undefined ||
+        a.status !== undefined ||
+        a.locked !== undefined ||
+        (a.agent !== undefined && a.agent.trim() !== '')
+          ? {
+              ...(a.epic_id !== undefined ? { epic_id: a.epic_id } : {}),
+              ...(a.status !== undefined ? { status: a.status as Status } : {}),
+              ...(a.locked !== undefined ? { locked: a.locked } : {}),
+              ...(a.agent !== undefined && a.agent.trim() !== '' ? { agent: a.agent } : {}),
+            }
+          : undefined;
+      const rows = q.listTickets(db, filter);
       return textResult(JSON.stringify(rows, null, 2));
     },
   );
@@ -353,7 +391,7 @@ export function registerEpicTicketTools(server: McpServer, db: Database.Database
 export function createMcpServer(db: Database.Database): McpServer {
   const server = new McpServer({
     name: 'task-manager',
-    version: '0.3.0',
+    version: '0.4.0',
   });
   registerEpicTicketTools(server, db);
   return server;

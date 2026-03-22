@@ -2,7 +2,7 @@
 
 The **task-manager** MCP server exposes **tools** (not resources) over **Streamable HTTP**. Connect the client to the server’s MCP endpoint (see [SKILL.md](../SKILL.md) for run instructions).
 
-- **Server name / version:** `task-manager` / `0.3.0`
+- **Server name / version:** `task-manager` / `0.4.0`
 - **Default base URL:** `http://localhost:3847` (override with `MCP_PORT`)
 - **MCP path:** `/mcp`
 - **Health:** `GET /health`
@@ -37,11 +37,11 @@ Stored as `0` or `1` on each ticket row.
 
 ### `list_scopes`
 
-Returns all scopes (JSON array).
+Returns scopes (JSON array). Omit filters to list all.
 
-| Argument | Type | Required |
-| --- | --- | --- |
-| _(none)_ | — | — |
+| Argument | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `status` | string | no | One of [Status](#status-status) values. |
 
 ---
 
@@ -82,11 +82,12 @@ Deletes a scope and **all EPICs in that scope and their tickets** (SQLite foreig
 
 ### `list_epics`
 
-Returns EPICs (JSON array). Each row includes **`scope_id`**.
+Returns EPICs (JSON array). Each row includes **`scope_id`**. Multiple filters combine with **AND**.
 
 | Argument | Type | Required | Notes |
 | --- | --- | --- | --- |
-| `scope_id` | number | no | If set, only EPICs in that scope. |
+| `scope_id` | number | no | Only EPICs in that scope. |
+| `status` | string | no | One of [Status](#status-status) values. |
 
 ---
 
@@ -129,11 +130,14 @@ Deletes an EPIC and **all of its tickets** (SQLite CASCADE).
 
 ### `list_tickets`
 
-Lists tickets, optionally scoped to one EPIC.
+Lists tickets. Multiple filters combine with **AND**.
 
 | Argument | Type | Required | Notes |
 | --- | --- | --- | --- |
-| `epic_id` | number | no | If set, only tickets for that EPIC. |
+| `epic_id` | number | no | Only tickets for that EPIC. |
+| `status` | string | no | One of [Status](#status-status) values. |
+| `locked` | boolean | no | `true` = locked only; `false` = unlocked only. |
+| `agent` | string | no | Case-insensitive match on trimmed assignee label. |
 
 ---
 

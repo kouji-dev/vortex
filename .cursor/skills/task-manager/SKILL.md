@@ -32,9 +32,9 @@ Hierarchy: **Scope → EPIC → ticket**.
 
 | Tool | Role |
 | --- | --- |
-| `list_scopes`, `create_scope`, `update_scope`, `delete_scope` | Scope CRUD (`delete` cascades EPICs and tickets) |
-| `list_epics`, `create_epic`, `update_epic`, `delete_epic` | EPIC CRUD; optional **`scope_id`** on list/create/update |
-| `list_tickets`, `create_ticket`, `update_ticket`, `delete_ticket` | Ticket CRUD; **`actor`** on update/delete when locked |
+| `list_scopes`, `create_scope`, `update_scope`, `delete_scope` | Scope CRUD (`delete` cascades EPICs and tickets). **`list_scopes`**: optional **`status`** filter. |
+| `list_epics`, `create_epic`, `update_epic`, `delete_epic` | EPIC CRUD. **`list_epics`**: optional **`scope_id`**, **`status`** (AND). |
+| `list_tickets`, `create_ticket`, `update_ticket`, `delete_ticket` | Ticket CRUD; **`list_tickets`**: optional **`epic_id`**, **`status`**, **`locked`**, **`agent`** (AND). **`actor`** on update/delete when locked |
 | `set_ticket_lock` | Assignee locks/unlocks |
 | `export_board_markdown` | Read-only board snapshot (optional **`scope_id`** or **`epic_id`**) |
 

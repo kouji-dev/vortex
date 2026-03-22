@@ -5,7 +5,18 @@ function agentsMatch(assigned: string, actor: string): boolean {
   return assigned.trim().toLowerCase() === actor.trim().toLowerCase();
 }
 
-export function listScopes(db: Database.Database): ScopeRow[] {
+/** Optional filters for `list_scopes` (AND semantics when multiple set). */
+export type ListScopesFilter = {
+  status?: Status;
+};
+
+export function listScopes(db: Database.Database, filter?: ListScopesFilter): ScopeRow[] {
+  if (filter?.status !== undefined) {
+    assertStatus(filter.status);
+    return db
+      .prepare(`SELECT * FROM scopes WHERE status = ? ORDER BY id ASC`)
+      .all(filter.status) as ScopeRow[];
+  }
   return db.prepare(`SELECT * FROM scopes ORDER BY id ASC`).all() as ScopeRow[];
 }
 
@@ -70,11 +81,31 @@ export function defaultScopeId(db: Database.Database): number {
   return row.id;
 }
 
-export function listEpics(db: Database.Database, scopeId?: number): EpicRow[] {
+/** Optional filters for `list_epics` (AND semantics when multiple set). */
+export type ListEpicsFilter = {
+  scope_id?: number;
+  status?: Status;
+};
+
+export function listEpics(db: Database.Database, filter?: ListEpicsFilter): EpicRow[] {
+  const scopeId = filter?.scope_id;
+  const status = filter?.status;
+  if (status !== undefined) assertStatus(status);
+
+  if (scopeId !== undefined && status !== undefined) {
+    return db
+      .prepare(`SELECT * FROM epics WHERE scope_id = ? AND status = ? ORDER BY id ASC`)
+      .all(scopeId, status) as EpicRow[];
+  }
   if (scopeId !== undefined) {
     return db
       .prepare(`SELECT * FROM epics WHERE scope_id = ? ORDER BY id ASC`)
       .all(scopeId) as EpicRow[];
+  }
+  if (status !== undefined) {
+    return db
+      .prepare(`SELECT * FROM epics WHERE status = ? ORDER BY id ASC`)
+      .all(status) as EpicRow[];
   }
   return db.prepare(`SELECT * FROM epics ORDER BY id ASC`).all() as EpicRow[];
 }
@@ -144,13 +175,43 @@ export function deleteEpic(db: Database.Database, id: number): boolean {
   return info.changes > 0;
 }
 
-export function listTickets(db: Database.Database, epicId?: number): TicketRow[] {
-  if (epicId !== undefined) {
-    return db
-      .prepare(`SELECT * FROM tickets WHERE epic_id = ? ORDER BY id ASC`)
-      .all(epicId) as TicketRow[];
+/** Optional filters for `list_tickets` (AND semantics when multiple set). */
+export type ListTicketsFilter = {
+  epic_id?: number;
+  status?: Status;
+  /** When set, matches rows where `locked` is 0 or 1. */
+  locked?: boolean;
+  /** Case-insensitive match on trimmed `agent`; ignored if empty after trim. */
+  agent?: string;
+};
+
+export function listTickets(db: Database.Database, filter?: ListTicketsFilter): TicketRow[] {
+  if (filter?.status !== undefined) assertStatus(filter.status);
+
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+
+  if (filter?.epic_id !== undefined) {
+    conditions.push('epic_id = ?');
+    params.push(filter.epic_id);
   }
-  return db.prepare(`SELECT * FROM tickets ORDER BY id ASC`).all() as TicketRow[];
+  if (filter?.status !== undefined) {
+    conditions.push('status = ?');
+    params.push(filter.status);
+  }
+  if (filter?.locked !== undefined) {
+    conditions.push('locked = ?');
+    params.push(filter.locked ? 1 : 0);
+  }
+  const agentTrim = filter?.agent?.trim();
+  if (agentTrim) {
+    conditions.push('LOWER(TRIM(COALESCE(agent, \'\'))) = LOWER(?)');
+    params.push(agentTrim);
+  }
+
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  const stmt = db.prepare(`SELECT * FROM tickets ${where} ORDER BY id ASC`);
+  return (params.length > 0 ? stmt.all(...params) : stmt.all()) as TicketRow[];
 }
 
 export function getTicket(db: Database.Database, id: number): TicketRow | undefined {
