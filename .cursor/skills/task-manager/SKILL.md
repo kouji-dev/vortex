@@ -52,8 +52,13 @@ Details and examples: [reference/mcp.md](reference/mcp.md).
 6. **Locks** — When an assignee is actively working a ticket, **`set_ticket_lock`** (`locked: true`, `actor` = that **`agent`**). Other agents **read** via `list_tickets` / `export_board_markdown`; only the assignee mutates until **`set_ticket_lock`** (`locked: false`).
 7. **Ship** — Update statuses; unlock or delete tickets as work completes.
 
+## Ralph delivery loop (project habit)
+
+This repo uses an **always-on Cursor rule**: [`.cursor/rules/ralph-delivery-loop.mdc`](../../rules/ralph-delivery-loop.mdc). Agents should default to that cycle: **list board → pick ticket → implement → run CI-aligned checks → `update_ticket` → repeat**, using the MCP tools above. Pair with **using-git-worktrees** and **dispatching-parallel-agents** when work is parallelizable.
+
 ## Agent behavior
 
 - **Confirm the server is up** (step 1) before calling board tools; if unreachable, start it or tell the user to start it.
 - Use **MCP tools** for the board; do not maintain a second tracker.
 - Treat locked tickets as **assignee-write, others-read**; pass **`actor`** on mutating calls when **`locked`** is set.
+- Prefer the **Ralph loop** rule for day-to-day execution cadence.

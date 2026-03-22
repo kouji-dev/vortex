@@ -1,0 +1,51 @@
+---
+description: Ralph delivery loop — ship tickets with task manager, verification, and board hygiene
+alwaysApply: true
+---
+
+# Ralph delivery loop (habit)
+
+**Intent:** Work in a tight cycle until there is nothing left to ship (or the user stops): **board → pick → implement → verify → update board → repeat**. Do not claim work complete without running the verification commands that match CI.
+
+## 0. Preconditions
+
+- **Task manager MCP** must be reachable (see `.cursor/mcp.json`). If tools fail, start the server from `.cursor/skills/task-manager/scripts/epic-ticket-server` (`npm start`) and retry.
+- Use **this repo’s board only** as the source of truth for what’s next—no shadow trackers.
+
+## 1. Sync state (start of a batch or session)
+
+1. `list_scopes` → `list_epics` → `list_tickets` (optionally filter by `epic_id`).
+2. Optional snapshot: `export_board_markdown` (same filters) for a readable overview.
+
+## 2. Pick work
+
+- Prefer tickets in **`ready`**, then **`backlog`** that are unblocked and match the current goal.
+- Move to **`in_progress`**: `update_ticket` with `status: "in_progress"`.
+- **Parallel work:** Before spawning multiple agents, split by **non-overlapping tickets/EPICs**; use **git worktrees** (`.worktrees/` is gitignored) and `set_ticket_lock` with a consistent `agent` label. Only the assignee mutates locked tickets (`actor` must match).
+
+## 3. Implement
+
+- Smallest change that satisfies the ticket; align with existing patterns in `backend/` and `frontend/`.
+- If the ticket spans API + UI, keep the slice vertically thin unless the board already splits it.
+
+## 4. Verify (required before “done”)
+
+Run what CI runs when possible:
+
+- **Backend:** from `backend/`: `ruff check src tests`, `alembic upgrade head` (against a real Postgres when the change touches DB), `pytest`.
+- **Frontend:** from `frontend/`: `npm run build` (and `npm run dev` only when validating UX).
+
+If the environment cannot run a step, say so explicitly—do not mark **done** on faith.
+
+## 5. Close the loop on the board
+
+- **`done`:** `update_ticket` with `status: "done"` when verified.
+- **`blocked`:** `update_ticket` with a **clear `description`** (what blocks, what unblocks).
+- **`cancelled`:** only when the ticket is obsolete or was mistakenly scoped as a mega-item; update **`description`** with why.
+- Unlock: `set_ticket_lock` with `locked: false` when appropriate.
+
+## 6. Repeat
+
+Return to **§1** until no actionable tickets remain in **`ready` / `in_progress` / `backlog`** for the current scope—or the user redirects.
+
+**Tools reference:** `list_scopes`, `list_epics`, `list_tickets`, `create_*`, `update_*`, `delete_*`, `set_ticket_lock`, `export_board_markdown` (see `.cursor/skills/task-manager/SKILL.md`).
