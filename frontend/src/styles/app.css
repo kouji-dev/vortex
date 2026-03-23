@@ -13,10 +13,41 @@
 @layer base {
   html {
     color-scheme: light dark;
+    --aip-scrollbar-thumb: #c4c4c4;
+    --aip-scrollbar-thumb-hover: #a3a3a3;
+    --aip-scrollbar-track: transparent;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    html {
+      --aip-scrollbar-thumb: #525252;
+      --aip-scrollbar-thumb-hover: #737373;
+      --aip-scrollbar-track: transparent;
+    }
   }
 
   * {
     @apply border-gray-200 dark:border-gray-800;
+    scrollbar-width: thin;
+    scrollbar-color: var(--aip-scrollbar-thumb) var(--aip-scrollbar-track);
+  }
+
+  *::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: var(--aip-scrollbar-track);
+  }
+
+  *::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    background-color: var(--aip-scrollbar-thumb);
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: var(--aip-scrollbar-thumb-hover);
   }
 
   html,
@@ -26,5 +57,23 @@
 
   .using-mouse * {
     outline: none !important;
+  }
+}
+
+@layer utilities {
+  /* Subtle motion while tokens stream in — avoids distracting layout shift. */
+  .stream-surface-breathe {
+    animation: aip-stream-breathe 2.4s ease-in-out infinite;
+  }
+
+  @keyframes aip-stream-breathe {
+    0%,
+    100% {
+      opacity: 1;
+    }
+
+    50% {
+      opacity: 0.94;
+    }
   }
 }

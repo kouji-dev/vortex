@@ -12,14 +12,20 @@
   "dependencies": {
     "@azure/msal-browser": "^4.26.2",
     "@azure/msal-react": "^3.0.22",
+    "@radix-ui/react-select": "^2.2.6",
     "@tanstack/react-query": "^5.90.0",
     "@tanstack/react-query-devtools": "^5.90.0",
     "@tanstack/react-router": "^1.168.1",
     "@tanstack/react-router-devtools": "^1.166.10",
     "@tanstack/react-router-ssr-query": "^1.166.10",
     "@tanstack/react-start": "^1.167.2",
+    "lucide-react": "^0.577.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-markdown": "^10.1.0",
+    "rehype-sanitize": "^6.0.0",
+    "remark-gfm": "^4.0.1",
+    "shiki": "^4.0.2",
     "tailwind-merge": "^2.6.0"
   },
   "devDependencies": {

@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from ai_portal.api.assistants import _can_access_assistant
 from ai_portal.api.deps import get_current_user, get_db
-from ai_portal.models import Assistant, ChatMessage, ChatSession, User
+from ai_portal.models import Assistant, ChatConversation, ChatMessage, User
 from ai_portal.services import embedding as embedding_svc
 from ai_portal.services import llm as llm_svc
 from ai_portal.services import rag as rag_svc
@@ -27,12 +27,12 @@ class ChatMessageIn(BaseModel):
 class ChatRequest(BaseModel):
     assistant_id: int
     messages: list[ChatMessageIn]
-    session_id: int | None = None
+    conversation_id: int | None = None
     use_rag: bool = True
 
 
 class ChatResponse(BaseModel):
-    session_id: int
+    conversation_id: int
     reply: str
 
 
@@ -42,27 +42,28 @@ def post_chat(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> ChatResponse:
+    """Legacy assistant-scoped chat (non-streaming). Prefer /api/chat/conversations for new UI."""
     assistant = db.get(Assistant, body.assistant_id)
     if assistant is None or not _can_access_assistant(db, user, assistant):
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Assistant not found")
 
-    if body.session_id is not None:
-        session = db.get(ChatSession, body.session_id)
+    if body.conversation_id is not None:
+        conv = db.get(ChatConversation, body.conversation_id)
         if (
-            session is None
-            or session.user_id != user.id
-            or session.assistant_id != assistant.id
+            conv is None
+            or conv.user_id != user.id
+            or conv.assistant_id != assistant.id
         ):
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Invalid session")
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Invalid conversation")
     else:
-        session = ChatSession(user_id=user.id, assistant_id=assistant.id)
-        db.add(session)
+        conv = ChatConversation(user_id=user.id, assistant_id=assistant.id)
+        db.add(conv)
         db.commit()
-        db.refresh(session)
+        db.refresh(conv)
 
     prior_rows = db.scalars(
         select(ChatMessage)
-        .where(ChatMessage.session_id == session.id)
+        .where(ChatMessage.conversation_id == conv.id)
         .order_by(ChatMessage.id)
     ).all()
     prior: list[dict[str, str]] = [
@@ -70,7 +71,7 @@ def post_chat(
     ]
 
     for m in body.messages:
-        db.add(ChatMessage(session_id=session.id, role=m.role, content=m.content))
+        db.add(ChatMessage(conversation_id=conv.id, role=m.role, content=m.content))
     db.commit()
 
     rag_block = ""
@@ -122,7 +123,7 @@ def post_chat(
             detail="Unexpected model response",
         ) from e
 
-    db.add(ChatMessage(session_id=session.id, role="assistant", content=reply))
+    db.add(ChatMessage(conversation_id=conv.id, role="assistant", content=reply))
     db.commit()
 
-    return ChatResponse(session_id=session.id, reply=reply)
+    return ChatResponse(conversation_id=conv.id, reply=reply)

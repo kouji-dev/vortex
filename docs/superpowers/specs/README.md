@@ -30,6 +30,8 @@ This folder holds **feature design specs**, created **lazily** as work starts. T
 |----------|--------|--------|
 | [2026-03-22-auth-entra-design.md](./2026-03-22-auth-entra-design.md) | spec-approved | **MVP-1 identity (first impl):** Microsoft Entra — SPA + Bearer API JWT, app roles RBAC, user upsert, worker **client credentials** for org-wide jobs (**I-06**); plan: [../plans/2026-03-22-auth-entra.md](../plans/2026-03-22-auth-entra.md) |
 | [2026-03-22-chat-conversations-design.md](./2026-03-22-chat-conversations-design.md) | spec-draft | Conversations-first chat — **API + frontend** (streaming, capabilities, attachments, model, syllabus); **auth:** [auth-entra spec](./2026-03-22-auth-entra-design.md); assistants deferred |
+| [2026-03-22-llm-access-model-governance-design.md](./2026-03-22-llm-access-model-governance-design.md) | spec-draft | **LLM access & governance:** in-process LiteLLM (no proxy as primary path), portal-owned catalog/entitlements, OIDC + portal API keys (`aip_…`), RAG boundaries |
+| [2026-03-22-model-platform-requirements.md](./2026-03-22-model-platform-requirements.md) | spec-draft | **Delivery spec:** baseline + tasks; **REQ-META** (metadata in DB + APIs); appendix **REQ-*** — [LLM governance design](./2026-03-22-llm-access-model-governance-design.md) |
 | [Worktree merge order (Entra → chat)](../plans/2026-03-22-git-worktree-merge-order.md) | plan | **Epic 10** merge before **epic 11**; paths `.worktrees/entra-auth-mvp`, `.worktrees/chat-post-auth` |
 
 ### Registry integrity (feature specs ↔ MVP rows)

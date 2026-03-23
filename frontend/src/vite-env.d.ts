@@ -15,3 +15,15 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+/** Allow `navigate({ state: { pendingStream } })` for first-message bootstrap. */
+declare module '@tanstack/history' {
+  interface HistoryState {
+    pendingStream?: {
+      bootstrapId: string
+      content: string
+      use_rag: boolean
+      model?: string
+    }
+  }
+}

@@ -32,9 +32,9 @@ export function EntraRoot({ children }: { children: React.ReactNode }) {
       .catch(() => {
         setInstance(app)
       })
-    return () => {
-      registerMsalClient(null)
-    }
+    // Do not registerMsalClient(null) here: React Strict Mode remounts effects and
+    // clearing the singleton races with in-flight authorizedFetch / React Query.
+    return () => {}
   }, [])
 
   if (!instance) {

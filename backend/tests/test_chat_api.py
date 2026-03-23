@@ -53,4 +53,4 @@ def test_chat_roundtrip(mock_llm, monkeypatch):
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["reply"] == "ok"
-    assert "session_id" in body
+    assert "conversation_id" in body

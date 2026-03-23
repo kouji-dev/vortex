@@ -15,11 +15,15 @@ export async function getAuthHeaders(): Promise<HeadersInit> {
 
   const msal = getMsalInstance()
   if (!msal) {
-    return {}
+    throw new Error(
+      'MSAL is not initialized yet (Entra). Avoid calling authorizedFetch during SSR or before EntraRoot finishes loading.',
+    )
   }
   const account = msal.getActiveAccount() ?? msal.getAllAccounts()[0]
   if (!account) {
-    return {}
+    throw new Error(
+      'No Entra account in MSAL cache. Sign in again or wait until EntraAuthGate has completed.',
+    )
   }
   try {
     const result = await msal.acquireTokenSilent({

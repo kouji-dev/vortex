@@ -29,6 +29,13 @@ class AssistantRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class AssistantPatch(BaseModel):
+    name: str | None = Field(default=None, max_length=255)
+    description: str | None = None
+    system_prompt: str | None = None
+    visibility: Literal["private", "org"] | None = None
+
+
 def _visible_assistants_stmt(user: User):
     acl = select(AssistantAcl.assistant_id).where(AssistantAcl.user_id == user.id)
     return select(Assistant).where(
@@ -90,4 +97,37 @@ def get_assistant(
     a = db.get(Assistant, assistant_id)
     if a is None or not _can_access_assistant(db, user, a):
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Assistant not found")
+    return a
+
+
+@router.patch("/{assistant_id}", response_model=AssistantRead)
+def patch_assistant(
+    assistant_id: int,
+    body: AssistantPatch,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> Assistant:
+    a = db.get(Assistant, assistant_id)
+    if a is None or not _can_access_assistant(db, user, a):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Assistant not found")
+    if a.owner_user_id != user.id:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            detail="Only the assistant owner can edit",
+        )
+    if "name" in body.model_fields_set:
+        if body.name is None or not body.name.strip():
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="name cannot be empty",
+            )
+        a.name = body.name.strip()
+    if "description" in body.model_fields_set:
+        a.description = "" if body.description is None else body.description
+    if "system_prompt" in body.model_fields_set:
+        a.system_prompt = "" if body.system_prompt is None else body.system_prompt
+    if "visibility" in body.model_fields_set and body.visibility is not None:
+        a.visibility = body.visibility
+    db.commit()
+    db.refresh(a)
     return a

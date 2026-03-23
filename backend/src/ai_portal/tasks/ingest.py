@@ -6,7 +6,6 @@ from pathlib import Path
 from pypdf import PdfReader
 from sqlalchemy.orm import Session
 
-from ai_portal.celery_app import app as celery_app
 from ai_portal.db.session import SessionLocal
 from ai_portal.models import Document, DocumentChunk
 from ai_portal.services import embedding as embedding_svc
@@ -38,7 +37,6 @@ def _read_document_text(path: Path) -> str:
     raise ValueError(f"unsupported_type:{suffix}")
 
 
-@celery_app.task(name="ingest_document")
 def ingest_document(document_id: int) -> str:
     db: Session = SessionLocal()
     doc: Document | None = None

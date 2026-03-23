@@ -1,7 +1,6 @@
 /// <reference types="vite/client" />
 import {
   HeadContent,
-  Link,
   Outlet,
   Scripts,
   createRootRouteWithContext,
@@ -13,6 +12,7 @@ import type { QueryClient } from '@tanstack/react-query'
 import { EntraRoot } from '~/auth/EntraRoot'
 import { getAuthMode } from '~/auth/msalConfig'
 import { DefaultCatchBoundary } from '~/components/DefaultCatchBoundary'
+import { AppShell } from '~/components/layout/AppShell'
 import { NotFound } from '~/components/NotFound'
 import appCss from '~/styles/app.css?url'
 import { seo } from '~/utils/seo'
@@ -31,7 +31,7 @@ export const Route = createRootRouteWithContext<{
       },
       ...seo({
         title: 'AI Portal',
-        description: 'Authenticated AI portal — assistants and chat.',
+        description: 'Authenticated AI portal — chat with conversations and streaming.',
       }),
     ],
     links: [
@@ -70,28 +70,9 @@ export const Route = createRootRouteWithContext<{
 
 function RootComponent() {
   const shell = (
-    <>
-      <nav className="p-2 flex flex-wrap gap-4 text-lg border-b border-neutral-200 dark:border-neutral-800">
-        <Link
-          to="/"
-          activeProps={{
-            className: 'font-bold',
-          }}
-          activeOptions={{ exact: true }}
-        >
-          Home
-        </Link>
-        <Link
-          to="/assistants"
-          activeProps={{
-            className: 'font-bold',
-          }}
-        >
-          Assistants
-        </Link>
-      </nav>
+    <AppShell>
       <Outlet />
-    </>
+    </AppShell>
   )
 
   return (

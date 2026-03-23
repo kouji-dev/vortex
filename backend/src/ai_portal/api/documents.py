@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from pathlib import Path
@@ -19,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 @router.post(
     "/api/assistants/{assistant_id}/documents",
-    status_code=status.HTTP_202_ACCEPTED,
+    status_code=status.HTTP_200_OK,
 )
 async def upload_document(
     assistant_id: int,
@@ -52,14 +53,15 @@ async def upload_document(
     db.refresh(doc)
 
     try:
-        ingest_document.delay(doc.id)
+        await asyncio.to_thread(ingest_document, doc.id)
     except Exception as e:
-        logger.exception("enqueue_ingest_failed")
+        logger.exception("ingest_failed", extra={"document_id": doc.id})
         doc.status = "failed"
         db.commit()
         raise HTTPException(
-            status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Celery unavailable: {e}",
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Ingest failed: {e}",
         ) from e
 
+    db.refresh(doc)
     return {"document_id": doc.id, "status": doc.status}

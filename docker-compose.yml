@@ -4,6 +4,12 @@
 #   - pgvector image so `CREATE EXTENSION vector` works for RAG (kouji uses postgres:17-alpine).
 #   - Distinct container_name + host ports (5434 / 6380) so this stack can run alongside
 #     kouji-factory on the same machine (kouji uses local-dev-db on 5433 and redis on 6379).
+#
+# What starts by default:
+#   `docker compose up -d`  →  db + redis only (useful when API and web run on the host, e.g. pnpm dev + uvicorn).
+#
+# Backend + frontend in Docker (API http://127.0.0.1:8000, web http://127.0.0.1:3000):
+#   `docker compose --profile full up -d --build`
 
 name: local-dev
 
@@ -41,36 +47,19 @@ services:
       - "127.0.0.1:8000:8000"
     environment:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/ai_portal
-      REDIS_URL: redis://redis:6379/0
       CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:3000
       DEV_BEARER_TOKEN: devtoken
       DEV_SEED_USER_EMAIL: dev@localhost
       UPLOAD_DIR: /app/data/uploads
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      CHAT_MODEL: ${CHAT_MODEL:-o3-mini}
+      LLM_API_BASE: ${LLM_API_BASE:-https://api.openai.com/v1}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      PORTAL_API_KEY_PEPPER: ${PORTAL_API_KEY_PEPPER:-}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
     volumes:
       - ai-portal-uploads:/app/data/uploads
     depends_on:
       - db
-      - redis
-
-  worker:
-    profiles: ["full"]
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: local-dev-ai-portal-worker
-    restart: unless-stopped
-    command: ["celery", "-A", "ai_portal.worker", "worker", "-l", "info"]
-    environment:
-      DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/ai_portal
-      REDIS_URL: redis://redis:6379/0
-      UPLOAD_DIR: /app/data/uploads
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-    volumes:
-      - ai-portal-uploads:/app/data/uploads
-    depends_on:
-      - db
-      - redis
 
   web:
     profiles: ["full"]
@@ -87,7 +76,7 @@ services:
     depends_on:
       - api
 
-  # Optional: `docker compose --profile litellm up -d litellm` then point OPENAI_API_BASE at http://litellm:4000/v1
+  # Optional: `docker compose --profile litellm up -d litellm` then set LLM_API_BASE=http://litellm:4000/v1
   litellm:
     profiles: ["litellm"]
     image: ghcr.io/berriai/litellm:main-latest
