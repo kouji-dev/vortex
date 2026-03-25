@@ -1,4 +1,4 @@
-"""Provider interface for chat completions (multi-vendor later: Anthropic, Gemini, Copilot, …)."""
+"""Provider interface for chat completions (multi-vendor: Anthropic, OpenAI, …)."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ class ChatProvider(Protocol):
         *,
         model: str | None = None,
     ) -> dict[str, Any]:
-        """Non-streaming chat/completions-style result (normalized by caller if needed)."""
+        """Non-streaming chat result (OpenAI-shaped dict if needed by callers)."""
         ...
 
     def stream_deltas(

@@ -25,7 +25,7 @@ def upgrade() -> None:
         sa.Column("slug", sa.String(length=64), nullable=False),
         sa.Column("display_name", sa.String(length=255), nullable=False),
         sa.Column("description", sa.Text(), nullable=False, server_default=""),
-        sa.Column("litellm_model_id", sa.String(length=255), nullable=False),
+        sa.Column("api_model_id", sa.String(length=255), nullable=False),
         sa.Column(
             "effort",
             sa.String(length=16),
@@ -72,7 +72,7 @@ def upgrade() -> None:
         sa.text(
             """
             INSERT INTO catalog_models (
-                slug, display_name, description, litellm_model_id,
+                slug, display_name, description, api_model_id,
                 effort, is_active, sort_order, requires_entitlement,
                 request_access_url, catalog_metadata
             ) VALUES (
@@ -94,7 +94,7 @@ def upgrade() -> None:
         sa.text(
             """
             INSERT INTO catalog_models (
-                slug, display_name, description, litellm_model_id,
+                slug, display_name, description, api_model_id,
                 effort, is_active, sort_order, requires_entitlement,
                 request_access_url, catalog_metadata
             ) VALUES (

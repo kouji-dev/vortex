@@ -1,5 +1,5 @@
-from collections.abc import Generator
 import logging
+from collections.abc import Generator
 
 import jwt
 from fastapi import Depends, Header, HTTPException, Request, status

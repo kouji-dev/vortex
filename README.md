@@ -54,13 +54,13 @@ docker compose --profile full up -d api web
 - API: [http://127.0.0.1:8000](http://127.0.0.1:8000) — web UI: [http://127.0.0.1:3000](http://127.0.0.1:3000)  
 - Set **`OPENAI_API_KEY`** in `.env` (or the shell) before `up` so chat/embeddings work.
 
-Chat and embeddings use the **LiteLLM Python library in-process** in the API; production does not rely on a LiteLLM HTTP proxy. Optional **`docker compose --profile litellm up -d litellm`** is **dev-only** (see `docker-compose.yml`).
+Chat and embeddings use **LangChain** in-process in the API (`ChatAnthropic` / `ChatOpenAI` and `OpenAIEmbeddings`). Use `LLM_API_BASE` when traffic should go through an OpenAI-compatible proxy instead of the default vendor URL.
 
 Implementation plan: [`docs/superpowers/plans/2026-03-21-mvp-0-bootstrap.md`](docs/superpowers/plans/2026-03-21-mvp-0-bootstrap.md).  
 Full MVP chunk map: [`docs/superpowers/plans/2026-03-21-ai-portal-mvp-implementation.md`](docs/superpowers/plans/2026-03-21-ai-portal-mvp-implementation.md).
 
 ## API contract
 
-The backend invokes models via **in-process LiteLLM**; catalog and entitlement metadata are planned as **DB + APIs** per [`docs/superpowers/specs/2026-03-22-model-platform-requirements.md`](docs/superpowers/specs/2026-03-22-model-platform-requirements.md) (REQ-META).
+The backend invokes models via **in-process LangChain**; catalog and entitlement metadata are planned as **DB + APIs** per [`docs/superpowers/specs/2026-03-22-model-platform-requirements.md`](docs/superpowers/specs/2026-03-22-model-platform-requirements.md) (REQ-META).
 
 The **MVP-0** API contract is defined by the running backend’s OpenAPI document. See [`contracts/README.md`](contracts/README.md) for **`GET /openapi.json`** as source of truth and how to save an optional local snapshot.

@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
-from tests.conftest import requires_postgres
 
 from ai_portal.main import app
+from tests.conftest import requires_postgres
 
 client = TestClient(app)
 

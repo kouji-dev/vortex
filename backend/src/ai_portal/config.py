@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     # Local debugging only: include PyJWT error text in 401 responses for Entra tokens.
     entra_debug_jwt: bool = Field(default=False, validation_alias="ENTRA_DEBUG_JWT")
 
-    # LiteLLM: OpenAI-compatible base URL + key (vendor, LiteLLM proxy, …).
+    # OpenAI-compatible base URL + key (direct API or compatible gateway).
     # ``OPENAI_*`` env vars still work as aliases.
     llm_api_base: str = Field(
         default="https://api.openai.com/v1",
@@ -50,7 +50,7 @@ class Settings(BaseSettings):
         default="",
         validation_alias=AliasChoices("LLM_API_KEY", "OPENAI_API_KEY"),
     )
-    # Used for LiteLLM ``claude-*`` models (and as fallback if ``LLM_API_KEY`` is unset).
+    # Used for LangChain ``ChatAnthropic`` / ``claude-*`` models (and as fallback if ``LLM_API_KEY`` is unset).
     anthropic_api_key: str = Field(
         default="",
         validation_alias=AliasChoices("ANTHROPIC_API_KEY"),
@@ -59,15 +59,15 @@ class Settings(BaseSettings):
     # HMAC pepper for hashing portal API keys (``aip_…``). Empty = dev-only SHA-256.
     portal_api_key_pepper: str = ""
 
-    # Embedding model id understood by LiteLLM for your chosen route.
+    # Embedding model id for LangChain ``OpenAIEmbeddings`` (OpenAI-compatible route).
     embedding_model: str = "text-embedding-3-small"
     chat_model: str = "o3-mini"
     # Used when ``POST /api/chat/conversations`` omits ``model`` and no preferred
     # catalog row exists in ``catalog_models``.
-    chat_default_litellm_model: str = Field(
+    chat_default_api_model: str = Field(
         default="claude-haiku-4-5-20251001",
         validation_alias=AliasChoices(
-            "CHAT_DEFAULT_LITELLM_MODEL",
+            "CHAT_DEFAULT_API_MODEL",
             "CHAT_DEFAULT_MODEL",
         ),
     )

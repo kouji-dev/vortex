@@ -1,6 +1,6 @@
 """Default ``catalog_metadata["config"]`` payloads (shared: Alembic backfill + seed).
 
-Keys are **portal catalog slugs** (see ``litellm_catalog_definitions`` / ``CONFIG_BY_SLUG``).
+Keys are **portal catalog slugs** (see ``catalog_model_definitions`` / ``CONFIG_BY_SLUG``).
 """
 
 from __future__ import annotations

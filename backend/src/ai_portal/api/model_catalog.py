@@ -25,7 +25,7 @@ class CatalogModelRead(BaseModel):
     slug: str
     display_name: str
     description: str
-    litellm_model_id: str
+    api_model_id: str
     effort: str
     sort_order: int
     catalog_metadata: dict[str, Any] | None = Field(
@@ -42,12 +42,12 @@ class CatalogModelRead(BaseModel):
 
 
 def _default_catalog_row_id(rows: list[CatalogModel], db: Session) -> int | None:
-    """Single catalog row matching the server default (slug or LiteLLM id fallback)."""
+    """Single catalog row matching the server default (slug or API model id fallback)."""
     key = resolve_default_conversation_stored_model(db)
     by_slug = next((m for m in rows if m.slug == key), None)
     if by_slug is not None:
         return by_slug.id
-    matches = [m for m in rows if m.litellm_model_id == key]
+    matches = [m for m in rows if m.api_model_id == key]
     if not matches:
         return None
     return min(matches, key=lambda m: (m.sort_order, m.id)).id
@@ -62,7 +62,7 @@ def _row_to_read(m: CatalogModel, *, is_default: bool) -> CatalogModelRead:
         slug=m.slug,
         display_name=m.display_name,
         description=m.description,
-        litellm_model_id=m.litellm_model_id,
+        api_model_id=m.api_model_id,
         effort=m.effort,
         sort_order=m.sort_order,
         catalog_metadata=m.catalog_metadata,

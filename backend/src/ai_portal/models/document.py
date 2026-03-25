@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func, text
 from sqlalchemy.dialects.postgresql import JSONB
-from pgvector.sqlalchemy import Vector
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ai_portal.db.base import Base

@@ -1,10 +1,10 @@
-"""Chat via LiteLLM (OpenAI-compatible gateway or direct vendor URL)."""
+"""Chat via LangChain (Anthropic or OpenAI-compatible base URL)."""
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ai_portal.services.llm_providers.litellm_chat import LiteLlmChatProvider
+from ai_portal.services.llm_providers.langchain_chat import LangChainChatProvider
 from ai_portal.services.llm_providers.protocol import ChatProvider
 
 if TYPE_CHECKING:
@@ -12,11 +12,11 @@ if TYPE_CHECKING:
 
 
 def get_chat_provider(settings: Settings) -> ChatProvider:
-    return LiteLlmChatProvider(settings)
+    return LangChainChatProvider(settings)
 
 
 __all__ = [
     "ChatProvider",
-    "LiteLlmChatProvider",
+    "LangChainChatProvider",
     "get_chat_provider",
 ]

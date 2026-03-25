@@ -76,17 +76,6 @@ services:
     depends_on:
       - api
 
-  # Optional: `docker compose --profile litellm up -d litellm` then set LLM_API_BASE=http://litellm:4000/v1
-  litellm:
-    profiles: ["litellm"]
-    image: ghcr.io/berriai/litellm:main-latest
-    container_name: local-dev-ai-portal-litellm
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:4000:4000"
-    environment:
-      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-changeme}
-
 volumes:
   ai-portal-db-data:
   ai-portal-redis-data:

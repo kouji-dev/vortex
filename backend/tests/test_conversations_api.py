@@ -40,7 +40,7 @@ def test_create_conversation_defaults_model_and_settings():
         "anthropic-claude-haiku-4-5",
         "o3-mini",
         "openai-o3-mini",
-    ) or body["model"] == get_settings().chat_default_litellm_model
+    ) or body["model"] == get_settings().chat_default_api_model
 
 
 @requires_postgres

@@ -17,12 +17,12 @@ function catalogOptionHint(m: CatalogModelEntry): string {
 
 export type ModelCatalogPickerProps = {
   value: string
-  onChange: (litellmModelId: string) => void
+  onChange: (modelId: string) => void
   /**
    * Persist (e.g. PATCH conversation). Not used in create-dialog flows.
    * Invoked when choosing a catalog/default option, or on custom input blur.
    */
-  onCommit?: (litellmModelId: string) => void
+  onCommit?: (modelId: string) => void
   disabled?: boolean
 }
 
@@ -47,7 +47,7 @@ export function ModelCatalogPicker({
   const models = q.data
   const inList =
     value === '' ||
-    (models?.some((m) => m.litellm_model_id === value) ?? false)
+    (models?.some((m) => m.api_model_id === value) ?? false)
   const selectValue = inList ? value : '__custom__'
 
   const handleSelectChange = (v: string) => {
@@ -71,7 +71,7 @@ export function ModelCatalogPicker({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onBlur={handleCustomBlur}
-          placeholder="LiteLLM model id (e.g. o3-mini, claude-opus-4-6)"
+          placeholder="Vendor model id (e.g. o3-mini, claude-opus-4-6)"
           disabled={disabled}
           aria-label="Custom model id"
         />
@@ -102,7 +102,7 @@ export function ModelCatalogPicker({
           .map((m) => (
             <option
               key={m.id}
-              value={m.litellm_model_id}
+              value={m.api_model_id}
               disabled={!m.accessible}
             >
               {m.display_name}
@@ -119,7 +119,7 @@ export function ModelCatalogPicker({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onBlur={handleCustomBlur}
-          placeholder="LiteLLM model id"
+          placeholder="Vendor model id"
           disabled={disabled}
           aria-label="Custom model id"
         />

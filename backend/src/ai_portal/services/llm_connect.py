@@ -1,4 +1,4 @@
-"""Shared LiteLLM connection helpers (base URL shape)."""
+"""Shared OpenAI-compatible API base URL normalization."""
 
 from __future__ import annotations
 

@@ -51,15 +51,15 @@ export function portalDefaultCatalogModel(
   return suggestedPortalDefaultModel(models)
 }
 
-export function catalogModelByLitellmId(
+export function catalogModelByApiModelId(
   models: CatalogModelEntry[] | undefined,
-  litellmModelId: string,
+  apiModelId: string,
 ): CatalogModelEntry | undefined {
-  if (!models || !litellmModelId.trim()) return undefined
-  return models.find((m) => m.litellm_model_id === litellmModelId)
+  if (!models || !apiModelId.trim()) return undefined
+  return models.find((m) => m.api_model_id === apiModelId)
 }
 
-/** Resolves ``conversation.model``: catalog slug, or legacy LiteLLM id (first row if ambiguous). */
+/** Resolves ``conversation.model``: catalog slug, or bare ``api_model_id`` (first row if ambiguous). */
 export function catalogModelByStoredModel(
   models: CatalogModelEntry[] | undefined,
   stored: string,
@@ -67,9 +67,9 @@ export function catalogModelByStoredModel(
   if (!models || !stored.trim()) return undefined
   const bySlug = models.find((m) => m.slug === stored)
   if (bySlug) return bySlug
-  const litellmMatches = models.filter((m) => m.litellm_model_id === stored)
-  if (litellmMatches.length === 0) return undefined
-  const sorted = [...litellmMatches].sort(
+  const apiMatches = models.filter((m) => m.api_model_id === stored)
+  if (apiMatches.length === 0) return undefined
+  const sorted = [...apiMatches].sort(
     (a, b) => a.sort_order - b.sort_order || a.id - b.id,
   )
   return sorted[0]

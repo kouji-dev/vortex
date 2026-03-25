@@ -98,7 +98,7 @@ export type CatalogModelEntry = {
   slug: string
   display_name: string
   description: string
-  litellm_model_id: string
+  api_model_id: string
   effort: string
   sort_order: number
   metadata: Record<string, unknown> | null

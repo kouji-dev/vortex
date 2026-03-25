@@ -28,7 +28,7 @@ def downgrade() -> None:
         sa.text(
             """
             INSERT INTO catalog_models (
-                slug, display_name, description, litellm_model_id,
+                slug, display_name, description, api_model_id,
                 effort, is_active, sort_order, requires_entitlement,
                 request_access_url, catalog_metadata
             ) VALUES (

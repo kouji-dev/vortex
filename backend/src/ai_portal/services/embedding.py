@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import litellm
-
 from ai_portal.config import Settings, get_settings
 from ai_portal.services.llm_connect import normalize_openai_compatible_base
 
@@ -15,13 +13,12 @@ def embed_texts(
     if not settings.llm_api_key.strip():
         raise ValueError("LLM_API_KEY (or OPENAI_API_KEY) is not set")
 
-    resp = litellm.embedding(
+    # Lazy import: keeps startup light; optional dep must be installed (see pyproject).
+    from langchain_openai import OpenAIEmbeddings  # pylint: disable=import-error
+
+    emb = OpenAIEmbeddings(
         model=settings.embedding_model.strip(),
-        input=texts,
         api_key=settings.llm_api_key,
-        api_base=normalize_openai_compatible_base(settings.llm_api_base),
+        base_url=normalize_openai_compatible_base(settings.llm_api_base),
     )
-    if isinstance(resp, dict):
-        rows = resp["data"]
-        return [r["embedding"] for r in rows]
-    return [item.embedding for item in resp.data]
+    return emb.embed_documents(texts)

@@ -29,7 +29,9 @@ from ai_portal.schemas.conversation_settings import ConversationSettings
 from ai_portal.services import embedding as embedding_svc
 from ai_portal.services import llm as llm_svc
 from ai_portal.services import rag as rag_svc
-from ai_portal.services.conversation_model_resolve import resolve_stored_model_to_litellm
+from ai_portal.services.conversation_model_resolve import (
+    resolve_stored_model_to_chat_model,
+)
 from ai_portal.services.default_conversation_model import (
     default_conversation_settings,
     resolve_default_conversation_stored_model,
@@ -462,7 +464,7 @@ def stream_message(
     if not stored_model:
         use_model = None
     else:
-        use_model = resolve_stored_model_to_litellm(db, stored_model)
+        use_model = resolve_stored_model_to_chat_model(db, stored_model)
 
     def _tail_message_id() -> int:
         last = db.scalars(

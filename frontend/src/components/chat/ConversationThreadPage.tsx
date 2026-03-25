@@ -75,12 +75,12 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
   const convQ = useConversationQuery(conversationId)
   const catalogQ = useCatalogModelsQuery()
 
-  const activeLitellmId = isComposerMode ? draftModel : modelDraft
-  const selectedCatalogModel = resolveSelectedCatalogModel(catalogQ.data, activeLitellmId)
+  const activeChatModel = isComposerMode ? draftModel : modelDraft
+  const selectedCatalogModel = resolveSelectedCatalogModel(catalogQ.data, activeChatModel)
 
   React.useEffect(() => {
     setSessionTuning(defaultTuningFromCatalog(selectedCatalogModel))
-  }, [selectedCatalogModel?.id, activeLitellmId])
+  }, [selectedCatalogModel?.id, activeChatModel])
 
   React.useEffect(() => {
     if (convQ.data) {
@@ -186,7 +186,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
     })
   }
 
-  const commitLitellmModel = (m: string) => {
+  const commitChatModel = (m: string) => {
     const trimmed = m.trim()
     if (isComposerMode) return
     const current = convQ.data?.model ?? ''
@@ -708,12 +708,12 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
         models={catalogQ.data}
         modelsPending={catalogQ.isPending}
         modelsError={catalogQ.error as Error | null}
-        litellmModelId={activeLitellmId}
-        onSelectLitellmModel={(id) => {
+        chatModel={activeChatModel}
+        onSelectChatModel={(id) => {
           if (isComposerMode) setDraftModel(id)
           else setModelDraft(id)
         }}
-        onCommitLitellmModel={isComposerMode ? undefined : commitLitellmModel}
+        onCommitChatModel={isComposerMode ? undefined : commitChatModel}
         modelSelectDisabled={!isComposerMode && (convQ.isPending || patchConv.isPending)}
         capabilities={caps}
         onToggleCapability={toggleCapability}

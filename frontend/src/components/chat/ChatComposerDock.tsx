@@ -36,9 +36,9 @@ type ChatComposerDockProps = {
   models: CatalogModelEntry[] | undefined
   modelsPending: boolean
   modelsError: Error | null
-  litellmModelId: string
-  onSelectLitellmModel: (litellmModelId: string) => void
-  onCommitLitellmModel?: (litellmModelId: string) => void
+  chatModel: string
+  onSelectChatModel: (modelId: string) => void
+  onCommitChatModel?: (modelId: string) => void
   modelSelectDisabled?: boolean
   capabilities: CapabilityToggles
   onToggleCapability: (key: CapabilityKey) => void
@@ -87,9 +87,9 @@ export function ChatComposerDock({
   models,
   modelsPending,
   modelsError,
-  litellmModelId,
-  onSelectLitellmModel,
-  onCommitLitellmModel,
+  chatModel,
+  onSelectChatModel,
+  onCommitChatModel,
   modelSelectDisabled,
   capabilities,
   onToggleCapability,
@@ -137,8 +137,8 @@ export function ChatComposerDock({
   }, [plusOpen])
 
   const selectModel = (id: string) => {
-    onSelectLitellmModel(id)
-    onCommitLitellmModel?.(id)
+    onSelectChatModel(id)
+    onCommitChatModel?.(id)
   }
 
   const handleModelSelectChange = (v: string) => {
@@ -186,23 +186,23 @@ export function ChatComposerDock({
   }, [composeDraft])
 
   const storedCatalogRow =
-    litellmModelId === '' ? null : catalogModelByStoredModel(models, litellmModelId)
-  const orphanLitellm =
-    litellmModelId !== '' &&
-    !sorted.some((m) => m.slug === litellmModelId) &&
-    !sorted.some((m) => m.litellm_model_id === litellmModelId)
+    chatModel === '' ? null : catalogModelByStoredModel(models, chatModel)
+  const orphanCustomModel =
+    chatModel !== '' &&
+    !sorted.some((m) => m.slug === chatModel) &&
+    !sorted.some((m) => m.api_model_id === chatModel)
   const selectValue =
-    litellmModelId === ''
+    chatModel === ''
       ? defaultCatalogRow != null
         ? `${CATALOG_SELECT_PREFIX}${defaultCatalogRow.slug}`
         : ''
       : storedCatalogRow != null
         ? `${CATALOG_SELECT_PREFIX}${storedCatalogRow.slug}`
-        : litellmModelId
+        : chatModel
   const modelLabel =
-    litellmModelId === ''
+    chatModel === ''
       ? (defaultCatalogRow?.display_name ?? 'Model')
-      : (storedCatalogRow?.display_name ?? litellmModelId)
+      : (storedCatalogRow?.display_name ?? chatModel)
 
   return (
     <>
@@ -329,7 +329,7 @@ export function ChatComposerDock({
                 modelSelectDisabled ||
                 modelsPending ||
                 sorted.length === 0 ||
-                (litellmModelId === '' && defaultCatalogRow == null)
+                (chatModel === '' && defaultCatalogRow == null)
               }
             >
               <SelectTrigger
@@ -395,8 +395,8 @@ export function ChatComposerDock({
                       </SelectItem>
                     )
                   })}
-                {!modelsPending && orphanLitellm && (
-                  <SelectItem value={litellmModelId}>{litellmModelId} (custom)</SelectItem>
+                {!modelsPending && orphanCustomModel && (
+                  <SelectItem value={chatModel}>{chatModel} (custom)</SelectItem>
                 )}
               </SelectContent>
             </Select>
