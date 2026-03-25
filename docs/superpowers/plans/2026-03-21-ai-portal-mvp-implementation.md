@@ -135,7 +135,7 @@ This syllabus lists **everything a production-grade self-hosted AI portal typica
 | `backend/src/ai_portal/config.py` | Settings via `pydantic-settings` |
 | `backend/src/ai_portal/db/` | Engine, session, base models |
 | `backend/src/ai_portal/models/` | SQLAlchemy models |
-| `backend/src/ai_portal/api/` | Routers: health, auth stub, assistants, chat, documents |
+| `backend/src/ai_portal/api/` | Routers: health, auth stub, assistants, chat, knowledge-bases |
 | `backend/src/ai_portal/services/` | LLM client, RAG retrieval, ingestion tasks |
 | `backend/src/ai_portal/worker.py` | Celery app |
 | `backend/tests/` | Pytest |
@@ -309,9 +309,9 @@ def test_health_ok():
 - Create: `backend/src/ai_portal/worker.py` (Celery)
 - Create: `backend/src/ai_portal/tasks/ingest.py`
 
-- [ ] **Step 1:** Tables: `documents` (id, assistant_id, filename, storage_path, status), `document_chunks` (id, document_id, content, embedding vector, meta json).
+- [ ] **Step 1:** Tables: `knowledge_bases`, `documents` (id, knowledge_base_id, filename, storage_path, status), `document_chunks` (id, document_id, content, embedding vector, meta json), `conversation_knowledge_bases` (conversation_id, knowledge_base_id).
 
-- [ ] **Step 2:** API `POST /api/assistants/{id}/documents` multipart upload → store file → enqueue Celery task.
+- [ ] **Step 2:** API `POST /api/knowledge-bases/{id}/documents` multipart upload → store file → enqueue Celery task (see RAG enterprise spec: attach KBs to conversations for retrieval).
 
 - [ ] **Step 3:** Task: extract text (MVP: plain text / pypdf only), chunk, embed via same OpenAI-compatible embeddings API, insert rows.
 
@@ -328,7 +328,7 @@ def test_health_ok():
 - Modify: `backend/src/ai_portal/services/rag.py`
 - Create: `backend/tests/test_rag_retrieval.py`
 
-- [ ] **Step 1:** On chat, embed last user message, `pgvector` similarity search scoped to assistant’s documents, inject top-k into system or tool message.
+- [ ] **Step 1:** On chat, embed last user message, `pgvector` similarity search scoped to **KBs attached to the conversation**, inject top-k into system or tool message.
 
 - [ ] **Step 2:** Test retrieval with fixed embeddings (mock or small fixture).
 

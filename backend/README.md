@@ -45,7 +45,7 @@ pytest tests -v
 
 ## Migrations
 
-Order: `001` (vector extension) → `002_core_catalog` → `003_chat` → `004_rag` → `005_entra_oid` → `006_drop_roles` (removed local `roles` / `user_roles`; app RBAC uses Entra JWT `roles` when `AUTH_MODE=entra`). Later revisions add portal API keys, chat JSON checks, and `010`/`011` catalog tables + structured `catalog_metadata.config`.
+Order: `001` (vector extension) → `002_core_catalog` → `003_chat` → `004_rag` → `005_entra_oid` → `006_drop_roles` (removed local `roles` / `user_roles`; app RBAC uses Entra JWT `roles` when `AUTH_MODE=entra`). Later revisions add portal API keys, chat JSON checks, `010`/`011` catalog tables + structured `catalog_metadata.config`, and `013_kb_conv` (**knowledge bases**, `documents.knowledge_base_id`, **conversation ↔ KB** links — see RAG enterprise spec).
 
 If you upgraded from an older clone whose `catalog_models` table still has a **legacy** vendor-model column name, align it with the ORM by renaming that column to **`api_model_id`** in PostgreSQL (inspect `\d catalog_models` first), then continue with `alembic upgrade head`.
 

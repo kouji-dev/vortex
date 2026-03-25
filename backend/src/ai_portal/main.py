@@ -7,7 +7,14 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from ai_portal.api import assistants, chat, conversations, documents, me, model_catalog
+from ai_portal.api import (
+    assistants,
+    chat,
+    conversations,
+    knowledge_bases,
+    me,
+    model_catalog,
+)
 from ai_portal.config import get_settings
 from ai_portal.logging_config import configure_logging
 
@@ -52,4 +59,4 @@ app.include_router(me.router)
 app.include_router(assistants.router)
 app.include_router(chat.router)
 app.include_router(conversations.router)
-app.include_router(documents.router)
+app.include_router(knowledge_bases.router)

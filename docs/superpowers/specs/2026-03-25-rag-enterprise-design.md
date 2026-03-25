@@ -9,6 +9,8 @@
 
 **Structure:** Each section follows **Product / UX** then **Engineering — as implemented** then **Enterprise target — how we implement it** (phased).
 
+**Critique of what we removed:** `documents.assistant_id` and `POST /api/assistants/{id}/documents` tied corpus lifecycle to assistants and encouraged the wrong mental model. **Current code** uses **KB ownership** + **conversation attachment** instead; assistants are optional for **system prompt / model** only.
+
 ---
 
 ## 1. Scope and definitions
@@ -22,12 +24,13 @@
 
 ### Engineering — as implemented
 
-- Retrieval applies only when the client sends `use_rag: true` on streaming (`StreamMessageBody` in `api/conversations.py`) or legacy chat (`ChatRequest` in `api/chat.py`).
-- Corpus rows: `documents` + `document_chunks` (`models/document.py`, migration `004_rag_tables.py`). **Today** `documents.assistant_id` ties corpus to an assistant (MVP shortcut); the **target** is KB-owned documents + **conversation** KB attachment (see §2).
+- Retrieval applies when the client sends `use_rag: true` **and** the conversation has **at least one attached KB** (`StreamMessageBody` in `api/conversations.py`; legacy `ChatRequest` in `api/chat.py` uses the same rule via `conversation_knowledge_bases`).
+- Schema: `knowledge_bases`, `documents.knowledge_base_id`, `conversation_knowledge_bases` (composite PK), migration `013_kb_conv`. Existing installs: one KB per assistant that had documents, plus auto-link of that KB to conversations that used that assistant (preserves old RAG behavior until users reconfigure).
+- `ConversationRead` includes `knowledge_base_ids`; `PUT /api/chat/conversations/{id}/knowledge-bases` replaces the attached set (owner must own conversation and each KB).
 
 ### Enterprise target — how we implement it
 
-- Add a short **glossary** in admin/docs UI and in API error messages (“RAG disabled”, “no corpus”, “ingest failed”) so support and customers share vocabulary.
+- Add a short **glossary** in admin/docs UI and in API error messages (“RAG disabled”, “no KB attached”, “ingest failed”) so support and customers share vocabulary.
 - Keep **attachment vs corpus** explicit in APIs and UI copy until a deliberate merge is specified.
 
 ---
@@ -45,17 +48,17 @@ Optional later: org-level **templates** (“start this conversation with KB A + 
 
 ### Engineering — as implemented
 
-- **Binding** is implicit and **assistant-scoped**: `Document.assistant_id` FK to `assistants.id` (`models/document.py`). No `knowledge_bases` table yet.
-- Upload: `POST /api/assistants/{assistant_id}/documents` (`api/documents.py`) — historical MVP shape aligned with the current schema, **not** the long-term API.
+- **KB domain:** `KnowledgeBase` (`models/knowledge_base.py`) with `owner_user_id`; `POST/GET /api/knowledge-bases` (`api/knowledge_bases.py`).
+- **Documents** belong to a KB: `Document.knowledge_base_id`; upload `POST /api/knowledge-bases/{id}/documents` (files under `upload_dir/kb/{kb_id}/`).
+- **Conversation binding:** `ConversationKnowledgeBase` join table; `PUT /api/chat/conversations/{id}/knowledge-bases` with body `{ "knowledge_base_ids": [...] }` (deduplicated order preserved).
+- **ACL (v0):** KB **owner** only; attach only KBs you own. No shared/org KBs yet.
 
 ### Enterprise target — how we implement it
 
-1. **Schema — step 1 (KB domain):** `knowledge_bases` (+ owner/tenant, visibility). `documents.knowledge_base_id` FK; drop or deprecate `documents.assistant_id` after migration.
-2. **Schema — step 2 (chat attachment):** `conversation_knowledge_bases` (or JSONB on `chat_conversations` for v0): `conversation_id`, `knowledge_base_id`, optional `attached_at`, `attached_by_user_id`.
-3. **API — step 1:** e.g. `POST /api/knowledge-bases`, `POST /api/knowledge-bases/{id}/documents`, `GET /api/knowledge-bases/{id}/documents` (names to match your OpenAPI style).
-4. **API — step 2:** e.g. `PUT /api/chat/conversations/{id}/knowledge-bases` (replace set) or `POST`/`DELETE` for individual links; enforce **user owns conversation** + **user may use each KB**.
-5. **Retrieval:** Resolve `kb_ids` from the **conversation** row (not from `assistant_id`). `retrieve_context(db, knowledge_base_ids=[...], query_embedding=..., top_k=...)` with ACL on each KB.
-6. **Assistant:** Remains optional on `ChatConversation` for **instructions/model** only; **no** requirement that an assistant carries corpus.
+1. **Multi-tenant + shared KBs:** tenant id on `knowledge_bases`; `KnowledgeBaseAcl` or team shares; `can_access_knowledge_base(user, kb)` beyond owner-only.
+2. **Metadata on attach:** optional `attached_at`, `attached_by_user_id` on links; audit when KB set changes.
+3. **List documents per KB:** `GET /api/knowledge-bases/{id}/documents` (pagination, status).
+4. **Assistant:** Stays optional on `ChatConversation` for **instructions/model** only; **no** corpus on assistant.
 
 ---
 
@@ -68,8 +71,8 @@ Optional later: org-level **templates** (“start this conversation with KB A + 
 
 ### Engineering — as implemented
 
-- **Upload:** Multipart to `POST /api/assistants/{assistant_id}/documents`; file written under `settings.upload_dir / {assistant_id} / {uuid}_{filename}`; `Document` created with `status="pending"`. Path and folder layout follow **assistant id** today; under KB-first design this becomes `upload_dir / {knowledge_base_id} / …`.
-- **Ingest:** `ingest_document(doc.id)` is run **inline** via `asyncio.to_thread` in the request handler (`api/documents.py`). On failure, status `failed` and HTTP 500.
+- **Upload:** Multipart to `POST /api/knowledge-bases/{knowledge_base_id}/documents`; files under `settings.upload_dir / kb / {knowledge_base_id} / {uuid}_{filename}`; `Document` with `status="pending"`.
+- **Ingest:** `ingest_document(doc.id)` is run **inline** via `asyncio.to_thread` in the request handler (`api/knowledge_bases.py`). **Critique:** still blocks the request; bad for large files and enterprise SLAs.
 - **Extract:** `.txt`, `.md`, `.pdf` via `pypdf` (`tasks/ingest.py`); other extensions → `failed` / unsupported.
 - **No Celery/redis** ingest queue in this path yet (plan mentioned workers in MVP doc; implementation is synchronous on API thread).
 
@@ -115,13 +118,13 @@ Optional later: org-level **templates** (“start this conversation with KB A + 
 ### Engineering — as implemented
 
 - **Query:** Embed the **current user message** text (streaming path) or **last user message** in request body (legacy chat).
-- **Search:** `rag.retrieve_context`: cosine distance over `document_chunks.embedding`, filter `Document.status == "ready"` and chunks with non-null embedding; `top_k=5` default; returns **plain concatenation** of chunk `content` with `\n\n` (`services/rag.py`). Scope is **`assistant_id`** today; target scope is **KB ids from the conversation** (§2).
+- **Search:** `rag.retrieve_context(db, knowledge_base_ids=..., query_embedding=...)`: cosine distance over `document_chunks.embedding`, filter documents in those KBs with `status == "ready"`; `top_k=5`; concatenates chunk text (`services/rag.py`).
 - **Injection:** Prepended to **system** content with instruction: *“Use the following context… If insufficient, say so.”* (`api/conversations.py`, `api/chat.py`).
 - **No citations** in UI/API; no char cap beyond model limits; no rerank; no hybrid keyword search.
 
 ### Enterprise target — how we implement it
 
-1. **ACL at retrieval:** Caller must have **read** on the **conversation** and **read** on **each attached KB** (and each `document` within those KBs if you support doc-level ACL). Do not infer corpus access from `_can_access_assistant` once assistant is decoupled from KB; keep a single `can_access_knowledge_base(user, kb)` (and tenant claims).
+1. **ACL at retrieval:** Today: conversation owner + KB owner match the same user for attach APIs; **defense in depth** in `retrieve_context` should still filter by resolved `knowledge_base_ids` only (already the case). Next: explicit `can_access_knowledge_base(user, kb)` for shared KBs and tenant claims.
 2. **Parameterized limits:** Settings or per-conversation/org defaults: `rag_top_k`, `rag_max_chars`, `rag_min_similarity` (distance threshold).
 3. **Reranking:** Second-stage cross-encoder or lightweight LLM rerank on top of top-k₀; trim to top-k₁ within char budget.
 4. **Hybrid search:** Add `tsvector` / BM25 + RRF merge with vector scores (PostgreSQL full text + pgvector).
@@ -269,12 +272,13 @@ Optional later: org-level **templates** (“start this conversation with KB A + 
 
 | Area        | Primary code today                                | Next enterprise steps                                     |
 | ----------- | ------------------------------------------------- | --------------------------------------------------------- |
-| Upload      | `api/documents.py` (assistant-scoped today)       | `POST …/knowledge-bases/{id}/documents`; async queue, blob, scan, entitlements |
+| Upload      | `api/knowledge_bases.py`                          | Async queue, blob, scan, entitlements, list-documents API |
 | Ingest      | `tasks/ingest.py`                                 | Rich extractors, OCR, batch embed, re-embed job           |
 | Embed       | `services/embedding.py`, `config.embedding_model` | Model versioning, dimension checks, rate limits           |
-| Retrieve    | `services/rag.py`                                 | Filter by **conversation’s KB ids**; thresholds, rerank, hybrid, structured sources |
-| Chat inject | `api/conversations.py`, `api/chat.py`             | Resolve KB set from conversation; citations in `extra`, SSE metadata, char caps     |
-| Schema      | `004_rag_tables.py`, `models/document.py`         | `knowledge_bases`, `conversation_knowledge_bases`, `documents.knowledge_base_id`   |
+| Retrieve    | `services/rag.py`                                 | Thresholds, rerank, hybrid, structured sources            |
+| Chat inject | `api/conversations.py`, `api/chat.py`             | Citations in `extra`, SSE metadata, char caps             |
+| KB ↔ chat   | `api/conversations.py` (`PUT …/knowledge-bases`)  | Shared KB ACL, audit fields on links                     |
+| Schema      | `013_kb_conv`, `models/knowledge_base.py`       | Tenant id, `KnowledgeBaseAcl`, classification on docs     |
 
 
 ---

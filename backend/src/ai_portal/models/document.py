@@ -14,8 +14,8 @@ class Document(Base):
     __tablename__ = "documents"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    assistant_id: Mapped[int] = mapped_column(
-        ForeignKey("assistants.id", ondelete="CASCADE"), index=True
+    knowledge_base_id: Mapped[int] = mapped_column(
+        ForeignKey("knowledge_bases.id", ondelete="CASCADE"), index=True
     )
     filename: Mapped[str] = mapped_column(String(512))
     storage_path: Mapped[str] = mapped_column(String(1024))

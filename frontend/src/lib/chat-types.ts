@@ -18,6 +18,8 @@ export type Conversation = {
   model: string | null
   settings: ConversationSettings | null
   created_at: string
+  /** Knowledge bases attached to this thread (RAG scope). */
+  knowledge_base_ids: number[]
 }
 
 export type ChatMessage = {

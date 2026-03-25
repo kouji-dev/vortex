@@ -10,7 +10,13 @@ from sqlalchemy.orm import Session
 
 from ai_portal.api.assistants import _can_access_assistant
 from ai_portal.api.deps import get_current_user, get_db
-from ai_portal.models import Assistant, ChatConversation, ChatMessage, User
+from ai_portal.models import (
+    Assistant,
+    ChatConversation,
+    ChatMessage,
+    ConversationKnowledgeBase,
+    User,
+)
 from ai_portal.services import embedding as embedding_svc
 from ai_portal.services import llm as llm_svc
 from ai_portal.services import rag as rag_svc
@@ -74,8 +80,16 @@ def post_chat(
         db.add(ChatMessage(conversation_id=conv.id, role=m.role, content=m.content))
     db.commit()
 
+    kb_ids = list(
+        db.scalars(
+            select(ConversationKnowledgeBase.knowledge_base_id).where(
+                ConversationKnowledgeBase.conversation_id == conv.id
+            )
+        ).all()
+    )
+
     rag_block = ""
-    if body.use_rag:
+    if body.use_rag and kb_ids:
         last_user = next(
             (m.content for m in reversed(body.messages) if m.role == "user"),
             "",
@@ -84,7 +98,7 @@ def post_chat(
             try:
                 q_emb = embedding_svc.embed_texts([last_user])[0]
                 rag_block = rag_svc.retrieve_context(
-                    db, assistant_id=assistant.id, query_embedding=q_emb
+                    db, knowledge_base_ids=kb_ids, query_embedding=q_emb
                 )
             except ValueError:
                 logger.warning("rag_skipped_no_embedding_key")

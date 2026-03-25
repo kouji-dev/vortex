@@ -396,7 +396,8 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
     const modelParam = modelDraft.trim() || undefined
     const body: Record<string, unknown> = {
       content: trimmed,
-      use_rag: Boolean(convQ.data?.assistant_id) && useRag,
+      use_rag:
+        (convQ.data?.knowledge_base_ids?.length ?? 0) > 0 && useRag,
     }
     if (modelParam) body.model = modelParam
     await runStream(body)
@@ -407,7 +408,8 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
     const body: Record<string, unknown> = {
       content: '',
       regenerate_after_message_id: assistantMessageId,
-      use_rag: Boolean(convQ.data?.assistant_id) && useRag,
+      use_rag:
+        (convQ.data?.knowledge_base_ids?.length ?? 0) > 0 && useRag,
     }
     if (modelParam) body.model = modelParam
     await runStream(body)
@@ -727,7 +729,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
         streaming={streaming}
         onStop={stopStream}
         inputThemed={inputThemed}
-        showRag={convQ.data?.assistant_id != null}
+        showRag={(convQ.data?.knowledge_base_ids?.length ?? 0) > 0}
         useRag={useRag}
         setUseRag={setUseRag}
         selectedCatalogModel={selectedCatalogModel}

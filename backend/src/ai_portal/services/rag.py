@@ -9,13 +9,15 @@ from ai_portal.models import Document, DocumentChunk
 def retrieve_context(
     db: Session,
     *,
-    assistant_id: int,
+    knowledge_base_ids: list[int],
     query_embedding: list[float],
     top_k: int = 5,
 ) -> str:
-    """Return concatenated chunk text for assistant-scoped similarity search."""
+    """Return concatenated chunk text for KB-scoped similarity search."""
+    if not knowledge_base_ids:
+        return ""
     doc_ids = select(Document.id).where(
-        Document.assistant_id == assistant_id,
+        Document.knowledge_base_id.in_(knowledge_base_ids),
         Document.status == "ready",
     )
     stmt = (

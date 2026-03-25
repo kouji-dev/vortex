@@ -89,7 +89,7 @@ For work that must run **with no signed-in user** (scheduled sync, batch indexin
 ## API surface (minimal)
 
 - **`GET /api/me`** (or `/api/users/me`): returns authenticated user id, email, and **effective role names** derived from token (and eventually DB). Used to align UI with server truth.
-- Existing routers (`assistants`, `chat`, `documents`) continue to use **`get_current_user`**; implementation switches on `auth_mode`.
+- Existing routers (`assistants`, `chat`, `knowledge-bases`) continue to use **`get_current_user`**; implementation switches on `auth_mode`.
 
 ---
 

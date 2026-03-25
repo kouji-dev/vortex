@@ -18,13 +18,20 @@ from typing import Annotated, Any, Self
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, model_validator
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from ai_portal.api.assistants import _can_access_assistant
 from ai_portal.api.deps import get_current_user, get_db
 from ai_portal.config import get_settings
-from ai_portal.models import Assistant, ChatConversation, ChatMessage, User
+from ai_portal.models import (
+    Assistant,
+    ChatConversation,
+    ChatMessage,
+    ConversationKnowledgeBase,
+    KnowledgeBase,
+    User,
+)
 from ai_portal.schemas.conversation_settings import ConversationSettings
 from ai_portal.services import embedding as embedding_svc
 from ai_portal.services import llm as llm_svc
@@ -141,8 +148,27 @@ class ConversationRead(BaseModel):
     model: str | None
     settings: ConversationSettings | None
     created_at: Any
+    knowledge_base_ids: list[int] = Field(default_factory=list)
 
-    model_config = {"from_attributes": True}
+
+def _conversation_read(db: Session, conv: ChatConversation) -> ConversationRead:
+    kb_ids = list(
+        db.scalars(
+            select(ConversationKnowledgeBase.knowledge_base_id).where(
+                ConversationKnowledgeBase.conversation_id == conv.id
+            )
+        ).all()
+    )
+    return ConversationRead(
+        id=conv.id,
+        user_id=conv.user_id,
+        assistant_id=conv.assistant_id,
+        title=conv.title,
+        model=conv.model,
+        settings=conv.settings,
+        created_at=conv.created_at,
+        knowledge_base_ids=kb_ids,
+    )
 
 
 class MessageRead(BaseModel):
@@ -158,6 +184,10 @@ class MessageRead(BaseModel):
 
 class MessagePatch(BaseModel):
     content: str = Field(min_length=1, max_length=500_000)
+
+
+class ConversationKnowledgeBasesPut(BaseModel):
+    knowledge_base_ids: list[int] = Field(default_factory=list)
 
 
 class StreamMessageBody(BaseModel):
@@ -182,14 +212,15 @@ def get_starters() -> dict[str, Any]:
 def list_conversations(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
-) -> list[ChatConversation]:
-    return list(
+) -> list[ConversationRead]:
+    convs = list(
         db.scalars(
             select(ChatConversation)
             .where(ChatConversation.user_id == user.id)
             .order_by(ChatConversation.id.desc())
         ).all()
     )
+    return [_conversation_read(db, c) for c in convs]
 
 
 @router.post("/conversations", response_model=ConversationRead, status_code=status.HTTP_201_CREATED)
@@ -197,7 +228,7 @@ def create_conversation(
     body: ConversationCreate,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
-) -> ChatConversation:
+) -> ConversationRead:
     if body.assistant_id is not None:
         a = db.get(Assistant, body.assistant_id)
         if a is None or not _can_access_assistant(db, user, a):
@@ -219,7 +250,7 @@ def create_conversation(
     db.add(conv)
     db.commit()
     db.refresh(conv)
-    return conv
+    return _conversation_read(db, conv)
 
 
 @router.get("/conversations/{conversation_id}", response_model=ConversationRead)
@@ -227,8 +258,9 @@ def get_conversation(
     conversation_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
-) -> ChatConversation:
-    return _get_owned_conversation(db, user, conversation_id)
+) -> ConversationRead:
+    conv = _get_owned_conversation(db, user, conversation_id)
+    return _conversation_read(db, conv)
 
 
 @router.patch("/conversations/{conversation_id}", response_model=ConversationRead)
@@ -237,7 +269,7 @@ def patch_conversation(
     body: ConversationPatch,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
-) -> ChatConversation:
+) -> ConversationRead:
     conv = _get_owned_conversation(db, user, conversation_id)
     if "title" in body.model_fields_set:
         conv.title = body.title
@@ -255,7 +287,49 @@ def patch_conversation(
         conv.settings = body.settings
     db.commit()
     db.refresh(conv)
-    return conv
+    return _conversation_read(db, conv)
+
+
+@router.put(
+    "/conversations/{conversation_id}/knowledge-bases",
+    response_model=ConversationRead,
+)
+def put_conversation_knowledge_bases(
+    conversation_id: int,
+    body: ConversationKnowledgeBasesPut,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ConversationRead:
+    conv = _get_owned_conversation(db, user, conversation_id)
+    seen: set[int] = set()
+    unique_ids: list[int] = []
+    for kb_id in body.knowledge_base_ids:
+        if kb_id in seen:
+            continue
+        seen.add(kb_id)
+        unique_ids.append(kb_id)
+    for kb_id in unique_ids:
+        kb = db.get(KnowledgeBase, kb_id)
+        if kb is None or kb.owner_user_id != user.id:
+            raise HTTPException(
+                status.HTTP_404_NOT_FOUND,
+                detail="Knowledge base not found",
+            )
+    db.execute(
+        delete(ConversationKnowledgeBase).where(
+            ConversationKnowledgeBase.conversation_id == conv.id
+        )
+    )
+    for kb_id in unique_ids:
+        db.add(
+            ConversationKnowledgeBase(
+                conversation_id=conv.id,
+                knowledge_base_id=kb_id,
+            )
+        )
+    db.commit()
+    db.refresh(conv)
+    return _conversation_read(db, conv)
 
 
 @router.delete("/conversations/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -431,24 +505,37 @@ def stream_message(
         {"role": m.role, "content": m.content} for m in prior_rows
     ]
 
+    kb_ids = list(
+        db.scalars(
+            select(ConversationKnowledgeBase.knowledge_base_id).where(
+                ConversationKnowledgeBase.conversation_id == conv.id
+            )
+        ).all()
+    )
+
     system_parts: list[str] = []
     if assistant is not None:
         system_parts.append(assistant.system_prompt.strip())
-        if body.use_rag:
-            try:
-                q_emb = embedding_svc.embed_texts([user_content])[0]
-                rag_block = rag_svc.retrieve_context(
-                    db, assistant_id=assistant.id, query_embedding=q_emb
-                )
-                if rag_block:
-                    system_parts.append(
-                        "Use the following context when answering. If it is insufficient, say so.\n\n"
-                        + rag_block
-                    )
-            except ValueError:
-                logger.warning("rag_skipped_no_embedding_key")
     else:
         system_parts.append(settings.default_system_prompt.strip())
+
+    if body.use_rag and kb_ids:
+        try:
+            q_emb = embedding_svc.embed_texts([user_content])[0]
+            rag_block = rag_svc.retrieve_context(
+                db, knowledge_base_ids=kb_ids, query_embedding=q_emb
+            )
+            if rag_block:
+                system_parts.append(
+                    "Use the following context when answering. If it is insufficient, say so.\n\n"
+                    + rag_block
+                )
+        except ValueError:
+            logger.warning("rag_skipped_no_embedding_key")
+    elif body.use_rag and not kb_ids:
+        logger.debug(
+            "rag_no_knowledge_bases_attached", extra={"conversation_id": conv.id}
+        )
 
     cap_instr = _capability_instructions(conv.settings)
     if cap_instr:
