@@ -46,8 +46,18 @@
 
 Optional later: org-level **templates** (“start this conversation with KB A + B”).
 
+**KB management UI (required delivery):** A dedicated **web page** (or clearly named area in the app shell) where users **manage knowledge bases** without using raw API calls. Minimum expectations for **MVP-4**:
+
+- **List** KBs the user can access (v0: owned by current user).
+- **Create** / **rename** (and later **archive** or **delete**) a KB with name + short description.
+- **Upload** documents into a selected KB, with **per-file status** (`pending` / `ready` / `failed`) and a path to **retry** or **remove** after list API exists.
+- **Link to chat:** surface or deep-link how to **attach KBs to a conversation** (picker on the thread, settings panel, or both)—so RAG is discoverable end-to-end.
+
+Enterprises expect this surface for **governance** (who owns which corpus) and **support** (“why is my doc not searchable?”).
+
 ### Engineering — as implemented
 
+- **KB management UI:** **Not implemented**; backend exposes `POST/GET /api/knowledge-bases`, upload, and `PUT …/conversations/{id}/knowledge-bases` only. Chat UI shows the RAG toggle when `knowledge_base_ids` is non-empty but does not yet let users create KBs or upload from the browser.
 - **KB domain:** `KnowledgeBase` (`models/knowledge_base.py`) with `owner_user_id`; `POST/GET /api/knowledge-bases` (`api/knowledge_bases.py`).
 - **Documents** belong to a KB: `Document.knowledge_base_id`; upload `POST /api/knowledge-bases/{id}/documents` (files under `upload_dir/kb/{kb_id}/`).
 - **Conversation binding:** `ConversationKnowledgeBase` join table; `PUT /api/chat/conversations/{id}/knowledge-bases` with body `{ "knowledge_base_ids": [...] }` (deduplicated order preserved).
@@ -57,7 +67,8 @@ Optional later: org-level **templates** (“start this conversation with KB A + 
 
 1. **Multi-tenant + shared KBs:** tenant id on `knowledge_bases`; `KnowledgeBaseAcl` or team shares; `can_access_knowledge_base(user, kb)` beyond owner-only.
 2. **Metadata on attach:** optional `attached_at`, `attached_by_user_id` on links; audit when KB set changes.
-3. **List documents per KB:** `GET /api/knowledge-bases/{id}/documents` (pagination, status).
+3. **List documents per KB:** `GET /api/knowledge-bases/{id}/documents` (pagination, status)—required for the KB management page (status, errors, delete/retry).
+4. **KB management UI:** Implement the page above; align routes with the app shell (e.g. `/knowledge-bases`, `/knowledge-bases/:id`); use TanStack Query against OpenAPI-shaped clients; respect **I-08** `rag` (and future KB entitlements) when gating the nav entry and actions.
 
 ---
 
@@ -271,6 +282,7 @@ Optional later: org-level **templates** (“start this conversation with KB A + 
 
 | Area        | Primary code today                                | Next enterprise steps                                     |
 | ----------- | ------------------------------------------------- | --------------------------------------------------------- |
+| KB admin UI | —                                                 | **Dedicated page:** list/create KB, upload, doc status, link to conversation KB picker |
 | Upload      | `api/knowledge_bases.py`                          | Async queue, blob, scan, entitlements, list-documents API |
 | Ingest      | `tasks/ingest.py`                                 | Rich extractors, OCR, batch embed, re-embed job           |
 | Embed       | `services/embedding.py`, `config.embedding_model` | Model versioning, dimension checks, rate limits           |
