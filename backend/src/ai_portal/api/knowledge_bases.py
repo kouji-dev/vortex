@@ -34,6 +34,21 @@ class KnowledgeBaseRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class KnowledgeBasePatch(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    description: str | None = Field(default=None, max_length=10_000)
+
+
+class DocumentRead(BaseModel):
+    id: int
+    knowledge_base_id: int
+    filename: str
+    status: str
+    created_at: object
+
+    model_config = {"from_attributes": True}
+
+
 def _get_owned_kb(db: Session, user: User, kb_id: int) -> KnowledgeBase:
     kb = db.get(KnowledgeBase, kb_id)
     if kb is None or kb.owner_user_id != user.id:
@@ -79,6 +94,57 @@ def get_knowledge_base(
     user: User = Depends(get_current_user),
 ) -> KnowledgeBase:
     return _get_owned_kb(db, user, knowledge_base_id)
+
+
+@router.patch("/{knowledge_base_id}", response_model=KnowledgeBaseRead)
+def patch_knowledge_base(
+    knowledge_base_id: int,
+    body: KnowledgeBasePatch,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> KnowledgeBase:
+    kb = _get_owned_kb(db, user, knowledge_base_id)
+    if body.name is not None:
+        kb.name = body.name.strip()
+    if body.description is not None:
+        kb.description = body.description.strip()
+    db.commit()
+    db.refresh(kb)
+    return kb
+
+
+@router.get("/{knowledge_base_id}/documents", response_model=list[DocumentRead])
+def list_documents(
+    knowledge_base_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> list[Document]:
+    _get_owned_kb(db, user, knowledge_base_id)
+    return list(
+        db.scalars(
+            select(Document)
+            .where(Document.knowledge_base_id == knowledge_base_id)
+            .order_by(Document.id.desc())
+        ).all()
+    )
+
+
+@router.delete(
+    "/{knowledge_base_id}/documents/{document_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_document(
+    knowledge_base_id: int,
+    document_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> None:
+    _get_owned_kb(db, user, knowledge_base_id)
+    doc = db.get(Document, document_id)
+    if doc is None or doc.knowledge_base_id != knowledge_base_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Document not found")
+    db.delete(doc)
+    db.commit()
 
 
 @router.post("/{knowledge_base_id}/documents", status_code=status.HTTP_200_OK)

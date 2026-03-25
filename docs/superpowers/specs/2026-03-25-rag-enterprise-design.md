@@ -57,7 +57,7 @@ Enterprises expect this surface for **governance** (who owns which corpus) and *
 
 ### Engineering — as implemented
 
-- **KB management UI:** **Not implemented**; backend exposes `POST/GET /api/knowledge-bases`, upload, and `PUT …/conversations/{id}/knowledge-bases` only. Chat UI shows the RAG toggle when `knowledge_base_ids` is non-empty but does not yet let users create KBs or upload from the browser.
+- **KB management UI:** **Implemented (MVP):** routes `/knowledge-bases` and `/knowledge-bases/:id` — list/create KB, edit name/description (`PATCH`), upload documents, list/delete documents (`GET/DELETE …/documents`). Sidebar nav **Knowledge bases**. **Chat:** collapsible **Knowledge bases for this chat** attaches bases via `PUT …/conversations/{id}/knowledge-bases`. **Not yet:** I-08 gating on nav, document list pagination, async ingest UX.
 - **KB domain:** `KnowledgeBase` (`models/knowledge_base.py`) with `owner_user_id`; `POST/GET /api/knowledge-bases` (`api/knowledge_bases.py`).
 - **Documents** belong to a KB: `Document.knowledge_base_id`; upload `POST /api/knowledge-bases/{id}/documents` (files under `upload_dir/kb/{kb_id}/`).
 - **Conversation binding:** `ConversationKnowledgeBase` join table; `PUT /api/chat/conversations/{id}/knowledge-bases` with body `{ "knowledge_base_ids": [...] }` (deduplicated order preserved).
@@ -68,7 +68,7 @@ Enterprises expect this surface for **governance** (who owns which corpus) and *
 1. **Multi-tenant + shared KBs:** tenant id on `knowledge_bases`; `KnowledgeBaseAcl` or team shares; `can_access_knowledge_base(user, kb)` beyond owner-only.
 2. **Metadata on attach:** optional `attached_at`, `attached_by_user_id` on links; audit when KB set changes.
 3. **List documents per KB:** `GET /api/knowledge-bases/{id}/documents` (pagination, status)—required for the KB management page (status, errors, delete/retry).
-4. **KB management UI:** Implement the page above; align routes with the app shell (e.g. `/knowledge-bases`, `/knowledge-bases/:id`); use TanStack Query against OpenAPI-shaped clients; respect **I-08** `rag` (and future KB entitlements) when gating the nav entry and actions.
+4. **KB management UI — extend:** **I-08** `rag` (and future KB entitlements) when gating the nav entry and destructive actions; pagination and filters on document list; inline ingest progress when jobs are async.
 
 ---
 
@@ -282,7 +282,7 @@ Enterprises expect this surface for **governance** (who owns which corpus) and *
 
 | Area        | Primary code today                                | Next enterprise steps                                     |
 | ----------- | ------------------------------------------------- | --------------------------------------------------------- |
-| KB admin UI | —                                                 | **Dedicated page:** list/create KB, upload, doc status, link to conversation KB picker |
+| KB admin UI | `routes/knowledge-bases/*`, `ConversationKnowledgeBasesPanel` | I-08 gating, pagination, async job progress |
 | Upload      | `api/knowledge_bases.py`                          | Async queue, blob, scan, entitlements, list-documents API |
 | Ingest      | `tasks/ingest.py`                                 | Rich extractors, OCR, batch embed, re-embed job           |
 | Embed       | `services/embedding.py`, `config.embedding_model` | Model versioning, dimension checks, rate limits           |

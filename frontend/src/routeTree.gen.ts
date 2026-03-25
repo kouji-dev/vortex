@@ -11,6 +11,8 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ChatRouteRouteImport } from './routes/chat/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as KnowledgeBasesIndexRouteImport } from './routes/knowledge-bases/index'
+import { Route as KnowledgeBasesIdRouteImport } from './routes/knowledge-bases/$id'
 import { Route as ChatConversationsRouteRouteImport } from './routes/chat/conversations/route'
 import { Route as ChatConversationsIndexRouteImport } from './routes/chat/conversations/index'
 import { Route as ChatConversationsIdRouteImport } from './routes/chat/conversations/$id'
@@ -23,6 +25,16 @@ const ChatRouteRoute = ChatRouteRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KnowledgeBasesIndexRoute = KnowledgeBasesIndexRouteImport.update({
+  id: '/knowledge-bases/',
+  path: '/knowledge-bases/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KnowledgeBasesIdRoute = KnowledgeBasesIdRouteImport.update({
+  id: '/knowledge-bases/$id',
+  path: '/knowledge-bases/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ChatConversationsRouteRoute = ChatConversationsRouteRouteImport.update({
@@ -45,12 +57,16 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/chat': typeof ChatRouteRouteWithChildren
   '/chat/conversations': typeof ChatConversationsRouteRouteWithChildren
+  '/knowledge-bases/$id': typeof KnowledgeBasesIdRoute
+  '/knowledge-bases/': typeof KnowledgeBasesIndexRoute
   '/chat/conversations/$id': typeof ChatConversationsIdRoute
   '/chat/conversations/': typeof ChatConversationsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/chat': typeof ChatRouteRouteWithChildren
+  '/knowledge-bases/$id': typeof KnowledgeBasesIdRoute
+  '/knowledge-bases': typeof KnowledgeBasesIndexRoute
   '/chat/conversations/$id': typeof ChatConversationsIdRoute
   '/chat/conversations': typeof ChatConversationsIndexRoute
 }
@@ -59,6 +75,8 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/chat': typeof ChatRouteRouteWithChildren
   '/chat/conversations': typeof ChatConversationsRouteRouteWithChildren
+  '/knowledge-bases/$id': typeof KnowledgeBasesIdRoute
+  '/knowledge-bases/': typeof KnowledgeBasesIndexRoute
   '/chat/conversations/$id': typeof ChatConversationsIdRoute
   '/chat/conversations/': typeof ChatConversationsIndexRoute
 }
@@ -68,15 +86,25 @@ export interface FileRouteTypes {
     | '/'
     | '/chat'
     | '/chat/conversations'
+    | '/knowledge-bases/$id'
+    | '/knowledge-bases/'
     | '/chat/conversations/$id'
     | '/chat/conversations/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/chat' | '/chat/conversations/$id' | '/chat/conversations'
+  to:
+    | '/'
+    | '/chat'
+    | '/knowledge-bases/$id'
+    | '/knowledge-bases'
+    | '/chat/conversations/$id'
+    | '/chat/conversations'
   id:
     | '__root__'
     | '/'
     | '/chat'
     | '/chat/conversations'
+    | '/knowledge-bases/$id'
+    | '/knowledge-bases/'
     | '/chat/conversations/$id'
     | '/chat/conversations/'
   fileRoutesById: FileRoutesById
@@ -84,6 +112,8 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ChatRouteRoute: typeof ChatRouteRouteWithChildren
+  KnowledgeBasesIdRoute: typeof KnowledgeBasesIdRoute
+  KnowledgeBasesIndexRoute: typeof KnowledgeBasesIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -100,6 +130,20 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/knowledge-bases/': {
+      id: '/knowledge-bases/'
+      path: '/knowledge-bases'
+      fullPath: '/knowledge-bases/'
+      preLoaderRoute: typeof KnowledgeBasesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/knowledge-bases/$id': {
+      id: '/knowledge-bases/$id'
+      path: '/knowledge-bases/$id'
+      fullPath: '/knowledge-bases/$id'
+      preLoaderRoute: typeof KnowledgeBasesIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/chat/conversations': {
@@ -157,6 +201,8 @@ const ChatRouteRouteWithChildren = ChatRouteRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ChatRouteRoute: ChatRouteRouteWithChildren,
+  KnowledgeBasesIdRoute: KnowledgeBasesIdRoute,
+  KnowledgeBasesIndexRoute: KnowledgeBasesIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -8,6 +8,7 @@ import {
   resolveSelectedCatalogModel,
   type CapabilityKey,
 } from '~/components/chat/ChatComposerDock'
+import { ConversationKnowledgeBasesPanel } from '~/components/knowledge-bases/ConversationKnowledgeBasesPanel'
 import { EmptyConversationState } from '~/components/chat/EmptyConversationState'
 import { MarkdownMessage } from '~/components/chat/MarkdownMessage'
 import type { SessionModelTuning } from '~/components/chat/ModelTuningModal'
@@ -503,20 +504,30 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
           )}
         </div>
         {!isComposerMode && (
-          <button
-            type="button"
-            className="shrink-0 rounded border border-red-300 px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/40"
-            disabled={deleteConv.isPending}
-            onClick={() => {
-              if (window.confirm('Delete this conversation and all messages?')) {
-                deleteConv.mutate()
-              }
-            }}
-          >
-            Delete
-          </button>
+          <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
+            <button
+              type="button"
+              className="rounded border border-red-300 px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/40"
+              disabled={deleteConv.isPending}
+              onClick={() => {
+                if (window.confirm('Delete this conversation and all messages?')) {
+                  deleteConv.mutate()
+                }
+              }}
+            >
+              Delete
+            </button>
+          </div>
         )}
       </header>
+
+      {!isComposerMode && conversationId != null && (
+        <ConversationKnowledgeBasesPanel
+          conversationId={conversationId}
+          conversation={convQ.data}
+          disabled={streaming || convQ.isPending}
+        />
+      )}
 
       {patchConv.isError && (
         <p className="shrink-0 text-sm text-red-600">{(patchConv.error as Error).message}</p>

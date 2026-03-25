@@ -41,6 +41,36 @@ def test_knowledge_base_crud_and_conversation_attach():
 
 
 @requires_postgres
+def test_list_patch_delete_documents():
+    kb = client.post(
+        "/api/knowledge-bases",
+        headers=AUTH,
+        json={"name": "doc-list-kb", "description": ""},
+    )
+    assert kb.status_code == 201, kb.text
+    kb_id = kb.json()["id"]
+
+    r = client.get(f"/api/knowledge-bases/{kb_id}/documents", headers=AUTH)
+    assert r.status_code == 200
+    assert r.json() == []
+
+    patch = client.patch(
+        f"/api/knowledge-bases/{kb_id}",
+        headers=AUTH,
+        json={"name": "renamed-kb", "description": "d"},
+    )
+    assert patch.status_code == 200, patch.text
+    assert patch.json()["name"] == "renamed-kb"
+
+    # No file upload in unit test — skip delete of missing doc
+    del404 = client.delete(
+        f"/api/knowledge-bases/{kb_id}/documents/999999",
+        headers=AUTH,
+    )
+    assert del404.status_code == 404
+
+
+@requires_postgres
 def test_put_conversation_knowledge_bases_unknown_kb_returns_404():
     cr = client.post("/api/chat/conversations", headers=AUTH, json={})
     cid = cr.json()["id"]

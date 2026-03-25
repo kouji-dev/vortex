@@ -6,4 +6,7 @@ export const queryKeys = {
   conversation: (id: number) => ['conversation', id] as const,
   conversationMessagesTail: (id: number) =>
     ['conversation-messages', id, 'recent-tail'] as const,
+  knowledgeBases: () => ['knowledge-bases'] as const,
+  knowledgeBase: (id: number) => ['knowledge-base', id] as const,
+  knowledgeBaseDocuments: (id: number) => ['knowledge-base-documents', id] as const,
 }
