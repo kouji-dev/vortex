@@ -9,7 +9,7 @@
 
 **Structure:** Each section follows **Product / UX** then **Engineering — as implemented** then **Enterprise target — how we implement it** (phased).
 
-**Critique of what we removed:** `documents.assistant_id` and `POST /api/assistants/{id}/documents` tied corpus lifecycle to assistants and encouraged the wrong mental model. **Current code** uses **KB ownership** + **conversation attachment** instead; assistants are optional for **system prompt / model** only.
+**Model:** Corpus is **knowledge-base–owned**; **conversations** choose which KBs participate in retrieval. This document covers **KBs, documents, conversations, retrieval, injection, and related governance**—not catalog or persona features elsewhere in the registry.
 
 ---
 
@@ -17,15 +17,15 @@
 
 ### Product / UX
 
-- **RAG corpus** lives under a **knowledge base** (KB): documents are owned by the KB domain, not by an assistant or a chat thread.
-- **Grounding scope** = whichever KBs are **attached to this conversation** (chat thread). An **assistant** (if present) is only **persona / model / instructions**—not where the corpus hangs.
+- **RAG corpus** lives under a **knowledge base** (KB): documents are owned by the KB domain, not by the chat thread itself.
+- **Grounding scope** = whichever KBs are **attached to this conversation** (chat thread). Model choice and system instructions are **conversation-level** (or product defaults)—out of scope for this RAG spec.
 - **Chat attachments (C-04)** = ephemeral or thread-scoped files; not the same as **KB-backed RAG** unless explicitly unified later.
 - **Grounding (mechanism)** = the model receives **retrieved chunk text** in context and is instructed to use it; the user should eventually see **which sources** were used (citations).
 
 ### Engineering — as implemented
 
 - Retrieval applies when the client sends `use_rag: true` **and** the conversation has **at least one attached KB** (`StreamMessageBody` in `api/conversations.py`; legacy `ChatRequest` in `api/chat.py` uses the same rule via `conversation_knowledge_bases`).
-- Schema: `knowledge_bases`, `documents.knowledge_base_id`, `conversation_knowledge_bases` (composite PK), migration `013_kb_conv`. Existing installs: one KB per assistant that had documents, plus auto-link of that KB to conversations that used that assistant (preserves old RAG behavior until users reconfigure).
+- Schema: `knowledge_bases`, `documents.knowledge_base_id`, `conversation_knowledge_bases` (composite PK), migration `013_kb_conv`. Upgrades from older DBs may backfill KB rows and conversation links from legacy data; greenfield installs start with empty KBs until users create and attach them.
 - `ConversationRead` includes `knowledge_base_ids`; `PUT /api/chat/conversations/{id}/knowledge-bases` replaces the attached set (owner must own conversation and each KB).
 
 ### Enterprise target — how we implement it
@@ -41,10 +41,10 @@
 
 **Two delivery steps (intentional):**
 
-1. **KB domain** — First-class **knowledge bases**: create/rename/ACL/share documents under a KB; ingest and search are defined here. No assistant required.
-2. **Conversation binding** — Users **attach one or more KBs to a chat** (conversation). Retrieval for that thread uses **only** (or primarily) those KBs. Switching KBs = different thread or edit attachments—not “pick a different assistant” for corpus.
+1. **KB domain** — First-class **knowledge bases**: create/rename/ACL/share documents under a KB; ingest and search are defined here.
+2. **Conversation binding** — Users **attach one or more KBs to a chat** (conversation). Retrieval for that thread uses **only** (or primarily) those KBs. Switching KBs = different thread or edit attachments.
 
-Optional later: org-level **templates** (“start this conversation with KB A + B”)—still not “assistant owns the KB.”
+Optional later: org-level **templates** (“start this conversation with KB A + B”).
 
 ### Engineering — as implemented
 
@@ -58,7 +58,6 @@ Optional later: org-level **templates** (“start this conversation with KB A + 
 1. **Multi-tenant + shared KBs:** tenant id on `knowledge_bases`; `KnowledgeBaseAcl` or team shares; `can_access_knowledge_base(user, kb)` beyond owner-only.
 2. **Metadata on attach:** optional `attached_at`, `attached_by_user_id` on links; audit when KB set changes.
 3. **List documents per KB:** `GET /api/knowledge-bases/{id}/documents` (pagination, status).
-4. **Assistant:** Stays optional on `ChatConversation` for **instructions/model** only; **no** corpus on assistant.
 
 ---
 
@@ -206,13 +205,13 @@ Optional later: org-level **templates** (“start this conversation with KB A + 
 
 ### Engineering — as implemented
 
-- `use_rag` is a client-controlled flag; no server-side entitlement check dedicated to RAG (relies on auth + assistant access for legacy upload path).
+- `use_rag` is a client-controlled flag; no server-side entitlement check dedicated to RAG yet (relies on auth + KB/conversation ownership for attach and stream).
 
 ### Enterprise target — how we implement it
 
 1. **Claims:** Add `rag: bool` (and optionally quotas) to post-login entitlements payload.
 2. **Middleware / deps:** `require_entitlement("rag")` on KB upload/ingest APIs and on stream endpoints when `use_rag=true`.
-3. **Sensitive KBs:** Attaching a **restricted** KB to a conversation (or sharing a KB widely) may require **approval** (V-04)—policy is on **KB + conversation link**, not assistant publish.
+3. **Sensitive KBs:** Attaching a **restricted** KB to a conversation (or sharing a KB widely) may require **approval** (V-04)—policy is on **KB + conversation link**.
 
 ---
 
@@ -229,7 +228,7 @@ Optional later: org-level **templates** (“start this conversation with KB A + 
 
 ### Enterprise target — how we implement it
 
-1. **Structured logs:** One log line per request with `conversation_id`, `kb_ids`, `chunk_ids`, `top_k`, latency, `embedding_model` (and `assistant_id` only if present for persona).
+1. **Structured logs:** One log line per request with `conversation_id`, `kb_ids`, `chunk_ids`, `top_k`, latency, `embedding_model`.
 2. **Metrics:** Counter `rag_retrieval_total{outcome}`, histogram `rag_retrieval_latency_seconds`, gauge `ingest_queue_depth`.
 3. **Admin debug (O-03):** Read-only view: last ingest errors, chunk counts, model version.
 4. **Runbooks:** Re-embed, clear failed uploads, rotate embedding endpoint keys.
@@ -259,7 +258,7 @@ Optional later: org-level **templates** (“start this conversation with KB A + 
 
 | Item                                    | Note                                                                                                                                                                            |
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **R-08 Pipeline builder**               | Serialize ingest recipe (sources → extract → chunk → embed → index); worker executes versioned JSON; aligns with agent canvas **G-06** only at UX level.                        |
+| **R-08 Pipeline builder**               | Serialize ingest recipe (sources → extract → chunk → embed → index); worker executes versioned JSON; optional visual editor later (**R-08** in root registry).                        |
 | **Skip-generation / confidence (M-06)** | Server-side gate when similarity low or corpus empty.                                                                                                                           |
 | **Hybrid + rerank**                     | See §5.                                                                                                                                                                         |
 | **LangChain / chat migration**          | Chat provider may move to LangChain; **RAG stays portal-owned** (embed + retrieve + inject) per `[../plans/chat-langchain-migration.md](../plans/chat-langchain-migration.md)`. |
@@ -289,5 +288,4 @@ Optional later: org-level **templates** (“start this conversation with KB A + 
 2. **Citation UX:** inline markers vs side panel vs footnotes.
 3. **Tenant model:** row-level tenant id on all RAG tables vs separate DB per customer.
 4. **Public API:** whether OpenAI-compatible proxy exposes `use_rag` or corpus is always implicit.
-5. **Assistant + RAG:** confirm product rule: **never** infer KB list from assistant; optional UX-only “suggested KBs” is allowed if explicitly labeled as shortcuts, not ACL.
 
