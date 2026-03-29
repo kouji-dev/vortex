@@ -1,6 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as React from 'react'
 
+function fuzzyMatch(name: string, query: string): boolean {
+  if (!query) return true
+  const n = name.toLowerCase()
+  const q = query.toLowerCase()
+  let qi = 0
+  for (let i = 0; i < n.length && qi < q.length; i++) {
+    if (n[i] === q[qi]) qi++
+  }
+  return qi === q.length
+}
+
 import { getApiBase } from '~/lib/api-base'
 import { getAuthHeaders } from '~/lib/authorizedFetch'
 import type { Conversation } from '~/lib/chat-types'
@@ -76,7 +87,7 @@ export function KbPickerDialog({ conversationId, open, onClose }: KbPickerDialog
   const filtered = React.useMemo(() => {
     const q = search.trim().toLowerCase()
     if (!q) return sorted
-    return sorted.filter((kb) => kb.name.toLowerCase().includes(q))
+    return sorted.filter((kb) => fuzzyMatch(kb.name, q))
   }, [sorted, search])
 
   // Reset active index when filtered list changes
@@ -197,9 +208,12 @@ export function KbPickerDialog({ conversationId, open, onClose }: KbPickerDialog
                   📄
                 </span>
 
-                {/* Name */}
+                {/* Name + doc count */}
                 <span className="min-w-0 flex-1 truncate text-neutral-900 dark:text-neutral-100">
                   {kb.name}
+                </span>
+                <span className="shrink-0 text-xs text-neutral-400">
+                  {kb.document_count != null ? `${kb.document_count} docs` : '–'}
                 </span>
 
                 {/* Active indicator */}
