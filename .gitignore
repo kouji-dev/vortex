@@ -5,6 +5,11 @@ worktrees/
 # Local uploads (RAG)
 data/
 
+# E2E (local Playwright + API upload dir)
+.e2e-uploads/
+frontend/test-results/
+frontend/playwright-report/
+
 # Env & secrets
 .env
 .env.local

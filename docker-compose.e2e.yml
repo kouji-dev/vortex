@@ -1,0 +1,20 @@
+# Isolated stack for Playwright / manual E2E. Does not touch local-dev volumes.
+# Usage: docker compose -f docker-compose.e2e.yml up -d
+name: local-e2e
+
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    container_name: local-e2e-ai-portal-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ai_portal_e2e
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "127.0.0.1:5435:5432"
+    volumes:
+      - ai-portal-e2e-db-data:/var/lib/postgresql/data
+
+volumes:
+  ai-portal-e2e-db-data:

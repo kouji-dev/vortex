@@ -162,6 +162,7 @@ export function KbPickerDialog({ conversationId, open, onClose }: KbPickerDialog
             placeholder="Search knowledge bases…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            data-testid="kb-picker-search"
             className="min-w-0 flex-1 bg-transparent text-sm text-neutral-900 placeholder-neutral-400 outline-none dark:text-neutral-100"
           />
           {saveMut.isPending && (

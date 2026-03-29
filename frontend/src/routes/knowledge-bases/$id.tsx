@@ -3,9 +3,15 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { ArrowLeft, Trash2 } from 'lucide-react'
 import * as React from 'react'
 
+import { KnowledgeBaseConnectorsSection } from '~/components/knowledge-bases/KnowledgeBaseConnectorsSection'
 import { getApiBase } from '~/lib/api-base'
 import { getAuthHeaders } from '~/lib/authorizedFetch'
-import type { KnowledgeBaseDocument, KnowledgeBaseSummary } from '~/lib/knowledge-base-types'
+import {
+  type KnowledgeBaseDocument,
+  type KnowledgeBaseSummary,
+  knowledgeBaseListFromResponse,
+  parseKnowledgeBaseDocumentsListJson,
+} from '~/lib/knowledge-base-types'
 import { queryKeys } from '~/lib/queryKeys'
 
 export const Route = createFileRoute('/knowledge-bases/$id')({
@@ -37,8 +43,8 @@ function KnowledgeBaseDetailPage() {
       const res = await fetch(`${apiBase}/api/knowledge-bases/${kbId}/documents`, {
         headers: await getAuthHeaders(),
       })
-      if (!res.ok) throw new Error(await res.text())
-      return res.json() as Promise<KnowledgeBaseDocument[]>
+      const text = await res.text()
+      return knowledgeBaseListFromResponse(res, text, parseKnowledgeBaseDocumentsListJson)
     },
     enabled: Number.isFinite(kbId),
   })
@@ -191,17 +197,20 @@ function KnowledgeBaseDetailPage() {
             </div>
           </section>
 
+          <KnowledgeBaseConnectorsSection knowledgeBaseId={kbId} />
+
           <section aria-labelledby="kb-upload-heading">
             <h2 id="kb-upload-heading" className="mb-2 text-sm font-medium text-neutral-900 dark:text-neutral-100">
-              Upload documents
+              Upload documents (files connector)
             </h2>
             <p className="mb-2 text-xs text-neutral-500 dark:text-neutral-400">
-              .txt, .md, .pdf — ingest runs on the server (may take a moment).
+              .txt, .md, .pdf — ingest runs on the server immediately after upload (may take a moment).
             </p>
             <input
               ref={fileRef}
               type="file"
               accept=".txt,.md,.pdf,text/plain,text/markdown,application/pdf"
+              data-testid="kb-upload-input"
               className="block text-sm text-neutral-600 file:mr-3 file:rounded-md file:border-0 file:bg-neutral-200 file:px-3 file:py-1.5 file:text-sm dark:text-neutral-400 dark:file:bg-neutral-800"
               disabled={uploadMut.isPending}
               onChange={(e) => {
