@@ -50,9 +50,7 @@ type ChatComposerDockProps = {
   onStop: () => void
   inputThemed: string
   composerDisabled?: boolean
-  showRag?: boolean
-  useRag?: boolean
-  setUseRag?: (v: boolean) => void
+  kbSlot?: React.ReactNode
   selectedCatalogModel: CatalogModelEntry | null
   tuning: SessionModelTuning
   onTuningChange: (t: SessionModelTuning) => void
@@ -101,9 +99,7 @@ export function ChatComposerDock({
   onStop,
   inputThemed,
   composerDisabled,
-  showRag,
-  useRag,
-  setUseRag,
+  kbSlot,
   selectedCatalogModel,
   tuning,
   onTuningChange,
@@ -287,21 +283,6 @@ export function ChatComposerDock({
                     </button>
                   )
                 })}
-                {showRag && setUseRag && (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className="flex w-full px-2.5 py-1.5 text-left text-xs hover:bg-neutral-100 disabled:opacity-50 dark:hover:bg-neutral-900"
-                    disabled={streaming}
-                    onClick={() => {
-                      setUseRag(!useRag)
-                      setPlusOpen(false)
-                    }}
-                  >
-                    <span className={useRag ? 'font-medium' : ''}>RAG</span>
-                    {useRag && <span className="ml-auto text-xs text-neutral-400">on</span>}
-                  </button>
-                )}
                 <div className="my-0.5 border-t border-neutral-100 dark:border-neutral-800" />
                 <button
                   type="button"
@@ -409,8 +390,7 @@ export function ChatComposerDock({
 
             {(capabilities.reflection ||
               capabilities.research ||
-              capabilities.web ||
-              (showRag && useRag)) && (
+              capabilities.web) && (
               <div className="flex min-w-0 flex-wrap items-center gap-1">
                 {capabilities.reflection && (
                   <CapabilityTag
@@ -433,16 +413,11 @@ export function ChatComposerDock({
                     onRemove={() => onToggleCapability('web')}
                   />
                 )}
-                {showRag && useRag && setUseRag && (
-                  <CapabilityTag
-                    label="RAG"
-                    disabled={streaming}
-                    onRemove={() => setUseRag(false)}
-                  />
-                )}
               </div>
             )}
           </div>
+
+          {kbSlot != null && <div className="shrink-0">{kbSlot}</div>}
 
           <div className="shrink-0">
             {streaming ? (
