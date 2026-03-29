@@ -533,7 +533,7 @@ def stream_message(
                 )
         except ValueError:
             logger.warning("rag_skipped_no_embedding_key")
-    elif not kb_ids:
+    else:
         logger.debug(
             "rag_no_knowledge_bases_attached", extra={"conversation_id": conv.id}
         )
