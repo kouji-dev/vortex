@@ -519,10 +519,11 @@ def stream_message(
     else:
         system_parts.append(settings.default_system_prompt.strip())
 
-    if body.use_rag and kb_ids:
+    used_kbs_meta: list[dict] = []
+    if kb_ids:
         try:
             q_emb = embedding_svc.embed_texts([user_content])[0]
-            rag_block = rag_svc.retrieve_context(
+            rag_block, used_kbs_meta = rag_svc.retrieve_context_with_meta(
                 db, knowledge_base_ids=kb_ids, query_embedding=q_emb
             )
             if rag_block:
@@ -532,7 +533,7 @@ def stream_message(
                 )
         except ValueError:
             logger.warning("rag_skipped_no_embedding_key")
-    elif body.use_rag and not kb_ids:
+    elif not kb_ids:
         logger.debug(
             "rag_no_knowledge_bases_attached", extra={"conversation_id": conv.id}
         )
@@ -600,7 +601,12 @@ def stream_message(
 
         reply = "".join(full)
         db.add(
-            ChatMessage(conversation_id=conv.id, role="assistant", content=reply)
+            ChatMessage(
+                conversation_id=conv.id,
+                role="assistant",
+                content=reply,
+                extra={"used_kbs": used_kbs_meta} if used_kbs_meta else None,
+            )
         )
         db.commit()
         yield _sse({"type": "done", "message_id": _tail_message_id()})
