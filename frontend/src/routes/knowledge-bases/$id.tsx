@@ -91,8 +91,10 @@ function KnowledgeBaseDetailPage() {
       return res.json() as Promise<{ document_id: number; status: string }>
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: queryKeys.knowledgeBaseDocuments(kbId) })
       if (fileRef.current) fileRef.current.value = ''
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: queryKeys.knowledgeBaseDocuments(kbId) })
     },
   })
 
