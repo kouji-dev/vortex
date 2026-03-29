@@ -1,4 +1,4 @@
-import * as React from 'react'
+import * as Popover from '@radix-ui/react-popover'
 
 import type { UsedKbEntry } from '~/lib/chat-types'
 
@@ -7,40 +7,35 @@ export interface MessageKbIndicatorProps {
 }
 
 export function MessageKbIndicator({ usedKbs }: MessageKbIndicatorProps) {
-  const [visible, setVisible] = React.useState(false)
-
   if (!usedKbs || usedKbs.length === 0) return null
 
   return (
-    <span
-      className="relative inline-flex items-center"
-      onMouseEnter={() => setVisible(true)}
-      onMouseLeave={() => setVisible(false)}
-    >
-      {/* Trigger icon */}
-      <span
-        className="cursor-default select-none text-[10px] leading-none text-green-500"
-        aria-label="Knowledge bases used"
-      >
-        📚
-      </span>
-
-      {/* Popover — shown on hover, positioned above */}
-      {visible && (
-        <div
-          className="absolute bottom-full left-1/2 z-50 mb-1.5 w-72 -translate-x-1/2 rounded-lg border border-neutral-700 bg-neutral-800 p-3 shadow-xl"
-          role="tooltip"
+    <Popover.Root modal={false}>
+      <Popover.Trigger asChild>
+        <button
+          type="button"
+          data-testid="message-kb-indicator-trigger"
+          className="inline-flex cursor-pointer select-none border-0 bg-transparent p-0 text-[10px] leading-none text-green-500 underline-offset-2 hover:underline"
+          aria-label="Knowledge bases used — show details"
         >
-          {/* Arrow */}
-          <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2">
-            <div className="h-2.5 w-2.5 rotate-45 border-b border-r border-neutral-700 bg-neutral-800" />
-          </div>
-
+          📚
+        </button>
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Content
+          side="top"
+          align="center"
+          sideOffset={6}
+          collisionPadding={8}
+          data-testid="message-kb-indicator-popover"
+          className="z-100 w-72 rounded-lg border border-neutral-700 bg-neutral-800 p-3 text-left shadow-xl outline-none"
+          onCloseAutoFocus={(e) => e.preventDefault()}
+        >
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
             Knowledge bases used
           </p>
 
-          <ul className="flex flex-col gap-2">
+          <ul className="flex max-h-64 flex-col gap-2 overflow-y-auto">
             {usedKbs.map((kb) => (
               <li key={kb.kb_id} className="flex flex-col gap-0.5">
                 <div className="flex items-center gap-1.5">
@@ -73,8 +68,8 @@ export function MessageKbIndicator({ usedKbs }: MessageKbIndicatorProps) {
               </li>
             ))}
           </ul>
-        </div>
-      )}
-    </span>
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
   )
 }
