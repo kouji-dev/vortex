@@ -69,6 +69,12 @@ Optional UI mode: `npm run test:e2e:ui`
 
 First-time browser binaries: `npx playwright install`
 
+## TanStack Start / hydration
+
+Use `waitUntil: 'networkidle'` (or wait for the client bundle to finish) before clicking UI that depends on React state. Otherwise the first click can run before hydration and the create dialog will not open.
+
 ## Ingest / embeddings
 
-Uploads run server-side ingest that calls the embedding API. **With** `LLM_API_KEY` / OpenAI-compatible keys configured, documents typically reach status **`ready`**. **Without** keys, ingest usually ends as **`failed`**. Tests accept **`ready` or `failed`** once the row appears, as long as the filename matches.
+Uploads run server-side ingest that calls the embedding API. **With** `LLM_API_KEY` / OpenAI-compatible keys configured, documents typically reach status **`ready`** and the UI shows a table row.
+
+**Without** keys, ingest fails: the API still stores the document as **`failed`** but responds with **HTTP 500**, so the SPA shows an **ingest error alert** instead of refreshing the documents table. The KB E2E spec accepts either a visible row (`ready` / `failed`) or that alert plus verification via **`GET /api/knowledge-bases/{id}/documents`** that `sample-e2e.txt` exists with status **`failed`**.
