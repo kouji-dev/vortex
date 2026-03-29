@@ -4,18 +4,37 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ai_portal.models import Document, DocumentChunk
+from ai_portal.models.knowledge_base import KnowledgeBase
 
 
-def retrieve_context(
+def _cosine_score(chunk: DocumentChunk, query_embedding: list[float]) -> float:
+    """Return 1 - cosine_distance as a similarity score (0–1). Used for metadata only."""
+    try:
+        dist = chunk.embedding.cosine_distance(query_embedding)
+        return round(max(0.0, 1.0 - float(dist)), 4)
+    except (TypeError, ValueError, ZeroDivisionError):
+        return 0.0
+
+
+def retrieve_context_with_meta(
     db: Session,
     *,
     knowledge_base_ids: list[int],
     query_embedding: list[float],
     top_k: int = 5,
-) -> str:
-    """Return concatenated chunk text for KB-scoped similarity search."""
+) -> tuple[str, list[dict]]:
+    """
+    Run KB-scoped similarity search.
+
+    Returns:
+        (context_text, used_kbs_meta)
+
+    where used_kbs_meta is a list of dicts:
+        [{"kb_id": int, "kb_name": str, "chunks_used": int, "top_score": float, "sections": list[str]}]
+    """
     if not knowledge_base_ids:
-        return ""
+        return "", []
+
     doc_ids = select(Document.id).where(
         Document.knowledge_base_id.in_(knowledge_base_ids),
         Document.status == "ready",
@@ -31,5 +50,65 @@ def retrieve_context(
     )
     chunks = list(db.scalars(stmt))
     if not chunks:
-        return ""
-    return "\n\n".join(c.content for c in chunks)
+        return "", []
+
+    # Map document_id → knowledge_base_id
+    doc_id_to_kb: dict[int, int] = {}
+    for doc in db.scalars(
+        select(Document).where(Document.id.in_([c.document_id for c in chunks]))
+    ).all():
+        doc_id_to_kb[doc.id] = doc.knowledge_base_id
+
+    # Fetch KB names for the contributing KBs
+    contributing_kb_ids = list({doc_id_to_kb[c.document_id] for c in chunks if c.document_id in doc_id_to_kb})
+    kb_name_map: dict[int, str] = {}
+    for kb in db.scalars(
+        select(KnowledgeBase).where(KnowledgeBase.id.in_(contributing_kb_ids))
+    ).all():
+        kb_name_map[kb.id] = kb.name
+
+    # Group chunks by KB
+    kb_chunks: dict[int, list[DocumentChunk]] = {}
+    for chunk in chunks:
+        kb_id = doc_id_to_kb.get(chunk.document_id)
+        if kb_id is not None:
+            kb_chunks.setdefault(kb_id, []).append(chunk)
+
+    # Build metadata list
+    used_kbs_meta: list[dict] = []
+    for kb_id, kb_chunk_list in kb_chunks.items():
+        scores = [_cosine_score(c, query_embedding) for c in kb_chunk_list]
+        sections_seen: set[str] = set()
+        sections: list[str] = []
+        for c in kb_chunk_list:
+            if isinstance(c.meta, dict):
+                src = c.meta.get("source") or c.meta.get("page") or c.meta.get("section")
+                if src and str(src) not in sections_seen:
+                    sections_seen.add(str(src))
+                    sections.append(str(src))
+        used_kbs_meta.append(
+            {
+                "kb_id": kb_id,
+                "kb_name": kb_name_map.get(kb_id, f"KB {kb_id}"),
+                "chunks_used": len(kb_chunk_list),
+                "top_score": max(scores) if scores else 0.0,
+                "sections": sections,
+            }
+        )
+
+    context = "\n\n".join(c.content for c in chunks)
+    return context, used_kbs_meta
+
+
+def retrieve_context(
+    db: Session,
+    *,
+    knowledge_base_ids: list[int],
+    query_embedding: list[float],
+    top_k: int = 5,
+) -> str:
+    """Backward-compatible wrapper — returns context string only."""
+    context, _ = retrieve_context_with_meta(
+        db, knowledge_base_ids=knowledge_base_ids, query_embedding=query_embedding, top_k=top_k
+    )
+    return context
