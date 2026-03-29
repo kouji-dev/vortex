@@ -119,6 +119,35 @@ def test_connectors_crud_and_sync_job_runs():
 
 
 @requires_postgres
+def test_upload_document_returns_200_when_ingest_fails():
+    """Stored file + document row always return 200; ingest errors surface as status failed + ingest_error."""
+    kb = client.post(
+        "/api/knowledge-bases",
+        headers=AUTH,
+        json={"name": "upload-ingest-kb", "description": ""},
+    )
+    assert kb.status_code == 201, kb.text
+    kb_id = kb.json()["id"]
+
+    up = client.post(
+        f"/api/knowledge-bases/{kb_id}/documents",
+        headers=AUTH,
+        files={"file": ("e2e.txt", b"hello from pytest upload", "text/plain")},
+    )
+    assert up.status_code == 200, up.text
+    body = up.json()
+    assert body["document_id"]
+    assert body["status"] in ("ready", "failed")
+
+    listed = client.get(f"/api/knowledge-bases/{kb_id}/documents", headers=AUTH)
+    assert listed.status_code == 200
+    rows = listed.json()
+    assert any(r["filename"] == "e2e.txt" for r in rows)
+    row = next(r for r in rows if r["filename"] == "e2e.txt")
+    assert row["status"] == body["status"]
+
+
+@requires_postgres
 def test_put_conversation_knowledge_bases_unknown_kb_returns_404():
     cr = client.post("/api/chat/conversations", headers=AUTH, json={})
     cid = cr.json()["id"]

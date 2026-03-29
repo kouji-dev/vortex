@@ -75,6 +75,7 @@ Use `waitUntil: 'networkidle'` (or wait for the client bundle to finish) before 
 
 ## Ingest / embeddings
 
-Uploads run server-side ingest that calls the embedding API. **With** `LLM_API_KEY` / OpenAI-compatible keys configured, documents typically reach status **`ready`** and the UI shows a table row.
+Uploads return **HTTP 200** once the file is stored. Ingest then sets document `status` to **`ready`** or **`failed`**; the UI refreshes the documents table in both cases.
 
-**Without** keys, ingest fails: the API still stores the document as **`failed`** but responds with **HTTP 500**, so the SPA shows an **ingest error alert** instead of refreshing the documents table. The KB E2E spec accepts either a visible row (`ready` / `failed`) or that alert plus verification via **`GET /api/knowledge-bases/{id}/documents`** that `sample-e2e.txt` exists with status **`failed`**.
+- **Default KB test** waits until the row shows **`ready` or `failed`** (without an embedding key you usually see **`failed`**).
+- **Strict ingest test** (optional): set **`E2E_REQUIRE_INGEST_READY=1`** when running Playwright **and** start the API with a working **`OPENAI_API_KEY`** / **`LLM_API_KEY`** so embeddings succeed; that test asserts **`ready`** only (it is skipped if the env flag is not set).

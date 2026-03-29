@@ -4,15 +4,33 @@ import asyncio
 import logging
 import uuid
 from pathlib import Path
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    HTTPException,
+    Query,
+    UploadFile,
+    status,
+)
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ai_portal.api.deps import get_current_user, get_db
 from ai_portal.config import get_settings
-from ai_portal.models import Document, KnowledgeBase, User
+from ai_portal.models import (
+    ConnectorSyncJob,
+    Document,
+    KnowledgeBase,
+    KnowledgeBaseConnector,
+    User,
+)
+from ai_portal.models.connector import CONNECTOR_KINDS
+from ai_portal.tasks.connector_jobs import run_connector_sync_job
 from ai_portal.tasks.ingest import ingest_document
 
 router = APIRouter(prefix="/api/knowledge-bases", tags=["knowledge-bases"])
@@ -49,11 +67,63 @@ class DocumentRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+ConnectorKind = Literal["files", "github", "gitlab", "confluence", "s3"]
+
+
+class KnowledgeBaseConnectorCreate(BaseModel):
+    kind: ConnectorKind
+    label: str = Field(default="", max_length=255)
+    settings: dict = Field(default_factory=dict)
+
+
+class KnowledgeBaseConnectorPatch(BaseModel):
+    label: str | None = Field(default=None, max_length=255)
+    settings: dict | None = None
+    enabled: bool | None = None
+
+
+class KnowledgeBaseConnectorRead(BaseModel):
+    id: int
+    knowledge_base_id: int
+    kind: str
+    label: str
+    settings: dict
+    enabled: bool
+    created_at: object
+
+    model_config = {"from_attributes": True}
+
+
+class ConnectorSyncJobRead(BaseModel):
+    id: int
+    knowledge_base_id: int
+    connector_id: int
+    job_type: str
+    status: str
+    error_message: str | None
+    meta: dict
+    created_at: object
+    started_at: object | None
+    finished_at: object | None
+
+    model_config = {"from_attributes": True}
+
+
 def _get_owned_kb(db: Session, user: User, kb_id: int) -> KnowledgeBase:
     kb = db.get(KnowledgeBase, kb_id)
     if kb is None or kb.owner_user_id != user.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Knowledge base not found")
     return kb
+
+
+def _get_owned_connector(
+    db: Session, user: User, kb_id: int, connector_id: int
+) -> KnowledgeBaseConnector:
+    _get_owned_kb(db, user, kb_id)
+    c = db.get(KnowledgeBaseConnector, connector_id)
+    if c is None or c.knowledge_base_id != kb_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Connector not found")
+    return c
 
 
 @router.post("", response_model=KnowledgeBaseRead, status_code=status.HTTP_201_CREATED)
@@ -85,6 +155,145 @@ def list_knowledge_bases(
             .order_by(KnowledgeBase.id.desc())
         ).all()
     )
+
+
+@router.get(
+    "/{knowledge_base_id}/connector-jobs",
+    response_model=list[ConnectorSyncJobRead],
+)
+def list_connector_jobs(
+    knowledge_base_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+) -> list[ConnectorSyncJob]:
+    _get_owned_kb(db, user, knowledge_base_id)
+    return list(
+        db.scalars(
+            select(ConnectorSyncJob)
+            .where(ConnectorSyncJob.knowledge_base_id == knowledge_base_id)
+            .order_by(ConnectorSyncJob.id.desc())
+            .limit(limit)
+        ).all()
+    )
+
+
+@router.get(
+    "/{knowledge_base_id}/connectors",
+    response_model=list[KnowledgeBaseConnectorRead],
+)
+def list_connectors(
+    knowledge_base_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> list[KnowledgeBaseConnector]:
+    _get_owned_kb(db, user, knowledge_base_id)
+    return list(
+        db.scalars(
+            select(KnowledgeBaseConnector)
+            .where(KnowledgeBaseConnector.knowledge_base_id == knowledge_base_id)
+            .order_by(KnowledgeBaseConnector.id.asc())
+        ).all()
+    )
+
+
+@router.post(
+    "/{knowledge_base_id}/connectors",
+    response_model=KnowledgeBaseConnectorRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_connector(
+    knowledge_base_id: int,
+    body: KnowledgeBaseConnectorCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> KnowledgeBaseConnector:
+    _get_owned_kb(db, user, knowledge_base_id)
+    if body.kind not in CONNECTOR_KINDS:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="Invalid connector kind",
+        )
+    c = KnowledgeBaseConnector(
+        knowledge_base_id=knowledge_base_id,
+        kind=body.kind,
+        label=(body.label or "").strip(),
+        settings=body.settings or {},
+        enabled=True,
+    )
+    db.add(c)
+    db.commit()
+    db.refresh(c)
+    return c
+
+
+@router.patch(
+    "/{knowledge_base_id}/connectors/{connector_id}",
+    response_model=KnowledgeBaseConnectorRead,
+)
+def patch_connector(
+    knowledge_base_id: int,
+    connector_id: int,
+    body: KnowledgeBaseConnectorPatch,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> KnowledgeBaseConnector:
+    c = _get_owned_connector(db, user, knowledge_base_id, connector_id)
+    if body.label is not None:
+        c.label = body.label.strip()
+    if body.settings is not None:
+        c.settings = body.settings
+    if body.enabled is not None:
+        c.enabled = body.enabled
+    db.commit()
+    db.refresh(c)
+    return c
+
+
+@router.delete(
+    "/{knowledge_base_id}/connectors/{connector_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_connector(
+    knowledge_base_id: int,
+    connector_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> None:
+    c = _get_owned_connector(db, user, knowledge_base_id, connector_id)
+    db.delete(c)
+    db.commit()
+
+
+@router.post(
+    "/{knowledge_base_id}/connectors/{connector_id}/sync",
+    response_model=ConnectorSyncJobRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def enqueue_connector_sync(
+    knowledge_base_id: int,
+    connector_id: int,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ConnectorSyncJob:
+    c = _get_owned_connector(db, user, knowledge_base_id, connector_id)
+    if not c.enabled:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="Connector is disabled",
+        )
+    job = ConnectorSyncJob(
+        knowledge_base_id=knowledge_base_id,
+        connector_id=connector_id,
+        job_type="full_sync",
+        status="queued",
+    )
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+    background_tasks.add_task(run_connector_sync_job, job.id)
+    return job
 
 
 @router.get("/{knowledge_base_id}", response_model=KnowledgeBaseRead)
@@ -182,10 +391,9 @@ async def upload_document(
         logger.exception("ingest_failed", extra={"document_id": doc.id})
         doc.status = "failed"
         db.commit()
-        raise HTTPException(
-            status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Ingest failed: {e}",
-        ) from e
+        db.refresh(doc)
+        # 200: file is stored and the document row reflects ingest outcome (UI can refresh the list).
+        return {"document_id": doc.id, "status": doc.status, "ingest_error": str(e)}
 
     db.refresh(doc)
     return {"document_id": doc.id, "status": doc.status}

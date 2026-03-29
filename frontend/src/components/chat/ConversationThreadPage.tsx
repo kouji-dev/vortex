@@ -8,8 +8,7 @@ import {
   resolveSelectedCatalogModel,
   type CapabilityKey,
 } from '~/components/chat/ChatComposerDock'
-import { KbPickerDialog } from '~/components/knowledge-bases/KbPickerDialog'
-import { KbsToolbarButton } from '~/components/knowledge-bases/KbsToolbarButton'
+import { KbChatPicker } from '~/components/knowledge-bases/KbChatPicker'
 import { MessageKbIndicator } from '~/components/knowledge-bases/MessageKbIndicator'
 import { EmptyConversationState } from '~/components/chat/EmptyConversationState'
 import { MarkdownMessage } from '~/components/chat/MarkdownMessage'
@@ -29,10 +28,6 @@ import {
 } from '~/lib/chat-types'
 import { isConversationNotFoundError } from '~/lib/conversation-not-found'
 import { getAuthHeaders } from '~/lib/authorizedFetch'
-import {
-  knowledgeBaseListFromResponse,
-  parseKnowledgeBasesListJson,
-} from '~/lib/knowledge-base-types'
 import { queryKeys } from '~/lib/queryKeys'
 import { parseSseBlocks } from '~/lib/sse-parse'
 import { useConversationsOutlet } from '~/contexts/ConversationsOutletContext'
@@ -61,7 +56,6 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
   const [streamingText, setStreamingText] = React.useState('')
   const [streaming, setStreaming] = React.useState(false)
   const [sendError, setSendError] = React.useState<string | null>(null)
-  const [kbPickerOpen, setKbPickerOpen] = React.useState(false)
   const [modelDraft, setModelDraft] = React.useState('')
   const [olderMessages, setOlderMessages] = React.useState<ChatMessage[]>([])
   const [canLoadOlder, setCanLoadOlder] = React.useState(false)
@@ -83,22 +77,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
   const convQ = useConversationQuery(conversationId)
   const catalogQ = useCatalogModelsQuery()
 
-  const kbListQ = useQuery({
-    queryKey: queryKeys.knowledgeBases(),
-    queryFn: async () => {
-      const res = await fetch(`${getApiBase()}/api/knowledge-bases`, {
-        headers: await getAuthHeaders(),
-      })
-      const text = await res.text()
-      return knowledgeBaseListFromResponse(res, text, parseKnowledgeBasesListJson)
-    },
-    enabled: !isComposerMode,
-  })
-
   const knowledge_base_ids = convQ.data?.knowledge_base_ids ?? []
-  const activeKbs = (kbListQ.data ?? [])
-    .filter((kb) => knowledge_base_ids.includes(kb.id))
-    .map((kb) => ({ id: kb.id, name: kb.name, document_count: kb.document_count }))
 
   const activeChatModel = isComposerMode ? draftModel : modelDraft
   const selectedCatalogModel = resolveSelectedCatalogModel(catalogQ.data, activeChatModel)
@@ -735,14 +714,6 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
         </div>
       )}
 
-      {!isComposerMode && conversationId != null && (
-        <KbPickerDialog
-          conversationId={conversationId}
-          open={kbPickerOpen}
-          onClose={() => setKbPickerOpen(false)}
-        />
-      )}
-
       <div className="w-full shrink-0">
       <ChatComposerDock
         models={catalogQ.data}
@@ -769,11 +740,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
         inputThemed={inputThemed}
         kbSlot={
           !isComposerMode && conversationId != null ? (
-            <KbsToolbarButton
-              activeCount={knowledge_base_ids.length}
-              activeKbs={activeKbs}
-              onOpen={() => setKbPickerOpen(true)}
-            />
+            <KbChatPicker conversationId={conversationId} activeCount={knowledge_base_ids.length} />
           ) : undefined
         }
         selectedCatalogModel={selectedCatalogModel}
