@@ -1,5 +1,13 @@
 /** Mirrors backend `ConversationRead` / `MessageRead` where the UI needs them. */
 
+export interface UsedKbEntry {
+  kb_id: number
+  kb_name: string
+  chunks_used: number
+  top_score: number
+  sections: string[]
+}
+
 export type CapabilityToggles = {
   reflection: boolean
   research: boolean
@@ -29,6 +37,7 @@ export type ChatMessage = {
   content: string
   created_at: string
   extra: Record<string, unknown> | null
+  used_kbs?: UsedKbEntry[] | null
 }
 
 /** Router `location.state` — first stream after creating a conversation from the composer. */
