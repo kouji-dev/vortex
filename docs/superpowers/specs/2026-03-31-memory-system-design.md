@@ -178,47 +178,118 @@ Both workers are lightweight (single LLM call each) and can run on the same work
 
 ---
 
-## 5. UI Surface
+## 5. Frontend Integration
 
-### Memory panel (sidebar)
+### 5.1 Memory panel (sidebar)
 
-- Lists all user memories (active shown first, inactive dimmed)
-- Toggle switch per memory (attach/detach)
-- "Add memory" button (free-text input)
-- Edit inline / delete with confirmation
-- Auto-extracted memories shown with a subtle "auto" badge
+Add a **Memories** entry to `AppSidebar.tsx` (between Chat and Knowledge Bases):
 
-### Conversation view
+```tsx
+<Link to="/memories">
+  <BrainIcon />
+  {!compact && "Memories"}
+</Link>
+```
 
-- Small "memories active" indicator when profile memories are being injected (e.g. brain icon with count)
-- No visual noise for conversation summarization — it's transparent to the user
+New route: `routes/memories/index.tsx` → `MemoriesPage` component.
 
-### Settings page
+**`MemoriesPage` layout:**
+```
+┌─────────────────────────────────────────┐
+│  Memories                    [+ Add]    │
+│                                         │
+│  ● User prefers Python over JS  [auto] ✕│  ← active (toggle on)
+│  ○ Works at Acme Corp          [auto] ✕│  ← inactive (toggle off, dimmed)
+│  ● Wants concise answers      [manual] ✕│
+│                                         │
+│  [conversation window: 30 ──────── ]    │
+│  [ ] Disable auto-extraction            │
+└─────────────────────────────────────────┘
+```
 
-- `conversation_window_size` — user-adjustable slider (10–100)
-- Toggle to disable auto-extraction globally
+- Each memory row: toggle switch (active/inactive), content text, source badge (`auto` / `manual`), delete button
+- Inline edit: click content text to edit in place, press Enter or blur to save (`PATCH`)
+- "Add memory" opens a small inline form (text input + confirm)
+- Settings at bottom of page: window size slider (10–100), auto-extraction toggle
+
+**React Query hooks:**
+```typescript
+// lib/queryKeys.ts
+memories: () => ['memories']
+
+// hooks/useMemoriesQuery.ts
+useMemoriesQuery()           // GET /users/me/memories
+useCreateMemoryMutation()    // POST /users/me/memories
+useUpdateMemoryMutation()    // PATCH /users/me/memories/{id}
+useDeleteMemoryMutation()    // DELETE /users/me/memories/{id}
+```
+
+All mutations invalidate `memories` query key on success.
+
+### 5.2 Conversation view — memories indicator
+
+**`ConversationThreadPage.tsx`** — add a small indicator in the chat header when profile memories are active:
+
+```tsx
+{activeMemoryCount > 0 && (
+  <span title={`${activeMemoryCount} memories active`}>
+    <BrainIcon size={14} />
+    {activeMemoryCount}
+  </span>
+)}
+```
+
+Clicking the indicator navigates to `/memories` — no inline panel needed (keeps the chat UI clean).
+
+### 5.3 Conversation summarization — transparent to user
+
+No UI change needed for the sliding window / summarization. It's invisible by default. The only visible effect is that very long conversations stay fast and coherent — which is the feature.
+
+Optional future enhancement: a "conversation summary" collapse at the top of the message list showing what was summarized (Phase 3+).
+
+### 5.4 HomePage additions
+
+Add a **Memories** feature card to `HomePage.tsx` alongside Chat and Knowledge Bases:
+
+```tsx
+<FeatureCard to="/memories" title="Memories" icon={BrainIcon}
+  description="Facts the assistant knows about you, across all conversations." />
+```
+
+### Frontend files touched
+
+- `frontend/src/components/layout/AppSidebar.tsx` — Memories nav link
+- `frontend/src/routes/memories/index.tsx` — new route + MemoriesPage
+- `frontend/src/components/memories/MemoriesPage.tsx` — new component
+- `frontend/src/components/chat/ConversationThreadPage.tsx` — memories active indicator
+- `frontend/src/components/home/HomePage.tsx` — Memories feature card
+- `frontend/src/lib/queryKeys.ts` — memories query key
+- `frontend/src/hooks/useMemoriesQuery.ts` — new hook
 
 ---
 
-## 6. Implementation order
+## 6. Implementation order (updated)
 
 ```
-Phase 1 — Conversation sliding window:
-  - Add summary + last_message_at to ChatConversation
+Phase 1 — Conversation sliding window (backend + transparent):
+  - Add summary + last_message_at to ChatConversation (migration)
   - Implement window slicing in conversations.py
   - Background summarizer worker
   - Inactivity + window-boundary triggers
 
-Phase 2 — User profile memories:
+Phase 2 — User profile memories (backend):
   - user_memories table + migration
   - Auto-extraction worker
   - Profile memory injection in system prompt
   - CRUD API endpoints
 
-Phase 3 — UI:
-  - Memory panel in sidebar
-  - Memories indicator in conversation view
-  - Settings controls
+Phase 3 — Frontend:
+  - MemoriesPage + route
+  - AppSidebar Memories nav link
+  - Memories active indicator in ConversationThreadPage
+  - HomePage Memories feature card
+  - React Query hooks for memories
+  - Settings controls (window size, auto-extraction toggle)
 ```
 
 ---

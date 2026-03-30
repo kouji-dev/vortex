@@ -255,7 +255,63 @@ Both searches run in parallel (two DB queries, merged in Python).
 
 ---
 
-## 5. Implementation order (phased)
+## 5. Frontend Integration
+
+### 5.1 Ingest progress tracking
+
+**KB detail page (`routes/knowledge-bases/$id.tsx`):**
+- Each document row shows a real-time progress bar when `status === "ingesting"`
+- Progress bar reads from `GET /knowledge-bases/{kb_id}/documents/{doc_id}/progress` → `{ chunks_done, chunks_total }`
+- Poll every 1.5s while any document is ingesting (same pattern as `KnowledgeBaseConnectorsSection` auto-refetch)
+- When `chunks_total` is known: show `chunks_done / chunks_total chunks` with a percentage bar
+- When `chunks_total` is null (file scan not yet complete): show an indeterminate spinner
+- On completion (`status === "ready"`): invalidate document list query, stop polling
+
+**Upload flow (`CreateKnowledgeBaseDialog.tsx`):**
+- Add file size validation client-side before upload — reject files above `kb_max_file_size_mb` with a clear error message (avoid a silent server rejection)
+- Show per-file upload progress via `XMLHttpRequest` or `fetch` with `ReadableStream` — progress bar during the HTTP upload itself, then transition to the ingest progress bar
+
+### 5.2 Tool-call RAG — streaming UI changes
+
+**`ConversationThreadPage.tsx`:**
+- When the model emits a tool call during streaming, the stream momentarily pauses
+- Show an inline **"Searching knowledge bases..."** indicator in the streaming bubble (not a full spinner — a subtle animated text or pulsing icon)
+- When tool result is returned and streaming resumes, the indicator disappears and tokens flow normally
+- The existing `MessageKbIndicator` (📚 popover) still works — KB metadata is returned in `message.extra.used_kbs` as before
+
+**KB picker — no change needed:** the model receives `kb_ids` from the conversation settings; it decides which to search. The picker remains the user's way of attaching/detaching KBs.
+
+### 5.3 Source citations UI
+
+**`MessageKbIndicator` (existing component — extend):**
+- Currently shows: KB name, chunks used, top score, sections
+- Add: `citations` list — each citation links to the source file/section
+- Render citations as clickable chips: `[filename, section]`
+- For now, clicking a citation copies the source reference to clipboard (deep-linking to documents is a future feature)
+
+### 5.4 New query keys / hooks
+
+```typescript
+// lib/queryKeys.ts additions
+documentProgress: (kbId: number, docId: number) => ['kb', kbId, 'doc', docId, 'progress']
+
+// New hook
+useDocumentProgressQuery(kbId, docId, { enabled: status === 'ingesting' })
+  // polls every 1500ms, stops when status !== 'ingesting'
+```
+
+### Frontend files touched
+
+- `frontend/src/routes/knowledge-bases/$id.tsx` — document progress bars, polling
+- `frontend/src/components/knowledge-bases/CreateKnowledgeBaseDialog.tsx` — file size validation, upload progress
+- `frontend/src/components/chat/ConversationThreadPage.tsx` — tool-call streaming indicator
+- `frontend/src/components/knowledge-bases/MessageKbIndicator.tsx` — citations display (extend existing)
+- `frontend/src/lib/queryKeys.ts` — new progress query key
+- New hook: `frontend/src/hooks/useDocumentProgressQuery.ts`
+
+---
+
+## 6. Implementation order (phased)
 
 ```
 Phase 1 — Ingest worker (foundation, unblocks everything):
@@ -280,7 +336,7 @@ Phase 1 is a prerequisite for Phase 2 (new chunker produces richer metadata used
 
 ---
 
-## Success metrics
+## 7. Success metrics
 
 | Metric | Current | Target (Phase 2) | Target (Phase 3) |
 |---|---|---|---|
