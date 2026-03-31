@@ -4,6 +4,7 @@ import { ArrowLeft, Trash2 } from 'lucide-react'
 import * as React from 'react'
 
 import { KnowledgeBaseConnectorsSection } from '~/components/knowledge-bases/KnowledgeBaseConnectorsSection'
+import { useDocumentProgressQuery } from '~/hooks/useDocumentProgressQuery'
 import { getApiBase } from '~/lib/api-base'
 import { getAuthHeaders } from '~/lib/authorizedFetch'
 import {
@@ -18,6 +19,46 @@ import { cn } from '~/lib/utils'
 export const Route = createFileRoute('/knowledge-bases/$id')({
   component: KnowledgeBaseDetailPage,
 })
+
+function DocumentProgressBar({ kbId, docId }: { kbId: number; docId: number }) {
+  const qc = useQueryClient()
+  const { data } = useDocumentProgressQuery(kbId, docId)
+
+  const prevStatus = React.useRef<string | undefined>(undefined)
+  React.useEffect(() => {
+    if (prevStatus.current === 'ingesting' && data?.status === 'ready') {
+      void qc.invalidateQueries({ queryKey: queryKeys.knowledgeBaseDocuments(kbId) })
+    }
+    prevStatus.current = data?.status
+  }, [data?.status, kbId, qc])
+
+  if (!data || data.status !== 'ingesting') return null
+
+  const percent =
+    data.chunks_total && data.chunks_total > 0
+      ? Math.round((data.chunks_done / data.chunks_total) * 100)
+      : null
+
+  return (
+    <div className="mt-1 flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
+      {percent !== null ? (
+        <>
+          <div className="h-1.5 w-24 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
+            <div
+              className="h-full bg-blue-500 transition-all"
+              style={{ width: `${percent}%` }}
+            />
+          </div>
+          <span>
+            {data.chunks_done}/{data.chunks_total} chunks
+          </span>
+        </>
+      ) : (
+        <span className="animate-pulse">Indexing…</span>
+      )}
+    </div>
+  )
+}
 
 function KnowledgeBaseDetailPage() {
   const { id: idParam } = Route.useParams()
@@ -315,6 +356,9 @@ function KnowledgeBaseDetailPage() {
                           >
                             {d.status}
                           </span>
+                          {d.status === 'ingesting' && (
+                            <DocumentProgressBar kbId={kbId} docId={d.id} />
+                          )}
                         </td>
                         <td className="px-3 py-2">
                           <button

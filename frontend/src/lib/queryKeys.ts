@@ -12,4 +12,7 @@ export const queryKeys = {
   knowledgeBaseConnectors: (id: number) => ['knowledge-base-connectors', id] as const,
   knowledgeBaseConnectorJobs: (id: number) =>
     ['knowledge-base-connector-jobs', id] as const,
+  documentProgress: (kbId: number, docId: number) =>
+    ['knowledge-base', kbId, 'document', docId, 'progress'] as const,
+  memories: () => ['memories'] as const,
 }

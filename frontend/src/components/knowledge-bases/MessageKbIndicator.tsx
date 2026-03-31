@@ -9,6 +9,8 @@ export interface MessageKbIndicatorProps {
 export function MessageKbIndicator({ usedKbs }: MessageKbIndicatorProps) {
   if (!usedKbs || usedKbs.length === 0) return null
 
+  const allCitations = usedKbs.flatMap((kb) => kb.citations ?? [])
+
   return (
     <Popover.Root modal={false}>
       <Popover.Trigger asChild>
@@ -68,6 +70,31 @@ export function MessageKbIndicator({ usedKbs }: MessageKbIndicatorProps) {
               </li>
             ))}
           </ul>
+
+          {allCitations.length > 0 && (
+            <div className="mt-2 border-t border-neutral-700 pt-2">
+              <p className="mb-1 text-[10px] font-medium text-neutral-400">Sources</p>
+              <div className="flex flex-wrap gap-1">
+                {allCitations.map((c, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    className="inline-flex items-center gap-1 rounded border border-neutral-600 px-1.5 py-0.5 text-[10px] text-neutral-300 transition-colors hover:bg-neutral-700"
+                    title={[c.source, c.section].filter(Boolean).join(' — ')}
+                    onClick={() => {
+                      const ref = [c.source, c.section].filter(Boolean).join(' › ')
+                      void navigator.clipboard.writeText(ref)
+                    }}
+                  >
+                    {c.source}
+                    {c.section && (
+                      <span className="text-neutral-500">› {c.section}</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>

@@ -1,11 +1,18 @@
 /** Mirrors backend `ConversationRead` / `MessageRead` where the UI needs them. */
 
+export interface UsedKbCitation {
+  source: string
+  section: string
+  page?: number | null
+}
+
 export interface UsedKbEntry {
   kb_id: number
   kb_name: string
   chunks_used: number
   top_score: number
   sections: string[]
+  citations?: UsedKbCitation[]
 }
 
 export type CapabilityToggles = {

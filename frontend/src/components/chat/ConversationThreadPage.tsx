@@ -55,6 +55,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
     useConversationsOutlet()
   const [streamingText, setStreamingText] = React.useState('')
   const [streaming, setStreaming] = React.useState(false)
+  const [isSearchingKb, setIsSearchingKb] = React.useState(false)
   const [sendError, setSendError] = React.useState<string | null>(null)
   const [modelDraft, setModelDraft] = React.useState('')
   const [olderMessages, setOlderMessages] = React.useState<ChatMessage[]>([])
@@ -274,15 +275,20 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
       let buf = ''
       const applyEvents = (events: unknown[]) => {
         for (const ev of events) {
-          const e = ev as { type?: string; text?: string; detail?: string }
+          const e = ev as { type?: string; text?: string; detail?: string; name?: string }
+          if (e.type === 'tool_call') {
+            setIsSearchingKb(true)
+          }
           if (e.type === 'delta' && e.text) {
+            setIsSearchingKb(false)
             assembled += e.text
             setStreamingText(assembled)
           }
           if (e.type === 'error') {
-            /* Server persists this as an assistant row; refetch in `finally`. */
+            setIsSearchingKb(false)
           }
           if (e.type === 'done') {
+            setIsSearchingKb(false)
             streamReachedTerminal = true
           }
         }
@@ -306,6 +312,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
       if (streamAbortRef.current === ac) streamAbortRef.current = null
       setStreaming(false)
       setStreamingText('')
+      setIsSearchingKb(false)
       setOlderMessages([])
       void qc.invalidateQueries({
         queryKey: queryKeys.conversationMessagesTail(conversationId),
@@ -692,18 +699,23 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
                   </button>
                 </div>
               </div>
+              {isSearchingKb && (
+                <p className="mb-1.5 flex items-center gap-1.5 text-xs text-blue-500 dark:text-blue-400 animate-pulse">
+                  Searching knowledge bases…
+                </p>
+              )}
               {streamingText ? (
                 <MarkdownMessage
                   content={streamingText}
                   streaming
                   className="text-neutral-900 dark:text-neutral-100"
                 />
-              ) : (
+              ) : !isSearchingKb ? (
                 <p className="flex items-center gap-2 text-sm text-neutral-400">
                   <span className="inline-block h-3.5 w-0.5 animate-pulse rounded-full bg-neutral-400 dark:bg-neutral-500" />
                   Waiting for tokens…
                 </p>
-              )}
+              ) : null}
             </div>
           </div>
         )}
