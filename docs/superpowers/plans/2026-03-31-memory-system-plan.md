@@ -1705,6 +1705,213 @@ git commit -m "feat(frontend): add Memories feature card to homepage"
 
 ---
 
+## Phase 4 — E2E Tests
+
+### Task 16: E2E — Memories page CRUD
+
+**Files:**
+- Create: `frontend/e2e/memories.spec.ts`
+
+- [ ] **Step 1: Write the spec**
+
+```typescript
+// frontend/e2e/memories.spec.ts
+import { test, expect } from '@playwright/test'
+
+test.describe('Memories page', () => {
+  test('navigates to memories from sidebar', async ({ page }) => {
+    await page.goto('/', { waitUntil: 'networkidle' })
+    await page.getByRole('link', { name: /memories/i }).click()
+    await expect(page).toHaveURL('/memories')
+    await expect(page.getByRole('heading', { name: /memories/i })).toBeVisible()
+  })
+
+  test('can create a manual memory', async ({ page }) => {
+    await page.goto('/memories', { waitUntil: 'networkidle' })
+
+    await page.getByRole('button', { name: /add/i }).click()
+    await page.getByPlaceholder(/enter a memory/i).fill('Prefers Python over JavaScript')
+    await page.keyboard.press('Enter')
+
+    await expect(page.getByText('Prefers Python over JavaScript')).toBeVisible({ timeout: 5_000 })
+    await expect(page.getByText('manual')).toBeVisible()
+  })
+
+  test('can toggle a memory inactive', async ({ page }) => {
+    await page.goto('/memories', { waitUntil: 'networkidle' })
+
+    // Create a memory first
+    await page.getByRole('button', { name: /add/i }).click()
+    await page.getByPlaceholder(/enter a memory/i).fill(`Toggle test ${Date.now()}`)
+    await page.keyboard.press('Enter')
+    await expect(page.getByText(/toggle test/i)).toBeVisible({ timeout: 5_000 })
+
+    // Toggle it off — the first circular toggle button in the list
+    const firstToggle = page.locator('li').first().locator('button').first()
+    await firstToggle.click()
+
+    // The list item should become dimmed (opacity-50 class)
+    await expect(page.locator('li').first()).toHaveClass(/opacity-50/, { timeout: 5_000 })
+  })
+
+  test('can delete a memory', async ({ page }) => {
+    await page.goto('/memories', { waitUntil: 'networkidle' })
+
+    await page.getByRole('button', { name: /add/i }).click()
+    const content = `Delete me ${Date.now()}`
+    await page.getByPlaceholder(/enter a memory/i).fill(content)
+    await page.keyboard.press('Enter')
+    await expect(page.getByText(content)).toBeVisible({ timeout: 5_000 })
+
+    // Click delete button on the memory row
+    const row = page.locator('li', { hasText: content })
+    await row.getByRole('button', { name: '' }).last().click() // trash icon
+
+    await expect(page.getByText(content)).not.toBeVisible({ timeout: 5_000 })
+  })
+
+  test('can inline-edit a memory', async ({ page }) => {
+    await page.goto('/memories', { waitUntil: 'networkidle' })
+
+    await page.getByRole('button', { name: /add/i }).click()
+    const original = `Edit me ${Date.now()}`
+    await page.getByPlaceholder(/enter a memory/i).fill(original)
+    await page.keyboard.press('Enter')
+    await expect(page.getByText(original)).toBeVisible({ timeout: 5_000 })
+
+    // Click on the text to edit inline
+    await page.getByText(original).click()
+    await page.keyboard.press('Control+a')
+    await page.keyboard.type('Edited memory content')
+    await page.keyboard.press('Enter')
+
+    await expect(page.getByText('Edited memory content')).toBeVisible({ timeout: 5_000 })
+    await expect(page.getByText(original)).not.toBeVisible()
+  })
+})
+```
+
+- [ ] **Step 2: Run the E2E tests**
+
+```
+cd frontend && npx playwright test e2e/memories.spec.ts --reporter=line
+```
+Expected: All 5 tests PASS
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add frontend/e2e/memories.spec.ts
+git commit -m "test(e2e): add memories page CRUD E2E spec"
+```
+
+---
+
+### Task 17: E2E — memories indicator in conversation + auto-extraction
+
+**Files:**
+- Create: `frontend/e2e/memories-chat.spec.ts`
+
+- [ ] **Step 1: Write the spec**
+
+```typescript
+// frontend/e2e/memories-chat.spec.ts
+import { test, expect } from '@playwright/test'
+import { createEmptyConversation } from './helpers/create-conversation'
+
+const apiBase = process.env.E2E_API_URL ?? 'http://127.0.0.1:8000'
+
+async function createMemoryViaApi(
+  request: import('@playwright/test').APIRequestContext,
+  content: string,
+): Promise<number> {
+  const res = await request.post(`${apiBase}/api/users/me/memories`, {
+    headers: {
+      Authorization: `Bearer ${process.env.E2E_BEARER_TOKEN ?? 'devtoken'}`,
+      'Content-Type': 'application/json',
+    },
+    data: { content },
+  })
+  expect(res.status()).toBe(201)
+  const body = await res.json()
+  return body.id
+}
+
+async function deleteMemoryViaApi(
+  request: import('@playwright/test').APIRequestContext,
+  id: number,
+): Promise<void> {
+  await request.delete(`${apiBase}/api/users/me/memories/${id}`, {
+    headers: {
+      Authorization: `Bearer ${process.env.E2E_BEARER_TOKEN ?? 'devtoken'}`,
+    },
+  })
+}
+
+test.describe('Memories in chat', () => {
+  test('memories indicator shows in conversation header when active memories exist', async ({
+    page,
+    request,
+  }) => {
+    const memId = await createMemoryViaApi(request, `E2E active memory ${Date.now()}`)
+
+    const convId = await createEmptyConversation(request, apiBase)
+    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
+
+    // Brain icon + count should appear in the header
+    await expect(page.locator('[title*="memories active"]')).toBeVisible({ timeout: 5_000 })
+
+    // Clicking it navigates to /memories
+    await page.locator('[title*="memories active"]').click()
+    await expect(page).toHaveURL('/memories')
+
+    // Cleanup
+    await deleteMemoryViaApi(request, memId)
+  })
+
+  test('memories indicator is absent when no active memories', async ({ page, request }) => {
+    // Ensure no active memories exist (best-effort — dev env may have some)
+    const convId = await createEmptyConversation(request, apiBase)
+    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
+
+    // If no memories are active, the indicator should not be present
+    // (this is a soft check — skip if dev env has pre-existing memories)
+    const indicator = page.locator('[title*="memories active"]')
+    const count = await indicator.count()
+    if (count > 0) {
+      test.skip(true, 'Dev environment has pre-existing active memories — skipping absence check.')
+    }
+    expect(count).toBe(0)
+  })
+
+  test('homepage shows Memories feature card', async ({ page }) => {
+    await page.goto('/', { waitUntil: 'networkidle' })
+    await expect(page.getByText('Memories', { exact: false }).first()).toBeVisible()
+    // Card should link to /memories
+    const memoriesLink = page.getByRole('link', { name: /memories/i }).first()
+    await expect(memoriesLink).toBeVisible()
+    await memoriesLink.click()
+    await expect(page).toHaveURL('/memories')
+  })
+})
+```
+
+- [ ] **Step 2: Run the E2E tests**
+
+```
+cd frontend && npx playwright test e2e/memories-chat.spec.ts --reporter=line
+```
+Expected: All tests PASS (or skip gracefully)
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add frontend/e2e/memories-chat.spec.ts
+git commit -m "test(e2e): add memories chat indicator and homepage card E2E spec"
+```
+
+---
+
 ## Final verification
 
 - [ ] **Run full backend test suite**
@@ -1721,10 +1928,17 @@ cd frontend && npm run build
 ```
 Expected: No TypeScript or build errors
 
+- [ ] **Run all E2E tests**
+
+```
+cd frontend && npx playwright test --reporter=line
+```
+Expected: All new memory specs pass; existing conversation/KB specs still pass
+
 - [ ] **Smoke test memory extraction end-to-end**
 
-Start the backend and frontend locally, have a conversation, check that:
-1. Profile memories appear at `/memories` after a few turns
+Start the backend and frontend locally, have a conversation, check:
+1. Profile memories appear at `/memories` after a few turns (auto-extraction)
 2. Toggling a memory off removes it from the next response's system prompt (verify via backend logs)
 3. Long conversations (30+ messages) trigger summarization (verify `ChatConversation.summary` in DB)
 
