@@ -13,5 +13,9 @@ export default async function globalSetup() {
     }
     await new Promise((r) => setTimeout(r, 500))
   }
-  throw lastErr instanceof Error ? lastErr : new Error(String(lastErr))
+  const msg = lastErr instanceof Error ? lastErr.message : String(lastErr)
+  throw new Error(
+    `E2E backend not reachable at ${url} after 60 s (${msg}).\n` +
+      'Run  ./scripts/e2e-up.sh  from the repo root to start it.',
+  )
 }

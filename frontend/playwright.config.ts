@@ -12,6 +12,7 @@ export default defineConfig({
   retries: 0,
   workers: 1,
   globalSetup: './e2e/global-setup.ts',
+  globalTeardown: './e2e/global-teardown.ts',
   use: {
     baseURL: E2E_BASE_URL,
     trace: 'on-first-retry',

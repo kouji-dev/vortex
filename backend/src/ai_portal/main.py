@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from ai_portal.api import (
     assistants,
     conversations,
+    e2e,
     knowledge_bases,
     me,
     memories,
@@ -77,3 +78,6 @@ app.include_router(assistants.router)
 app.include_router(conversations.router)
 app.include_router(memories.router)
 app.include_router(knowledge_bases.router)
+
+if settings.auth_mode == "dev":
+    app.include_router(e2e.router)
