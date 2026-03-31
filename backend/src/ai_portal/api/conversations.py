@@ -14,12 +14,15 @@ from __future__ import annotations
 import json
 import logging
 import os
+import threading
+from datetime import UTC, datetime
 from typing import Annotated, Any, Self
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import delete, select
+from sqlalchemy import func as sa_func
 from sqlalchemy.orm import Session
 
 from ai_portal.api.assistants import _can_access_assistant
@@ -44,6 +47,8 @@ from ai_portal.services.default_conversation_model import (
     default_conversation_settings,
     resolve_default_conversation_stored_model,
 )
+from ai_portal.workers.memory.extractor import extract_user_memories
+from ai_portal.workers.memory.summarizer import summarize_conversation
 
 logger = logging.getLogger(__name__)
 
@@ -548,9 +553,7 @@ def stream_message(
             conversation_id=conv.id, role="user", content=user_content
         )
         db.add(user_msg)
-        from datetime import datetime
-
-        conv.last_message_at = datetime.now(tz=datetime.UTC)
+        conv.last_message_at = datetime.now(tz=UTC)
         if not conv.title:
             conv.title = _title_from_first_user_prompt(user_content) or None
         db.commit()
@@ -642,9 +645,9 @@ def stream_message(
 
     system_content = "\n\n".join(p for p in system_parts if p)
 
-    openai_messages: list[dict[str, Any]] = [{"role": "system", "content": system_content}]
-    openai_messages.extend(prior)
-    openai_messages.append({"role": "user", "content": user_content})
+    llm_messages: list[dict[str, Any]] = [{"role": "system", "content": system_content}]
+    llm_messages.extend(prior)
+    llm_messages.append({"role": "user", "content": user_content})
 
     stored_model = (
         body.model or conv.model or settings.chat_default_api_model or ""
@@ -665,7 +668,7 @@ def stream_message(
 
     def gen() -> Any:
         used_kbs_meta: list[dict] = []
-        messages = list(openai_messages)
+        messages = list(llm_messages)
         max_iterations = settings.rag_max_tool_iterations
         iterations = 0
 
@@ -755,8 +758,6 @@ def stream_message(
             )
             db.commit()
 
-            from sqlalchemy import func as sa_func
-
             total_msgs = db.scalar(
                 select(sa_func.count())
                 .select_from(ChatMessage)
@@ -766,23 +767,13 @@ def stream_message(
                 message_count=total_msgs,
                 window_size=settings.conversation_window_size,
             ):
-                import threading
-
-                from ai_portal.workers.memory.summarizer import (
-                    summarize_conversation,
-                )
-
                 threading.Thread(
                     target=summarize_conversation,
                     args=(conv.id,),
                     daemon=True,
                 ).start()
 
-            import threading as _thr
-
-            from ai_portal.workers.memory.extractor import extract_user_memories
-
-            _thr.Thread(
+            threading.Thread(
                 target=extract_user_memories,
                 kwargs={
                     "user_id": user.id,

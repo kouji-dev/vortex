@@ -7,15 +7,6 @@ from ai_portal.config import Settings, get_settings
 from ai_portal.services.llm_providers import get_chat_provider
 
 
-def chat_completions(
-    messages: list[dict[str, str]],
-    *,
-    settings: Settings | None = None,
-) -> dict[str, Any]:
-    settings = settings or get_settings()
-    return get_chat_provider(settings).complete(messages, model=None)
-
-
 def chat_completions_stream_deltas(
     messages: list[dict[str, str]],
     *,

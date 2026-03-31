@@ -148,20 +148,6 @@ def retrieve_context_with_meta(
     return context, used_kbs_meta
 
 
-def retrieve_context(
-    db: Session,
-    *,
-    knowledge_base_ids: list[int],
-    query_embedding: list[float],
-    top_k: int = 5,
-) -> str:
-    """Backward-compatible wrapper — returns context string only."""
-    context, _ = retrieve_context_with_meta(
-        db, knowledge_base_ids=knowledge_base_ids, query_embedding=query_embedding, top_k=top_k
-    )
-    return context
-
-
 # ---------------------------------------------------------------------------
 # Hybrid search helpers
 # ---------------------------------------------------------------------------

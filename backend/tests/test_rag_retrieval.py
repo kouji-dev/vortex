@@ -10,7 +10,8 @@ from tests.conftest import requires_postgres
 def test_rag_module_importable():
     from ai_portal.services import rag as rag_mod
 
-    assert rag_mod.retrieve_context is not None
+    assert rag_mod.retrieve_context_with_meta is not None
+    assert rag_mod.search_knowledge_base_tool is not None
 
 
 def test_returns_empty_when_no_kb_ids():
@@ -20,15 +21,6 @@ def test_returns_empty_when_no_kb_ids():
     context, meta = retrieve_context_with_meta(db, knowledge_base_ids=[], query_embedding=[0.1] * 3)
     assert context == ""
     assert meta == []
-
-
-def test_retrieve_context_backward_compat_empty():
-    """retrieve_context (backward compat) returns empty string when no kb_ids."""
-    from ai_portal.services.rag import retrieve_context
-
-    db = MagicMock()
-    result = retrieve_context(db, knowledge_base_ids=[], query_embedding=[0.1] * 3)
-    assert result == ""
 
 
 def test_returns_meta_per_kb():
