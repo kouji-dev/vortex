@@ -189,6 +189,14 @@ def _dispatch_tool_call(
     return {"role": "tool", "name": name, "content": f"Error: unknown tool '{name}'"}
 
 
+def _should_summarize(*, message_count: int, window_size: int) -> bool:
+    return message_count > 0 and message_count % window_size == 0
+
+
+def _slice_window_messages(messages: list[dict], *, window_size: int) -> list[dict]:
+    return messages[-window_size:] if len(messages) > window_size else messages
+
+
 class ConversationCreate(BaseModel):
     title: str | None = Field(default=None, max_length=255)
     model: str | None = Field(default=None, max_length=128)
@@ -531,6 +539,9 @@ def stream_message(
             conversation_id=conv.id, role="user", content=user_content
         )
         db.add(user_msg)
+        from datetime import datetime
+
+        conv.last_message_at = datetime.now(tz=datetime.UTC)
         if not conv.title:
             conv.title = _title_from_first_user_prompt(user_content) or None
         db.commit()
@@ -547,6 +558,8 @@ def stream_message(
         {"role": m.role, "content": m.content} for m in prior_rows
     ]
 
+    prior = _slice_window_messages(prior, window_size=settings.conversation_window_size)
+
     kb_ids = list(
         db.scalars(
             select(ConversationKnowledgeBase.knowledge_base_id).where(
@@ -560,6 +573,9 @@ def stream_message(
         system_parts.append(assistant.system_prompt.strip())
     else:
         system_parts.append(settings.default_system_prompt.strip())
+
+    if conv.summary:
+        system_parts.append(f"Earlier in this conversation:\n{conv.summary}")
 
     tools: list[dict[str, Any]] = []
     if kb_ids:
@@ -718,6 +734,30 @@ def stream_message(
                 )
             )
             db.commit()
+
+            from sqlalchemy import func as sa_func
+
+            total_msgs = db.scalar(
+                select(sa_func.count())
+                .select_from(ChatMessage)
+                .where(ChatMessage.conversation_id == conv.id)
+            )
+            if _should_summarize(
+                message_count=total_msgs,
+                window_size=settings.conversation_window_size,
+            ):
+                import threading
+
+                from ai_portal.workers.memory.summarizer import (
+                    summarize_conversation,
+                )
+
+                threading.Thread(
+                    target=summarize_conversation,
+                    args=(conv.id,),
+                    daemon=True,
+                ).start()
+
             yield _sse({"type": "done", "message_id": _tail_message_id()})
             return
 

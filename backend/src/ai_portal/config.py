@@ -116,6 +116,16 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("RAG_MAX_TOOL_ITERATIONS"),
     )
 
+    # Conversation memory
+    conversation_window_size: int = Field(
+        default=30,
+        validation_alias=AliasChoices("CONVERSATION_WINDOW_SIZE"),
+    )
+    conversation_inactivity_summary_hours: int = Field(
+        default=1,
+        validation_alias=AliasChoices("CONVERSATION_INACTIVITY_SUMMARY_HOURS"),
+    )
+
     langfuse_public_key: str = ""
     langfuse_secret_key: str = ""
     langfuse_host: str = "https://cloud.langfuse.com"
