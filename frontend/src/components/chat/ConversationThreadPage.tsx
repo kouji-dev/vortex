@@ -583,6 +583,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
             return (
               <li
                 key={m.id}
+                data-testid={`chat-message-${m.role}`}
                 className={`flex w-full text-sm ${isUserSide ? 'justify-end' : 'justify-start'}`}
               >
                 <div

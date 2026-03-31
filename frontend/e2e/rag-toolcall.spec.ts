@@ -8,7 +8,7 @@ import {
 
 test.describe('RAG tool-call UI', () => {
   test('KB indicator popover shows after seeded tool-call response', async ({ page, request }) => {
-    const apiBase = process.env.E2E_API_URL ?? 'http://127.0.0.1:8000'
+    const apiBase = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
     const kbName = `E2E ToolCall KB ${Date.now()}`
     const kbId = await createKnowledgeBase(request, apiBase, kbName)
     const convId = await createEmptyConversation(request, apiBase)
@@ -42,7 +42,7 @@ test.describe('RAG tool-call UI', () => {
       'Set E2E_REQUIRE_LIVE_STREAM=1 with a working LLM API key to test the live streaming indicator.',
     )
 
-    const apiBase = process.env.E2E_API_URL ?? 'http://127.0.0.1:8000'
+    const apiBase = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
     const kbName = `E2E Live Stream KB ${Date.now()}`
     const kbId = await createKnowledgeBase(request, apiBase, kbName)
     const convId = await createEmptyConversation(request, apiBase)

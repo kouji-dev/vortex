@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url'
 import { createKnowledgeBase } from './helpers/knowledge-api'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const apiBase = process.env.E2E_API_URL ?? 'http://127.0.0.1:8000'
+const apiBase = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
 
 async function createKbAndNavigate(
   page: import('@playwright/test').Page,

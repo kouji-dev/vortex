@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { createEmptyConversation } from './helpers/create-conversation'
 
-const apiBase = process.env.E2E_API_URL ?? 'http://127.0.0.1:8000'
+const apiBase = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
 
 async function createMemoryViaApi(
   request: import('@playwright/test').APIRequestContext,

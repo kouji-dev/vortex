@@ -315,6 +315,7 @@ export function ChatComposerDock({
             >
               <SelectTrigger
                 id="chat-model-select"
+                data-testid="chat-model-select"
                 title={modelLabel}
                 className="h-7 w-max max-w-44 border-neutral-200/90 px-1.5 py-0 text-[11px] leading-tight sm:max-w-52 dark:border-neutral-700 [&_svg]:size-3"
               >

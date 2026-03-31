@@ -20,7 +20,7 @@ test.describe('Chat knowledge bases', () => {
   })
 
   test('attach KB via anchored popover', async ({ page, request }) => {
-    const apiBase = process.env.E2E_API_URL ?? 'http://127.0.0.1:8000'
+    const apiBase = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
     const convId = await createEmptyConversation(request, apiBase)
     await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
 
