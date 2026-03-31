@@ -84,6 +84,38 @@ class Settings(BaseSettings):
 
     upload_dir: str = "data/uploads"
 
+    # Ingest worker
+    kb_max_file_size_mb: int = Field(
+        default=500,
+        validation_alias=AliasChoices("KB_MAX_FILE_SIZE_MB"),
+    )
+    ingest_commit_batch_size: int = Field(
+        default=100,
+        validation_alias=AliasChoices("INGEST_COMMIT_BATCH_SIZE"),
+    )
+    ingest_embed_batch_size: int = Field(
+        default=128,
+        validation_alias=AliasChoices("INGEST_EMBED_BATCH_SIZE"),
+    )
+
+    # RAG retrieval
+    rag_max_top_k: int = Field(
+        default=30,
+        validation_alias=AliasChoices("RAG_MAX_TOP_K"),
+    )
+    rag_min_top_k: int = Field(
+        default=8,
+        validation_alias=AliasChoices("RAG_MIN_TOP_K"),
+    )
+    rag_similarity_threshold: float = Field(
+        default=0.3,
+        validation_alias=AliasChoices("RAG_SIMILARITY_THRESHOLD"),
+    )
+    rag_max_tool_iterations: int = Field(
+        default=1,
+        validation_alias=AliasChoices("RAG_MAX_TOOL_ITERATIONS"),
+    )
+
     langfuse_public_key: str = ""
     langfuse_secret_key: str = ""
     langfuse_host: str = "https://cloud.langfuse.com"
