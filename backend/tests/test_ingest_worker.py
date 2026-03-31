@@ -24,7 +24,7 @@ def test_successful_ingest_returns_none(tmp_path):
     db.get.return_value = doc
 
     with patch("ai_portal.workers.ingest.worker.embedding_svc") as mock_emb:
-        mock_emb.embed_texts.return_value = [[0.1] * 1024]
+        mock_emb.embed_texts.side_effect = lambda texts: [[0.1] * 1024 for _ in texts]
         result = ingest_document_worker(1, db=db)
 
     assert result is None
@@ -38,6 +38,7 @@ def test_missing_document_returns_error(tmp_path):
     result = ingest_document_worker(999, db=db)
 
     assert result == "Document not found"
+    db.commit.assert_not_called()
 
 
 def test_missing_file_returns_error(tmp_path):
@@ -52,6 +53,7 @@ def test_missing_file_returns_error(tmp_path):
 
     assert result == "Stored file is missing"
     assert doc.status == "failed"
+    db.commit.assert_called()
 
 
 def test_unsupported_file_type_returns_error(tmp_path):
