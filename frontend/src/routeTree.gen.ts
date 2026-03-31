@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as MemoriesRouteImport } from './routes/memories'
 import { Route as ChatRouteRouteImport } from './routes/chat/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as KnowledgeBasesIndexRouteImport } from './routes/knowledge-bases/index'
@@ -17,6 +18,11 @@ import { Route as ChatConversationsRouteRouteImport } from './routes/chat/conver
 import { Route as ChatConversationsIndexRouteImport } from './routes/chat/conversations/index'
 import { Route as ChatConversationsIdRouteImport } from './routes/chat/conversations/$id'
 
+const MemoriesRoute = MemoriesRouteImport.update({
+  id: '/memories',
+  path: '/memories',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ChatRouteRoute = ChatRouteRouteImport.update({
   id: '/chat',
   path: '/chat',
@@ -56,6 +62,7 @@ const ChatConversationsIdRoute = ChatConversationsIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/chat': typeof ChatRouteRouteWithChildren
+  '/memories': typeof MemoriesRoute
   '/chat/conversations': typeof ChatConversationsRouteRouteWithChildren
   '/knowledge-bases/$id': typeof KnowledgeBasesIdRoute
   '/knowledge-bases/': typeof KnowledgeBasesIndexRoute
@@ -65,6 +72,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/chat': typeof ChatRouteRouteWithChildren
+  '/memories': typeof MemoriesRoute
   '/knowledge-bases/$id': typeof KnowledgeBasesIdRoute
   '/knowledge-bases': typeof KnowledgeBasesIndexRoute
   '/chat/conversations/$id': typeof ChatConversationsIdRoute
@@ -74,6 +82,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/chat': typeof ChatRouteRouteWithChildren
+  '/memories': typeof MemoriesRoute
   '/chat/conversations': typeof ChatConversationsRouteRouteWithChildren
   '/knowledge-bases/$id': typeof KnowledgeBasesIdRoute
   '/knowledge-bases/': typeof KnowledgeBasesIndexRoute
@@ -85,6 +94,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/chat'
+    | '/memories'
     | '/chat/conversations'
     | '/knowledge-bases/$id'
     | '/knowledge-bases/'
@@ -94,6 +104,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/chat'
+    | '/memories'
     | '/knowledge-bases/$id'
     | '/knowledge-bases'
     | '/chat/conversations/$id'
@@ -102,6 +113,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/chat'
+    | '/memories'
     | '/chat/conversations'
     | '/knowledge-bases/$id'
     | '/knowledge-bases/'
@@ -112,12 +124,20 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ChatRouteRoute: typeof ChatRouteRouteWithChildren
+  MemoriesRoute: typeof MemoriesRoute
   KnowledgeBasesIdRoute: typeof KnowledgeBasesIdRoute
   KnowledgeBasesIndexRoute: typeof KnowledgeBasesIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/memories': {
+      id: '/memories'
+      path: '/memories'
+      fullPath: '/memories'
+      preLoaderRoute: typeof MemoriesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/chat': {
       id: '/chat'
       path: '/chat'
@@ -201,6 +221,7 @@ const ChatRouteRouteWithChildren = ChatRouteRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ChatRouteRoute: ChatRouteRouteWithChildren,
+  MemoriesRoute: MemoriesRoute,
   KnowledgeBasesIdRoute: KnowledgeBasesIdRoute,
   KnowledgeBasesIndexRoute: KnowledgeBasesIndexRoute,
 }
