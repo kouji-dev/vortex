@@ -5,6 +5,7 @@ from ai_portal.models.chat import ChatConversation, ChatMessage
 from ai_portal.models.connector import ConnectorSyncJob, KnowledgeBaseConnector
 from ai_portal.models.document import Document, DocumentChunk
 from ai_portal.models.knowledge_base import ConversationKnowledgeBase, KnowledgeBase
+from ai_portal.models.memory import UserMemory
 from ai_portal.models.user import User
 from ai_portal.models.user_portal_api_key import UserPortalApiKey
 
@@ -22,5 +23,6 @@ __all__ = [
     "KnowledgeBase",
     "KnowledgeBaseConnector",
     "User",
+    "UserMemory",
     "UserPortalApiKey",
 ]

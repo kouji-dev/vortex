@@ -33,6 +33,7 @@ from ai_portal.models import (
     KnowledgeBase,
     User,
 )
+from ai_portal.models.memory import UserMemory as UserMemoryModel
 from ai_portal.schemas.conversation_settings import ConversationSettings
 from ai_portal.services import llm as llm_svc
 from ai_portal.services import rag as rag_svc
@@ -158,6 +159,14 @@ def _capability_instructions(st: ConversationSettings | None) -> str:
     if not parts:
         return ""
     return "\n\n[Conversation capabilities]\n" + "\n".join(f"- {p}" for p in parts)
+
+
+def _build_memory_block(memories: list) -> str:
+    active = [m for m in memories if m.is_active]
+    if not active:
+        return ""
+    lines = "\n".join(f"- {m.content}" for m in active)
+    return f"What you know about this user:\n{lines}"
 
 
 def _dispatch_tool_call(
@@ -577,6 +586,17 @@ def stream_message(
     if conv.summary:
         system_parts.append(f"Earlier in this conversation:\n{conv.summary}")
 
+    active_memories = list(
+        db.scalars(
+            select(UserMemoryModel)
+            .where(UserMemoryModel.user_id == user.id, UserMemoryModel.is_active == True)  # noqa: E712
+            .order_by(UserMemoryModel.created_at)
+        ).all()
+    )
+    memory_block = _build_memory_block(active_memories)
+    if memory_block:
+        system_parts.append(memory_block)
+
     tools: list[dict[str, Any]] = []
     if kb_ids:
         system_parts.append(
@@ -757,6 +777,20 @@ def stream_message(
                     args=(conv.id,),
                     daemon=True,
                 ).start()
+
+            import threading as _thr
+
+            from ai_portal.workers.memory.extractor import extract_user_memories
+
+            _thr.Thread(
+                target=extract_user_memories,
+                kwargs={
+                    "user_id": user.id,
+                    "user_message": user_content,
+                    "assistant_message": reply,
+                },
+                daemon=True,
+            ).start()
 
             yield _sse({"type": "done", "message_id": _tail_message_id()})
             return

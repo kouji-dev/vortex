@@ -14,6 +14,7 @@ from ai_portal.api import (
     conversations,
     knowledge_bases,
     me,
+    memories,
     model_catalog,
 )
 from ai_portal.config import get_settings, settings_log_snapshot
@@ -76,4 +77,5 @@ app.include_router(me.router)
 app.include_router(assistants.router)
 app.include_router(chat.router)
 app.include_router(conversations.router)
+app.include_router(memories.router)
 app.include_router(knowledge_bases.router)
