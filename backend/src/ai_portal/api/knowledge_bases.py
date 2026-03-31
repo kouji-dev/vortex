@@ -374,6 +374,12 @@ async def upload_document(
     dest_path = dest_dir / dest_name
 
     content = await file.read()
+    max_bytes = settings.kb_max_file_size_mb * 1024 * 1024
+    if len(content) > max_bytes:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large. Maximum size is {settings.kb_max_file_size_mb} MB.",
+        )
     dest_path.write_bytes(content)
 
     doc = Document(
@@ -410,3 +416,27 @@ async def upload_document(
     if ingest_err:
         out["ingest_error"] = ingest_err
     return out
+
+
+@router.get("/{kb_id}/documents/{doc_id}/progress")
+def get_document_progress(
+    kb_id: int,
+    doc_id: int,
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Return ingest progress for a document."""
+    doc = db.scalars(
+        select(Document).where(
+            Document.id == doc_id,
+            Document.knowledge_base_id == kb_id,
+        )
+    ).first()
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return {
+        "document_id": doc.id,
+        "status": doc.status,
+        "chunks_done": doc.chunks_done,
+        "chunks_total": doc.chunks_total,
+    }

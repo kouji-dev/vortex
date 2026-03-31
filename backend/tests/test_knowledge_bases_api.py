@@ -186,6 +186,15 @@ def test_put_conversation_knowledge_bases_unknown_kb_returns_404():
 
 
 @requires_postgres
+def test_progress_endpoint_404_unknown_doc():
+    response = client.get(
+        "/api/knowledge-bases/1/documents/99999/progress",
+        headers=AUTH,
+    )
+    assert response.status_code == 404
+
+
+@requires_postgres
 def test_stream_stores_used_kbs_in_extra():
     """When RAG runs and returns chunks, assistant message.extra contains used_kbs."""
     from unittest.mock import patch
