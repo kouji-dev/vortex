@@ -34,7 +34,6 @@ from ai_portal.models import (
     User,
 )
 from ai_portal.schemas.conversation_settings import ConversationSettings
-from ai_portal.services import embedding as embedding_svc
 from ai_portal.services import llm as llm_svc
 from ai_portal.services import rag as rag_svc
 from ai_portal.services.conversation_model_resolve import (
@@ -159,6 +158,35 @@ def _capability_instructions(st: ConversationSettings | None) -> str:
     if not parts:
         return ""
     return "\n\n[Conversation capabilities]\n" + "\n".join(f"- {p}" for p in parts)
+
+
+def _dispatch_tool_call(
+    db: Session,
+    tool_call: dict,
+    *,
+    kb_ids: list[int],
+) -> dict:
+    """Execute a tool call emitted by the LLM. Returns tool result dict."""
+    name = tool_call.get("name", "")
+    try:
+        args = json.loads(tool_call.get("arguments", "{}"))
+    except Exception:
+        args = {}
+
+    if name == "search_knowledge_base":
+        query = args.get("query", "")
+        requested_kb_ids = args.get("kb_ids") or kb_ids
+        result = rag_svc.search_knowledge_base_tool(
+            db=db, query=query, kb_ids=requested_kb_ids, top_k=args.get("top_k"),
+        )
+        return {
+            "role": "tool",
+            "name": name,
+            "content": result["context"],
+            "_used_kbs": result.get("used_kbs", []),
+            "_citations": result.get("citations", []),
+        }
+    return {"role": "tool", "name": name, "content": f"Error: unknown tool '{name}'"}
 
 
 class ConversationCreate(BaseModel):
@@ -533,26 +561,44 @@ def stream_message(
     else:
         system_parts.append(settings.default_system_prompt.strip())
 
-    used_kbs_meta: list[dict] = []
+    tools: list[dict[str, Any]] = []
     if kb_ids:
-        try:
-            q_emb = embedding_svc.embed_texts(
-                [user_content], input_type="query"
-            )[0]
-            rag_block, used_kbs_meta = rag_svc.retrieve_context_with_meta(
-                db, knowledge_base_ids=kb_ids, query_embedding=q_emb
-            )
-            if rag_block:
-                system_parts.append(
-                    "Use the following context when answering. If it is insufficient, say so.\n\n"
-                    + rag_block
-                )
-        except ValueError:
-            logger.warning("rag_skipped_no_embedding_key")
-    else:
-        logger.debug(
-            "rag_no_knowledge_bases_attached", extra={"conversation_id": conv.id}
+        system_parts.append(
+            "You have access to the search_knowledge_base tool. "
+            "Use it when you need information from the user's documents to answer accurately. "
+            "When using retrieved context, cite sources as [Source: filename, section]."
         )
+        tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": "search_knowledge_base",
+                    "description": (
+                        "Search attached knowledge bases for relevant context. "
+                        "Call when you need document information."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "query": {
+                                "type": "string",
+                                "description": "Search query",
+                            },
+                            "kb_ids": {
+                                "type": "array",
+                                "items": {"type": "integer"},
+                                "description": "KB IDs to search",
+                            },
+                            "top_k": {
+                                "type": "integer",
+                                "description": "Optional: number of results",
+                            },
+                        },
+                        "required": ["query", "kb_ids"],
+                    },
+                },
+            }
+        ]
 
     cap_instr = _capability_instructions(conv.settings)
     if cap_instr:
@@ -560,7 +606,7 @@ def stream_message(
 
     system_content = "\n\n".join(p for p in system_parts if p)
 
-    openai_messages: list[dict[str, str]] = [{"role": "system", "content": system_content}]
+    openai_messages: list[dict[str, Any]] = [{"role": "system", "content": system_content}]
     openai_messages.extend(prior)
     openai_messages.append({"role": "user", "content": user_content})
 
@@ -582,52 +628,98 @@ def stream_message(
         return last.id if last else 0
 
     def gen() -> Any:
-        full: list[str] = []
-        try:
-            for piece in llm_svc.chat_completions_stream_deltas(
-                openai_messages, model=use_model
-            ):
-                full.append(piece)
-                yield _sse({"type": "delta", "text": piece})
-        except ValueError as e:
-            detail = str(e)
-            db.add(
-                ChatMessage(
-                    conversation_id=conv.id,
-                    role="assistant",
-                    content=f"**Error:** {detail}",
-                )
-            )
-            db.commit()
-            yield _sse({"type": "error", "detail": detail})
-            yield _sse({"type": "done", "message_id": _tail_message_id()})
-            return
-        except Exception:
-            logger.exception("chat_stream_failed")
-            detail = "Upstream model error"
-            db.add(
-                ChatMessage(
-                    conversation_id=conv.id,
-                    role="assistant",
-                    content=f"**Error:** {detail}",
-                )
-            )
-            db.commit()
-            yield _sse({"type": "error", "detail": detail})
-            yield _sse({"type": "done", "message_id": _tail_message_id()})
-            return
+        used_kbs_meta: list[dict] = []
+        messages = list(openai_messages)
+        max_iterations = settings.rag_max_tool_iterations
+        iterations = 0
 
-        reply = "".join(full)
-        db.add(
-            ChatMessage(
-                conversation_id=conv.id,
-                role="assistant",
-                content=reply,
-                extra={"used_kbs": used_kbs_meta} if used_kbs_meta else None,
+        while iterations <= max_iterations:
+            full: list[str] = []
+            tool_call_buffer: dict | None = None
+
+            try:
+                for piece in llm_svc.chat_completions_stream_with_tools(
+                    messages, model=use_model, tools=tools if tools else None
+                ):
+                    if isinstance(piece, dict) and piece.get("type") == "tool_call":
+                        tool_call_buffer = piece.get("tool_call")
+                        yield _sse(
+                            {"type": "tool_call", "name": tool_call_buffer.get("name", "")}
+                        )
+                    elif isinstance(piece, dict) and piece.get("type") == "delta":
+                        text = piece.get("text", "")
+                        full.append(text)
+                        yield _sse({"type": "delta", "text": text})
+                    else:
+                        full.append(str(piece))
+                        yield _sse({"type": "delta", "text": str(piece)})
+            except ValueError as e:
+                detail = str(e)
+                db.add(
+                    ChatMessage(
+                        conversation_id=conv.id,
+                        role="assistant",
+                        content=f"**Error:** {detail}",
+                    )
+                )
+                db.commit()
+                yield _sse({"type": "error", "detail": detail})
+                yield _sse({"type": "done", "message_id": _tail_message_id()})
+                return
+            except Exception:
+                logger.exception("chat_stream_failed")
+                detail = "Upstream model error"
+                db.add(
+                    ChatMessage(
+                        conversation_id=conv.id,
+                        role="assistant",
+                        content=f"**Error:** {detail}",
+                    )
+                )
+                db.commit()
+                yield _sse({"type": "error", "detail": detail})
+                yield _sse({"type": "done", "message_id": _tail_message_id()})
+                return
+
+            if tool_call_buffer and iterations < max_iterations:
+                tool_result = _dispatch_tool_call(db, tool_call_buffer, kb_ids=kb_ids)
+                used_kbs_meta.extend(tool_result.get("_used_kbs", []))
+                messages.append(
+                    {
+                        "role": "assistant",
+                        "content": None,
+                        "tool_calls": [
+                            {
+                                "id": "tc_0",
+                                "type": "function",
+                                "function": tool_call_buffer,
+                            }
+                        ],
+                    }
+                )
+                messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": "tc_0",
+                        "name": tool_result["name"],
+                        "content": tool_result["content"],
+                    }
+                )
+                iterations += 1
+                continue
+
+            reply = "".join(full)
+            db.add(
+                ChatMessage(
+                    conversation_id=conv.id,
+                    role="assistant",
+                    content=reply,
+                    extra={"used_kbs": used_kbs_meta} if used_kbs_meta else None,
+                )
             )
-        )
-        db.commit()
-        yield _sse({"type": "done", "message_id": _tail_message_id()})
+            db.commit()
+            yield _sse({"type": "done", "message_id": _tail_message_id()})
+            return
 
     return StreamingResponse(
         gen(),

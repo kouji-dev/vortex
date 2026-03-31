@@ -24,3 +24,16 @@ def chat_completions_stream_deltas(
 ) -> Iterator[str]:
     settings = settings or get_settings()
     yield from get_chat_provider(settings).stream_deltas(messages, model=model)
+
+
+def chat_completions_stream_with_tools(
+    messages: list[dict[str, Any]],
+    *,
+    model: str | None = None,
+    tools: list[dict[str, Any]] | None = None,
+    settings: Settings | None = None,
+) -> Iterator[dict[str, Any]]:
+    settings = settings or get_settings()
+    yield from get_chat_provider(settings).stream_deltas_with_tools(
+        messages, model=model, tools=tools
+    )

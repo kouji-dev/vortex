@@ -26,3 +26,13 @@ class ChatProvider(Protocol):
     ) -> Iterator[str]:
         """Yield assistant text fragments (streaming)."""
         ...
+
+    def stream_deltas_with_tools(
+        self,
+        messages: list[dict[str, Any]],
+        *,
+        model: str | None = None,
+        tools: list[dict[str, Any]] | None = None,
+    ) -> Iterator[dict[str, Any]]:
+        """Yield dicts: {"type": "delta", "text": str} or {"type": "tool_call", "tool_call": {...}}"""
+        ...

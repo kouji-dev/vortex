@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from collections.abc import Iterator
 from typing import Any
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 
 from ai_portal.config import Settings
 from ai_portal.services.llm_providers.model_routing import (
@@ -19,15 +20,34 @@ from ai_portal.services.model_access import effective_chat_model
 logger = logging.getLogger(__name__)
 
 
-def _openai_dict_messages_to_lc(messages: list[dict[str, str]]) -> list:
+def _openai_dict_messages_to_lc(messages: list[dict[str, Any]]) -> list:
     out: list = []
     for m in messages:
         role = m.get("role", "")
-        content = m.get("content", "")
+        content = m.get("content", "") or ""
         if role == "system":
             out.append(SystemMessage(content=content))
         elif role == "assistant":
-            out.append(AIMessage(content=content))
+            tool_calls = m.get("tool_calls")
+            if tool_calls:
+                lc_tool_calls = []
+                for tc in tool_calls:
+                    fn = tc.get("function", {})
+                    raw_args = fn.get("arguments", "{}")
+                    parsed = raw_args if isinstance(raw_args, dict) else json.loads(raw_args)
+                    lc_tool_calls.append(
+                        {"name": fn.get("name", ""), "args": parsed, "id": tc.get("id", "")}
+                    )
+                out.append(AIMessage(content=content, tool_calls=lc_tool_calls))
+            else:
+                out.append(AIMessage(content=content))
+        elif role == "tool":
+            out.append(
+                ToolMessage(
+                    content=content,
+                    tool_call_id=m.get("tool_call_id", ""),
+                )
+            )
         else:
             out.append(HumanMessage(content=content))
     return out
@@ -114,3 +134,40 @@ class LangChainChatProvider:
             piece = _chunk_assistant_text(chunk)
             if piece:
                 yield piece
+
+    def stream_deltas_with_tools(
+        self,
+        messages: list[dict[str, Any]],
+        *,
+        model: str | None = None,
+        tools: list[dict[str, Any]] | None = None,
+    ) -> Iterator[dict[str, Any]]:
+        mid = self._resolved_model_id(model)
+        chat = self._chat_model(mid)
+        if tools:
+            chat = chat.bind_tools(tools)
+        lc_messages = _openai_dict_messages_to_lc(messages)
+
+        tc_name: str | None = None
+        tc_args_parts: list[str] = []
+
+        for chunk in chat.stream(lc_messages):
+            # Accumulate tool-call chunks
+            tc_chunks = getattr(chunk, "tool_call_chunks", None)
+            if tc_chunks:
+                for tcc in tc_chunks:
+                    if tcc.get("name"):
+                        tc_name = tcc["name"]
+                    tc_args_parts.append(tcc.get("args", "") or "")
+                continue
+
+            text = _chunk_assistant_text(chunk)
+            if text:
+                yield {"type": "delta", "text": text}
+
+        if tc_name is not None:
+            raw_args = "".join(tc_args_parts)
+            yield {
+                "type": "tool_call",
+                "tool_call": {"name": tc_name, "arguments": raw_args},
+            }
