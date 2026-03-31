@@ -15,7 +15,17 @@ class ChatProvider(Protocol):
         *,
         model: str | None = None,
     ) -> dict[str, Any]:
-        """Non-streaming chat result (OpenAI-shaped dict if needed by callers)."""
+        """Non-streaming chat result (dict with choices/message shape)."""
+        ...
+
+    def complete_structured[T](
+        self,
+        messages: list[dict[str, str]],
+        *,
+        schema: type[T],
+        model: str | None = None,
+    ) -> T:
+        """Return a response parsed into *schema* (a Pydantic BaseModel subclass)."""
         ...
 
     def stream_deltas(

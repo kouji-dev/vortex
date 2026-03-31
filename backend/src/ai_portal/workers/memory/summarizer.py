@@ -17,12 +17,23 @@ from ai_portal.models.chat import ChatConversation, ChatMessage
 
 logger = logging.getLogger(__name__)
 
-_SUMMARY_SYSTEM_PROMPT = (
-    "You are a concise summarizer. Given a conversation transcript (and optionally "
-    "a previous summary), produce a single cumulative summary that captures the key "
-    "topics, decisions, and any important details. Keep it under 500 words. "
-    "Write in third person."
+_INITIAL_SUMMARY_PROMPT = (
+    "You are a concise summarizer. Given a conversation transcript, produce a "
+    "summary that captures the key topics, decisions, and any important details. "
+    "Keep it under 500 words. Write in third person."
 )
+
+_ENHANCE_SUMMARY_PROMPT = (
+    "You are a concise summarizer. You are given an existing conversation summary "
+    "and a batch of new messages. Produce a single enhanced summary that incorporates "
+    "the new information into the existing summary. Preserve important details from "
+    "the existing summary while integrating new topics, decisions, and context. "
+    "Keep it under 500 words. Write in third person."
+)
+
+
+def _format_transcript(messages: list[Any]) -> str:
+    return "\n".join(f"{m.role}: {m.content}" for m in messages)
 
 
 def _call_summary_llm(
@@ -34,24 +45,27 @@ def _call_summary_llm(
     from ai_portal.services.llm_providers import get_chat_provider
 
     settings = settings or get_settings()
+    transcript = _format_transcript(messages)
 
-    transcript_lines: list[str] = []
     if existing_summary:
-        transcript_lines.append(f"[Previous summary]\n{existing_summary}\n")
-    for m in messages:
-        transcript_lines.append(f"{m.role}: {m.content}")
-    transcript = "\n".join(transcript_lines)
-
-    llm_messages: list[dict[str, str]] = [
-        {"role": "system", "content": _SUMMARY_SYSTEM_PROMPT},
-        {
-            "role": "user",
-            "content": (
-                "Summarize the following conversation, incorporating any previous "
-                "summary:\n\n" + transcript
-            ),
-        },
-    ]
+        llm_messages: list[dict[str, str]] = [
+            {"role": "system", "content": _ENHANCE_SUMMARY_PROMPT},
+            {
+                "role": "user",
+                "content": (
+                    f"[Existing summary]\n{existing_summary}\n\n"
+                    f"[New messages]\n{transcript}"
+                ),
+            },
+        ]
+    else:
+        llm_messages = [
+            {"role": "system", "content": _INITIAL_SUMMARY_PROMPT},
+            {
+                "role": "user",
+                "content": f"Summarize the following conversation:\n\n{transcript}",
+            },
+        ]
 
     provider = get_chat_provider(settings)
     result = provider.complete(llm_messages, model=None)
@@ -65,16 +79,21 @@ def _call_summary_llm(
 def summarize_conversation(
     conversation_id: int,
     *,
-    window_size: int | None = None,
+    summary_interval: int | None = None,
     db: Session | None = None,
 ) -> None:
-    """Build a cumulative summary for messages outside the sliding window."""
+    """Build a cumulative summary for messages outside the sliding window.
+
+    Once the conversation exceeds the base window, only the last
+    ``summary_interval`` messages are kept in context; everything older
+    gets folded into the cumulative summary.
+    """
     own_session = db is None
     if own_session:
         db = SessionLocal()
     try:
         settings = get_settings()
-        window_size = window_size or settings.conversation_window_size
+        summary_interval = summary_interval or settings.conversation_summary_interval
 
         conv = db.get(ChatConversation, conversation_id)
         if conv is None:
@@ -89,28 +108,43 @@ def summarize_conversation(
             ).all()
         )
 
-        if len(all_ids) <= window_size:
+        if len(all_ids) <= summary_interval:
             return
 
-        cutoff_id = all_ids[-window_size]
+        cutoff_id = all_ids[-summary_interval]
 
-        outside_msgs = list(
-            db.execute(
-                select(ChatMessage)
-                .where(ChatMessage.conversation_id == conv.id)
-                .where(ChatMessage.id < cutoff_id)
-                .order_by(ChatMessage.id)
+        if conv.summary:
+            prev_cutoff_idx = max(0, len(all_ids) - 2 * summary_interval)
+            prev_cutoff_id = all_ids[prev_cutoff_idx]
+            new_msgs = list(
+                db.execute(
+                    select(ChatMessage)
+                    .where(ChatMessage.conversation_id == conv.id)
+                    .where(ChatMessage.id >= prev_cutoff_id)
+                    .where(ChatMessage.id < cutoff_id)
+                    .order_by(ChatMessage.id)
+                )
+                .scalars()
+                .all()
             )
-            .scalars()
-            .all()
-        )
+        else:
+            new_msgs = list(
+                db.execute(
+                    select(ChatMessage)
+                    .where(ChatMessage.conversation_id == conv.id)
+                    .where(ChatMessage.id < cutoff_id)
+                    .order_by(ChatMessage.id)
+                )
+                .scalars()
+                .all()
+            )
 
-        if not outside_msgs:
+        if not new_msgs:
             return
 
         new_summary = _call_summary_llm(
             existing_summary=conv.summary,
-            messages=outside_msgs,
+            messages=new_msgs,
             settings=settings,
         )
         if new_summary:

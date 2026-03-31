@@ -31,7 +31,7 @@ def test_summarize_creates_summary(mock_llm, mock_session_cls):
 
     mock_llm.return_value = "Summary of the conversation so far."
 
-    summarize_conversation(1, window_size=30)
+    summarize_conversation(1, summary_interval=10)
 
     mock_llm.assert_called_once()
     assert conv.summary == "Summary of the conversation so far."
@@ -53,7 +53,7 @@ def test_summarize_skips_if_not_enough_messages(mock_llm, mock_session_cls):
     all_ids = list(range(1, 11))
     db.scalars.return_value.all.return_value = all_ids
 
-    summarize_conversation(1, window_size=30)
+    summarize_conversation(1, summary_interval=30)
 
     mock_llm.assert_not_called()
     db.close.assert_called_once()
@@ -65,7 +65,7 @@ def test_summarize_unknown_conversation(mock_session_cls):
     mock_session_cls.return_value = db
     db.get.return_value = None
 
-    summarize_conversation(999, window_size=30)
+    summarize_conversation(999, summary_interval=10)
 
     db.commit.assert_not_called()
     db.close.assert_called_once()

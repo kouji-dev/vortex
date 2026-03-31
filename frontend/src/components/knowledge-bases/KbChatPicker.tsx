@@ -1,5 +1,6 @@
 import * as Popover from '@radix-ui/react-popover'
 import * as React from 'react'
+import { Library } from 'lucide-react'
 
 import { KbPickerPanel } from '~/components/knowledge-bases/KbPickerPanel'
 
@@ -26,10 +27,10 @@ export function KbChatPicker({
           type="button"
           data-testid="chat-kb-picker-trigger"
           className={[
-            'flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors',
+            'inline-flex h-7 items-center gap-1.5 rounded-md border px-2 text-xs transition-colors',
             isActive
-              ? 'border-blue-500 text-blue-400 hover:bg-blue-500/10'
-              : 'border-neutral-600 text-neutral-400 hover:border-neutral-500 hover:text-neutral-300',
+              ? 'border-blue-500/70 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-blue-500/70 dark:bg-blue-500/10 dark:text-blue-300 dark:hover:bg-blue-500/20'
+              : 'border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-200 dark:hover:bg-neutral-900',
           ].join(' ')}
           aria-label={
             isActive
@@ -38,7 +39,7 @@ export function KbChatPicker({
           }
           aria-expanded={open}
         >
-          <span>📚</span>
+          <Library className="size-3.5 shrink-0" aria-hidden />
           <span>{isActive ? `${activeCount} KBs active` : 'KBs'}</span>
         </button>
       </Popover.Trigger>

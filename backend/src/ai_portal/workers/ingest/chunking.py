@@ -1,14 +1,22 @@
-"""Semantic chunker — splits text respecting document structure.
+"""Document chunking via Chonkie — semantic, code, and prose strategies.
 
-Returns list of (content, meta) tuples. Target ~500 tokens per chunk
-(approximated as 2000 chars). Overlap uses last 2 sentences of prior chunk.
+Returns list of (content, meta) tuples. Uses Chonkie's SemanticChunker for
+prose/markdown (embedding-based boundary detection) and CodeChunker for
+source code (tree-sitter AST). Falls back to RecursiveChunker when the
+semantic model isn't needed.
 """
 from __future__ import annotations
 
-import re
+import logging
+from functools import lru_cache
 from typing import TypedDict
 
-TARGET_CHARS = 2000
+from chonkie import CodeChunker, RecursiveChunker, SemanticChunker
+
+logger = logging.getLogger(__name__)
+
+CHUNK_SIZE = 512
+SEMANTIC_SIMILARITY_THRESHOLD = 0.5
 
 
 class ChunkMeta(TypedDict):
@@ -20,192 +28,149 @@ class ChunkMeta(TypedDict):
     char_end: int
 
 
+@lru_cache(maxsize=1)
+def _get_semantic_chunker() -> SemanticChunker:
+    return SemanticChunker(
+        embedding_model="minishlab/potion-base-32M",
+        chunk_size=CHUNK_SIZE,
+        threshold=SEMANTIC_SIMILARITY_THRESHOLD,
+    )
+
+
+@lru_cache(maxsize=1)
+def _get_recursive_chunker() -> RecursiveChunker:
+    return RecursiveChunker(
+        chunk_size=CHUNK_SIZE,
+        chunk_overlap=64,
+    )
+
+
+@lru_cache(maxsize=1)
+def _get_code_chunker() -> CodeChunker:
+    return CodeChunker(
+        language="auto",
+        chunk_size=CHUNK_SIZE * 4,
+    )
+
+
+def _section_label(text: str) -> str:
+    """Extract a short section label from chunk text."""
+    first_line = text.split("\n", 1)[0].strip()
+    if first_line.startswith("#"):
+        return first_line.lstrip("# ").strip()[:80]
+    return first_line[:60]
+
+
 def semantic_chunks(
     text: str,
     file_type: str,
     filename: str,
     page: int,
 ) -> list[tuple[str, ChunkMeta]]:
-    """Split text into overlapping semantic chunks."""
+    """Split text into chunks using Chonkie. Public API matches the old module."""
     text = text.strip()
     if not text:
         return []
 
-    if file_type == "markdown":
-        return _chunk_markdown(text, filename=filename, page=page)
     if file_type == "code":
         return _chunk_code(text, filename=filename, page=page)
-    return _chunk_prose(text, filename=filename, file_type=file_type, page=page)
+    if file_type in {"markdown", "prose", "pdf"}:
+        return _chunk_semantic(text, filename=filename, file_type=file_type, page=page)
+    return _chunk_fallback(text, filename=filename, file_type=file_type, page=page)
 
 
-def _last_two_sentences(sentences: list[str]) -> list[str]:
-    """Return the last 2 sentences from a sentence list."""
-    return sentences[-2:] if len(sentences) >= 2 else list(sentences)
-
-
-def _chunk_prose(
+def _chunk_semantic(
     text: str,
     *,
     filename: str,
     file_type: str,
     page: int,
 ) -> list[tuple[str, ChunkMeta]]:
-    sentences = re.split(r"(?<=[.!?])\s+", text)
-    sentences = [s.strip() for s in sentences if s.strip()]
+    try:
+        chunker = _get_semantic_chunker()
+        raw_chunks = chunker.chunk(text)
+    except Exception:
+        logger.warning("semantic_chunker_failed_falling_back", exc_info=True)
+        return _chunk_fallback(text, filename=filename, file_type=file_type, page=page)
 
-    chunks: list[tuple[str, ChunkMeta]] = []
-    current: list[str] = []
-    current_chars = 0
-    char_offset = 0
-
-    def _flush(overlap_sentences: list[str]) -> None:
-        nonlocal char_offset
-        content = " ".join(current)
-        start = char_offset
-        end = start + len(content)
-        section = current[0][:60] if current else ""
-        chunks.append((
+    results: list[tuple[str, ChunkMeta]] = []
+    for ch in raw_chunks:
+        content = ch.text.strip()
+        if not content:
+            continue
+        results.append((
             content,
             ChunkMeta(
                 source=filename,
                 file_type=file_type,
-                section=section,
+                section=_section_label(content),
                 page=page,
-                char_start=start,
-                char_end=end,
+                char_start=ch.start_index,
+                char_end=ch.end_index,
             ),
         ))
-        overlap_text = " ".join(overlap_sentences)
-        char_offset = end - len(overlap_text)
-
-    for sent in sentences:
-        current.append(sent)
-        current_chars += len(sent) + 1
-        if current_chars >= TARGET_CHARS:
-            overlap = _last_two_sentences(current)
-            _flush(overlap)
-            current = list(overlap)
-            current_chars = sum(len(s) + 1 for s in current)
-
-    if current:
-        _flush([])
-
-    return chunks
+    return results
 
 
-def _chunk_markdown(text: str, *, filename: str, page: int) -> list[tuple[str, ChunkMeta]]:
-    heading_pattern = re.compile(r"^(#{1,2})\s+(.+)$", re.MULTILINE)
-    matches = list(heading_pattern.finditer(text))
+def _chunk_code(
+    text: str,
+    *,
+    filename: str,
+    page: int,
+) -> list[tuple[str, ChunkMeta]]:
+    try:
+        chunker = _get_code_chunker()
+        raw_chunks = chunker.chunk(text)
+    except Exception:
+        logger.warning("code_chunker_failed_falling_back", exc_info=True)
+        return _chunk_fallback(text, filename=filename, file_type="code", page=page)
 
-    if not matches:
-        return _chunk_prose(text, filename=filename, file_type="markdown", page=page)
-
-    sections: list[tuple[str, str]] = []
-    for i, match in enumerate(matches):
-        heading = match.group(2).strip()
-        body_start = match.end()
-        body_end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
-        body = text[body_start:body_end].strip()
-        sections.append((heading, body))
-
-    first_start = matches[0].start()
-    if first_start > 0:
-        preamble = text[:first_start].strip()
-        if preamble:
-            sections.insert(0, ("", preamble))
-
-    chunks: list[tuple[str, ChunkMeta]] = []
-    char_offset = 0
-    prev_heading = ""
-
-    for heading, body in sections:
-        content = (f"{prev_heading}\n\n" if prev_heading else "") + (
-            f"## {heading}\n\n" if heading else ""
-        ) + body
-        content = content.strip()
-        if not content:
-            prev_heading = heading
-            continue
-
-        if len(content) > TARGET_CHARS * 2:
-            sub = _chunk_prose(content, filename=filename, file_type="markdown", page=page)
-            for sub_content, sub_meta in sub:
-                sub_meta["section"] = heading or sub_meta["section"]
-            chunks.extend(sub)
-        else:
-            chunks.append((
-                content,
-                ChunkMeta(
-                    source=filename,
-                    file_type="markdown",
-                    section=heading,
-                    page=page,
-                    char_start=char_offset,
-                    char_end=char_offset + len(content),
-                ),
-            ))
-
-        char_offset += len(content)
-        prev_heading = heading
-
-    return chunks
-
-
-_CODE_SPLIT_PATTERN = re.compile(
-    r"^(class\s+\w+|def\s+\w+|function\s+\w+|const\s+\w+\s*=\s*(?:async\s+)?(?:function|\())",
-    re.MULTILINE,
-)
-
-
-def _chunk_code(text: str, *, filename: str, page: int) -> list[tuple[str, ChunkMeta]]:
-    matches = list(_CODE_SPLIT_PATTERN.finditer(text))
-
-    if not matches:
-        return _chunk_prose(text, filename=filename, file_type="code", page=page)
-
-    chunks: list[tuple[str, ChunkMeta]] = []
-    for i, match in enumerate(matches):
-        start = match.start()
-        end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
-        content = text[start:end].strip()
+    results: list[tuple[str, ChunkMeta]] = []
+    for ch in raw_chunks:
+        content = ch.text.strip()
         if not content:
             continue
-        section = match.group(0).strip()[:80]
+        results.append((
+            content,
+            ChunkMeta(
+                source=filename,
+                file_type="code",
+                section=_section_label(content),
+                page=page,
+                char_start=ch.start_index,
+                char_end=ch.end_index,
+            ),
+        ))
+    return results
 
-        if len(content) > TARGET_CHARS * 3:
-            sub = _chunk_prose(content, filename=filename, file_type="code", page=page)
-            for sc, sm in sub:
-                sm["section"] = section
-            chunks.extend(sub)
-        else:
-            chunks.append((
-                content,
-                ChunkMeta(
-                    source=filename,
-                    file_type="code",
-                    section=section,
-                    page=page,
-                    char_start=start,
-                    char_end=end,
-                ),
-            ))
 
-    if matches and matches[0].start() > 0:
-        preamble = text[: matches[0].start()].strip()
-        if preamble:
-            chunks.insert(0, (
-                preamble,
-                ChunkMeta(
-                    source=filename,
-                    file_type="code",
-                    section="",
-                    page=page,
-                    char_start=0,
-                    char_end=matches[0].start(),
-                ),
-            ))
+def _chunk_fallback(
+    text: str,
+    *,
+    filename: str,
+    file_type: str,
+    page: int,
+) -> list[tuple[str, ChunkMeta]]:
+    chunker = _get_recursive_chunker()
+    raw_chunks = chunker.chunk(text)
 
-    return chunks
+    results: list[tuple[str, ChunkMeta]] = []
+    for ch in raw_chunks:
+        content = ch.text.strip()
+        if not content:
+            continue
+        results.append((
+            content,
+            ChunkMeta(
+                source=filename,
+                file_type=file_type,
+                section=_section_label(content),
+                page=page,
+                char_start=ch.start_index,
+                char_end=ch.end_index,
+            ),
+        ))
+    return results
 
 
 def file_type_for_suffix(suffix: str) -> str:
@@ -217,7 +182,9 @@ def file_type_for_suffix(suffix: str) -> str:
         return "markdown"
     if suffix in {"html", "htm"}:
         return "prose"
-    if suffix in {"py", "ts", "tsx", "js", "jsx", "go", "rs", "java",
-                  "c", "cpp", "cs", "rb", "sh"}:
+    if suffix in {
+        "py", "ts", "tsx", "js", "jsx", "go", "rs", "java",
+        "c", "cpp", "cs", "rb", "sh",
+    }:
         return "code"
     return "prose"

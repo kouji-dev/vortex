@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
+from collections import defaultdict
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -49,8 +50,16 @@ class KnowledgeBaseRead(BaseModel):
     description: str
     owner_user_id: int
     created_at: object
+    document_count: int | None = None
+    chunks_count: int | None = None
+    size_bytes: int | None = None
 
     model_config = {"from_attributes": True}
+
+
+class KnowledgeBasePage(BaseModel):
+    items: list[KnowledgeBaseRead]
+    next_cursor: int | None = None
 
 
 class KnowledgeBasePatch(BaseModel):
@@ -127,6 +136,43 @@ def _get_owned_connector(
     return c
 
 
+def _build_kb_rows(db: Session, kbs: list[KnowledgeBase]) -> list[KnowledgeBaseRead]:
+    if not kbs:
+        return []
+
+    kb_ids = [kb.id for kb in kbs]
+    docs = list(
+        db.scalars(select(Document).where(Document.knowledge_base_id.in_(kb_ids))).all()
+    )
+
+    document_counts: dict[int, int] = defaultdict(int)
+    chunks_counts: dict[int, int] = defaultdict(int)
+    size_totals: dict[int, int] = defaultdict(int)
+
+    for doc in docs:
+        kb_id = doc.knowledge_base_id
+        document_counts[kb_id] += 1
+        chunks_counts[kb_id] += doc.chunks_total or 0
+        try:
+            size_totals[kb_id] += Path(doc.storage_path).stat().st_size
+        except OSError:
+            continue
+
+    return [
+        KnowledgeBaseRead(
+            id=kb.id,
+            name=kb.name,
+            description=kb.description,
+            owner_user_id=kb.owner_user_id,
+            created_at=kb.created_at,
+            document_count=document_counts[kb.id],
+            chunks_count=chunks_counts[kb.id],
+            size_bytes=size_totals[kb.id],
+        )
+        for kb in kbs
+    ]
+
+
 @router.post("", response_model=KnowledgeBaseRead, status_code=status.HTTP_201_CREATED)
 def create_knowledge_base(
     body: KnowledgeBaseCreate,
@@ -148,14 +194,38 @@ def create_knowledge_base(
 def list_knowledge_bases(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
-) -> list[KnowledgeBase]:
-    return list(
+) -> list[KnowledgeBaseRead]:
+    kbs = list(
         db.scalars(
             select(KnowledgeBase)
             .where(KnowledgeBase.owner_user_id == user.id)
             .order_by(KnowledgeBase.id.desc())
         ).all()
     )
+    return _build_kb_rows(db, kbs)
+
+
+@router.get("/page", response_model=KnowledgeBasePage)
+def list_knowledge_bases_page(
+    cursor: Annotated[int | None, Query(ge=1)] = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 25,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> KnowledgeBasePage:
+    stmt = (
+        select(KnowledgeBase)
+        .where(KnowledgeBase.owner_user_id == user.id)
+        .order_by(KnowledgeBase.id.desc())
+        .limit(limit + 1)
+    )
+    if cursor is not None:
+        stmt = stmt.where(KnowledgeBase.id < cursor)
+    rows = list(db.scalars(stmt).all())
+    has_more = len(rows) > limit
+    page_rows = rows[:limit]
+    items = _build_kb_rows(db, page_rows)
+    next_cursor = page_rows[-1].id if has_more and page_rows else None
+    return KnowledgeBasePage(items=items, next_cursor=next_cursor)
 
 
 @router.get(

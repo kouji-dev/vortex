@@ -20,7 +20,7 @@ from ai_portal.services.model_access import effective_chat_model
 logger = logging.getLogger(__name__)
 
 
-def _openai_dict_messages_to_lc(messages: list[dict[str, Any]]) -> list:
+def _map_dict_messages_to_lc(messages: list[dict[str, Any]]) -> list:
     out: list = []
     for m in messages:
         role = m.get("role", "")
@@ -116,10 +116,23 @@ class LangChainChatProvider:
     ) -> dict[str, Any]:
         mid = self._resolved_model_id(model)
         chat = self._chat_model(mid)
-        lc_messages = _openai_dict_messages_to_lc(messages)
+        lc_messages = _map_dict_messages_to_lc(messages)
         resp = chat.invoke(lc_messages)
         content = _message_content_to_str(getattr(resp, "content", resp))
         return {"choices": [{"message": {"content": content}}]}
+
+    def complete_structured[T](
+        self,
+        messages: list[dict[str, str]],
+        *,
+        schema: type[T],
+        model: str | None = None,
+    ) -> T:
+        mid = self._resolved_model_id(model)
+        chat = self._chat_model(mid)
+        structured = chat.with_structured_output(schema)
+        lc_messages = _map_dict_messages_to_lc(messages)
+        return structured.invoke(lc_messages)
 
     def stream_deltas(
         self,
@@ -129,7 +142,7 @@ class LangChainChatProvider:
     ) -> Iterator[str]:
         mid = self._resolved_model_id(model)
         chat = self._chat_model(mid)
-        lc_messages = _openai_dict_messages_to_lc(messages)
+        lc_messages = _map_dict_messages_to_lc(messages)
         for chunk in chat.stream(lc_messages):
             piece = _chunk_assistant_text(chunk)
             if piece:
@@ -146,7 +159,7 @@ class LangChainChatProvider:
         chat = self._chat_model(mid)
         if tools:
             chat = chat.bind_tools(tools)
-        lc_messages = _openai_dict_messages_to_lc(messages)
+        lc_messages = _map_dict_messages_to_lc(messages)
 
         tc_name: str | None = None
         tc_args_parts: list[str] = []

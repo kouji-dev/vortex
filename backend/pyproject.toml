@@ -26,6 +26,7 @@ dependencies = [
   "python-json-logger>=3.2",
   "pypdf>=5.0",
   "pyjwt[crypto]>=2.9",
+  "chonkie[semantic,code]>=1.0",
 ]
 
 [project.optional-dependencies]

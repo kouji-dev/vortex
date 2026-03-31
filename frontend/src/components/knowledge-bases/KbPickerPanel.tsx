@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as React from 'react'
+import { CheckCircle2, FileText, Loader2, Search } from 'lucide-react'
 
 import { getApiBase } from '~/lib/api-base'
 import { getAuthHeaders } from '~/lib/authorizedFetch'
@@ -158,14 +159,12 @@ export function KbPickerPanel({
 
   return (
     <div
-      className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900"
+      className="overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-lg dark:border-neutral-700 dark:bg-neutral-950"
       onKeyDown={handleKeyDown}
       data-testid="kb-picker-popover-inner"
     >
-      <div className="flex items-center gap-2 border-b border-neutral-200 px-4 py-3 dark:border-neutral-700">
-        <span className="shrink-0 text-neutral-400" aria-hidden>
-          🔍
-        </span>
+      <div className="flex items-center gap-2 border-b border-neutral-200 px-3 py-2 dark:border-neutral-700">
+        <Search className="size-3.5 shrink-0 text-neutral-400" aria-hidden />
         <input
           ref={inputRef}
           type="text"
@@ -176,7 +175,10 @@ export function KbPickerPanel({
           className="min-w-0 flex-1 bg-transparent text-sm text-neutral-900 placeholder-neutral-400 outline-none dark:text-neutral-100"
         />
         {conversationId != null && saveMut.isPending && (
-          <span className="shrink-0 text-xs text-neutral-400">Saving…</span>
+          <span className="inline-flex items-center gap-1 text-xs text-neutral-400">
+            <Loader2 className="size-3 animate-spin" aria-hidden />
+            Saving...
+          </span>
         )}
       </div>
 
@@ -186,15 +188,15 @@ export function KbPickerPanel({
         aria-label="Knowledge bases"
       >
         {listQ.isPending && (
-          <li className="px-4 py-3 text-sm text-neutral-400">Loading…</li>
+          <li className="px-3 py-3 text-sm text-neutral-400">Loading...</li>
         )}
         {listQ.isError && (
-          <li className="px-4 py-3 text-sm text-red-500">
+          <li className="px-3 py-3 text-sm text-red-500">
             {(listQ.error as Error).message}
           </li>
         )}
         {!listQ.isPending && filtered.length === 0 && (
-          <li className="px-4 py-3 text-sm text-neutral-400">No knowledge bases found.</li>
+          <li className="px-3 py-3 text-sm text-neutral-400">No knowledge bases found.</li>
         )}
         {filtered.map((kb, idx) => {
           const isAttached = attachedIds.includes(kb.id)
@@ -208,15 +210,13 @@ export function KbPickerPanel({
               onMouseEnter={() => setActiveIndex(idx)}
               onClick={() => toggle(kb.id)}
               className={[
-                'flex cursor-pointer select-none items-center gap-3 px-4 py-2.5 text-sm',
+                'flex cursor-pointer select-none items-center gap-2.5 px-3 py-2 text-sm',
                 isActiveRow
                   ? 'bg-neutral-100 dark:bg-neutral-800'
                   : 'hover:bg-neutral-50 dark:hover:bg-neutral-800/50',
               ].join(' ')}
             >
-              <span className="shrink-0 text-base" aria-hidden>
-                📄
-              </span>
+              <FileText className="size-4 shrink-0 text-neutral-500 dark:text-neutral-400" aria-hidden />
 
               <span className="min-w-0 flex-1 truncate text-neutral-900 dark:text-neutral-100">
                 {kb.name}
@@ -226,8 +226,9 @@ export function KbPickerPanel({
               </span>
 
               {isAttached && (
-                <span className="shrink-0 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                  ● active
+                <span className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                  <CheckCircle2 className="size-3.5" aria-hidden />
+                  Active
                 </span>
               )}
             </li>

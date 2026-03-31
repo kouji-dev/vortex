@@ -203,12 +203,28 @@ def _dispatch_tool_call(
     return {"role": "tool", "name": name, "content": f"Error: unknown tool '{name}'"}
 
 
-def _should_summarize(*, message_count: int, window_size: int) -> bool:
-    return message_count > 0 and message_count % window_size == 0
+def _should_summarize(
+    *, message_count: int, base_window: int, summary_interval: int
+) -> bool:
+    if message_count <= base_window:
+        return False
+    excess = message_count - base_window
+    return excess == 1 or excess % summary_interval == 0
 
 
-def _slice_window_messages(messages: list[dict], *, window_size: int) -> list[dict]:
-    return messages[-window_size:] if len(messages) > window_size else messages
+def _slice_window_messages(
+    messages: list[dict],
+    *,
+    base_window: int,
+    summary_interval: int,
+    has_summary: bool,
+) -> list[dict]:
+    n = len(messages)
+    if n <= base_window:
+        return messages
+    if not has_summary:
+        return messages[-base_window:]
+    return messages[-summary_interval:]
 
 
 class ConversationCreate(BaseModel):
@@ -570,7 +586,12 @@ def stream_message(
         {"role": m.role, "content": m.content} for m in prior_rows
     ]
 
-    prior = _slice_window_messages(prior, window_size=settings.conversation_window_size)
+    prior = _slice_window_messages(
+        prior,
+        base_window=settings.conversation_base_window_size,
+        summary_interval=settings.conversation_summary_interval,
+        has_summary=bool(conv.summary),
+    )
 
     kb_ids = list(
         db.scalars(
@@ -765,7 +786,8 @@ def stream_message(
             )
             if _should_summarize(
                 message_count=total_msgs,
-                window_size=settings.conversation_window_size,
+                base_window=settings.conversation_base_window_size,
+                summary_interval=settings.conversation_summary_interval,
             ):
                 threading.Thread(
                     target=summarize_conversation,

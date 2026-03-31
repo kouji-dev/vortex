@@ -1,15 +1,13 @@
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery } from '@tanstack/react-query'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
-import { Library, Plus } from 'lucide-react'
+import { Eye, Library, Plus, Search } from 'lucide-react'
 import * as React from 'react'
 
 import { CreateKnowledgeBaseDialog } from '~/components/knowledge-bases/CreateKnowledgeBaseDialog'
+import { TableShell } from '~/components/ui/TableShell'
 import { getApiBase } from '~/lib/api-base'
 import { getAuthHeaders } from '~/lib/authorizedFetch'
-import {
-  knowledgeBaseListFromResponse,
-  parseKnowledgeBasesListJson,
-} from '~/lib/knowledge-base-types'
+import type { KnowledgeBaseSummary } from '~/lib/knowledge-base-types'
 import { queryKeys } from '~/lib/queryKeys'
 
 export const Route = createFileRoute('/knowledge-bases/')({
@@ -20,21 +18,87 @@ function KnowledgeBasesIndexPage() {
   const apiBase = getApiBase()
   const navigate = useNavigate()
   const [createOpen, setCreateOpen] = React.useState(false)
+  const [search, setSearch] = React.useState('')
 
-  const listQ = useQuery({
-    queryKey: queryKeys.knowledgeBases(),
-    queryFn: async () => {
-      const res = await fetch(`${apiBase}/api/knowledge-bases`, {
+  const listQ = useInfiniteQuery({
+    queryKey: queryKeys.knowledgeBasesPage(),
+    initialPageParam: null as number | null,
+    queryFn: async ({ pageParam }) => {
+      const qs = new URLSearchParams({ limit: '25' })
+      if (pageParam != null) qs.set('cursor', String(pageParam))
+      const res = await fetch(`${apiBase}/api/knowledge-bases/page?${qs.toString()}`, {
         headers: await getAuthHeaders(),
       })
-      const text = await res.text()
-      return knowledgeBaseListFromResponse(res, text, parseKnowledgeBasesListJson)
+      if (!res.ok) throw new Error(await res.text())
+      return res.json() as Promise<{
+        items: KnowledgeBaseSummary[]
+        next_cursor: number | null
+      }>
     },
+    getNextPageParam: (lastPage) => lastPage.next_cursor,
   })
+  const rows = React.useMemo(
+    () => listQ.data?.pages.flatMap((p) => p.items) ?? [],
+    [listQ.data],
+  )
+  const filteredRows = React.useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return rows
+    return rows.filter((kb) => {
+      const name = kb.name.toLowerCase()
+      const desc = (kb.description ?? '').toLowerCase()
+      return name.includes(q) || desc.includes(q)
+    })
+  }, [rows, search])
+  const loadMoreRef = React.useRef<HTMLDivElement | null>(null)
+  const tableScrollRef = React.useRef<HTMLDivElement | null>(null)
+
+  React.useEffect(() => {
+    const el = loadMoreRef.current
+    if (!el) return
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting) && listQ.hasNextPage && !listQ.isFetchingNextPage) {
+          void listQ.fetchNextPage()
+        }
+      },
+      { root: tableScrollRef.current, rootMargin: '200px' },
+    )
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [listQ])
+
+  const formatBytes = (bytes: number | undefined) => {
+    if (bytes == null) return '—'
+    if (bytes <= 0) return '0 B'
+    const units = ['B', 'KB', 'MB', 'GB', 'TB']
+    let value = bytes
+    let i = 0
+    while (value >= 1024 && i < units.length - 1) {
+      value /= 1024
+      i += 1
+    }
+    return `${value.toFixed(value >= 10 || i === 0 ? 0 : 1)} ${units[i]}`
+  }
+
+  const formatDate = (iso: string) => {
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) return '—'
+    return d.toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+    })
+  }
+
+  const totalSize = rows.reduce((acc, kb) => acc + (kb.size_bytes ?? 0), 0)
+  const totalChunks = rows.reduce((acc, kb) => acc + (kb.chunks_count ?? 0), 0)
+  const totalDocs = rows.reduce((acc, kb) => acc + (kb.document_count ?? 0), 0)
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-4 sm:p-6">
-      <header className="flex flex-col gap-3 border-b border-neutral-200 pb-3 sm:flex-row sm:items-start sm:justify-between dark:border-neutral-800">
+    <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col gap-4 overflow-hidden p-4 sm:p-6">
+      <header>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-lg font-semibold text-neutral-900 dark:text-neutral-100">
             <Library className="size-5 shrink-0 text-neutral-600 dark:text-neutral-400" aria-hidden />
@@ -52,7 +116,25 @@ function KnowledgeBasesIndexPage() {
           <Plus className="size-4" aria-hidden />
           Add knowledge base
         </button>
+        </div>
       </header>
+
+      {rows.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-neutral-600 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300">
+            KBs: <span className="font-semibold tabular-nums">{rows.length}</span>
+          </span>
+          <span className="rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-neutral-600 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300">
+            Docs: <span className="font-semibold tabular-nums">{totalDocs.toLocaleString()}</span>
+          </span>
+          <span className="rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-neutral-600 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300">
+            Chunks: <span className="font-semibold tabular-nums">{totalChunks.toLocaleString()}</span>
+          </span>
+          <span className="rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-neutral-600 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300">
+            Size: <span className="font-semibold tabular-nums">{formatBytes(totalSize)}</span>
+          </span>
+        </div>
+      )}
 
       <CreateKnowledgeBaseDialog
         open={createOpen}
@@ -68,40 +150,98 @@ function KnowledgeBasesIndexPage() {
         }}
       />
 
-      <section aria-labelledby="kb-list-heading">
+      <section aria-labelledby="kb-list-heading" className="flex min-h-0 flex-1 flex-col">
         <h2 id="kb-list-heading" className="mb-2 text-sm font-medium text-neutral-900 dark:text-neutral-100">
           Your knowledge bases
         </h2>
+        <div className="mb-2 flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-2 dark:border-neutral-700 dark:bg-neutral-950">
+          <Search className="size-4 shrink-0 text-neutral-400" aria-hidden />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search knowledge bases..."
+            className="min-w-0 flex-1 bg-transparent text-sm text-neutral-900 placeholder-neutral-400 outline-none dark:text-neutral-100"
+            aria-label="Search knowledge bases"
+          />
+        </div>
         {listQ.isPending && <p className="text-sm text-neutral-500">Loading…</p>}
         {listQ.isError && (
           <p className="text-sm text-red-600" role="alert">
             {(listQ.error as Error).message}
           </p>
         )}
-        {listQ.data && listQ.data.length === 0 && (
+        {!listQ.isPending && rows.length === 0 && (
           <p className="text-sm text-neutral-500 dark:text-neutral-400">
             None yet — use <span className="font-medium text-neutral-700 dark:text-neutral-300">Add knowledge base</span>.
           </p>
         )}
-        {listQ.data && listQ.data.length > 0 && (
-          <ul className="divide-y divide-neutral-200 rounded-xl border border-neutral-200 dark:divide-neutral-800 dark:border-neutral-800">
-            {listQ.data.map((kb) => (
-              <li key={kb.id}>
-                <Link
-                  to="/knowledge-bases/$id"
-                  params={{ id: String(kb.id) }}
-                  className="block px-4 py-3 transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800/80"
-                >
-                  <span className="font-medium text-neutral-900 dark:text-neutral-100">{kb.name}</span>
-                  {kb.description ? (
-                    <p className="mt-0.5 line-clamp-2 text-xs text-neutral-600 dark:text-neutral-400">
-                      {kb.description}
-                    </p>
-                  ) : null}
-                </Link>
-              </li>
-            ))}
-          </ul>
+        {!listQ.isPending && rows.length > 0 && filteredRows.length === 0 && (
+          <p className="text-sm text-neutral-500 dark:text-neutral-400">No knowledge bases match your search.</p>
+        )}
+        {filteredRows.length > 0 && (
+          <TableShell containerRef={tableScrollRef}>
+            <table className="w-full min-w-[48rem] text-left text-sm">
+              <thead className="sticky top-0 z-10 border-b border-neutral-200 bg-neutral-50 text-xs text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
+                <tr>
+                  <th className="px-4 py-2 font-medium">Name</th>
+                  <th className="px-4 py-2 text-right font-medium">Size</th>
+                  <th className="px-4 py-2 text-right font-medium">Chunks</th>
+                  <th className="px-4 py-2 font-medium">Created</th>
+                  <th className="px-4 py-2 text-right font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+                {filteredRows.map((kb) => (
+                  <tr key={kb.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-900/60">
+                    <td className="px-4 py-2.5">
+                      <Link
+                        to="/knowledge-bases/$id"
+                        params={{ id: String(kb.id) }}
+                        className="block"
+                      >
+                        <div className="font-medium text-neutral-900 dark:text-neutral-100">{kb.name}</div>
+                        <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                          {kb.description ? (
+                            <p className="line-clamp-1 text-xs text-neutral-600 dark:text-neutral-400">
+                              {kb.description}
+                            </p>
+                          ) : null}
+                          <span className="rounded-full border border-neutral-200 bg-neutral-100 px-1.5 py-0.5 text-[10px] text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
+                            {(kb.document_count ?? 0).toLocaleString()} docs
+                          </span>
+                        </div>
+                      </Link>
+                    </td>
+                    <td className="px-4 py-2.5 text-right font-medium tabular-nums text-neutral-700 dark:text-neutral-300">
+                      {formatBytes(kb.size_bytes)}
+                    </td>
+                    <td className="px-4 py-2.5 text-right font-medium tabular-nums text-neutral-700 dark:text-neutral-300">
+                      {(kb.chunks_count ?? 0).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-2.5 text-neutral-700 dark:text-neutral-300">
+                      {formatDate(kb.created_at)}
+                    </td>
+                    <td className="px-4 py-2.5 text-right">
+                      <Link
+                        to="/knowledge-bases/$id"
+                        params={{ id: String(kb.id) }}
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-neutral-300 text-neutral-700 transition-colors hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                        title="View knowledge base"
+                        aria-label={`View ${kb.name}`}
+                      >
+                        <Eye className="size-3.5" aria-hidden />
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div ref={loadMoreRef} className="h-1" />
+            {listQ.isFetchingNextPage && (
+              <p className="px-4 py-2 text-xs text-neutral-500">Loading more...</p>
+            )}
+          </TableShell>
         )}
       </section>
     </div>

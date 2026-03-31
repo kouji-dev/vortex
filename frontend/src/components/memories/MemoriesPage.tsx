@@ -1,20 +1,25 @@
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Search, Trash2 } from 'lucide-react'
 import * as React from 'react'
 
+import { TableShell } from '~/components/ui/TableShell'
 import {
   useCreateMemory,
   useDeleteMemory,
-  useMemoriesQuery,
+  useMemoriesInfiniteQuery,
   useUpdateMemory,
 } from '~/hooks/useMemoriesQuery'
 import { cn } from '~/lib/utils'
 
 export function MemoriesPage() {
-  const memoriesQ = useMemoriesQuery()
+  const memoriesQ = useMemoriesInfiniteQuery(25)
   const createMut = useCreateMemory()
   const updateMut = useUpdateMemory()
   const deleteMut = useDeleteMemory()
   const [draft, setDraft] = React.useState('')
+  const [search, setSearch] = React.useState('')
+  const [pendingDelete, setPendingDelete] = React.useState<{ id: number; content: string } | null>(
+    null,
+  )
 
   const handleCreate = () => {
     const text = draft.trim()
@@ -22,14 +27,80 @@ export function MemoriesPage() {
     createMut.mutate(text, { onSuccess: () => setDraft('') })
   }
 
+  const formatDate = (iso: string) => {
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) return '—'
+    return d.toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+    })
+  }
+
+  const memories = React.useMemo(
+    () => memoriesQ.data?.pages.flatMap((p) => p.items) ?? [],
+    [memoriesQ.data],
+  )
+  const filteredMemories = React.useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return memories
+    return memories.filter((m) => {
+      const haystack = [
+        m.content,
+        m.source,
+        m.is_active ? 'active' : 'paused',
+        m.created_at,
+        m.updated_at,
+      ]
+        .join(' ')
+        .toLowerCase()
+      return haystack.includes(q)
+    })
+  }, [memories, search])
+  const loadMoreRef = React.useRef<HTMLDivElement | null>(null)
+  const tableScrollRef = React.useRef<HTMLDivElement | null>(null)
+
+  React.useEffect(() => {
+    const el = loadMoreRef.current
+    if (!el) return
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (
+          entries.some((e) => e.isIntersecting) &&
+          memoriesQ.hasNextPage &&
+          !memoriesQ.isFetchingNextPage
+        ) {
+          void memoriesQ.fetchNextPage()
+        }
+      },
+      { root: tableScrollRef.current, rootMargin: '200px' },
+    )
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [memoriesQ])
+  const activeCount = memories.filter((m) => m.is_active).length
+  const autoCount = memories.filter((m) => m.source === 'auto').length
+
   return (
-    <div className="mx-auto min-h-0 w-full max-w-3xl flex-1 space-y-6 overflow-y-auto overscroll-contain p-4 sm:p-6">
+    <>
+    <div className="mx-auto min-h-0 w-full max-w-6xl flex-1 space-y-6 overflow-hidden p-4 sm:p-6">
       <header>
         <h1 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Memories</h1>
         <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
           Persistent facts the assistant remembers about you. Active memories are included in every
           conversation.
         </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+          <span className="rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-neutral-600 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300">
+            Total: <span className="font-semibold tabular-nums">{memories.length}</span>
+          </span>
+          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-emerald-700 dark:border-emerald-800/60 dark:bg-emerald-950/30 dark:text-emerald-300">
+            Active: <span className="font-semibold tabular-nums">{activeCount}</span>
+          </span>
+          <span className="rounded-full border border-purple-200 bg-purple-50 px-2.5 py-1 text-purple-700 dark:border-purple-800/60 dark:bg-purple-950/30 dark:text-purple-300">
+            Auto: <span className="font-semibold tabular-nums">{autoCount}</span>
+          </span>
+        </div>
       </header>
 
       <section className="rounded-xl border border-neutral-200 bg-neutral-50/80 p-4 dark:border-neutral-800 dark:bg-neutral-900/40">
@@ -72,87 +143,176 @@ export function MemoriesPage() {
         )}
       </section>
 
-      <section>
+      <section className="flex min-h-0 flex-1 flex-col">
         <h2 className="mb-3 text-sm font-medium text-neutral-900 dark:text-neutral-100">
           Your memories
         </h2>
+        <div className="mb-2 flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-2 dark:border-neutral-700 dark:bg-neutral-950">
+          <Search className="size-4 shrink-0 text-neutral-400" aria-hidden />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search memories..."
+            className="min-w-0 flex-1 bg-transparent text-sm text-neutral-900 placeholder-neutral-400 outline-none dark:text-neutral-100"
+            aria-label="Search memories"
+          />
+        </div>
 
         {memoriesQ.isPending && <p className="text-sm text-neutral-500">Loading…</p>}
         {memoriesQ.isError && (
           <p className="text-sm text-red-600">{(memoriesQ.error as Error).message}</p>
         )}
-        {memoriesQ.data && memoriesQ.data.length === 0 && (
+        {!memoriesQ.isPending && memories.length === 0 && (
           <p className="text-sm text-neutral-500">
             No memories yet. Add one above or chat with the assistant — it will learn from your
             conversations automatically.
           </p>
         )}
-        {memoriesQ.data && memoriesQ.data.length > 0 && (
-          <ul className="space-y-2">
-            {memoriesQ.data.map((m) => (
-              <li
-                key={m.id}
-                className={cn(
-                  'flex items-start gap-3 rounded-xl border p-3 transition-colors',
-                  m.is_active
-                    ? 'border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900'
-                    : 'border-neutral-100 bg-neutral-50 opacity-60 dark:border-neutral-800/60 dark:bg-neutral-900/40',
-                )}
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm text-neutral-900 dark:text-neutral-100">{m.content}</p>
-                  <div className="mt-1 flex items-center gap-2 text-[10px] text-neutral-400">
-                    <span
-                      className={cn(
-                        'rounded-full px-1.5 py-0.5 font-medium',
-                        m.source === 'auto'
-                          ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
-                          : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400',
-                      )}
-                    >
-                      {m.source}
-                    </span>
-                    <time dateTime={m.created_at}>
-                      {new Date(m.created_at).toLocaleDateString()}
-                    </time>
-                  </div>
-                </div>
-                <div className="flex shrink-0 items-center gap-1">
-                  <button
-                    type="button"
+        {!memoriesQ.isPending && memories.length > 0 && filteredMemories.length === 0 && (
+          <p className="text-sm text-neutral-500 dark:text-neutral-400">No memories match your search.</p>
+        )}
+        {filteredMemories.length > 0 && (
+          <TableShell className="flex-1" containerRef={tableScrollRef}>
+            <table className="w-full min-w-[56rem] text-left text-sm">
+              <thead className="sticky top-0 z-10 border-b border-neutral-200 bg-neutral-50 text-xs text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
+                <tr>
+                  <th className="px-4 py-2 font-medium">Memory</th>
+                  <th className="px-4 py-2 font-medium">Source</th>
+                  <th className="px-4 py-2 font-medium">Status</th>
+                  <th className="px-4 py-2 font-medium">Created</th>
+                  <th className="px-4 py-2 font-medium">Last updated</th>
+                  <th className="px-4 py-2 text-right font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+                {filteredMemories.map((m) => (
+                  <tr
+                    key={m.id}
                     className={cn(
-                      'rounded-md px-2 py-1 text-xs font-medium transition-colors',
-                      m.is_active
-                        ? 'text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/40'
-                        : 'text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-950/40',
+                      'align-top hover:bg-neutral-50 dark:hover:bg-neutral-900/60',
+                      !m.is_active && 'opacity-70',
                     )}
-                    disabled={updateMut.isPending}
-                    onClick={() =>
-                      updateMut.mutate({ id: m.id, is_active: !m.is_active })
-                    }
                   >
-                    {m.is_active ? 'Pause' : 'Resume'}
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded p-1 text-neutral-400 hover:bg-neutral-200 hover:text-red-600 dark:hover:bg-neutral-800 dark:hover:text-red-400"
-                    title="Delete memory"
-                    disabled={deleteMut.isPending}
-                    onClick={() => {
-                      if (window.confirm('Delete this memory?')) {
-                        deleteMut.mutate(m.id)
-                      }
-                    }}
-                  >
-                    <Trash2 className="size-3.5" aria-hidden />
-                    <span className="sr-only">Delete</span>
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
+                    <td className="px-4 py-2.5 text-neutral-900 dark:text-neutral-100">
+                      <p className="line-clamp-2">{m.content}</p>
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <span
+                        className={cn(
+                          'inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium',
+                          m.source === 'auto'
+                            ? 'border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-800/60 dark:bg-purple-950/30 dark:text-purple-300'
+                            : 'border-neutral-200 bg-neutral-100 text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300',
+                        )}
+                      >
+                        {m.source}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <span
+                        className={cn(
+                          'inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium',
+                          m.is_active
+                            ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800/60 dark:bg-emerald-950/30 dark:text-emerald-300'
+                            : 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-300',
+                        )}
+                      >
+                        {m.is_active ? 'Active' : 'Paused'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5 text-neutral-700 dark:text-neutral-300">
+                      <time dateTime={m.created_at}>{formatDate(m.created_at)}</time>
+                    </td>
+                    <td className="px-4 py-2.5 text-neutral-700 dark:text-neutral-300">
+                      <time dateTime={m.updated_at}>{formatDate(m.updated_at)}</time>
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <div className="flex justify-end gap-1">
+                        <button
+                          type="button"
+                          className={cn(
+                            'rounded-md px-2 py-1 text-xs font-medium transition-colors',
+                            m.is_active
+                              ? 'text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/40'
+                              : 'text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-950/40',
+                          )}
+                          disabled={updateMut.isPending}
+                          onClick={() => updateMut.mutate({ id: m.id, is_active: !m.is_active })}
+                        >
+                          {m.is_active ? 'Pause' : 'Resume'}
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded p-1 text-neutral-400 hover:bg-neutral-200 hover:text-red-600 dark:hover:bg-neutral-800 dark:hover:text-red-400"
+                          title="Delete memory"
+                          disabled={deleteMut.isPending}
+                          onClick={() => {
+                            setPendingDelete({ id: m.id, content: m.content })
+                          }}
+                        >
+                          <Trash2 className="size-3.5" aria-hidden />
+                          <span className="sr-only">Delete</span>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div ref={loadMoreRef} className="h-1" />
+            {memoriesQ.isFetchingNextPage && (
+              <p className="px-4 py-2 text-xs text-neutral-500">Loading more...</p>
+            )}
+          </TableShell>
         )}
       </section>
     </div>
+    {pendingDelete && (
+      <div
+        className="fixed inset-0 z-60 flex items-center justify-center bg-black/45 p-4"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delete-memory-title"
+        onClick={(e) => e.target === e.currentTarget && setPendingDelete(null)}
+      >
+        <div
+          className="w-full max-w-md rounded-xl border border-neutral-200 bg-white p-4 shadow-xl dark:border-neutral-700 dark:bg-neutral-950"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <h2 id="delete-memory-title" className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
+            Delete memory?
+          </h2>
+          <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
+            This action cannot be undone.
+          </p>
+          <p className="mt-2 line-clamp-2 rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1 text-xs text-neutral-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300">
+            {pendingDelete.content}
+          </p>
+          <div className="mt-4 flex justify-end gap-2">
+            <button
+              type="button"
+              className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm dark:border-neutral-600"
+              onClick={() => setPendingDelete(null)}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="rounded-lg bg-red-600 px-3 py-1.5 text-sm text-white hover:bg-red-500 disabled:opacity-50"
+              disabled={deleteMut.isPending}
+              onClick={() => {
+                deleteMut.mutate(pendingDelete.id, {
+                  onSuccess: () => setPendingDelete(null),
+                })
+              }}
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   )
 }

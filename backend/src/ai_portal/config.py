@@ -117,9 +117,13 @@ class Settings(BaseSettings):
     )
 
     # Conversation memory
-    conversation_window_size: int = Field(
+    conversation_base_window_size: int = Field(
         default=30,
-        validation_alias=AliasChoices("CONVERSATION_WINDOW_SIZE"),
+        validation_alias=AliasChoices("CONVERSATION_BASE_WINDOW_SIZE", "CONVERSATION_WINDOW_SIZE"),
+    )
+    conversation_summary_interval: int = Field(
+        default=10,
+        validation_alias=AliasChoices("CONVERSATION_SUMMARY_INTERVAL"),
     )
     conversation_inactivity_summary_hours: int = Field(
         default=1,

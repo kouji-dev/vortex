@@ -25,6 +25,23 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 E2E_DB_URL="postgresql+psycopg://postgres:postgres@127.0.0.1:5435/ai_portal_e2e"
 
+# Resolve the Python interpreter: use $PYTHON if set, otherwise find the first
+# python/python3 on PATH that actually has alembic installed (the project venv
+# or Windows Python — not the system /usr/bin/python3 which lacks the deps).
+if [ -z "${PYTHON:-}" ]; then
+  for _candidate in python python3; do
+    if command -v "$_candidate" &>/dev/null && "$_candidate" -c "import alembic" &>/dev/null; then
+      PYTHON="$_candidate"
+      break
+    fi
+  done
+  if [ -z "${PYTHON:-}" ]; then
+    echo "ERROR: Could not find a Python with alembic installed." >&2
+    echo "  Activate your venv or set PYTHON=/path/to/python and retry." >&2
+    exit 1
+  fi
+fi
+
 # ── 1. Start the E2E Postgres ─────────────────────────────────────────────
 echo "▶ Starting E2E Postgres (port 5435)…"
 docker compose -f "$REPO_ROOT/docker-compose.e2e.yml" up -d
@@ -45,7 +62,7 @@ done
 
 # ── 3. Run migrations ────────────────────────────────────────────────────
 echo "▶ Running alembic migrations…"
-(cd "$REPO_ROOT/backend" && DATABASE_URL="$E2E_DB_URL" alembic upgrade head)
+(cd "$REPO_ROOT/backend" && DATABASE_URL="$E2E_DB_URL" "$PYTHON" -m alembic upgrade head)
 
 # ── 4. Seed catalog models ────────────────────────────────────────────────
 # Load LLM keys from the root .env so seed-catalog-models can validate them.
@@ -56,7 +73,7 @@ if [ -f "$REPO_ROOT/.env" ]; then
   source "$REPO_ROOT/.env"
   set +o allexport
 fi
-(cd "$REPO_ROOT/backend" && DATABASE_URL="$E2E_DB_URL" seed-catalog-models)
+(cd "$REPO_ROOT/backend" && DATABASE_URL="$E2E_DB_URL" "$PYTHON" -m ai_portal.scripts.seed_catalog_models)
 
 # ── 5. Start the API on port 8001 ────────────────────────────────────────
 echo "▶ Starting API on http://127.0.0.1:8001 (E2E database)…"
@@ -73,5 +90,5 @@ echo "   Press Ctrl-C to stop."
   export DATABASE_URL="$E2E_DB_URL"
   export API_PORT=8001
   export CORS_ORIGINS="http://localhost:5173,http://127.0.0.1:5173"
-  uvicorn ai_portal.main:app --host 127.0.0.1 --port 8001 --reload
+  "$PYTHON" -m uvicorn ai_portal.main:app --host 127.0.0.1 --port 8001 --reload
 )

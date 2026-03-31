@@ -8,6 +8,10 @@ export type KnowledgeBaseSummary = {
   created_at: string
   /** Returned by the API when the backend includes it; may be absent. */
   document_count?: number
+  /** Sum of chunks_total across docs (if available). */
+  chunks_count?: number
+  /** Total byte size across stored files (if available). */
+  size_bytes?: number
 }
 
 export type KnowledgeBaseDocument = {

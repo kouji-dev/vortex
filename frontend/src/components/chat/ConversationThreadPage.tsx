@@ -68,6 +68,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
   const streamAbortRef = React.useRef<AbortController | null>(null)
   const isComposerMode = conversationId == null
   const [draftModel, setDraftModel] = React.useState('')
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = React.useState(false)
   const [draftCaps, setDraftCaps] = React.useState<CapabilityToggles>({
     ...DEFAULT_CAPABILITIES,
   })
@@ -523,11 +524,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
               type="button"
               className="rounded border border-red-300 px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/40"
               disabled={deleteConv.isPending}
-              onClick={() => {
-                if (window.confirm('Delete this conversation and all messages?')) {
-                  deleteConv.mutate()
-                }
-              }}
+              onClick={() => setConfirmDeleteOpen(true)}
             >
               Delete
             </button>
@@ -774,6 +771,46 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
         onTuningChange={setSessionTuning}
       />
       </div>
+      {confirmDeleteOpen && (
+        <div
+          className="fixed inset-0 z-60 flex items-center justify-center bg-black/45 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-thread-title"
+          onClick={(e) => e.target === e.currentTarget && setConfirmDeleteOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-xl border border-neutral-200 bg-white p-4 shadow-xl dark:border-neutral-700 dark:bg-neutral-950"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="delete-thread-title" className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
+              Delete conversation?
+            </h2>
+            <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
+              This will permanently delete the conversation and all messages.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm dark:border-neutral-600"
+                onClick={() => setConfirmDeleteOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="rounded-lg bg-red-600 px-3 py-1.5 text-sm text-white hover:bg-red-500 disabled:opacity-50"
+                disabled={deleteConv.isPending}
+                onClick={() => {
+                  deleteConv.mutate(undefined, { onSuccess: () => setConfirmDeleteOpen(false) })
+                }}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

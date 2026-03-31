@@ -7,6 +7,7 @@ export const queryKeys = {
   conversationMessagesTail: (id: number) =>
     ['conversation-messages', id, 'recent-tail'] as const,
   knowledgeBases: () => ['knowledge-bases'] as const,
+  knowledgeBasesPage: () => ['knowledge-bases', 'page'] as const,
   knowledgeBase: (id: number) => ['knowledge-base', id] as const,
   knowledgeBaseDocuments: (id: number) => ['knowledge-base-documents', id] as const,
   knowledgeBaseConnectors: (id: number) => ['knowledge-base-connectors', id] as const,
@@ -15,4 +16,5 @@ export const queryKeys = {
   documentProgress: (kbId: number, docId: number) =>
     ['knowledge-base', kbId, 'document', docId, 'progress'] as const,
   memories: () => ['memories'] as const,
+  memoriesPage: () => ['memories', 'page'] as const,
 }
