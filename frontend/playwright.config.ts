@@ -8,8 +8,18 @@ export default defineConfig({
   workers: 1,
   globalSetup: './e2e/global-setup.ts',
   use: {
-    baseURL: process.env.E2E_BASE_URL ?? 'http://127.0.0.1:5173',
+    baseURL: process.env.E2E_BASE_URL ?? 'http://localhost:5173',
     trace: 'on-first-retry',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  // Auto-start the dev server when no external server is detected.
+  // Set E2E_BASE_URL to an already-running server to skip this.
+  webServer: process.env.E2E_BASE_URL
+    ? undefined
+    : {
+        command: 'pnpm dev',
+        url: 'http://localhost:5173',
+        reuseExistingServer: true,
+        timeout: 60_000,
+      },
 })

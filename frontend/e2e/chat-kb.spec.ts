@@ -41,6 +41,6 @@ test.describe('Chat knowledge bases', () => {
     await page.reload({ waitUntil: 'networkidle' })
     await page.getByTestId('chat-kb-picker-trigger').click()
     const opt = page.getByRole('option', { name: new RegExp(kbName) })
-    await expect(opt).toContainText('active')
+    await expect(opt).toContainText('Active')
   })
 })
