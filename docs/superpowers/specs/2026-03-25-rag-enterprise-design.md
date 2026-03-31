@@ -107,7 +107,7 @@ Enterprises expect this surface for **governance** (who owns which corpus) and *
 
 - **Chunking:** Fixed character windows, `CHUNK_SIZE = 800`, strip-only chunks (`tasks/ingest.py`).
 - **Metadata:** `DocumentChunk.meta` JSONB defaults to `{"source": doc.filename}`.
-- **Embeddings:** `embedding.embed_texts` uses **LangChain** `OpenAIEmbeddings` with `settings.embedding_model` (default `text-embedding-3-small`) and `settings.llm_api_key` / base URL (`services/embedding.py`). Vectors stored as **pgvector** `Vector(1536)` (`document_chunks.embedding`).
+- **Embeddings:** `embedding.embed_texts` uses **LangChain** `OpenAIEmbeddings` with `settings.embedding_model` (default `text-embedding-3-small`) and `settings.openai_api_key` / `settings.openai_api_base` (`services/embedding.py`). Vectors stored as **pgvector** `Vector(1536)` (`document_chunks.embedding`).
 - **Re-embedding:** Not implemented (no version on embedding model).
 
 ### Enterprise target — how we implement it

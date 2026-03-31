@@ -2,7 +2,6 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from ai_portal.config import get_settings
 from ai_portal.main import app
 from tests.conftest import requires_postgres
 
@@ -13,7 +12,6 @@ AUTH = {"Authorization": "Bearer devtoken"}
 
 @requires_postgres
 def test_chat_unknown_assistant():
-    get_settings.cache_clear()
     r = client.post(
         "/api/chat",
         headers=AUTH,
@@ -30,7 +28,6 @@ def test_chat_unknown_assistant():
 @patch("ai_portal.api.chat.llm_svc.chat_completions")
 def test_chat_roundtrip(mock_llm, monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-    get_settings.cache_clear()
     mock_llm.return_value = {"choices": [{"message": {"content": "ok"}}]}
 
     ca = client.post(

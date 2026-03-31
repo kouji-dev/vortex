@@ -53,6 +53,12 @@
   html,
   body {
     @apply text-gray-900 bg-gray-50 dark:bg-gray-950 dark:text-gray-200;
+    /* Single scroll surface: shell + panes handle overflow. Prevents a stray document scrollbar
+       when flex children have min-height:auto content or dev-only siblings are in the body. */
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+    overscroll-behavior-y: none;
   }
 
   .using-mouse * {

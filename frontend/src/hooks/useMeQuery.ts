@@ -13,7 +13,20 @@ export function useMeQuery() {
     enabled: typeof window !== 'undefined',
     queryFn: async () => {
       const res = await authorizedFetch(`${apiBase}/api/me`)
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) {
+        let detail: string | undefined
+        try {
+          const body = (await res.clone().json()) as { detail?: unknown }
+          if (typeof body.detail === 'string') {
+            detail = body.detail
+          }
+        } catch {
+          // ignore non-JSON bodies
+        }
+        throw new Error(
+          detail ? `HTTP ${res.status}: ${detail}` : `HTTP ${res.status}`,
+        )
+      }
       return res.json() as Promise<MeResponse>
     },
   })

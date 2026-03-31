@@ -36,7 +36,7 @@ test.describe('Knowledge bases', () => {
   test('upload reaches ready when API has embeddings configured', async ({ page }) => {
     test.skip(
       process.env.E2E_REQUIRE_INGEST_READY !== '1',
-      'Set E2E_REQUIRE_INGEST_READY=1 and start the API with a working OPENAI_API_KEY / LLM_API_KEY so embeddings succeed.',
+      'Set E2E_REQUIRE_INGEST_READY=1 and start the API with a working OPENAI_API_KEY so embeddings succeed.',
     )
     test.setTimeout(180_000)
     const name = `E2E KB ready ${Date.now()}`

@@ -148,6 +148,32 @@ def test_upload_document_returns_200_when_ingest_fails():
 
 
 @requires_postgres
+def test_upload_document_returns_200_with_ingest_error_when_llm_key_missing(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("VOYAGE_API_KEY", raising=False)
+    kb = client.post(
+        "/api/knowledge-bases",
+        headers=AUTH,
+        json={"name": "no-embed-key-kb", "description": ""},
+    )
+    assert kb.status_code == 201, kb.text
+    kb_id = kb.json()["id"]
+
+    up = client.post(
+        f"/api/knowledge-bases/{kb_id}/documents",
+        headers=AUTH,
+        files={"file": ("n.txt", b"hello", "text/plain")},
+    )
+    assert up.status_code == 200, up.text
+    body = up.json()
+    assert body["status"] == "failed"
+    assert "ingest_error" in body
+    assert "VOYAGE_API_KEY" in body["ingest_error"] or "OPENAI_API_KEY" in body[
+        "ingest_error"
+    ]
+
+
+@requires_postgres
 def test_put_conversation_knowledge_bases_unknown_kb_returns_404():
     cr = client.post("/api/chat/conversations", headers=AUTH, json={})
     cid = cr.json()["id"]

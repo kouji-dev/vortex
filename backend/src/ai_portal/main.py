@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import uuid
 from contextlib import asynccontextmanager
+from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,7 +16,7 @@ from ai_portal.api import (
     me,
     model_catalog,
 )
-from ai_portal.config import get_settings
+from ai_portal.config import get_settings, settings_log_snapshot
 from ai_portal.logging_config import configure_logging
 
 logger = logging.getLogger(__name__)
@@ -25,7 +26,8 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     configure_logging()
-    logger.info("app_startup")
+    st = get_settings()
+    logger.info("app_startup %s", settings_log_snapshot(st))
     yield
     logger.info("app_shutdown")
 
@@ -49,9 +51,24 @@ async def request_id_middleware(request: Request, call_next):
     return response
 
 
+def _app_has_post_knowledge_bases_create() -> bool:
+    for route in app.routes:
+        if getattr(route, "path", None) != "/api/knowledge-bases":
+            continue
+        methods = getattr(route, "methods", None) or set()
+        if "POST" in methods:
+            return True
+    return False
+
+
 @app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
+def health() -> dict[str, Any]:
+    st = get_settings()
+    return {
+        "status": "ok",
+        "auth_mode": st.auth_mode,
+        "api": {"post_knowledge_bases": _app_has_post_knowledge_bases_create()},
+    }
 
 
 app.include_router(model_catalog.router)

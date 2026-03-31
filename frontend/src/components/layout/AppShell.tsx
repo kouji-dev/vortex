@@ -31,7 +31,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <div className="flex h-dvh max-h-dvh overflow-hidden bg-white dark:bg-neutral-950">
+    <div className="flex h-full min-h-0 w-full overflow-hidden bg-white dark:bg-neutral-950">
       <AppSidebar
         compact={hydrated && sidebarCompact}
         onToggleCompact={toggleSidebarCompact}

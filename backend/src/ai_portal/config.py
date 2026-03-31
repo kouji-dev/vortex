@@ -1,5 +1,4 @@
-from functools import lru_cache
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -40,17 +39,16 @@ class Settings(BaseSettings):
     # Local debugging only: include PyJWT error text in 401 responses for Entra tokens.
     entra_debug_jwt: bool = Field(default=False, validation_alias="ENTRA_DEBUG_JWT")
 
-    # OpenAI-compatible base URL + key (direct API or compatible gateway).
-    # ``OPENAI_*`` env vars still work as aliases.
-    llm_api_base: str = Field(
+    # OpenAI chat + OpenAI-compatible embeddings (direct API or compatible gateway).
+    openai_api_base: str = Field(
         default="https://api.openai.com/v1",
-        validation_alias=AliasChoices("LLM_API_BASE", "OPENAI_API_BASE"),
+        validation_alias="OPENAI_API_BASE",
     )
-    llm_api_key: str = Field(
+    openai_api_key: str = Field(
         default="",
-        validation_alias=AliasChoices("LLM_API_KEY", "OPENAI_API_KEY"),
+        validation_alias="OPENAI_API_KEY",
     )
-    # Used for LangChain ``ChatAnthropic`` / ``claude-*`` models (and as fallback if ``LLM_API_KEY`` is unset).
+    # LangChain ``ChatAnthropic`` / ``claude-*`` models (separate from ``OPENAI_API_KEY``).
     anthropic_api_key: str = Field(
         default="",
         validation_alias=AliasChoices("ANTHROPIC_API_KEY"),
@@ -59,16 +57,27 @@ class Settings(BaseSettings):
     # HMAC pepper for hashing portal API keys (``aip_…``). Empty = dev-only SHA-256.
     portal_api_key_pepper: str = ""
 
-    # Embedding model id for LangChain ``OpenAIEmbeddings`` (OpenAI-compatible route).
-    embedding_model: str = "text-embedding-3-small"
-    chat_model: str = "o3-mini"
-    # Used when ``POST /api/chat/conversations`` omits ``model`` and no preferred
-    # catalog row exists in ``catalog_models``.
+    # Voyage: set ``VOYAGE_API_KEY``. Default embedding model is ``voyage-4-lite`` (cheapest
+    # current Voyage text embedding tier; see https://docs.voyageai.com/docs/pricing ).
+    # OpenAI embeddings: leave ``VOYAGE_API_KEY`` unset, set ``OPENAI_API_KEY`` and e.g.
+    # ``EMBEDDING_MODEL=text-embedding-3-small`` (stored as 1024-d — see Alembic 015).
+    voyage_api_key: str = Field(
+        default="",
+        validation_alias=AliasChoices("VOYAGE_API_KEY"),
+    )
+    embedding_model: str = Field(
+        default="",
+        validation_alias=AliasChoices("EMBEDDING_MODEL"),
+    )
+    # Default vendor API model id: new conversations (if no catalog default), stream
+    # fallback when conversation has no model, and LangChain when no per-request model.
+    # Env: ``CHAT_DEFAULT_API_MODEL`` (preferred), ``CHAT_DEFAULT_MODEL``, or legacy ``CHAT_MODEL``.
     chat_default_api_model: str = Field(
         default="claude-haiku-4-5-20251001",
         validation_alias=AliasChoices(
             "CHAT_DEFAULT_API_MODEL",
             "CHAT_DEFAULT_MODEL",
+            "CHAT_MODEL",
         ),
     )
     default_system_prompt: str = "You are a helpful assistant."
@@ -92,6 +101,50 @@ class Settings(BaseSettings):
         return self
 
 
-@lru_cache
+def _redact_database_url(url: str) -> str:
+    """Hide credentials in SQLAlchemy-style URLs for logs."""
+    if "://" not in url or "@" not in url:
+        return url
+    scheme, remainder = url.split("://", 1)
+    if "@" not in remainder:
+        return url
+    creds, hostpath = remainder.split("@", 1)
+    if ":" not in creds:
+        return url
+    user, _pwd = creds.split(":", 1)
+    return f"{scheme}://{user}:***@{hostpath}"
+
+
+def settings_log_snapshot(st: Settings) -> dict[str, Any]:
+    """Non-secret view of settings for startup logging."""
+    return {
+        "auth_mode": st.auth_mode,
+        "api_host": st.api_host,
+        "api_port": st.api_port,
+        "cors_origins": st.cors_origins,
+        "database_url": _redact_database_url(st.database_url),
+        "dev_seed_user_email": st.dev_seed_user_email,
+        "dev_bearer_token_configured": bool(st.dev_bearer_token.strip()),
+        "entra_tenant_id": st.entra_tenant_id or "(empty)",
+        "entra_api_audience": st.entra_api_audience or "(empty)",
+        "entra_debug_jwt": st.entra_debug_jwt,
+        "openai_api_base": st.openai_api_base,
+        "openai_api_key_set": bool(st.openai_api_key.strip()),
+        "anthropic_api_key_set": bool(st.anthropic_api_key.strip()),
+        "voyage_api_key_set": bool(st.voyage_api_key.strip()),
+        "embedding_model": st.embedding_model or "(default)",
+        "chat_default_api_model": st.chat_default_api_model,
+        "upload_dir": st.upload_dir,
+        "portal_api_key_pepper_set": bool(st.portal_api_key_pepper.strip()),
+        "langfuse_host": st.langfuse_host,
+        "langfuse_public_key_set": bool(st.langfuse_public_key.strip()),
+        "langfuse_secret_key_set": bool(st.langfuse_secret_key.strip()),
+    }
+
+
 def get_settings() -> Settings:
+    """Fresh ``Settings()`` each call so edits to ``.env`` apply without restarting workers.
+
+    (``uvicorn --reload`` only watches code files, not ``.env``.)
+    """
     return Settings()

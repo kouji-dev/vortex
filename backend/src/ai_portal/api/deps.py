@@ -19,6 +19,12 @@ from ai_portal.services.user_identity import (
 logger = logging.getLogger(__name__)
 
 
+def _looks_like_compact_jws(token: str) -> bool:
+    """Entra access tokens are JWS compact form: header.payload.signature (3 segments)."""
+    parts = token.split(".")
+    return len(parts) == 3 and all(len(p) > 0 for p in parts)
+
+
 def get_db() -> Generator[Session, None, None]:
     db = SessionLocal()
     try:
@@ -73,6 +79,15 @@ def get_current_user(
             raise HTTPException(
                 status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Entra auth misconfigured (tenant or audience)",
+            )
+        if not _looks_like_compact_jws(token):
+            raise HTTPException(
+                status.HTTP_401_UNAUTHORIZED,
+                detail=(
+                    "Bearer token is not a JWT; this API is running with AUTH_MODE=entra. "
+                    "Send a Microsoft Entra access token for your API scope, or set AUTH_MODE=dev "
+                    "(and restart) to use DEV_BEARER_TOKEN from the SPA."
+                ),
             )
         try:
             claims = decode_entra_access_token(

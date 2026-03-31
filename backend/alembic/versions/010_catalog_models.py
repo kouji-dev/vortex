@@ -78,7 +78,7 @@ def upgrade() -> None:
             ) VALUES (
                 'gpt-4o-mini',
                 'GPT-4o mini',
-                'Default fast chat model aligned with CHAT_MODEL default.',
+                'Default fast chat model aligned with CHAT_DEFAULT_API_MODEL default.',
                 'gpt-4o-mini',
                 'default',
                 true,

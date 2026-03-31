@@ -2,7 +2,7 @@
 
 ## LLM & embeddings (architecture)
 
-Production **chat** and **embedding** calls use **LangChain** in-process: `services/llm_providers/langchain_chat.py` (`ChatAnthropic` / `ChatOpenAI`) and `services/embedding.py` (`OpenAIEmbeddings`). Point `LLM_API_BASE` at any OpenAI-compatible endpoint when needed (direct vendor or a self-hosted gateway).
+Production **chat** uses **LangChain** in-process (`services/llm_providers/langchain_chat.py`: `ChatAnthropic` / `ChatOpenAI`). **Embeddings** for knowledge bases live in `services/embedding.py`: **Voyage** when `VOYAGE_API_KEY` is set — default model **`voyage-4-lite`** ([lowest listed $/token](https://docs.voyageai.com/docs/pricing) for current Voyage text embeddings, with a large monthly free tier). Otherwise **OpenAI-compatible** `OpenAIEmbeddings` with `OPENAI_API_BASE` / `OPENAI_API_KEY`. Chunk vectors are **pgvector `vector(1024)`** (Alembic `015_emb_1024`); OpenAI `text-embedding-3-*` uses `dimensions=1024` to match.
 
 **Azure accounts:** Microsoft’s [free Azure services](https://azure.microsoft.com/pricing/free-services) list includes **many** AI products (Vision, Translator, Speech, Language, etc.) with monthly free allowances, but **Azure OpenAI / Foundry generative chat models are metered—you pay per token** (or spend time-limited **account credits**, where offered). They are **not** the same as those fixed “always free” AI SKUs. Eligibility and any **limited-access** rules follow [Microsoft’s current policies](https://learn.microsoft.com/azure/ai-foundry/responsible-ai/openai/limited-access). For simple local dev, **OpenAI** or **Anthropic** API keys are often easier than standing up Azure OpenAI.
 
@@ -18,7 +18,7 @@ pip install -e ".[dev]"
 uvicorn ai_portal.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Env: copy repo root `.env.example` to `.env`. Important keys: `DATABASE_URL`, `DEV_BEARER_TOKEN`, `DEV_SEED_USER_EMAIL`, `LLM_API_KEY` (or `OPENAI_API_KEY` alias) for OpenAI-compatible chat + embeddings, `ANTHROPIC_API_KEY` for Claude catalog models, `UPLOAD_DIR`, optional `PORTAL_API_KEY_PEPPER` for hashed `aip_…` API keys.
+Env: use repo root **`.env`** (gitignored; comments in that file describe each variable). Important keys: `DATABASE_URL`, `DEV_BEARER_TOKEN`, `DEV_SEED_USER_EMAIL`, `VOYAGE_API_KEY` for KB/RAG embeddings (recommended), or `OPENAI_API_KEY` + `OPENAI_API_BASE` for OpenAI-compatible embeddings and GPT chat, `ANTHROPIC_API_KEY` for Claude chat, `EMBEDDING_MODEL`, `UPLOAD_DIR`, optional `PORTAL_API_KEY_PEPPER` for hashed `aip_…` API keys.
 
 ### Microsoft Entra (production-style API auth)
 
@@ -61,7 +61,7 @@ From repo root, bring Postgres up, then apply schema and **sync catalog rows** f
 ```bash
 docker compose up -d
 cd backend
-# DATABASE_URL must match your compose port (see repo root .env.example, e.g. 127.0.0.1:5434)
+# DATABASE_URL must match your compose port (see repo root .env, e.g. 127.0.0.1:5434)
 alembic upgrade head
 seed-catalog-models
 # To skip catalog id validation (offline / custom forks):
@@ -81,4 +81,4 @@ seed-catalog-models
 # preview: seed-catalog-models --dry-run
 ```
 
-Edit ``src/ai_portal/catalog_model_definitions.py`` (slug ↔ API model id, entitlements) and ``src/ai_portal/catalog_specs.py`` (per-model ``config``: reasoning, sampling, features). The seed script upserts those rows and deactivates legacy slugs. For Anthropic, set ``ANTHROPIC_API_KEY``; for OpenAI routes, set ``LLM_API_KEY`` and ``LLM_API_BASE``. After seeding, new chats default to **Claude Haiku 4.5** via catalog slug ``anthropic-claude-haiku-4-5``; set ``CHAT_DEFAULT_API_MODEL`` / ``CHAT_DEFAULT_MODEL`` if that row is absent. Set ``CHAT_MODEL`` to a row’s ``api_model_id`` for stream fallback when no per-request model is set.
+Edit ``src/ai_portal/catalog_model_definitions.py`` (slug ↔ API model id, entitlements) and ``src/ai_portal/catalog_specs.py`` (per-model ``config``: reasoning, sampling, features). The seed script upserts those rows and deactivates legacy slugs. For Anthropic, set ``ANTHROPIC_API_KEY``; for OpenAI routes, set ``OPENAI_API_KEY`` and ``OPENAI_API_BASE``. After seeding, new chats default to **Claude Haiku 4.5** via catalog slug ``anthropic-claude-haiku-4-5``. If that row is absent, set ``CHAT_DEFAULT_API_MODEL`` (or legacy aliases ``CHAT_DEFAULT_MODEL`` / ``CHAT_MODEL``) to a vendor API model id — the same value is used for new conversations, streaming fallback, and LangChain when no per-request model is set.

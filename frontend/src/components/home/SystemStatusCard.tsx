@@ -1,9 +1,10 @@
 import type { UseQueryResult } from '@tanstack/react-query'
 
 import { getApiBase } from '~/lib/api-base'
+import type { HealthResponse } from '~/lib/health-types'
 
 type SystemStatusCardProps = {
-  health: UseQueryResult<{ status: string }>
+  health: UseQueryResult<HealthResponse>
 }
 
 export function SystemStatusCard({ health }: SystemStatusCardProps) {
@@ -19,9 +20,16 @@ export function SystemStatusCard({ health }: SystemStatusCardProps) {
         <p className="mt-3 text-sm text-red-600">{(health.error as Error).message}</p>
       )}
       {health.isSuccess && (
-        <p className="mt-3 text-sm text-green-700 dark:text-green-400">
-          Status: <strong>{health.data.status}</strong>
-        </p>
+        <div className="mt-3 space-y-1 text-sm text-green-700 dark:text-green-400">
+          <p>
+            Status: <strong>{health.data.status}</strong>
+          </p>
+          {health.data.auth_mode != null && (
+            <p className="text-neutral-700 dark:text-neutral-300">
+              API auth: <strong>{health.data.auth_mode}</strong>
+            </p>
+          )}
+        </div>
       )}
     </div>
   )

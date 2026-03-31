@@ -3,6 +3,7 @@ import pytest
 from ai_portal.config import Settings
 from ai_portal.services.llm_providers.model_routing import (
     chat_provider_credential_kwargs,
+    is_langchain_anthropic_model,
     normalize_chat_model_id_for_tests,
     normalize_model_id_for_langchain_chat,
     remap_deprecated_chat_model,
@@ -11,17 +12,17 @@ from ai_portal.services.llm_providers.model_routing import (
 
 def _s(**overrides: str) -> Settings:
     base = {
-        "llm_api_key": "",
+        "openai_api_key": "",
         "anthropic_api_key": "",
-        "llm_api_base": "https://api.openai.com/v1",
+        "openai_api_base": "https://api.openai.com/v1",
     }
     base.update(overrides)
     return Settings.model_validate(base)
 
 
-def test_claude_requires_anthropic_or_llm_key():
+def test_claude_requires_anthropic_key():
     s = _s()
-    with pytest.raises(ValueError, match="ANTHROPIC_API_KEY or LLM_API_KEY"):
+    with pytest.raises(ValueError, match="ANTHROPIC_API_KEY is not set"):
         chat_provider_credential_kwargs(s, "claude-sonnet-4-6")
 
 
@@ -31,26 +32,26 @@ def test_claude_accepts_anthropic_key():
     assert kw == {"api_key": "sk-ant-test"}
 
 
-def test_claude_prefers_anthropic_over_llm_key():
-    s = _s(llm_api_key="openai-key", anthropic_api_key="ant-key")
+def test_claude_uses_anthropic_key_when_both_env_vars_set():
+    s = _s(openai_api_key="openai-key", anthropic_api_key="ant-key")
     kw = chat_provider_credential_kwargs(s, "claude-haiku-4-5")
     assert kw == {"api_key": "ant-key"}
 
 
-def test_claude_falls_back_to_llm_key():
-    s = _s(llm_api_key="shared-key")
-    kw = chat_provider_credential_kwargs(s, "claude-opus-4-6")
-    assert kw == {"api_key": "shared-key"}
+def test_claude_does_not_use_openai_key():
+    s = _s(openai_api_key="shared-key")
+    with pytest.raises(ValueError, match="ANTHROPIC_API_KEY is not set"):
+        chat_provider_credential_kwargs(s, "claude-opus-4-6")
 
 
-def test_openai_model_requires_llm_key():
+def test_openai_model_requires_openai_key():
     s = _s(anthropic_api_key="sk-ant-only")
-    with pytest.raises(ValueError, match="LLM_API_KEY"):
+    with pytest.raises(ValueError, match="OPENAI_API_KEY is not set"):
         chat_provider_credential_kwargs(s, "gpt-4o-mini")
 
 
 def test_openai_model_returns_key_and_base():
-    s = _s(llm_api_key="sk-openai", llm_api_base="https://api.openai.com/v1")
+    s = _s(openai_api_key="sk-openai", openai_api_base="https://api.openai.com/v1")
     kw = chat_provider_credential_kwargs(s, "gpt-4o-mini")
     assert kw["api_key"] == "sk-openai"
     assert kw["api_base"] == "https://api.openai.com/v1"
@@ -126,6 +127,24 @@ def test_kwargs_accepts_prefixed_anthropic_model():
     s = _s(anthropic_api_key="sk-ant")
     kw = chat_provider_credential_kwargs(s, "anthropic/claude-haiku-4-5")
     assert kw == {"api_key": "sk-ant"}
+
+
+def test_catalog_slug_anthropic_claude_uses_anthropic_credentials():
+    """Frontend/catalog slugs use hyphens: anthropic-claude-* not anthropic/."""
+    s = _s(anthropic_api_key="sk-ant")
+    kw = chat_provider_credential_kwargs(s, "anthropic-claude-haiku-4-5")
+    assert kw == {"api_key": "sk-ant"}
+
+
+def test_normalize_catalog_slug_to_claude_prefix():
+    assert (
+        normalize_model_id_for_langchain_chat("anthropic-claude-haiku-4-5")
+        == "claude-haiku-4-5"
+    )
+
+
+def test_is_langchain_anthropic_accepts_catalog_slug():
+    assert is_langchain_anthropic_model("anthropic-claude-haiku-4-5") is True
 
 
 def test_langchain_normalize_strips_anthropic_prefix() -> None:

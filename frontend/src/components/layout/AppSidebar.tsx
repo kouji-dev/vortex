@@ -16,7 +16,7 @@ type AppSidebarProps = {
 export function AppSidebar({ compact, onToggleCompact }: AppSidebarProps) {
   return (
     <aside
-      className={`flex shrink-0 flex-col border-r border-neutral-200 bg-neutral-50 transition-[width] duration-200 ease-out dark:border-neutral-800 dark:bg-neutral-950 ${
+      className={`flex h-full min-h-0 shrink-0 flex-col overflow-hidden border-r border-neutral-200 bg-neutral-50 transition-[width] duration-200 ease-out dark:border-neutral-800 dark:bg-neutral-950 ${
         compact ? 'w-14' : 'w-56'
       }`}
       aria-label="Main navigation"
@@ -53,7 +53,10 @@ export function AppSidebar({ compact, onToggleCompact }: AppSidebarProps) {
         </button>
       </div>
 
-      <nav className="flex flex-1 flex-col gap-1 p-2" aria-busy={false}>
+      <nav
+        className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain p-2"
+        aria-busy={false}
+      >
         <Link
           to="/"
           className={`${linkBase} ${compact ? linkCompact : linkExpanded}`}

@@ -4,7 +4,11 @@ import * as React from 'react'
 
 import { getApiBase } from '~/lib/api-base'
 import { getAuthHeaders } from '~/lib/authorizedFetch'
-import type { KnowledgeBaseSummary } from '~/lib/knowledge-base-types'
+import {
+  type KnowledgeBaseSummary,
+  knowledgeBaseListFromResponse,
+  parseKnowledgeBasesListJson,
+} from '~/lib/knowledge-base-types'
 import { queryKeys } from '~/lib/queryKeys'
 import type { Conversation } from '~/lib/chat-types'
 
@@ -33,8 +37,8 @@ export function ConversationKnowledgeBasesPanel({
       const res = await fetch(`${apiBase}/api/knowledge-bases`, {
         headers: await getAuthHeaders(),
       })
-      if (!res.ok) throw new Error(await res.text())
-      return res.json() as Promise<KnowledgeBaseSummary[]>
+      const text = await res.text()
+      return knowledgeBaseListFromResponse(res, text, parseKnowledgeBasesListJson)
     },
   })
 

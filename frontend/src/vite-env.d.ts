@@ -25,5 +25,7 @@ declare module '@tanstack/history' {
       use_rag: boolean
       model?: string
     }
+    /** Shown once on KB detail after create flow upload ingest did not complete (e.g. missing embed key). */
+    kbIngestWarning?: string
   }
 }

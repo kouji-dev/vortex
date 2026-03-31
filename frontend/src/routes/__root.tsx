@@ -60,7 +60,9 @@ export const Route = createRootRouteWithContext<{
   errorComponent: (props) => {
     return (
       <RootDocument>
-        <DefaultCatchBoundary {...props} />
+        <div className="h-dvh overflow-y-auto overscroll-contain bg-gray-50 dark:bg-gray-950">
+          <DefaultCatchBoundary {...props} />
+        </div>
       </RootDocument>
     )
   },
@@ -90,8 +92,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         {children}
-        <TanStackRouterDevtools position="bottom-right" />
-        <ReactQueryDevtools buttonPosition="bottom-left" />
         <Scripts />
       </body>
     </html>

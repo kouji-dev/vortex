@@ -37,34 +37,54 @@ def _read_document_text(path: Path) -> str:
     raise ValueError(f"unsupported_type:{suffix}")
 
 
-def ingest_document(document_id: int) -> str:
+def ingest_document(document_id: int) -> str | None:
+    """Ingest a stored upload into chunks + embeddings.
+
+    Returns ``None`` on success. On failure, updates ``Document.status`` to ``failed``,
+    commits, and returns a short message suitable for API clients (never raises for
+    expected failures — avoids HTTP 500 on upload when e.g. embeddings are not configured).
+    """
     db: Session = SessionLocal()
     doc: Document | None = None
     try:
         doc = db.get(Document, document_id)
         if doc is None:
-            return "missing"
+            return "Document not found"
 
         path = Path(doc.storage_path)
         if not path.is_file():
             doc.status = "failed"
             db.commit()
-            return "no_file"
+            return "Stored file is missing"
 
         try:
             raw = _read_document_text(path)
-        except ValueError:
+        except ValueError as e:
             doc.status = "failed"
             db.commit()
-            return "unsupported"
+            msg = str(e)
+            if msg.startswith("unsupported_type:"):
+                suf = msg.split(":", 1)[-1]
+                return f"Unsupported file type ({suf})"
+            return "Could not read file"
 
         parts = _chunk_text(raw)
         if not parts:
             doc.status = "failed"
             db.commit()
-            return "empty"
+            return "File has no extractable text"
 
-        embeddings = embedding_svc.embed_texts(parts)
+        try:
+            embeddings = embedding_svc.embed_texts(parts)
+        except ValueError as e:
+            doc.status = "failed"
+            db.commit()
+            return str(e)
+        except Exception:
+            logger.exception("ingest_embed_failed", extra={"document_id": document_id})
+            doc.status = "failed"
+            db.commit()
+            return "Embedding request failed"
 
         for i, (content, emb) in enumerate(zip(parts, embeddings, strict=True)):
             db.add(
@@ -78,7 +98,7 @@ def ingest_document(document_id: int) -> str:
             )
         doc.status = "ready"
         db.commit()
-        return "ok"
+        return None
     except Exception:
         logger.exception("ingest_failed", extra={"document_id": document_id})
         if doc is None:
@@ -86,6 +106,6 @@ def ingest_document(document_id: int) -> str:
         if doc is not None:
             doc.status = "failed"
             db.commit()
-        raise
+        return "Ingest failed unexpectedly"
     finally:
         db.close()

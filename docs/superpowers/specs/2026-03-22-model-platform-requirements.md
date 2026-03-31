@@ -17,7 +17,7 @@
 
 ### Metadata rule (non-negotiable)
 
-**Product-facing metadata** (model catalog fields, effort, display copy, request-access configuration, catalog-level defaults, per-user model settings, grant records, etc.) **must live in PostgreSQL** and **must be read/written through HTTP APIs** (authenticated; admin routes where appropriate). Clients **must not** depend on hard-coded model lists or entitlement state in the SPA bundle. **Environment variables** remain for **secrets** and **deployment topology** (e.g. `LLM_API_KEY`, base URL)—not as the source of truth for catalog or access metadata.
+**Product-facing metadata** (model catalog fields, effort, display copy, request-access configuration, catalog-level defaults, per-user model settings, grant records, etc.) **must live in PostgreSQL** and **must be read/written through HTTP APIs** (authenticated; admin routes where appropriate). Clients **must not** depend on hard-coded model lists or entitlement state in the SPA bundle. **Environment variables** remain for **secrets** and **deployment topology** (e.g. `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, base URLs)—not as the source of truth for catalog or access metadata.
 
 ---
 
@@ -28,7 +28,7 @@ Use this as the starting line before picking up new tasks.
 | Area | What exists today |
 |------|-------------------|
 | **LiteLLM in-process** | `litellm.completion` / streaming in `services/llm_providers/litellm_chat.py`; `litellm.embedding` in `services/embedding.py`. |
-| **Vendor-neutral config** | `LLM_API_BASE` / `LLM_API_KEY` (aliases `OPENAI_*`) in `config.py`; `normalize_openai_compatible_base` in `services/llm_connect.py`. |
+| **Vendor config** | `OPENAI_API_BASE` / `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `VOYAGE_API_KEY` in `config.py`; `normalize_openai_compatible_base` in `services/llm_connect.py`. |
 | **Model string resolution (minimal)** | `services/model_access.effective_chat_model()` = `CHAT_MODEL` or per-request override only — **no catalog, no grants**. |
 | **Portal API keys** | `UserPortalApiKey` + migration `009`; `POST/GET/DELETE /api/me/portal-api-keys`; `aip_…` resolved in `deps.get_current_user` before dev/Entra JWT. |
 | **Human auth** | Dev bearer + Entra JWT per auth spec. |

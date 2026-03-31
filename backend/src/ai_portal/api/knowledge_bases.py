@@ -30,6 +30,7 @@ from ai_portal.models import (
     User,
 )
 from ai_portal.models.connector import CONNECTOR_KINDS
+from ai_portal.services import embedding as embedding_svc
 from ai_portal.tasks.connector_jobs import run_connector_sync_job
 from ai_portal.tasks.ingest import ingest_document
 
@@ -385,15 +386,27 @@ async def upload_document(
     db.commit()
     db.refresh(doc)
 
+    if not embedding_svc.embeddings_configured(settings):
+        doc.status = "failed"
+        db.commit()
+        db.refresh(doc)
+        return {
+            "document_id": doc.id,
+            "status": doc.status,
+            "ingest_error": embedding_svc.embeddings_missing_key_message(),
+        }
+
     try:
-        await asyncio.to_thread(ingest_document, doc.id)
+        ingest_err = await asyncio.to_thread(ingest_document, doc.id)
     except Exception as e:
         logger.exception("ingest_failed", extra={"document_id": doc.id})
         doc.status = "failed"
         db.commit()
         db.refresh(doc)
-        # 200: file is stored and the document row reflects ingest outcome (UI can refresh the list).
         return {"document_id": doc.id, "status": doc.status, "ingest_error": str(e)}
 
     db.refresh(doc)
-    return {"document_id": doc.id, "status": doc.status}
+    out: dict[str, int | str] = {"document_id": doc.id, "status": doc.status}
+    if ingest_err:
+        out["ingest_error"] = ingest_err
+    return out

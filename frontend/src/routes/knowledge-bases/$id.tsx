@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, Link, useLocation, useNavigate } from '@tanstack/react-router'
 import { ArrowLeft, Trash2 } from 'lucide-react'
 import * as React from 'react'
 
@@ -13,6 +13,7 @@ import {
   parseKnowledgeBaseDocumentsListJson,
 } from '~/lib/knowledge-base-types'
 import { queryKeys } from '~/lib/queryKeys'
+import { cn } from '~/lib/utils'
 
 export const Route = createFileRoute('/knowledge-bases/$id')({
   component: KnowledgeBaseDetailPage,
@@ -23,6 +24,23 @@ function KnowledgeBaseDetailPage() {
   const kbId = Number(idParam)
   const apiBase = getApiBase()
   const qc = useQueryClient()
+  const location = useLocation()
+  const navigate = useNavigate()
+  const [ingestBanner, setIngestBanner] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    const w = location.state?.kbIngestWarning
+    if (typeof w !== 'string' || !w.trim()) {
+      return
+    }
+    setIngestBanner(w.trim())
+    void navigate({
+      to: '/knowledge-bases/$id',
+      params: { id: idParam },
+      replace: true,
+      state: {},
+    })
+  }, [location.state?.kbIngestWarning, idParam, navigate])
   const fileRef = React.useRef<HTMLInputElement>(null)
 
   const kbQ = useQuery({
@@ -115,6 +133,14 @@ function KnowledgeBaseDetailPage() {
     return <p className="p-4 text-sm text-red-600">Invalid knowledge base.</p>
   }
 
+  const kb = kbQ.data
+  const detailsDirty = Boolean(
+    kb &&
+      (editName.trim() !== kb.name ||
+        (editDescription.trim() || '') !== (kb.description || '')),
+  )
+  const saveDisabled = patchMut.isPending || !detailsDirty
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-4 sm:p-6">
       <div className="flex items-center gap-2">
@@ -126,6 +152,23 @@ function KnowledgeBaseDetailPage() {
           All knowledge bases
         </Link>
       </div>
+
+      {ingestBanner && (
+        <div
+          className="flex flex-col gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-100"
+          role="status"
+        >
+          <p className="font-medium">Initial upload did not finish ingesting</p>
+          <p className="text-amber-900/90 dark:text-amber-100/90">{ingestBanner}</p>
+          <button
+            type="button"
+            className="self-start text-sm font-medium text-amber-900 underline dark:text-amber-200"
+            onClick={() => setIngestBanner(null)}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {kbQ.isPending && <p className="text-sm text-neutral-500">Loading…</p>}
       {kbQ.isError && (
@@ -181,12 +224,19 @@ function KnowledgeBaseDetailPage() {
               )}
               <button
                 type="button"
-                disabled={
-                  patchMut.isPending ||
-                  (editName.trim() === kbQ.data.name &&
-                    (editDescription.trim() || '') === (kbQ.data.description || ''))
-                }
-                className="w-fit rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium dark:border-neutral-600"
+                disabled={saveDisabled}
+                className={cn(
+                  'w-fit rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors',
+                  'focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-neutral-950',
+                  patchMut.isPending &&
+                    'cursor-wait border border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-800/60 dark:bg-blue-950/40 dark:text-blue-200',
+                  !patchMut.isPending &&
+                    detailsDirty &&
+                    'cursor-pointer border border-blue-600 bg-blue-600 text-white shadow-sm hover:border-blue-500 hover:bg-blue-500 focus-visible:ring-blue-500 dark:border-blue-500 dark:bg-blue-600 dark:hover:border-blue-400 dark:hover:bg-blue-500',
+                  !patchMut.isPending &&
+                    !detailsDirty &&
+                    'cursor-not-allowed border border-neutral-200 bg-neutral-100 text-neutral-400 dark:border-neutral-700 dark:bg-neutral-800/90 dark:text-neutral-500',
+                )}
                 onClick={() =>
                   patchMut.mutate({
                     name: editName.trim(),

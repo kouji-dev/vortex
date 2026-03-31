@@ -1,11 +1,10 @@
 """
 Upsert chat models into ``catalog_models`` from ``catalog_model_definitions``.
 
-**Anthropic:** ``ANTHROPIC_API_KEY`` (or ``LLM_API_KEY`` fallback). Catalog stores
-Claude API ids without the ``anthropic/`` prefix; LangChain ``ChatAnthropic`` uses
-those ids directly.
+**Anthropic:** ``ANTHROPIC_API_KEY``. Catalog stores Claude API ids without the
+``anthropic/`` prefix; LangChain ``ChatAnthropic`` uses those ids directly.
 
-**OpenAI:** ``LLM_API_KEY`` + ``LLM_API_BASE`` (default api.openai.com). Each
+**OpenAI:** ``OPENAI_API_KEY`` + ``OPENAI_API_BASE`` (default api.openai.com). Each
 ``api_model_id`` is checked for non-empty values; optional ids skip stricter
 checks (see ``OPTIONAL_CATALOG_API_MODEL_IDS``).
 
@@ -23,8 +22,8 @@ then seed — same order as local dev / CI:
 
 New conversations prefer catalog slug ``anthropic-claude-haiku-4-5`` when that row
 is active (see ``default_conversation_model._DEFAULT_CATALOG_SLUG_PRIORITY``);
-``CHAT_DEFAULT_API_MODEL`` / ``CHAT_DEFAULT_MODEL`` is the fallback if the
-catalog row is missing.
+``CHAT_DEFAULT_API_MODEL`` (or ``CHAT_DEFAULT_MODEL`` / ``CHAT_MODEL``) is the
+fallback if the catalog row is missing.
 
 Usage (any time):
 

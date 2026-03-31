@@ -17,9 +17,7 @@ def test_list_models_requires_auth():
 @requires_postgres
 def test_list_models_returns_seed_rows(monkeypatch):
     monkeypatch.setenv("PORTAL_API_KEY_PEPPER", "test-pepper")
-    from ai_portal.config import get_settings
 
-    get_settings.cache_clear()
     r = client.get("/api/models", headers=AUTH)
     assert r.status_code == 200, r.text
     data = r.json()

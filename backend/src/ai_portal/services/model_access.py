@@ -10,7 +10,9 @@ from ai_portal.config import Settings
 
 
 def effective_chat_model(settings: Settings, requested: str | None) -> str:
-    m = (requested or settings.chat_model).strip()
+    m = (requested or settings.chat_default_api_model).strip()
     if not m:
-        raise ValueError("No chat model configured (CHAT_MODEL or per-request model)")
+        raise ValueError(
+            "No chat model configured (CHAT_DEFAULT_API_MODEL or per-request model)"
+        )
     return m

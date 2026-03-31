@@ -3,7 +3,7 @@ import { Link } from '@tanstack/react-router'
 type FeatureCardProps = {
   title: string
   description: string
-  to: '/chat/conversations'
+  to: '/chat/conversations' | '/knowledge-bases'
 }
 
 export function FeatureCard({ title, description, to }: FeatureCardProps) {

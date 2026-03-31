@@ -54,9 +54,11 @@ def normalize_chat_model_id_for_tests(model: str) -> str:
 
 
 def _is_anthropic_style_model(model: str) -> bool:
+    """True for vendor API ids and catalog slugs (e.g. ``anthropic-claude-haiku-4-5``)."""
     m = (model or "").strip().lower()
     return (
         m.startswith("anthropic/")
+        or m.startswith("anthropic-claude-")
         or m.startswith("claude-")
         or m.startswith("claude/")
     )
@@ -65,21 +67,22 @@ def _is_anthropic_style_model(model: str) -> bool:
 def chat_provider_credential_kwargs(settings: Settings, model: str) -> dict[str, Any]:
     """Credentials for chat: OpenAI-compatible (key+base) or Anthropic (key)."""
     if _is_anthropic_style_model(model):
-        key = settings.anthropic_api_key.strip() or settings.llm_api_key.strip()
+        key = settings.anthropic_api_key.strip()
         if not key:
             raise ValueError(
-                "ANTHROPIC_API_KEY or LLM_API_KEY must be set for Claude models "
-                "(add one to your .env; see .env.example).",
+                "ANTHROPIC_API_KEY is not set — required for Claude / Anthropic chat models "
+                "(add to your repo root .env). OpenAI chat and OpenAI embeddings use "
+                "OPENAI_API_KEY; Voyage embeddings use VOYAGE_API_KEY.",
             )
         return {"api_key": key}
-    if not settings.llm_api_key.strip():
+    if not settings.openai_api_key.strip():
         raise ValueError(
-            "LLM_API_KEY (or OPENAI_API_KEY) is not set — required for this model "
-            "and for embeddings (add to your .env; see .env.example).",
+            "OPENAI_API_KEY is not set — required for OpenAI-compatible chat models "
+            "(add to your repo root .env). Anthropic chat uses ANTHROPIC_API_KEY.",
         )
     return {
-        "api_key": settings.llm_api_key,
-        "api_base": normalize_openai_compatible_base(settings.llm_api_base),
+        "api_key": settings.openai_api_key,
+        "api_base": normalize_openai_compatible_base(settings.openai_api_base),
     }
 
 
@@ -91,6 +94,9 @@ def normalize_model_id_for_langchain_chat(model: str) -> str:
     lower = m.lower()
     if lower.startswith("anthropic/"):
         return m.split("/", 1)[1]
+    # Catalog slug: "anthropic-claude-*" → LangChain expects "claude-*"
+    if lower.startswith("anthropic-claude-"):
+        return m[lower.index("claude-") :]
     if lower.startswith("claude/"):
         return m.removeprefix("claude/")
     return m

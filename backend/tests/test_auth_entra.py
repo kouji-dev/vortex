@@ -10,7 +10,6 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi.testclient import TestClient
 
 from ai_portal.auth.entra import decode_entra_access_token, roles_from_claims
-from ai_portal.config import get_settings
 from ai_portal.main import app
 from ai_portal.services.user_identity import (
     profile_fields_from_claims,
@@ -228,12 +227,10 @@ client = TestClient(app)
 @requires_postgres
 def test_me_dev_returns_user(monkeypatch):
     monkeypatch.delenv("AUTH_MODE", raising=False)
-    get_settings.cache_clear()
     r = client.get(
         "/api/me",
         headers={"Authorization": "Bearer devtoken"},
     )
-    get_settings.cache_clear()
     assert r.status_code == 200, r.text
     body = r.json()
     assert "id" in body and body["email"] == "dev@localhost"
@@ -249,7 +246,6 @@ def test_me_entra_returns_profile_from_token(monkeypatch):
     monkeypatch.setenv("ENTRA_TENANT_ID", tenant)
     monkeypatch.setenv("ENTRA_API_AUDIENCE", aud)
     monkeypatch.setenv("PORTAL_API_KEY_PEPPER", "test-pepper")
-    get_settings.cache_clear()
     private_key = _rsa_key()
     now = int(time.time())
     claims = {
@@ -275,7 +271,6 @@ def test_me_entra_returns_profile_from_token(monkeypatch):
             "/api/me",
             headers={"Authorization": f"Bearer {token}"},
         )
-    get_settings.cache_clear()
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["email"] == "entrauser@example.com"
@@ -286,21 +281,31 @@ def test_me_entra_returns_profile_from_token(monkeypatch):
 
 
 def test_me_missing_token():
-    get_settings.cache_clear()
     r = client.get("/api/me")
-    get_settings.cache_clear()
     assert r.status_code == 401
+
+
+def test_me_entra_rejects_non_jwt_bearer(monkeypatch):
+    """Dev static token must not be sent when API is in entra mode."""
+    monkeypatch.setenv("AUTH_MODE", "entra")
+    monkeypatch.setenv("ENTRA_TENANT_ID", "11111111-1111-1111-1111-111111111111")
+    monkeypatch.setenv("ENTRA_API_AUDIENCE", "api://test-audience")
+    monkeypatch.setenv("PORTAL_API_KEY_PEPPER", "test-pepper")
+    r = client.get(
+        "/api/me",
+        headers={"Authorization": "Bearer devtoken"},
+    )
+    assert r.status_code == 401
+    assert "not a JWT" in r.json()["detail"]
 
 
 @requires_postgres
 def test_admin_ping_dev_ok(monkeypatch):
     monkeypatch.delenv("AUTH_MODE", raising=False)
-    get_settings.cache_clear()
     r = client.get(
         "/api/admin/ping",
         headers={"Authorization": "Bearer devtoken"},
     )
-    get_settings.cache_clear()
     assert r.status_code == 200, r.text
 
 
@@ -313,7 +318,6 @@ def test_admin_ping_entra_forbidden_without_role(monkeypatch):
     monkeypatch.setenv("ENTRA_TENANT_ID", tenant)
     monkeypatch.setenv("ENTRA_API_AUDIENCE", aud)
     monkeypatch.setenv("PORTAL_API_KEY_PEPPER", "test-pepper")
-    get_settings.cache_clear()
     private_key = _rsa_key()
     now = int(time.time())
     claims = {
@@ -338,5 +342,4 @@ def test_admin_ping_entra_forbidden_without_role(monkeypatch):
             "/api/admin/ping",
             headers={"Authorization": f"Bearer {token}"},
         )
-    get_settings.cache_clear()
     assert r.status_code == 403

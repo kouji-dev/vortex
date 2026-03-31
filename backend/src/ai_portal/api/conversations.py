@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from typing import Annotated, Any, Self
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -101,6 +102,40 @@ def _get_owned_message(
     return msg
 
 
+def _sync_conversation_knowledge_links(
+    db: Session,
+    conv: ChatConversation,
+    user: User,
+    knowledge_base_ids: list[int],
+) -> None:
+    seen: set[int] = set()
+    unique_ids: list[int] = []
+    for kb_id in knowledge_base_ids:
+        if kb_id in seen:
+            continue
+        seen.add(kb_id)
+        unique_ids.append(kb_id)
+    for kb_id in unique_ids:
+        kb = db.get(KnowledgeBase, kb_id)
+        if kb is None or kb.owner_user_id != user.id:
+            raise HTTPException(
+                status.HTTP_404_NOT_FOUND,
+                detail="Knowledge base not found",
+            )
+    db.execute(
+        delete(ConversationKnowledgeBase).where(
+            ConversationKnowledgeBase.conversation_id == conv.id
+        )
+    )
+    for kb_id in unique_ids:
+        db.add(
+            ConversationKnowledgeBase(
+                conversation_id=conv.id,
+                knowledge_base_id=kb_id,
+            )
+        )
+
+
 def _capability_instructions(st: ConversationSettings | None) -> str:
     if st is None or st.capabilities is None:
         return ""
@@ -131,6 +166,7 @@ class ConversationCreate(BaseModel):
     model: str | None = Field(default=None, max_length=128)
     assistant_id: int | None = None
     settings: ConversationSettings | None = None
+    knowledge_base_ids: list[int] = Field(default_factory=list)
 
 
 class ConversationPatch(BaseModel):
@@ -248,6 +284,9 @@ def create_conversation(
         settings=settings_val,
     )
     db.add(conv)
+    db.flush()
+    if body.knowledge_base_ids:
+        _sync_conversation_knowledge_links(db, conv, user, body.knowledge_base_ids)
     db.commit()
     db.refresh(conv)
     return _conversation_read(db, conv)
@@ -301,32 +340,7 @@ def put_conversation_knowledge_bases(
     user: User = Depends(get_current_user),
 ) -> ConversationRead:
     conv = _get_owned_conversation(db, user, conversation_id)
-    seen: set[int] = set()
-    unique_ids: list[int] = []
-    for kb_id in body.knowledge_base_ids:
-        if kb_id in seen:
-            continue
-        seen.add(kb_id)
-        unique_ids.append(kb_id)
-    for kb_id in unique_ids:
-        kb = db.get(KnowledgeBase, kb_id)
-        if kb is None or kb.owner_user_id != user.id:
-            raise HTTPException(
-                status.HTTP_404_NOT_FOUND,
-                detail="Knowledge base not found",
-            )
-    db.execute(
-        delete(ConversationKnowledgeBase).where(
-            ConversationKnowledgeBase.conversation_id == conv.id
-        )
-    )
-    for kb_id in unique_ids:
-        db.add(
-            ConversationKnowledgeBase(
-                conversation_id=conv.id,
-                knowledge_base_id=kb_id,
-            )
-        )
+    _sync_conversation_knowledge_links(db, conv, user, body.knowledge_base_ids)
     db.commit()
     db.refresh(conv)
     return _conversation_read(db, conv)
@@ -522,7 +536,9 @@ def stream_message(
     used_kbs_meta: list[dict] = []
     if kb_ids:
         try:
-            q_emb = embedding_svc.embed_texts([user_content])[0]
+            q_emb = embedding_svc.embed_texts(
+                [user_content], input_type="query"
+            )[0]
             rag_block, used_kbs_meta = rag_svc.retrieve_context_with_meta(
                 db, knowledge_base_ids=kb_ids, query_embedding=q_emb
             )
@@ -548,7 +564,9 @@ def stream_message(
     openai_messages.extend(prior)
     openai_messages.append({"role": "user", "content": user_content})
 
-    stored_model = (body.model or conv.model or settings.chat_model or "").strip()
+    stored_model = (
+        body.model or conv.model or settings.chat_default_api_model or ""
+    ).strip()
     if not stored_model:
         use_model = None
     else:
@@ -620,3 +638,94 @@ def stream_message(
             "X-Accel-Buffering": "no",
         },
     )
+
+
+def _e2e_rag_seed_allowed() -> bool:
+    """Local Playwright only: ``E2E_ENABLE_RAG_SEED=1`` plus dev auth."""
+    settings = get_settings()
+    return settings.auth_mode == "dev" and os.environ.get("E2E_ENABLE_RAG_SEED", "").strip() == "1"
+
+
+class E2eSeedRagAssistantBody(BaseModel):
+    kb_id: int
+    kb_name: str = "Knowledge base"
+    assistant_content: str = Field(
+        default="This reply is grounded in your attached knowledge base (E2E seed).",
+        max_length=500_000,
+    )
+
+
+@router.post(
+    "/conversations/{conversation_id}/e2e/seed-rag-assistant",
+    status_code=status.HTTP_201_CREATED,
+)
+def e2e_seed_rag_assistant(
+    conversation_id: int,
+    body: E2eSeedRagAssistantBody,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Insert user + two assistant rows: one without ``used_kbs``, one with (for KB indicator E2E)."""
+    if not _e2e_rag_seed_allowed():
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Not found")
+
+    conv = _get_owned_conversation(db, user, conversation_id)
+    kb_ids = list(
+        db.scalars(
+            select(ConversationKnowledgeBase.knowledge_base_id).where(
+                ConversationKnowledgeBase.conversation_id == conv.id
+            )
+        ).all()
+    )
+    if body.kb_id not in kb_ids:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="kb_id must be attached to this conversation",
+        )
+
+    kb = db.get(KnowledgeBase, body.kb_id)
+    if kb is None or kb.owner_user_id != user.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Knowledge base not found")
+
+    used_kbs_meta: list[dict[str, Any]] = [
+        {
+            "kb_id": body.kb_id,
+            "kb_name": body.kb_name,
+            "chunks_used": 2,
+            "top_score": 0.88,
+            "sections": ["E2E section"],
+        }
+    ]
+
+    db.add(
+        ChatMessage(
+            conversation_id=conv.id,
+            role="user",
+            content="E2E: what does the knowledge base say?",
+        )
+    )
+    db.add(
+        ChatMessage(
+            conversation_id=conv.id,
+            role="assistant",
+            content="A short reply without retrieval metadata.",
+            extra=None,
+        )
+    )
+    db.add(
+        ChatMessage(
+            conversation_id=conv.id,
+            role="assistant",
+            content=body.assistant_content,
+            extra={"used_kbs": used_kbs_meta},
+        )
+    )
+    db.commit()
+
+    last = db.scalars(
+        select(ChatMessage)
+        .where(ChatMessage.conversation_id == conv.id)
+        .order_by(ChatMessage.id.desc())
+        .limit(1)
+    ).first()
+    return {"ok": True, "assistant_message_id": last.id if last else None}

@@ -1,6 +1,6 @@
 import { InteractionRequiredAuthError } from '@azure/msal-browser'
 
-import { apiTokenRequest, getAuthMode } from '~/auth/msalConfig'
+import { apiTokenRequest, getAuthMode, getEntraApiScope } from '~/auth/msalConfig'
 import { getMsalInstance } from '~/auth/msalInstance'
 
 export async function getAuthHeaders(): Promise<HeadersInit> {
@@ -11,6 +11,12 @@ export async function getAuthHeaders(): Promise<HeadersInit> {
       import.meta.env.VITE_DEV_TOKEN ??
       'devtoken'
     return { Authorization: `Bearer ${t}` }
+  }
+
+  if (!getEntraApiScope()) {
+    throw new Error(
+      'VITE_ENTRA_API_SCOPE is not set. The backend expects an access token for your API audience.',
+    )
   }
 
   const msal = getMsalInstance()

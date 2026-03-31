@@ -10,12 +10,12 @@ Infrastructure follows the same **Docker Compose project name** and layout as **
 - Postgres image is **`pgvector/pgvector:pg17`** so the `vector` extension is available for RAG.
 
 ```bash
-cp .env.example .env
+# Create repo root `.env` (gitignored) — see comments in that file and backend/README.md.
 docker compose up -d
 docker compose ps
 ```
 
-Connection strings are in `.env.example` (`DATABASE_URL`). Compose still includes Redis on **6380** for optional local use or future queues.
+Put **`DATABASE_URL`** and other API settings in **`.env`** at the repo root (same directory as `docker-compose.yml`). Compose still includes Redis on **6380** for optional local use or future queues.
 
 After **resetting the DB volume** (`docker compose down -v` then `up -d`), run migrations and the catalog seed from `backend/` — see **“After a database reset”** in [`backend/README.md`](backend/README.md).
 
@@ -54,7 +54,7 @@ docker compose --profile full up -d api web
 - API: [http://127.0.0.1:8000](http://127.0.0.1:8000) — web UI: [http://127.0.0.1:3000](http://127.0.0.1:3000)  
 - Set **`OPENAI_API_KEY`** in `.env` (or the shell) before `up` so chat/embeddings work.
 
-Chat and embeddings use **LangChain** in-process in the API (`ChatAnthropic` / `ChatOpenAI` and `OpenAIEmbeddings`). Use `LLM_API_BASE` when traffic should go through an OpenAI-compatible proxy instead of the default vendor URL.
+Chat and embeddings use **LangChain** in-process in the API (`ChatAnthropic` / `ChatOpenAI` and `OpenAIEmbeddings`). Use `OPENAI_API_BASE` when traffic should go through an OpenAI-compatible proxy instead of the default vendor URL.
 
 Implementation plan: [`docs/superpowers/plans/2026-03-21-mvp-0-bootstrap.md`](docs/superpowers/plans/2026-03-21-mvp-0-bootstrap.md).  
 Full MVP chunk map: [`docs/superpowers/plans/2026-03-21-ai-portal-mvp-implementation.md`](docs/superpowers/plans/2026-03-21-ai-portal-mvp-implementation.md).

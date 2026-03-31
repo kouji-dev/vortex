@@ -2,8 +2,11 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from ai_portal.config import get_settings
+from ai_portal.db.session import SessionLocal
 from ai_portal.main import app
+from ai_portal.services.default_conversation_model import (
+    resolve_default_conversation_stored_model,
+)
 from tests.conftest import requires_postgres
 
 client = TestClient(app)
@@ -27,20 +30,40 @@ def test_starters_ok():
 
 @requires_postgres
 def test_create_conversation_defaults_model_and_settings():
+    db = SessionLocal()
+    try:
+        expected_model = resolve_default_conversation_stored_model(db)
+    finally:
+        db.close()
     r = client.post("/api/chat/conversations", headers=AUTH, json={})
     assert r.status_code == 201, r.text
     body = r.json()
     assert body["settings"] == {
         "capabilities": {"reflection": False, "research": False, "web": False},
     }
-    assert body["model"]
-    assert body["model"] in (
-        "claude-haiku-4-5-20251001",
-        "claude-haiku-4-5",
-        "anthropic-claude-haiku-4-5",
-        "o3-mini",
-        "openai-o3-mini",
-    ) or body["model"] == get_settings().chat_default_api_model
+    assert body["model"] == expected_model
+
+
+@requires_postgres
+def test_create_conversation_with_knowledge_base_ids():
+    kb = client.post(
+        "/api/knowledge-bases",
+        headers=AUTH,
+        json={"name": "create-with-kb", "description": ""},
+    )
+    assert kb.status_code == 201, kb.text
+    kb_id = kb.json()["id"]
+    r = client.post(
+        "/api/chat/conversations",
+        headers=AUTH,
+        json={"knowledge_base_ids": [kb_id]},
+    )
+    assert r.status_code == 201, r.text
+    assert r.json()["knowledge_base_ids"] == [kb_id]
+    cid = r.json()["id"]
+    gr = client.get(f"/api/chat/conversations/{cid}", headers=AUTH)
+    assert gr.status_code == 200, gr.text
+    assert gr.json()["knowledge_base_ids"] == [kb_id]
 
 
 @requires_postgres
@@ -107,7 +130,6 @@ def test_conversations_settings_rejects_unknown_capability_key():
 @patch("ai_portal.api.conversations.llm_svc.chat_completions_stream_deltas")
 def test_first_stream_message_sets_title_from_prompt_truncated(mock_deltas, monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-    get_settings.cache_clear()
     mock_deltas.return_value = iter(["x"])
 
     r = client.post("/api/chat/conversations", headers=AUTH, json={})
@@ -145,7 +167,6 @@ def test_first_stream_message_sets_title_from_prompt_truncated(mock_deltas, monk
 @patch("ai_portal.api.conversations.llm_svc.chat_completions_stream_deltas")
 def test_stream_llm_error_persists_user_and_error_assistant(mock_deltas, monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-    get_settings.cache_clear()
     mock_deltas.side_effect = ValueError("model unavailable")
 
     r = client.post("/api/chat/conversations", headers=AUTH, json={})
@@ -180,7 +201,6 @@ def test_stream_llm_error_persists_user_and_error_assistant(mock_deltas, monkeyp
 @patch("ai_portal.api.conversations.llm_svc.chat_completions_stream_deltas")
 def test_messages_recent_tail_and_before_id(mock_deltas, monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-    get_settings.cache_clear()
     mock_deltas.return_value = iter(["ok"])
 
     r = client.post("/api/chat/conversations", headers=AUTH, json={})
@@ -256,7 +276,6 @@ def test_patch_assistant_id_requires_visible_assistant():
 @patch("ai_portal.api.conversations.llm_svc.chat_completions_stream_deltas")
 def test_patch_delete_and_regenerate_message(mock_deltas, monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-    get_settings.cache_clear()
     mock_deltas.return_value = iter(["x"])
 
     r = client.post("/api/chat/conversations", headers=AUTH, json={})
@@ -327,3 +346,62 @@ def test_patch_delete_and_regenerate_message(mock_deltas, monkeypatch):
     assert len(msgs4) == 3
     assert msgs4[-1]["role"] == "assistant"
     assert "z" in msgs4[-1]["content"]
+
+
+@requires_postgres
+def test_e2e_seed_rag_assistant_not_found_without_env_flag(monkeypatch):
+    monkeypatch.delenv("E2E_ENABLE_RAG_SEED", raising=False)
+    kb = client.post(
+        "/api/knowledge-bases",
+        headers=AUTH,
+        json={"name": "e2e-seed-off", "description": ""},
+    )
+    assert kb.status_code == 201, kb.text
+    kb_id = kb.json()["id"]
+    cr = client.post("/api/chat/conversations", headers=AUTH, json={})
+    cid = cr.json()["id"]
+    client.put(
+        f"/api/chat/conversations/{cid}/knowledge-bases",
+        headers=AUTH,
+        json={"knowledge_base_ids": [kb_id]},
+    )
+    r = client.post(
+        f"/api/chat/conversations/{cid}/e2e/seed-rag-assistant",
+        headers=AUTH,
+        json={"kb_id": kb_id, "kb_name": "X"},
+    )
+    assert r.status_code == 404
+
+
+@requires_postgres
+def test_e2e_seed_rag_assistant_inserts_messages_with_used_kbs(monkeypatch):
+    monkeypatch.setenv("E2E_ENABLE_RAG_SEED", "1")
+    kb = client.post(
+        "/api/knowledge-bases",
+        headers=AUTH,
+        json={"name": "e2e-seed-on", "description": ""},
+    )
+    assert kb.status_code == 201, kb.text
+    kb_id = kb.json()["id"]
+    cr = client.post("/api/chat/conversations", headers=AUTH, json={})
+    cid = cr.json()["id"]
+    client.put(
+        f"/api/chat/conversations/{cid}/knowledge-bases",
+        headers=AUTH,
+        json={"knowledge_base_ids": [kb_id]},
+    )
+    r = client.post(
+        f"/api/chat/conversations/{cid}/e2e/seed-rag-assistant",
+        headers=AUTH,
+        json={"kb_id": kb_id, "kb_name": "Seeded KB"},
+    )
+    assert r.status_code == 201, r.text
+    msgs = client.get(
+        f"/api/chat/conversations/{cid}/messages?recent=false",
+        headers=AUTH,
+    ).json()
+    assistants = [m for m in msgs if m["role"] == "assistant"]
+    assert len(assistants) == 2
+    assert assistants[0]["extra"] is None
+    assert assistants[1]["extra"] is not None
+    assert assistants[1]["extra"]["used_kbs"][0]["kb_name"] == "Seeded KB"

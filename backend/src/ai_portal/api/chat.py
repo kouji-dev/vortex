@@ -96,7 +96,9 @@ def post_chat(
         )
         if last_user.strip():
             try:
-                q_emb = embedding_svc.embed_texts([last_user])[0]
+                q_emb = embedding_svc.embed_texts(
+                    [last_user], input_type="query"
+                )[0]
                 rag_block = rag_svc.retrieve_context(
                     db, knowledge_base_ids=kb_ids, query_embedding=q_emb
                 )

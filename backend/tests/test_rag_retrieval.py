@@ -1,6 +1,8 @@
 """RAG retrieval unit tests."""
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from tests.conftest import requires_postgres
 
 
@@ -31,9 +33,9 @@ def test_retrieve_context_backward_compat_empty():
 
 def test_returns_meta_per_kb():
     """Meta list has one entry per KB that contributed chunks."""
-    from ai_portal.services.rag import retrieve_context_with_meta
     from ai_portal.models import Document, DocumentChunk
     from ai_portal.models.knowledge_base import KnowledgeBase
+    from ai_portal.services.rag import retrieve_context_with_meta
 
     kb1 = MagicMock(spec=KnowledgeBase)
     kb1.id = 1
@@ -80,3 +82,23 @@ def test_returns_meta_per_kb():
     assert meta[0]["chunks_used"] == 1
     assert meta[0]["top_score"] == 0.91
     assert meta[0]["sections"] == ["Remote Work p.14"]
+
+
+def test_cosine_score_plain_list_embeddings():
+    from ai_portal.models import DocumentChunk
+    from ai_portal.services.rag import _cosine_score
+
+    c = MagicMock(spec=DocumentChunk)
+    c.embedding = [1.0, 0.0, 0.0]
+    assert _cosine_score(c, [1.0, 0.0, 0.0]) == 1.0
+    assert _cosine_score(c, [0.0, 1.0, 0.0]) == 0.0
+
+
+def test_cosine_score_numpy_ndarray_embeddings():
+    numpy = pytest.importorskip("numpy")
+    from ai_portal.models import DocumentChunk
+    from ai_portal.services.rag import _cosine_score
+
+    c = MagicMock(spec=DocumentChunk)
+    c.embedding = numpy.array([1.0, 0.0, 0.0], dtype=numpy.float64)
+    assert abs(_cosine_score(c, [1.0, 0.0, 0.0]) - 1.0) < 1e-9

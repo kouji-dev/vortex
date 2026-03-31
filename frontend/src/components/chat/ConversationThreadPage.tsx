@@ -73,6 +73,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
   const [sessionTuning, setSessionTuning] = React.useState<SessionModelTuning>(() =>
     defaultTuningFromCatalog(null),
   )
+  const [draftKbIds, setDraftKbIds] = React.useState<number[]>([])
 
   const convQ = useConversationQuery(conversationId)
   const catalogQ = useCatalogModelsQuery()
@@ -99,6 +100,10 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
 
   React.useEffect(() => {
     stickToBottomRef.current = true
+  }, [conversationId])
+
+  React.useEffect(() => {
+    if (conversationId != null) setDraftKbIds([])
   }, [conversationId])
 
   const conversationMissing =
@@ -367,6 +372,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
             assistant_id: null,
             model: draftModel.trim() || null,
             settings,
+            knowledge_base_ids: draftKbIds,
           }),
         })
         if (!res.ok) {
@@ -386,7 +392,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
             pendingStream: {
               bootstrapId,
               content: trimmed,
-              use_rag: false,
+              use_rag: draftKbIds.length > 0,
               ...(modelParam ? { model: modelParam } : {}),
             },
           },
@@ -739,7 +745,14 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
         onStop={stopStream}
         inputThemed={inputThemed}
         kbSlot={
-          !isComposerMode && conversationId != null ? (
+          isComposerMode ? (
+            <KbChatPicker
+              conversationId={null}
+              activeCount={draftKbIds.length}
+              draftKnowledgeBaseIds={draftKbIds}
+              onDraftKnowledgeBaseIdsChange={setDraftKbIds}
+            />
+          ) : conversationId != null ? (
             <KbChatPicker conversationId={conversationId} activeCount={knowledge_base_ids.length} />
           ) : undefined
         }

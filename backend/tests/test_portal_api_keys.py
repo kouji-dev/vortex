@@ -12,8 +12,6 @@ DEV = {"Authorization": "Bearer devtoken"}
 @requires_postgres
 def test_portal_api_key_auth_roundtrip(monkeypatch):
     monkeypatch.setenv("PORTAL_API_KEY_PEPPER", "test-pepper")
-    get_settings.cache_clear()
-
     cr = client.post(
         "/api/me/portal-api-keys",
         headers=DEV,

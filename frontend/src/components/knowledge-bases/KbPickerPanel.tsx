@@ -22,13 +22,24 @@ function fuzzyMatch(name: string, query: string): boolean {
 }
 
 export type KbPickerPanelProps = {
-  conversationId: number
+  /**
+   * Persisted thread: server sync via PUT. `null` = new chat (draft IDs only).
+   */
+  conversationId: number | null
+  draftKnowledgeBaseIds?: number[]
+  onDraftKnowledgeBaseIdsChange?: (ids: number[]) => void
   /** When false, list query is disabled (popover closed). */
   open: boolean
   onRequestClose: () => void
 }
 
-export function KbPickerPanel({ conversationId, open, onRequestClose }: KbPickerPanelProps) {
+export function KbPickerPanel({
+  conversationId,
+  draftKnowledgeBaseIds = [],
+  onDraftKnowledgeBaseIdsChange,
+  open,
+  onRequestClose,
+}: KbPickerPanelProps) {
   const apiBase = getApiBase()
   const qc = useQueryClient()
 
@@ -49,11 +60,20 @@ export function KbPickerPanel({ conversationId, open, onRequestClose }: KbPicker
     enabled: open,
   })
 
-  const conversation = qc.getQueryData<Conversation>(queryKeys.conversation(conversationId))
-  const attachedIds = conversation?.knowledge_base_ids ?? []
+  const persistedConv =
+    conversationId != null
+      ? qc.getQueryData<Conversation>(queryKeys.conversation(conversationId))
+      : undefined
+  const attachedIds =
+    conversationId != null
+      ? (persistedConv?.knowledge_base_ids ?? [])
+      : draftKnowledgeBaseIds
 
   const saveMut = useMutation({
     mutationFn: async (ids: number[]) => {
+      if (conversationId == null) {
+        throw new Error('KbPickerPanel: draft mode does not use PUT')
+      }
       const res = await fetch(
         `${apiBase}/api/chat/conversations/${conversationId}/knowledge-bases`,
         {
@@ -69,6 +89,7 @@ export function KbPickerPanel({ conversationId, open, onRequestClose }: KbPicker
       return res.json() as Promise<Conversation>
     },
     onSuccess: (data) => {
+      if (conversationId == null) return
       void qc.setQueryData(queryKeys.conversation(conversationId), data)
       void qc.invalidateQueries({ queryKey: queryKeys.conversations() })
     },
@@ -106,9 +127,13 @@ export function KbPickerPanel({ conversationId, open, onRequestClose }: KbPicker
       const next = attachedIds.includes(kbId)
         ? attachedIds.filter((id) => id !== kbId)
         : [...attachedIds, kbId]
-      saveMut.mutate(next)
+      if (conversationId != null) {
+        saveMut.mutate(next)
+      } else {
+        onDraftKnowledgeBaseIdsChange?.(next)
+      }
     },
-    [attachedIds, saveMut],
+    [attachedIds, conversationId, onDraftKnowledgeBaseIdsChange, saveMut],
   )
 
   const handleKeyDown = React.useCallback(
@@ -150,7 +175,7 @@ export function KbPickerPanel({ conversationId, open, onRequestClose }: KbPicker
           data-testid="kb-picker-search"
           className="min-w-0 flex-1 bg-transparent text-sm text-neutral-900 placeholder-neutral-400 outline-none dark:text-neutral-100"
         />
-        {saveMut.isPending && (
+        {conversationId != null && saveMut.isPending && (
           <span className="shrink-0 text-xs text-neutral-400">Saving…</span>
         )}
       </div>

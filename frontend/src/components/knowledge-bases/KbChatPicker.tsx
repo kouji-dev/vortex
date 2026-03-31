@@ -4,11 +4,18 @@ import * as React from 'react'
 import { KbPickerPanel } from '~/components/knowledge-bases/KbPickerPanel'
 
 export type KbChatPickerProps = {
-  conversationId: number
+  conversationId: number | null
   activeCount: number
+  draftKnowledgeBaseIds?: number[]
+  onDraftKnowledgeBaseIdsChange?: (ids: number[]) => void
 }
 
-export function KbChatPicker({ conversationId, activeCount }: KbChatPickerProps) {
+export function KbChatPicker({
+  conversationId,
+  activeCount,
+  draftKnowledgeBaseIds,
+  onDraftKnowledgeBaseIdsChange,
+}: KbChatPickerProps) {
   const [open, setOpen] = React.useState(false)
   const isActive = activeCount > 0
 
@@ -47,6 +54,8 @@ export function KbChatPicker({ conversationId, activeCount }: KbChatPickerProps)
         >
           <KbPickerPanel
             conversationId={conversationId}
+            draftKnowledgeBaseIds={draftKnowledgeBaseIds}
+            onDraftKnowledgeBaseIdsChange={onDraftKnowledgeBaseIdsChange}
             open={open}
             onRequestClose={() => setOpen(false)}
           />

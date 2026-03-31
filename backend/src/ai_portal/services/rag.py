@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import math
+from typing import Any
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -7,11 +10,49 @@ from ai_portal.models import Document, DocumentChunk
 from ai_portal.models.knowledge_base import KnowledgeBase
 
 
+def _embedding_to_list(v: Any) -> list[float]:
+    """Normalize DB/driver vectors (list, tuple, numpy ndarray, etc.) to floats."""
+    if v is None:
+        return []
+    if hasattr(v, "tolist") and callable(getattr(v, "tolist")) and not isinstance(
+        v, (str, bytes, bytearray)
+    ):
+        raw = v.tolist()
+        if isinstance(raw, list):
+            return [float(x) for x in raw]
+        return [float(raw)]
+    return [float(x) for x in v]
+
+
+def _cosine_similarity(a: list[float], b: list[float]) -> float:
+    if len(a) != len(b) or not a:
+        return 0.0
+    dot = math.fsum(x * y for x, y in zip(a, b, strict=True))
+    na = math.sqrt(math.fsum(x * x for x in a))
+    nb = math.sqrt(math.fsum(y * y for y in b))
+    if na == 0.0 or nb == 0.0:
+        return 0.0
+    return dot / (na * nb)
+
+
 def _cosine_score(chunk: DocumentChunk, query_embedding: list[float]) -> float:
-    """Return 1 - cosine_distance as a similarity score (0–1). Used for metadata only."""
+    """Similarity score for metadata (matches pgvector ordering: higher = closer)."""
+    emb = chunk.embedding
+    if emb is None:
+        return 0.0
+    # Loaded rows are often list or numpy.ndarray; .cosine_distance exists on pgvector
+    # SQL constructs, not on materialized Python values.
+    if hasattr(emb, "cosine_distance") and callable(getattr(emb, "cosine_distance", None)):
+        try:
+            dist = emb.cosine_distance(query_embedding)
+            return round(max(0.0, 1.0 - float(dist)), 4)
+        except (TypeError, ValueError, ZeroDivisionError, AttributeError):
+            pass
     try:
-        dist = chunk.embedding.cosine_distance(query_embedding)
-        return round(max(0.0, 1.0 - float(dist)), 4)
+        vec = _embedding_to_list(emb)
+        q = _embedding_to_list(query_embedding)
+        sim = _cosine_similarity(vec, q)
+        return round(max(0.0, sim), 4)
     except (TypeError, ValueError, ZeroDivisionError):
         return 0.0
 

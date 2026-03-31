@@ -2,7 +2,7 @@ import { MsalProvider } from '@azure/msal-react'
 import { PublicClientApplication } from '@azure/msal-browser'
 import * as React from 'react'
 
-import { buildMsalConfig } from './msalConfig'
+import { buildMsalConfig, getEntraApiScope } from './msalConfig'
 import { EntraAuthGate } from './EntraAuthGate'
 import { registerMsalClient } from './msalInstance'
 
@@ -41,6 +41,31 @@ export function EntraRoot({ children }: { children: React.ReactNode }) {
     return (
       <div className="p-4 text-sm text-neutral-600 dark:text-neutral-400">
         Loading authentication…
+      </div>
+    )
+  }
+
+  if (!getEntraApiScope()) {
+    return (
+      <div className="p-4 text-sm text-red-700 dark:text-red-300">
+        <p className="font-medium">Entra: missing API scope</p>
+        <p className="mt-2 text-neutral-700 dark:text-neutral-300">
+          Set{' '}
+          <code className="rounded bg-neutral-200 px-1 dark:bg-neutral-800">
+            VITE_ENTRA_API_SCOPE
+          </code>{' '}
+          in{' '}
+          <code className="rounded bg-neutral-200 px-1 dark:bg-neutral-800">
+            frontend/.env
+          </code>{' '}
+          to the delegated scope you exposed on the API app (for example{' '}
+          <code className="rounded bg-neutral-200 px-1 dark:bg-neutral-800">
+            api://&lt;api-app-id&gt;/access_as_user
+          </code>
+          ). Without it, MSAL can issue a token whose audience is the SPA app, and{' '}
+          <code className="rounded bg-neutral-200 px-1 dark:bg-neutral-800">/api/me</code>{' '}
+          returns 401.
+        </p>
       </div>
     )
   }

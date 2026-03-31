@@ -1,0 +1,117 @@
+<h2>KB indicator — inline with agent name/time</h2>
+<p class="subtitle">A single small 📚 icon sits next to "Claude · 2:14 PM". Hover opens a popover recapping all KBs used. No pills, no overflow, no layout shift.</p>
+
+<div class="mockup" style="max-width:780px;margin:0 auto">
+  <div class="mockup-header">Hover the 📚 icon on each message to see the popover</div>
+  <div class="mockup-body" style="padding:0">
+    <div style="background:#0f172a;border-radius:0 0 8px 8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:13px;color:#94a3b8;padding:20px;display:flex;flex-direction:column;gap:16px">
+
+      <!-- User message -->
+      <div style="align-self:flex-end;max-width:65%">
+        <div style="background:#1e40af;border-radius:12px 12px 2px 12px;padding:10px 14px;color:#e2e8f0;font-size:13px;line-height:1.5">
+          What is our remote work policy for contractors?
+        </div>
+        <div style="color:#334155;font-size:10px;text-align:right;margin-top:4px">You · 2:14 PM</div>
+      </div>
+
+      <!-- AI message — 4 KBs used -->
+      <div style="align-self:flex-start;max-width:75%">
+        <div style="background:#1e293b;border-radius:12px 12px 12px 2px;padding:12px 14px;color:#cbd5e1;font-size:13px;line-height:1.6">
+          <p style="margin:0 0 8px">Contractors must follow the remote work agreement, use approved VPN, comply with data handling rules, and complete security training before their start date.</p>
+          <ul style="margin:0;padding-left:18px;color:#94a3b8">
+            <li style="margin-bottom:4px">Core hours 10am–3pm local timezone</li>
+            <li>Equipment must meet IT security baseline §4.2</li>
+          </ul>
+        </div>
+        <!-- Footer: name · time + KB indicator -->
+        <div style="display:flex;align-items:center;gap:6px;margin-top:5px;position:relative">
+          <div style="color:#334155;font-size:10px">Claude · 2:14 PM</div>
+
+          <!-- KB indicator icon with popover -->
+          <div style="position:relative;display:inline-flex" id="w1">
+            <div onmouseenter="document.getElementById('p1').style.display='block'"
+                 onmouseleave="document.getElementById('p1').style.display='none'"
+                 style="width:18px;height:18px;background:#14532d;border:1px solid #16a34a;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:10px;cursor:default;color:#86efac">
+              📚
+            </div>
+            <!-- Popover -->
+            <div id="p1" style="display:none;position:absolute;left:0;bottom:calc(100% + 6px);background:#1e293b;border:1px solid #334155;border-radius:10px;padding:12px;min-width:240px;z-index:20;box-shadow:0 8px 24px rgba(0,0,0,.6)">
+              <div style="color:#86efac;font-size:11px;font-weight:600;margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em">KBs used in this response</div>
+              <!-- KB row -->
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                <div style="width:26px;height:26px;background:#1e40af;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">📄</div>
+                <div style="flex:1;min-width:0">
+                  <div style="color:#e2e8f0;font-size:12px;font-weight:500">HR Policies</div>
+                  <div style="color:#64748b;font-size:10px">3 chunks · score 0.91 · Remote Work p.14</div>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                <div style="width:26px;height:26px;background:#1e40af;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">🔧</div>
+                <div style="flex:1;min-width:0">
+                  <div style="color:#e2e8f0;font-size:12px;font-weight:500">IT Runbooks</div>
+                  <div style="color:#64748b;font-size:10px">1 chunk · score 0.78 · Security §4.2</div>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                <div style="width:26px;height:26px;background:#1e40af;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">⚖️</div>
+                <div style="flex:1;min-width:0">
+                  <div style="color:#e2e8f0;font-size:12px;font-weight:500">Legal Contracts</div>
+                  <div style="color:#64748b;font-size:10px">2 chunks · score 0.74 · Contractor Addendum</div>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <div style="width:26px;height:26px;background:#1e40af;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">🛡️</div>
+                <div style="flex:1;min-width:0">
+                  <div style="color:#e2e8f0;font-size:12px;font-weight:500">Security Baseline</div>
+                  <div style="color:#64748b;font-size:10px">1 chunk · score 0.71 · Device Policy</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- User message 2 -->
+      <div style="align-self:flex-end;max-width:65%">
+        <div style="background:#1e40af;border-radius:12px 12px 2px 12px;padding:10px 14px;color:#e2e8f0;font-size:13px;line-height:1.5">
+          What's 2 + 2?
+        </div>
+        <div style="color:#334155;font-size:10px;text-align:right;margin-top:4px">You · 2:15 PM</div>
+      </div>
+
+      <!-- AI message — NO KBs used, no indicator -->
+      <div style="align-self:flex-start;max-width:75%">
+        <div style="background:#1e293b;border-radius:12px 12px 12px 2px;padding:12px 14px;color:#cbd5e1;font-size:13px;line-height:1.6">
+          4.
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:5px">
+          <div style="color:#334155;font-size:10px">Claude · 2:15 PM</div>
+          <!-- No 📚 icon — KBs not used -->
+        </div>
+      </div>
+
+      <!-- Input bar for context -->
+      <div style="border-top:1px solid #1e293b;padding-top:12px;display:flex;align-items:center;gap:8px">
+        <div style="background:#1e293b;border-radius:8px;padding:6px 10px;color:#64748b;font-size:12px">📎</div>
+        <div style="background:#1e293b;border-radius:8px;flex:1;padding:8px 12px;color:#475569;font-size:12px">Ask anything...</div>
+        <div style="background:#1e3a5f;border:1px solid #2563eb;border-radius:8px;padding:6px 12px;color:#93c5fd;font-size:12px;display:flex;align-items:center;gap:5px">
+          📚 <strong>KBs</strong>
+        </div>
+        <div style="background:#1e40af;border-radius:8px;padding:6px 12px;color:#93c5fd;font-size:12px">↑</div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:20px">
+  <h3>Why this is cleaner</h3>
+  <ul style="color:#94a3b8;line-height:1.8;padding-left:20px">
+    <li>The chat content area is <strong style="color:#e2e8f0">never affected</strong> — no pills, no overflow, no layout shift</li>
+    <li>The 📚 icon is <strong style="color:#e2e8f0">only shown when KBs were actually used</strong> — absence means pure LLM</li>
+    <li>Hover reveals <strong style="color:#e2e8f0">all KBs used</strong> regardless of count — no truncation needed</li>
+    <li>The green color of the icon itself signals "grounded response" at a glance</li>
+  </ul>
+</div>
+
+<p class="subtitle">Hover the green 📚 icon on the first AI message. Does this feel right?</p>
