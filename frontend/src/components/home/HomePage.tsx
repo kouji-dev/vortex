@@ -62,6 +62,11 @@ export function HomePage() {
             title="Knowledge bases"
             description="Corpora for RAG: connectors, uploads, and documents—attach bases to chats for grounded answers."
           />
+          <FeatureCard
+            to="/memories"
+            title="Memories"
+            description="Persistent facts the assistant remembers about you—auto-learned or manually added."
+          />
           <ComingSoonCard
             title="More features"
             description="Additional modules will appear here as the portal grows."

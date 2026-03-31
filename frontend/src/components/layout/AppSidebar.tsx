@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { ChevronsLeft, ChevronsRight, LayoutDashboard, Library, MessageSquare } from 'lucide-react'
+import { Brain, ChevronsLeft, ChevronsRight, LayoutDashboard, Library, MessageSquare } from 'lucide-react'
 
 const linkBase =
   'flex items-center gap-3 rounded-md text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800'
@@ -89,6 +89,17 @@ export function AppSidebar({ compact, onToggleCompact }: AppSidebarProps) {
           <Library className="size-5 shrink-0 text-neutral-600 dark:text-neutral-400" aria-hidden />
           {!compact && <span>Knowledge bases</span>}
           {compact && <span className="sr-only">Knowledge bases</span>}
+        </Link>
+        <Link
+          to="/memories"
+          className={`${linkBase} ${compact ? linkCompact : linkExpanded}`}
+          activeOptions={{ exact: false }}
+          activeProps={{ className: `${linkBase} ${compact ? linkCompact : linkExpanded} ${activeClass}` }}
+          title="Memories"
+        >
+          <Brain className="size-5 shrink-0 text-neutral-600 dark:text-neutral-400" aria-hidden />
+          {!compact && <span>Memories</span>}
+          {compact && <span className="sr-only">Memories</span>}
         </Link>
       </nav>
     </aside>
