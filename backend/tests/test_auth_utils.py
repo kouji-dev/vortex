@@ -1,0 +1,44 @@
+import uuid
+
+import pytest
+
+from ai_portal.auth.password import hash_password, verify_password
+from ai_portal.auth.jwt import create_access_token, create_refresh_token, decode_token
+
+
+def test_hash_and_verify_password():
+    hashed = hash_password("secret123")
+    assert hashed != "secret123"
+    assert verify_password("secret123", hashed)
+    assert not verify_password("wrong", hashed)
+
+
+def test_create_and_decode_access_token():
+    user_uuid = uuid.uuid4()
+    org_id = uuid.uuid4()
+    token = create_access_token(
+        user_uuid=user_uuid, org_id=org_id, role="member", secret="testsecret"
+    )
+    payload = decode_token(token, secret="testsecret")
+    assert payload["sub"] == str(user_uuid)
+    assert payload["org_id"] == str(org_id)
+    assert payload["role"] == "member"
+    assert payload["type"] == "access"
+
+
+def test_create_and_decode_refresh_token():
+    user_uuid = uuid.uuid4()
+    org_id = uuid.uuid4()
+    token = create_refresh_token(
+        user_uuid=user_uuid, org_id=org_id, role="admin", secret="testsecret"
+    )
+    payload = decode_token(token, secret="testsecret")
+    assert payload["type"] == "refresh"
+
+
+def test_decode_token_wrong_secret_raises():
+    user_uuid = uuid.uuid4()
+    org_id = uuid.uuid4()
+    token = create_access_token(user_uuid=user_uuid, org_id=org_id, role="member", secret="good")
+    with pytest.raises(Exception):
+        decode_token(token, secret="bad")
