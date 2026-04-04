@@ -76,6 +76,40 @@ Chat and embeddings use **LangChain** in-process in the API (`ChatAnthropic` / `
 Implementation plan: [`docs/superpowers/plans/2026-03-21-mvp-0-bootstrap.md`](docs/superpowers/plans/2026-03-21-mvp-0-bootstrap.md).  
 Full MVP chunk map: [`docs/superpowers/plans/2026-03-21-ai-portal-mvp-implementation.md`](docs/superpowers/plans/2026-03-21-ai-portal-mvp-implementation.md).
 
+## Deploying to Render + Supabase
+
+### 1. Create a Supabase project
+
+1. Go to [supabase.com](https://supabase.com) and create a new project.
+2. In **Database → Extensions**, enable the **vector** extension (required for RAG).
+3. Copy your connection string from **Settings → Database → Connection string → URI**.
+   It looks like: `postgresql://postgres:[password]@[host]:5432/postgres`
+
+### 2. Deploy to Render
+
+1. Fork this repository.
+2. In Render, click **New → Blueprint** and point it at your fork — Render will read `render.yaml` and create all three services automatically.
+3. In the `ai-portal-api` service environment variables, set:
+   - `DATABASE_URL` — paste the Supabase connection string
+   - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` — your email provider (e.g. Resend, SendGrid, Gmail SMTP)
+   - `OPENAI_API_KEY` and/or `ANTHROPIC_API_KEY`
+4. Update `CORS_ORIGINS` in `ai-portal-api` to your `ai-portal-app` URL (e.g. `https://ai-portal-app.onrender.com`).
+5. Update `VITE_API_URL` in `ai-portal-app` to your `ai-portal-api` URL.
+6. Update `VITE_APP_URL` in `ai-portal-landing` to your `ai-portal-app` URL.
+
+### 3. First-time migration
+
+Alembic migrations run automatically on every deploy via the `CMD` in `backend/Dockerfile`.
+
+### Self-hosted mode
+
+To deploy for a single organization:
+
+1. Set `DEPLOYMENT_MODE=selfhosted` in the `ai-portal-api` environment.
+2. On first boot, all API routes return `503 Setup Required`.
+3. Navigate to `https://your-app-url/setup` to run the setup wizard.
+4. Create your org and admin account — the instance is now live.
+
 ## API contract
 
 The backend invokes models via **in-process LangChain**. A read-only **model catalog** is exposed at **`GET /api/model-catalog`** (seeded in DB; see REQ-META in [`docs/superpowers/specs/2026-03-22-model-platform-requirements.md`](docs/superpowers/specs/2026-03-22-model-platform-requirements.md)). Deeper entitlement / governance behavior is still specified there and in [`docs/superpowers/specs/2026-03-22-llm-access-model-governance-design.md`](docs/superpowers/specs/2026-03-22-llm-access-model-governance-design.md) — not all of it is enforced in API/UI yet.
