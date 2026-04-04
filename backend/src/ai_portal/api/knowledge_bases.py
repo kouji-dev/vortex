@@ -20,7 +20,9 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ai_portal.api.deps import get_current_user, get_db
+import uuid as _uuid
+
+from ai_portal.api.deps import get_current_org_id, get_current_user, get_db
 from ai_portal.config import get_settings
 from ai_portal.models import (
     ConnectorSyncJob,
@@ -262,11 +264,13 @@ def create_knowledge_base(
     body: KnowledgeBaseCreate,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
 ) -> KnowledgeBase:
     kb = KnowledgeBase(
         name=body.name.strip(),
         description=(body.description or "").strip(),
         owner_user_id=user.id,
+        org_id=org_id,
     )
     db.add(kb)
     db.commit()
@@ -278,11 +282,13 @@ def create_knowledge_base(
 def list_knowledge_bases(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
 ) -> list[KnowledgeBaseRead]:
     kbs = list(
         db.scalars(
             select(KnowledgeBase)
             .where(KnowledgeBase.owner_user_id == user.id)
+            .where(KnowledgeBase.org_id == org_id)
             .order_by(KnowledgeBase.id.desc())
         ).all()
     )
@@ -295,10 +301,12 @@ def list_knowledge_bases_page(
     limit: Annotated[int, Query(ge=1, le=100)] = 25,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
 ) -> KnowledgeBasePage:
     stmt = (
         select(KnowledgeBase)
         .where(KnowledgeBase.owner_user_id == user.id)
+        .where(KnowledgeBase.org_id == org_id)
         .order_by(KnowledgeBase.id.desc())
         .limit(limit + 1)
     )
@@ -320,6 +328,7 @@ def list_connector_jobs(
     knowledge_base_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
 ) -> list[ConnectorSyncJob]:
     _get_owned_kb(db, user, knowledge_base_id)
@@ -341,6 +350,7 @@ def list_connectors(
     knowledge_base_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
 ) -> list[KnowledgeBaseConnector]:
     _get_owned_kb(db, user, knowledge_base_id)
     return list(
@@ -362,6 +372,7 @@ def create_connector(
     body: KnowledgeBaseConnectorCreate,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
 ) -> KnowledgeBaseConnector:
     _get_owned_kb(db, user, knowledge_base_id)
     if body.kind not in CONNECTOR_KINDS:
@@ -392,6 +403,7 @@ def patch_connector(
     body: KnowledgeBaseConnectorPatch,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
 ) -> KnowledgeBaseConnector:
     c = _get_owned_connector(db, user, knowledge_base_id, connector_id)
     if body.label is not None:
@@ -414,6 +426,7 @@ def delete_connector(
     connector_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
 ) -> None:
     c = _get_owned_connector(db, user, knowledge_base_id, connector_id)
     db.delete(c)
@@ -431,6 +444,7 @@ def enqueue_connector_sync(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
 ) -> ConnectorSyncJob:
     c = _get_owned_connector(db, user, knowledge_base_id, connector_id)
     if not c.enabled:
@@ -456,6 +470,7 @@ def get_knowledge_base(
     knowledge_base_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
 ) -> KnowledgeBase:
     return _get_owned_kb(db, user, knowledge_base_id)
 
@@ -466,6 +481,7 @@ def patch_knowledge_base(
     body: KnowledgeBasePatch,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
 ) -> KnowledgeBase:
     kb = _get_owned_kb(db, user, knowledge_base_id)
     if body.name is not None:
@@ -482,6 +498,7 @@ def list_documents(
     knowledge_base_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
 ) -> list[Document]:
     _get_owned_kb(db, user, knowledge_base_id)
     return list(
@@ -502,6 +519,7 @@ def delete_document(
     document_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
 ) -> None:
     _get_owned_kb(db, user, knowledge_base_id)
     doc = db.get(Document, document_id)
@@ -524,6 +542,7 @@ async def upload_document(
     ),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
     background_tasks: BackgroundTasks = BackgroundTasks(),
 ) -> DocumentsUploadResponseRead:
     """Persist uploads and queue ingest. Response returns immediately with ``pending``; worker sets ``ingesting`` then ``ready``/``failed``."""
@@ -548,6 +567,7 @@ def get_document_progress(
     doc_id: int,
     db: Session = Depends(get_db),
     _user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
 ) -> dict:
     """Return ingest progress for a document."""
     doc = db.scalars(

@@ -8,7 +8,9 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ai_portal.api.deps import get_current_user, get_db
+import uuid as _uuid
+
+from ai_portal.api.deps import get_current_org_id, get_current_user, get_db
 from ai_portal.models.memory import UserMemory
 from ai_portal.models.user import User
 
@@ -45,11 +47,13 @@ class MemoryPage(BaseModel):
 def list_memories(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
 ) -> list[UserMemory]:
     return list(
         db.scalars(
             select(UserMemory)
             .where(UserMemory.user_id == user.id)
+            .where(UserMemory.org_id == org_id)
             .order_by(UserMemory.is_active.desc(), UserMemory.created_at.desc())
         ).all()
     )
@@ -61,11 +65,13 @@ def list_memories_page(
     limit: int = Query(default=25, ge=1, le=100),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
 ) -> MemoryPage:
     """Paginate manual memories by id; the single ``is_system`` row is always first on page 1."""
     system_row = db.scalars(
         select(UserMemory).where(
             UserMemory.user_id == user.id,
+            UserMemory.org_id == org_id,
             UserMemory.is_system.is_(True),
         )
     ).first()
@@ -77,6 +83,7 @@ def list_memories_page(
             select(UserMemory)
             .where(
                 UserMemory.user_id == user.id,
+                UserMemory.org_id == org_id,
                 UserMemory.is_system.is_(False),
             )
             .order_by(UserMemory.id.desc())
@@ -93,6 +100,7 @@ def list_memories_page(
         select(UserMemory)
         .where(
             UserMemory.user_id == user.id,
+            UserMemory.org_id == org_id,
             UserMemory.is_system.is_(False),
             UserMemory.id < cursor,
         )
@@ -111,9 +119,11 @@ def create_memory(
     body: CreateMemoryBody,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
 ) -> UserMemory:
     mem = UserMemory(
         user_id=user.id,
+        org_id=org_id,
         content=body.content,
         source="manual",
         is_active=True,
@@ -130,6 +140,7 @@ def update_memory(
     body: UpdateMemoryBody,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
 ) -> UserMemory:
     mem = db.get(UserMemory, memory_id)
     if mem is None or mem.user_id != user.id:
@@ -148,6 +159,7 @@ def delete_memory(
     memory_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
 ) -> None:
     mem = db.get(UserMemory, memory_id)
     if mem is None or mem.user_id != user.id:

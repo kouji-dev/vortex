@@ -25,8 +25,10 @@ from sqlalchemy import delete, select
 from sqlalchemy import func as sa_func
 from sqlalchemy.orm import Session
 
+import uuid as _uuid
+
 from ai_portal.api.assistants import _can_access_assistant
-from ai_portal.api.deps import get_current_user, get_db
+from ai_portal.api.deps import get_current_org_id, get_current_user, get_db
 from ai_portal.config import get_settings
 from ai_portal.models import (
     Assistant,
@@ -371,11 +373,13 @@ def get_capability_profile(
 def list_conversations(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
 ) -> list[ConversationRead]:
     convs = list(
         db.scalars(
             select(ChatConversation)
             .where(ChatConversation.user_id == user.id)
+            .where(ChatConversation.org_id == org_id)
             .order_by(ChatConversation.id.desc())
         ).all()
     )
@@ -387,6 +391,7 @@ def create_conversation(
     body: ConversationCreate,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
 ) -> ConversationRead:
     if body.assistant_id is not None:
         a = db.get(Assistant, body.assistant_id)
@@ -401,6 +406,7 @@ def create_conversation(
     )
     conv = ChatConversation(
         user_id=user.id,
+        org_id=org_id,
         assistant_id=body.assistant_id,
         title=body.title,
         model=model_val,
@@ -420,6 +426,7 @@ def get_conversation(
     conversation_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
 ) -> ConversationRead:
     conv = _get_owned_conversation(db, user, conversation_id)
     return _conversation_read(db, conv)
@@ -431,6 +438,7 @@ def patch_conversation(
     body: ConversationPatch,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
 ) -> ConversationRead:
     conv = _get_owned_conversation(db, user, conversation_id)
     if "title" in body.model_fields_set:
@@ -461,6 +469,7 @@ def put_conversation_knowledge_bases(
     body: ConversationKnowledgeBasesPut,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
 ) -> ConversationRead:
     conv = _get_owned_conversation(db, user, conversation_id)
     _sync_conversation_knowledge_links(db, conv, user, body.knowledge_base_ids)
@@ -474,6 +483,7 @@ def delete_conversation(
     conversation_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
 ) -> None:
     conv = _get_owned_conversation(db, user, conversation_id)
     db.delete(conv)
@@ -506,6 +516,7 @@ def list_messages(
     ] = None,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
 ) -> list[ChatMessage]:
     _get_owned_conversation(db, user, conversation_id)
     lim = min(max(limit, 1), 500)
@@ -536,6 +547,7 @@ def patch_message(
     body: MessagePatch,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
 ) -> ChatMessage:
     msg = _get_owned_message(db, user, conversation_id, message_id)
     msg.content = body.content.strip()
@@ -553,6 +565,7 @@ def delete_message(
     message_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
 ) -> None:
     msg = _get_owned_message(db, user, conversation_id, message_id)
     db.delete(msg)
@@ -565,6 +578,7 @@ def stream_message(
     body: StreamMessageBody,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
 ) -> StreamingResponse:
     conv = _get_owned_conversation(db, user, conversation_id)
     settings = get_settings()
@@ -915,6 +929,7 @@ def e2e_seed_rag_assistant(
     body: E2eSeedRagAssistantBody,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
 ) -> dict[str, Any]:
     """Insert user + two assistant rows: one without ``used_kbs``, one with (for KB indicator E2E)."""
     if not _e2e_rag_seed_allowed():
