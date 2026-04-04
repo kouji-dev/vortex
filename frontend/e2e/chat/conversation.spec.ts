@@ -6,12 +6,12 @@
  * and thread-header delete dialog.
  */
 import { test, expect } from '@playwright/test'
-import { createEmptyConversation } from './helpers/create-conversation'
+import { createEmptyConversation } from '../support/create-conversation'
 import {
   attachKnowledgeBasesToConversation,
   createKnowledgeBase,
   seedRagAssistantForE2e,
-} from './helpers/knowledge-api'
+} from '../support/knowledge-api'
 
 const apiBase = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
 
@@ -210,10 +210,10 @@ test.describe('Chat conversation', () => {
     const convId = await createEmptyConversation(request, apiBase)
     await attachKnowledgeBasesToConversation(request, apiBase, convId, [kbId])
     const seedStatus = await seedRagAssistantForE2e(request, apiBase, convId, kbId, kbName)
-    if (seedStatus === 404) {
-      test.skip(true, 'Start with E2E_ENABLE_RAG_SEED=1.')
-      return
-    }
+    expect(
+      seedStatus,
+      'e2e/seed-rag-assistant must return 201 (./scripts/e2e-up.sh sets E2E_ENABLE_RAG_SEED=1).',
+    ).toBe(201)
     await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
     await expect(page.getByTestId('message-kb-indicator-trigger')).toHaveCount(1)
   })
@@ -227,10 +227,10 @@ test.describe('Chat conversation', () => {
     const convId = await createEmptyConversation(request, apiBase)
     await attachKnowledgeBasesToConversation(request, apiBase, convId, [kbId])
     const seedStatus = await seedRagAssistantForE2e(request, apiBase, convId, kbId, kbName)
-    if (seedStatus === 404) {
-      test.skip(true, 'Start with E2E_ENABLE_RAG_SEED=1.')
-      return
-    }
+    expect(
+      seedStatus,
+      'e2e/seed-rag-assistant must return 201 (./scripts/e2e-up.sh sets E2E_ENABLE_RAG_SEED=1).',
+    ).toBe(201)
     await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
     await page.getByTestId('message-kb-indicator-trigger').click()
     const popover = page.getByTestId('message-kb-indicator-popover')
@@ -244,10 +244,10 @@ test.describe('Chat conversation', () => {
     const convId = await createEmptyConversation(request, apiBase)
     await attachKnowledgeBasesToConversation(request, apiBase, convId, [kbId])
     const seedStatus = await seedRagAssistantForE2e(request, apiBase, convId, kbId, kbName)
-    if (seedStatus === 404) {
-      test.skip(true, 'Start with E2E_ENABLE_RAG_SEED=1.')
-      return
-    }
+    expect(
+      seedStatus,
+      'e2e/seed-rag-assistant must return 201 (./scripts/e2e-up.sh sets E2E_ENABLE_RAG_SEED=1).',
+    ).toBe(201)
     await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
     await page.getByTestId('message-kb-indicator-trigger').click()
     const popover = page.getByTestId('message-kb-indicator-popover')
@@ -262,10 +262,10 @@ test.describe('Chat conversation', () => {
     const convId = await createEmptyConversation(request, apiBase)
     await attachKnowledgeBasesToConversation(request, apiBase, convId, [kbId])
     const seedStatus = await seedRagAssistantForE2e(request, apiBase, convId, kbId, kbName)
-    if (seedStatus === 404) {
-      test.skip(true, 'Start with E2E_ENABLE_RAG_SEED=1.')
-      return
-    }
+    expect(
+      seedStatus,
+      'e2e/seed-rag-assistant must return 201 (./scripts/e2e-up.sh sets E2E_ENABLE_RAG_SEED=1).',
+    ).toBe(201)
     await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
     await page.getByTestId('message-kb-indicator-trigger').click()
     await expect(page.getByTestId('message-kb-indicator-popover')).toBeVisible()
@@ -330,7 +330,7 @@ test.describe('Chat conversation', () => {
       await expect(dialog).toBeVisible()
       await dialog.getByRole('button', { name: /cancel/i }).click()
       await expect(dialog).not.toBeVisible({ timeout: 3_000 })
-      await expect(page).toHaveURL(new RegExp(String(convId)))
+      await expect(page).toHaveURL(new RegExp(`/chat/conversations/${convId}(?:/|$)`))
     } finally {
       await request.delete(`${apiBase}/api/chat/conversations/${convId}`, {
         headers: { Authorization: 'Bearer devtoken' },
@@ -348,7 +348,6 @@ test.describe('Chat conversation', () => {
     const dialog = page.getByRole('dialog')
     await expect(dialog).toBeVisible()
     await dialog.getByRole('button', { name: /^delete$/i }).click()
-    // After deletion the app should navigate away from the conversation URL
-    await expect(page).not.toHaveURL(new RegExp(String(convId)), { timeout: 10_000 })
+    await expect(page).toHaveURL(/\/chat\/conversations\/?$/, { timeout: 15_000 })
   })
 })

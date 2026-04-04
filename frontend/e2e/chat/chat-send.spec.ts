@@ -1,18 +1,13 @@
 /**
  * Chat send-message and model-switching tests.
  *
- * These tests require a live LLM endpoint because they submit messages and
- * expect assistant replies.  Set E2E_CHAT_ENABLED=1 to opt in; otherwise
- * every test in this file is skipped.
- *
- * The E2E backend (port 8001) must be running:
- *   ./scripts/e2e-up.sh
+ * Submits real chat turns via **Claude Haiku 4.5** (`E2E_DEFAULT_CHAT_MODEL_SLUG`).
+ * Requires **ANTHROPIC_API_KEY** on the E2E API. Backend: `./scripts/e2e-up.sh`.
  */
 import { test, expect } from '@playwright/test'
-import { createEmptyConversation } from './helpers/create-conversation'
+import { createEmptyConversation } from '../support/create-conversation'
 
 const apiBase = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
-const CHAT_ENABLED = process.env.E2E_CHAT_ENABLED === '1'
 
 // ── helpers ───────────────────────────────────────────────────────────────
 
@@ -29,12 +24,6 @@ async function sendMessage(page: import('@playwright/test').Page, text: string) 
 // ── tests ─────────────────────────────────────────────────────────────────
 
 test.describe('Chat — send and receive messages', () => {
-  test.beforeEach(({}, testInfo) => {
-    if (!CHAT_ENABLED) {
-      testInfo.skip()
-    }
-  })
-
   // ──────────────────────────────────────────────────────────────
   // Basic send / receive
   // ──────────────────────────────────────────────────────────────
@@ -198,10 +187,10 @@ test.describe('Chat — send and receive messages', () => {
     // Pick the second available (accessible) option
     const options = page.getByRole('option')
     const count = await options.count()
-    if (count < 2) {
-      test.skip(true, 'Only one model available in catalog.')
-      return
-    }
+    expect(
+      count,
+      'E2E needs ≥2 catalog models; run ./scripts/e2e-up.sh (migrations + seed-catalog-models).',
+    ).toBeGreaterThanOrEqual(2)
     const targetName = await options.nth(1).textContent()
     await options.nth(1).click()
     // The trigger should now show the selected model
@@ -218,10 +207,10 @@ test.describe('Chat — send and receive messages', () => {
     await page.getByTestId('chat-model-select').click()
     const options = page.getByRole('option')
     const count = await options.count()
-    if (count < 2) {
-      test.skip(true, 'Only one model available in catalog.')
-      return
-    }
+    expect(
+      count,
+      'E2E needs ≥2 catalog models; run ./scripts/e2e-up.sh (migrations + seed-catalog-models).',
+    ).toBeGreaterThanOrEqual(2)
     const targetName = ((await options.nth(1).textContent()) ?? '').trim()
     await options.nth(1).click()
     // Reload and verify model persists

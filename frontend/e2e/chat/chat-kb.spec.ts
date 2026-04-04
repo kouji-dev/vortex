@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test'
 
-import { createEmptyConversation } from './helpers/create-conversation'
+import { createEmptyConversation } from '../support/create-conversation'
+import { createKbThroughUi } from '../kb/helpers'
 
 let kbName = ''
 
@@ -9,14 +10,7 @@ test.describe.configure({ mode: 'serial' })
 test.describe('Chat knowledge bases', () => {
   test('create KB for chat tests', async ({ page }) => {
     kbName = `E2E Chat KB ${Date.now()}`
-    await page.goto('/knowledge-bases', { waitUntil: 'networkidle' })
-    await page.getByRole('button', { name: /add knowledge base/i }).click()
-    const dialog = page.getByRole('dialog', { name: /Knowledge base details/i })
-    await expect(dialog).toBeVisible({ timeout: 15_000 })
-    await dialog.getByRole('textbox').first().fill(kbName)
-    await dialog.getByRole('button', { name: 'Next' }).click()
-    await page.getByRole('dialog').getByRole('button', { name: 'Create' }).click()
-    await expect(page.getByRole('heading', { level: 1, name: kbName })).toBeVisible()
+    await createKbThroughUi(page, kbName)
   })
 
   test('attach KB via anchored popover', async ({ page, request }) => {

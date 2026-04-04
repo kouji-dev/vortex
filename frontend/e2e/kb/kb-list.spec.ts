@@ -2,7 +2,7 @@
  * Knowledge Bases list page — table structure, Actions column, search, stats.
  */
 import { test, expect } from '@playwright/test'
-import { createKnowledgeBase } from './helpers/knowledge-api'
+import { createKnowledgeBase } from '../support/knowledge-api'
 
 const apiBase = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
 
@@ -104,7 +104,7 @@ test.describe('Knowledge Bases list page', () => {
     try {
       await page.goto('/knowledge-bases', { waitUntil: 'networkidle' })
       await page.getByLabel('Search knowledge bases').fill(unique)
-      await expect(page.getByRole('cell', { name: new RegExp(name) })).toBeVisible()
+      await expect(page.getByRole('row', { name: new RegExp(unique) })).toBeVisible()
     } finally {
       await deleteKbViaApi(request, id)
     }
