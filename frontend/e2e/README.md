@@ -101,6 +101,7 @@ E2E_BASE_URL=http://localhost:5173 E2E_API_URL=http://127.0.0.1:8001 pnpm test:e
 | Spec | What it tests | Requires |
 |------|---------------|----------|
 | `conversation.spec.ts` | Composer, KB picker, attach/detach/search/keyboard, KB indicator | — |
+| `chat-parity.spec.ts` | Step 1 spec parity: empty state, starters panel, capabilities menu, model select, no load-older on short thread | — |
 | `kb-detail.spec.ts` | KB edit form, save state, upload, delete, empty states | — |
 | `kb.spec.ts` | KB list page, create/delete KB | — |
 | `chat-kb.spec.ts` | Attach KB via picker, persistence across reload | — |

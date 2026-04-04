@@ -2,6 +2,8 @@
 
 **Date:** 2026-04-04  
 **Status:** delivery outline from product discussion (does not replace the source spec)  
+**Branch / worktree:** Implement Step 1 on **`feat/chat-spec-parity`** (repo-local **`.worktrees/chat-spec-parity`**) so parity + E2E hooks stay isolated from `main` until merge.  
+**Step 1 matrix:** [2026-04-04-chat-spec-parity-matrix.md](../checklists/2026-04-04-chat-spec-parity-matrix.md)  
 **Canonical requirements:** [2026-03-22-chat-conversations-design.md](./2026-03-22-chat-conversations-design.md) (conversations-first chat; note the repo has since shipped assistants, model catalog, and KB/RAG—this memo only covers **what is still open** for chat and the **order** we agreed.)
 
 **Process note (Option B):** For **Step 1**, drive a **checklist** against the chat spec first; add a **short written spec or spec addendum** only when you hit an ambiguous product or security decision (e.g. markdown images, behavior on stream abort). For **Steps 2–4**, expect a **focused mini-spec** when implementation starts (especially **C-04**).
@@ -42,7 +44,7 @@ Work in this **sequence**; do not start a later step until the previous step’s
 |---|--------|
 | **Backend** | Adjust only where the spec demands server truth: e.g. stream lifecycle / persistence on abort, error payloads, pagination contract edge cases, any `message.extra` conventions you decide when closing gaps. Much of the chat API may already satisfy the spec. |
 | **UI** | `ConversationThreadPage`, `ChatComposerDock`, `MarkdownMessage`, sidebar/shell: align streaming presentation, errors/retry, accessibility (focus, semantics, mobile), and **clarity** of model selection (default vs one-shot send) with whatever you lock in the matrix. |
-| **Validation criteria** | (1) **Traceability matrix** for the chat spec’s frontend + API bullets → each row tagged **met / partial / gap / deferred** with owner. (2) **Playwright E2E** on the **isolated E2E DB** (see [§ End-to-end testing](#end-to-end-testing-playwright)) for user-critical flows you mark **met** (stream, send, load older, model change). (3) **Explicit decisions** where spec and code disagree on product intent (examples from discussion: **incremental markdown while streaming** vs “plain until `done`”; **markdown images** — strip, allow remote, or proxy; **per-send model override** vs “always persist on change”). (4) No remaining **gap** rows without a ticket or deferral note. |
+| **Validation criteria** | (1) **Traceability matrix** maintained in [../checklists/2026-04-04-chat-spec-parity-matrix.md](../checklists/2026-04-04-chat-spec-parity-matrix.md) — each row **met / partial / gap / deferred** with owner; no silent **gap**. (2) **Playwright E2E** on the **isolated E2E DB** (see [§ End-to-end testing](#end-to-end-testing-playwright)): at minimum `chat-parity.spec.ts` (no LLM) green; extend with `E2E_CHAT_ENABLED=1` for flows marked **met** that need a real stream. (3) **Explicit decisions** where spec and code disagree (incremental markdown vs plain-then-parse; **markdown images**; per-send model vs persist). (4) **Task board:** ticket or deferral text for every non-**met** row (sync via task-manager MCP in `/loop`). |
 
 ---
 
@@ -83,6 +85,7 @@ Work in this **sequence**; do not start a later step until the previous step’s
 | [2026-03-22-chat-conversations-design.md](./2026-03-22-chat-conversations-design.md) | Full chat requirements and open decisions |
 | [specs README](./README.md) | Registry; **C-04** capability ID |
 | [frontend/e2e/README.md](../../../frontend/e2e/README.md) | Playwright + isolated DB ports, `e2e-up.sh`, env vars |
+| [2026-04-04-chat-spec-parity-matrix.md](../checklists/2026-04-04-chat-spec-parity-matrix.md) | Step 1 traceability + exit criteria |
 
 ---
 

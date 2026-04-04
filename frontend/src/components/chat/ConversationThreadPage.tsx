@@ -547,6 +547,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
           <div className="mb-3 flex justify-center">
             <button
               type="button"
+              data-testid="chat-load-older"
               className="text-xs text-blue-600 underline decoration-dotted disabled:opacity-50"
               disabled={loadingOlder || tailQ.isPending}
               onClick={() => void loadOlder()}

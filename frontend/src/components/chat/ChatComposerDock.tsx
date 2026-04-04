@@ -244,6 +244,7 @@ export function ChatComposerDock({
             <div className="relative shrink-0" ref={plusWrapRef}>
             <button
               type="button"
+              data-testid="chat-add-options"
               className="flex size-8 items-center justify-center rounded-lg border border-neutral-200 text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-900"
               aria-expanded={plusOpen}
               aria-haspopup="menu"

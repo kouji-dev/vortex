@@ -34,7 +34,10 @@ export function EmptyConversationState({
         )}
 
         {startersFetched && starters?.sections && starters.sections.length > 0 && (
-          <div className="rounded-2xl border border-neutral-200/90 bg-neutral-50/80 px-5 py-6 shadow-[0_1px_0_rgba(15,23,42,0.04)] dark:border-neutral-800 dark:bg-neutral-900/40 dark:shadow-none sm:px-8 sm:py-8">
+          <div
+            data-testid="chat-starters-suggested"
+            className="rounded-2xl border border-neutral-200/90 bg-neutral-50/80 px-5 py-6 shadow-[0_1px_0_rgba(15,23,42,0.04)] dark:border-neutral-800 dark:bg-neutral-900/40 dark:shadow-none sm:px-8 sm:py-8"
+          >
             <p className="mb-5 text-center text-[11px] font-semibold uppercase tracking-[0.12em] text-neutral-500 dark:text-neutral-500">
               Suggested prompts
             </p>
