@@ -1,5 +1,11 @@
 # E2E test refactor — design (2026-04-04)
 
+## Scope
+
+- **Implementation is limited to the feature git worktree** used for this effort (the checkout under `.worktrees/chat-remaining-features/`, not the default repo root working tree), until that branch is merged.
+- All paths (`frontend/e2e/`, `playwright.config.ts`, root scripts) are relative to the **worktree** root that corresponds to that branch.
+- This document may live on `main` for planning; **do not** mirror the refactor into the primary working tree unless merging.
+
 ## Goals
 
 - Group Playwright specs **by product aspect** under `frontend/e2e/`, with a fourth area for **shell / navigation / home** (not only chat thread vs KB vs memories).
