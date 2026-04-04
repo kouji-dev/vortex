@@ -19,6 +19,7 @@ class MemoryOut(BaseModel):
     id: int
     content: str
     source: str
+    is_system: bool
     is_active: bool
     created_at: datetime
     updated_at: datetime
@@ -61,14 +62,43 @@ def list_memories_page(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> MemoryPage:
+    """Paginate manual memories by id; the single ``is_system`` row is always first on page 1."""
+    system_row = db.scalars(
+        select(UserMemory).where(
+            UserMemory.user_id == user.id,
+            UserMemory.is_system.is_(True),
+        )
+    ).first()
+
+    if cursor is None:
+        reserved = 1 if system_row is not None else 0
+        nonsys_take = max(0, limit - reserved)
+        stmt = (
+            select(UserMemory)
+            .where(
+                UserMemory.user_id == user.id,
+                UserMemory.is_system.is_(False),
+            )
+            .order_by(UserMemory.id.desc())
+            .limit(nonsys_take + 1)
+        )
+        nonsys = list(db.scalars(stmt).all())
+        has_more = len(nonsys) > nonsys_take
+        nonsys = nonsys[:nonsys_take]
+        items = ([system_row] if system_row else []) + nonsys
+        next_cursor = nonsys[-1].id if has_more and nonsys else None
+        return MemoryPage(items=items, next_cursor=next_cursor)
+
     stmt = (
         select(UserMemory)
-        .where(UserMemory.user_id == user.id)
+        .where(
+            UserMemory.user_id == user.id,
+            UserMemory.is_system.is_(False),
+            UserMemory.id < cursor,
+        )
         .order_by(UserMemory.id.desc())
         .limit(limit + 1)
     )
-    if cursor is not None:
-        stmt = stmt.where(UserMemory.id < cursor)
     rows = list(db.scalars(stmt).all())
     has_more = len(rows) > limit
     items = rows[:limit]
@@ -122,5 +152,10 @@ def delete_memory(
     mem = db.get(UserMemory, memory_id)
     if mem is None or mem.user_id != user.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Memory not found")
+    if mem.is_system:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="The auto-maintained profile cannot be deleted; pause it instead.",
+        )
     db.delete(mem)
     db.commit()

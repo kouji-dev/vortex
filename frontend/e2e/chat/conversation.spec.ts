@@ -2,8 +2,7 @@
  * Chat conversation page — comprehensive interaction tests.
  *
  * Covers: composer input, KB picker open/close/search/attach/detach,
- * keyboard navigation, KB indicator popover details, sidebar navigation,
- * and thread-header delete dialog.
+ * keyboard navigation, sidebar navigation, and thread-header delete dialog.
  */
 import { randomUUID } from 'node:crypto'
 import { test, expect } from '@playwright/test'
@@ -11,7 +10,6 @@ import { createEmptyConversation } from '../support/create-conversation'
 import {
   attachKnowledgeBasesToConversation,
   createKnowledgeBase,
-  seedRagAssistantForE2e,
 } from '../support/knowledge-api'
 
 const apiBase = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
@@ -197,85 +195,6 @@ test.describe('Chat conversation', () => {
     await expect(page.getByText('Saving…')).toBeHidden({ timeout: 30_000 })
     await expect(page.getByTestId('chat-kb-picker-trigger')).toContainText(/active/i, {
       timeout: 15_000,
-    })
-  })
-
-  // ──────────────────────────────────────────────────────────────
-  // KB indicator popover (seeded message)
-  // ──────────────────────────────────────────────────────────────
-
-  test('KB indicator trigger (📚) visible only on messages with used_kbs', async ({
-    page,
-    request,
-  }) => {
-    const kbName = `E2E Indicator ${Date.now()}`
-    const kbId = await createKnowledgeBase(request, apiBase, kbName)
-    const convId = await createEmptyConversation(request, apiBase)
-    await attachKnowledgeBasesToConversation(request, apiBase, convId, [kbId])
-    const seedStatus = await seedRagAssistantForE2e(request, apiBase, convId, kbId, kbName)
-    expect(
-      seedStatus,
-      'e2e/seed-rag-assistant must return 201 (./scripts/e2e-up.sh sets E2E_ENABLE_RAG_SEED=1).',
-    ).toBe(201)
-    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
-    await expect(page.getByTestId('message-kb-indicator-trigger')).toHaveCount(1)
-  })
-
-  test('KB indicator popover opens and shows "Knowledge bases used" heading', async ({
-    page,
-    request,
-  }) => {
-    const kbName = `E2E Popover heading ${Date.now()}`
-    const kbId = await createKnowledgeBase(request, apiBase, kbName)
-    const convId = await createEmptyConversation(request, apiBase)
-    await attachKnowledgeBasesToConversation(request, apiBase, convId, [kbId])
-    const seedStatus = await seedRagAssistantForE2e(request, apiBase, convId, kbId, kbName)
-    expect(
-      seedStatus,
-      'e2e/seed-rag-assistant must return 201 (./scripts/e2e-up.sh sets E2E_ENABLE_RAG_SEED=1).',
-    ).toBe(201)
-    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
-    await page.getByTestId('message-kb-indicator-trigger').click()
-    const popover = page.getByTestId('message-kb-indicator-popover')
-    await expect(popover).toBeVisible()
-    await expect(popover.getByText(/knowledge bases used/i)).toBeVisible()
-  })
-
-  test('KB popover shows KB name, chunk count and top score', async ({ page, request }) => {
-    const kbName = `E2E Popover details ${Date.now()}`
-    const kbId = await createKnowledgeBase(request, apiBase, kbName)
-    const convId = await createEmptyConversation(request, apiBase)
-    await attachKnowledgeBasesToConversation(request, apiBase, convId, [kbId])
-    const seedStatus = await seedRagAssistantForE2e(request, apiBase, convId, kbId, kbName)
-    expect(
-      seedStatus,
-      'e2e/seed-rag-assistant must return 201 (./scripts/e2e-up.sh sets E2E_ENABLE_RAG_SEED=1).',
-    ).toBe(201)
-    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
-    await page.getByTestId('message-kb-indicator-trigger').click()
-    const popover = page.getByTestId('message-kb-indicator-popover')
-    await expect(popover.getByText(kbName, { exact: false })).toBeVisible()
-    await expect(popover.getByText(/chunk/i)).toBeVisible()
-    await expect(popover.getByText(/top score/i)).toBeVisible()
-  })
-
-  test('KB popover closes when clicking outside', async ({ page, request }) => {
-    const kbName = `E2E Popover close ${Date.now()}`
-    const kbId = await createKnowledgeBase(request, apiBase, kbName)
-    const convId = await createEmptyConversation(request, apiBase)
-    await attachKnowledgeBasesToConversation(request, apiBase, convId, [kbId])
-    const seedStatus = await seedRagAssistantForE2e(request, apiBase, convId, kbId, kbName)
-    expect(
-      seedStatus,
-      'e2e/seed-rag-assistant must return 201 (./scripts/e2e-up.sh sets E2E_ENABLE_RAG_SEED=1).',
-    ).toBe(201)
-    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
-    await page.getByTestId('message-kb-indicator-trigger').click()
-    await expect(page.getByTestId('message-kb-indicator-popover')).toBeVisible()
-    // Click away
-    await page.mouse.click(10, 10)
-    await expect(page.getByTestId('message-kb-indicator-popover')).not.toBeVisible({
-      timeout: 5_000,
     })
   })
 

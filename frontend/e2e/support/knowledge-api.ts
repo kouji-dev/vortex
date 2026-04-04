@@ -82,7 +82,7 @@ export async function seedRagAssistantForE2e(
         kb_id: kbId,
         kb_name: kbName,
         assistant_content:
-          'Grounded answer from E2E seed — the 📚 control should appear for this message only.',
+          'Grounded answer from E2E seed — retrieval was used for this reply only.',
       },
     },
   )

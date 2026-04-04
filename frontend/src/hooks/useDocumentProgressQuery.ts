@@ -9,6 +9,7 @@ export interface DocumentProgress {
   status: string
   chunks_done: number
   chunks_total: number | null
+  ingest_error?: string | null
 }
 
 export function useDocumentProgressQuery(
@@ -31,7 +32,7 @@ export function useDocumentProgressQuery(
     refetchInterval: (query) => {
       const data = query.state.data
       if (!data) return 1500
-      return data.status === 'ingesting' ? 1500 : false
+      return data.status === 'ingesting' || data.status === 'pending' ? 1500 : false
     },
   })
 }

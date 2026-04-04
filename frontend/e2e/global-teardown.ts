@@ -12,6 +12,10 @@ export default async function globalTeardown() {
     })
     if (res.ok) {
       console.log('\n✔ E2E database purged.')
+    } else if (res.status === 403) {
+      console.warn(
+        '\n⚠ E2E purge refused (API is not on the E2E database). Main DB was not modified.',
+      )
     } else {
       console.warn(`\n⚠ E2E purge returned ${res.status} — skipped.`)
     }

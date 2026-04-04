@@ -20,6 +20,7 @@ class Document(Base):
     filename: Mapped[str] = mapped_column(String(512))
     storage_path: Mapped[str] = mapped_column(String(1024))
     status: Mapped[str] = mapped_column(String(32), default="pending")
+    ingest_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     chunks_total: Mapped[int | None] = mapped_column(Integer, nullable=True)
     chunks_done: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     created_at: Mapped[datetime] = mapped_column(

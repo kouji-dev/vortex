@@ -136,15 +136,18 @@ def test_upload_document_returns_200_when_ingest_fails():
     )
     assert up.status_code == 200, up.text
     body = up.json()
-    assert body["document_id"]
-    assert body["status"] in ("ready", "failed")
+    assert body["results"]
+    r0 = body["results"][0]
+    assert r0["document_id"]
+    assert r0["status"] == "pending"
 
     listed = client.get(f"/api/knowledge-bases/{kb_id}/documents", headers=AUTH)
     assert listed.status_code == 200
     rows = listed.json()
     assert any(r["filename"] == "e2e.txt" for r in rows)
     row = next(r for r in rows if r["filename"] == "e2e.txt")
-    assert row["status"] == body["status"]
+    assert row["status"] in ("ready", "failed")
+    assert row["id"] == r0["document_id"]
 
 
 @requires_postgres
@@ -166,11 +169,49 @@ def test_upload_document_returns_200_with_ingest_error_when_llm_key_missing(monk
     )
     assert up.status_code == 200, up.text
     body = up.json()
-    assert body["status"] == "failed"
-    assert "ingest_error" in body
-    assert "VOYAGE_API_KEY" in body["ingest_error"] or "OPENAI_API_KEY" in body[
+    r0 = body["results"][0]
+    assert r0["status"] == "failed"
+    assert "ingest_error" in r0
+    assert "VOYAGE_API_KEY" in r0["ingest_error"] or "OPENAI_API_KEY" in r0[
         "ingest_error"
     ]
+
+
+@requires_postgres
+def test_upload_multiple_documents_one_request():
+    kb = client.post(
+        "/api/knowledge-bases",
+        headers=AUTH,
+        json={"name": "multi-upload-kb", "description": ""},
+    )
+    assert kb.status_code == 201, kb.text
+    kb_id = kb.json()["id"]
+
+    up = client.post(
+        f"/api/knowledge-bases/{kb_id}/documents",
+        headers=AUTH,
+        files=[
+            ("file", ("one.txt", b"first file body", "text/plain")),
+            ("file", ("two.txt", b"second file body", "text/plain")),
+        ],
+    )
+    assert up.status_code == 200, up.text
+    body = up.json()
+    assert len(body["results"]) == 2
+    assert {body["results"][0]["filename"], body["results"][1]["filename"]} == {
+        "one.txt",
+        "two.txt",
+    }
+    assert body["results"][0]["document_id"] != body["results"][1]["document_id"]
+    for r in body["results"]:
+        assert r["status"] == "pending"
+        assert r["document_id"]
+
+    listed = client.get(f"/api/knowledge-bases/{kb_id}/documents", headers=AUTH)
+    assert listed.status_code == 200
+    rows = listed.json()
+    names = {r["filename"] for r in rows}
+    assert "one.txt" in names and "two.txt" in names
 
 
 @requires_postgres

@@ -9,9 +9,10 @@ export interface UsedKbCitation {
 export interface UsedKbEntry {
   kb_id: number
   kb_name: string
-  chunks_used: number
-  top_score: number
-  sections: string[]
+  chunks_used?: number
+  top_score?: number
+  /** Section labels from retrieval; omitted in some API / seed payloads. */
+  sections?: string[]
   citations?: UsedKbCitation[]
 }
 

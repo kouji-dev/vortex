@@ -166,12 +166,33 @@ def _capability_instructions(st: ConversationSettings | None) -> str:
     return "\n\n[Conversation capabilities]\n" + "\n".join(f"- {p}" for p in parts)
 
 
-def _build_memory_block(memories: list) -> str:
-    active = [m for m in memories if m.is_active]
-    if not active:
+def _build_memory_block(
+    *,
+    system_profile: UserMemoryModel | None,
+    manual_memories: list[UserMemoryModel],
+) -> str:
+    """``system_profile`` is the optional single ``is_system`` row; manuals exclude it."""
+    parts: list[str] = []
+    if (
+        system_profile is not None
+        and getattr(system_profile, "content", "").strip()
+        and system_profile.is_active
+    ):
+        parts.append(
+            "User profile (auto-updated from your conversations):\n"
+            + system_profile.content.strip()
+        )
+    manuals = [
+        m
+        for m in manual_memories
+        if m.is_active and not m.is_system and (m.content or "").strip()
+    ]
+    if manuals:
+        lines = "\n".join(f"- {m.content.strip()}" for m in manuals)
+        parts.append(f"Memories the user saved manually:\n{lines}")
+    if not parts:
         return ""
-    lines = "\n".join(f"- {m.content}" for m in active)
-    return f"What you know about this user:\n{lines}"
+    return "What you know about this user:\n\n" + "\n\n".join(parts)
 
 
 def _dispatch_tool_call(
@@ -308,6 +329,42 @@ class StreamMessageBody(BaseModel):
 @router.get("/starters")
 def get_starters() -> dict[str, Any]:
     return CHAT_STARTERS
+
+
+class CapabilityProfileEntryRead(BaseModel):
+    description: str
+
+
+class CapabilityProfileRead(BaseModel):
+    reflection: CapabilityProfileEntryRead
+    research: CapabilityProfileEntryRead
+    web: CapabilityProfileEntryRead
+
+
+@router.get("/capability-profile", response_model=CapabilityProfileRead)
+def get_capability_profile(
+    _user: Annotated[User, Depends(get_current_user)],
+) -> CapabilityProfileRead:
+    """UI copy for chat capability toggles (Add options menu)."""
+    return CapabilityProfileRead(
+        reflection=CapabilityProfileEntryRead(
+            description=(
+                "Note key assumptions and uncertainties before answering; adjust if you spot gaps."
+            )
+        ),
+        research=CapabilityProfileEntryRead(
+            description=(
+                "Separate known facts from what would need verification; suggest concrete checks "
+                "or sources the user could use."
+            )
+        ),
+        web=CapabilityProfileEntryRead(
+            description=(
+                "No live web search is configured. If the answer depends on current events or "
+                "post-training facts, say so and suggest how the user can verify."
+            )
+        ),
+    )
 
 
 @router.get("/conversations", response_model=list[ConversationRead])
@@ -610,14 +667,29 @@ def stream_message(
     if conv.summary:
         system_parts.append(f"Earlier in this conversation:\n{conv.summary}")
 
-    active_memories = list(
+    system_profile = db.scalars(
+        select(UserMemoryModel)
+        .where(
+            UserMemoryModel.user_id == user.id,
+            UserMemoryModel.is_system == True,  # noqa: E712
+            UserMemoryModel.is_active == True,  # noqa: E712
+        )
+        .limit(1)
+    ).first()
+    manual_memories = list(
         db.scalars(
             select(UserMemoryModel)
-            .where(UserMemoryModel.user_id == user.id, UserMemoryModel.is_active == True)  # noqa: E712
+            .where(
+                UserMemoryModel.user_id == user.id,
+                UserMemoryModel.is_system == False,  # noqa: E712
+                UserMemoryModel.is_active == True,  # noqa: E712
+            )
             .order_by(UserMemoryModel.created_at)
         ).all()
     )
-    memory_block = _build_memory_block(active_memories)
+    memory_block = _build_memory_block(
+        system_profile=system_profile, manual_memories=manual_memories
+    )
     if memory_block:
         system_parts.append(memory_block)
 

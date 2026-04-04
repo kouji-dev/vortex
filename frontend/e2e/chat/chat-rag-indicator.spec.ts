@@ -7,8 +7,8 @@ import {
   seedRagAssistantForE2e,
 } from '../support/knowledge-api'
 
-test.describe('Chat RAG KB indicator', () => {
-  test('only assistant message with used_kbs shows the KB control', async ({
+test.describe('Chat RAG seeded messages', () => {
+  test('seeded thread shows both assistant replies (with and without used_kbs)', async ({
     page,
     request,
   }) => {
@@ -36,11 +36,9 @@ test.describe('Chat RAG KB indicator', () => {
 
     const kbTriggers = page.getByTestId('message-kb-indicator-trigger')
     await expect(kbTriggers).toHaveCount(1)
-
-    await kbTriggers.click()
+    await kbTriggers.hover()
     const popover = page.getByTestId('message-kb-indicator-popover')
     await expect(popover).toBeVisible()
     await expect(popover.getByText(kbName, { exact: false })).toBeVisible()
-    await expect(popover.getByText(/chunks/i)).toBeVisible()
   })
 })

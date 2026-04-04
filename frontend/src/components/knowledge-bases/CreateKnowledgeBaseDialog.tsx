@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
 import { ChevronLeft, X } from 'lucide-react'
 import * as React from 'react'
 
@@ -115,6 +116,7 @@ export function CreateKnowledgeBaseDialog({
 }: CreateKnowledgeBaseDialogProps) {
   const apiBase = getApiBase()
   const qc = useQueryClient()
+  const navigate = useNavigate()
   const [step, setStep] = React.useState<1 | 2>(1)
   const [name, setName] = React.useState('')
   const [description, setDescription] = React.useState('')
@@ -201,39 +203,13 @@ export function CreateKnowledgeBaseDialog({
         }
       }
 
-      let ingestWarning: string | undefined
-      if (args.connectorKind === 'files' && args.initialFile) {
-        const fd = new FormData()
-        fd.append('file', args.initialFile)
-        const uploadUrl = `${apiBase}/api/knowledge-bases/${kb.id}/documents`
-        const uRes = await fetch(uploadUrl, {
-          method: 'POST',
-          headers: await getAuthHeaders(),
-          body: fd,
-        })
-        const uText = await uRes.text()
-        if (!uRes.ok) {
-          if (isFastApiGenericNotFoundResponse(uRes, uText)) {
-            // Same as connectors: old server or bad path — KB exists; user can upload from detail page.
-          } else {
-            throw httpStepError('Upload document', 'POST', uploadUrl, uRes, uText)
-          }
-        } else {
-          try {
-            const uJson = JSON.parse(uText) as { ingest_error?: string }
-            if (typeof uJson.ingest_error === 'string' && uJson.ingest_error.trim()) {
-              ingestWarning = uJson.ingest_error.trim()
-            }
-          } catch {
-            /* non-JSON success body — ignore */
-          }
-        }
-      }
+      const deferredFile =
+        args.connectorKind === 'files' && args.initialFile ? args.initialFile : null
 
-      return { kb, ingestWarning }
+      return { kb, deferredFile }
     },
     onSuccess: (data) => {
-      const { kb, ingestWarning } = data
+      const { kb, deferredFile } = data
       void qc.invalidateQueries({ queryKey: queryKeys.knowledgeBases() })
       void qc.invalidateQueries({ queryKey: queryKeys.knowledgeBase(kb.id) })
       void qc.invalidateQueries({
@@ -243,7 +219,73 @@ export function CreateKnowledgeBaseDialog({
         queryKey: queryKeys.knowledgeBaseDocuments(kb.id),
       })
       onClose()
-      onCreated?.(kb, ingestWarning ? { ingestWarning } : undefined)
+      onCreated?.(kb)
+
+      if (deferredFile) {
+        void (async () => {
+          const uploadUrl = `${apiBase}/api/knowledge-bases/${kb.id}/documents`
+          try {
+            const fd = new FormData()
+            fd.append('file', deferredFile)
+            const uRes = await fetch(uploadUrl, {
+              method: 'POST',
+              headers: await getAuthHeaders(),
+              body: fd,
+            })
+            const uText = await uRes.text()
+            let ingestWarning: string | undefined
+            if (uRes.ok) {
+              try {
+                const uJson = JSON.parse(uText) as {
+                  results?: Array<{ ingest_error?: string }>
+                  ingest_error?: string
+                }
+                const first = uJson.results?.[0]
+                const err =
+                  (typeof first?.ingest_error === 'string' && first.ingest_error.trim()) ||
+                  (typeof uJson.ingest_error === 'string' && uJson.ingest_error.trim())
+                if (err) {
+                  ingestWarning = err
+                }
+              } catch {
+                /* non-JSON success body — ignore */
+              }
+            } else if (!isFastApiGenericNotFoundResponse(uRes, uText)) {
+              ingestWarning =
+                uText.trim().slice(0, 500) || `Initial file upload failed (HTTP ${uRes.status}).`
+            }
+            await qc.invalidateQueries({ queryKey: queryKeys.knowledgeBaseDocuments(kb.id) })
+            await qc.invalidateQueries({ queryKey: queryKeys.knowledgeBase(kb.id) })
+            await qc.invalidateQueries({ queryKey: queryKeys.knowledgeBases() })
+
+            const onKbDetail =
+              typeof window !== 'undefined' &&
+              window.location.pathname.replace(/\/$/, '') === `/knowledge-bases/${kb.id}`
+            if (ingestWarning && onKbDetail) {
+              void navigate({
+                to: '/knowledge-bases/$id',
+                params: { id: String(kb.id) },
+                replace: true,
+                state: { kbIngestWarning: ingestWarning },
+              })
+            }
+          } catch (e) {
+            await qc.invalidateQueries({ queryKey: queryKeys.knowledgeBaseDocuments(kb.id) })
+            const onKbDetail =
+              typeof window !== 'undefined' &&
+              window.location.pathname.replace(/\/$/, '') === `/knowledge-bases/${kb.id}`
+            const msg = e instanceof Error ? e.message : 'Initial file upload failed.'
+            if (onKbDetail) {
+              void navigate({
+                to: '/knowledge-bases/$id',
+                params: { id: String(kb.id) },
+                replace: true,
+                state: { kbIngestWarning: msg },
+              })
+            }
+          }
+        })()
+      }
     },
   })
 
@@ -420,12 +462,14 @@ export function CreateKnowledgeBaseDialog({
                         Initial document (optional)
                       </span>
                       <p className="mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-400">
-                        .txt, .md, or .pdf — uploaded and ingested when you create this base (same as
-                        on the detail page).
+                        .txt, .md, or .pdf — after you create the base you&apos;ll go to the detail
+                        page right away; the file uploads in the background and indexing progress
+                        appears there.
                       </p>
                       <input
                         ref={fileInputRef}
                         type="file"
+                        data-testid="kb-create-initial-file"
                         accept=".txt,.md,.pdf,text/plain,text/markdown,application/pdf"
                         className="mt-2 block w-full text-sm text-neutral-600 file:mr-3 file:rounded-md file:border-0 file:bg-neutral-200 file:px-3 file:py-1.5 file:text-sm dark:text-neutral-400 dark:file:bg-neutral-800"
                         disabled={createMut.isPending}

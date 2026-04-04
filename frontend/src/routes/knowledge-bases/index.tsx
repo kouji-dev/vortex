@@ -139,13 +139,10 @@ function KnowledgeBasesIndexPage() {
       <CreateKnowledgeBaseDialog
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        onCreated={(kb, meta) => {
+        onCreated={(kb) => {
           void navigate({
             to: '/knowledge-bases/$id',
             params: { id: String(kb.id) },
-            ...(meta?.ingestWarning
-              ? { state: { kbIngestWarning: meta.ingestWarning } }
-              : {}),
           })
         }}
       />

@@ -19,6 +19,8 @@ export type KnowledgeBaseDocument = {
   knowledge_base_id: number
   filename: string
   status: string
+  /** Present when ingest failed (embedding API, etc.). */
+  ingest_error?: string | null
   created_at: string
 }
 

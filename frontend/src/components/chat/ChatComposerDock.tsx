@@ -1,4 +1,4 @@
-import { Lock, Plus, Send, Settings2, Square, X } from 'lucide-react'
+import { Lock, Paperclip, Plus, Send, Settings2, Square, X } from 'lucide-react'
 import * as React from 'react'
 
 import {
@@ -43,6 +43,8 @@ type ChatComposerDockProps = {
   capabilities: CapabilityToggles
   onToggleCapability: (key: CapabilityKey) => void
   capabilityDisabled?: boolean
+  /** Per-toggle help text from `GET /api/chat/capability-profile`. */
+  capabilityDescriptions?: Record<CapabilityKey, string>
   composeDraft: string
   setComposeDraft: (v: string) => void
   onSubmit: () => void
@@ -54,6 +56,12 @@ type ChatComposerDockProps = {
   selectedCatalogModel: CatalogModelEntry | null
   tuning: SessionModelTuning
   onTuningChange: (t: SessionModelTuning) => void
+  pendingServerAttachments?: { id: number; name: string }[]
+  pendingLocalFileNames?: string[]
+  onRemoveServerAttachment?: (id: number) => void
+  onRemoveLocalFile?: (index: number) => void
+  onLocalFilesChosen?: (files: File[]) => void
+  attachDisabled?: boolean
 }
 
 function CapabilityTag({
@@ -92,6 +100,7 @@ export function ChatComposerDock({
   capabilities,
   onToggleCapability,
   capabilityDisabled,
+  capabilityDescriptions,
   composeDraft,
   setComposeDraft,
   onSubmit,
@@ -103,6 +112,12 @@ export function ChatComposerDock({
   selectedCatalogModel,
   tuning,
   onTuningChange,
+  pendingServerAttachments,
+  pendingLocalFileNames,
+  onRemoveServerAttachment,
+  onRemoveLocalFile,
+  onLocalFilesChosen,
+  attachDisabled,
 }: ChatComposerDockProps) {
   const [requestAccessModel, setRequestAccessModel] = React.useState<CatalogModelEntry | null>(
     null,
@@ -112,6 +127,7 @@ export function ChatComposerDock({
   const [modelSelectOpen, setModelSelectOpen] = React.useState(false)
   const plusWrapRef = React.useRef<HTMLDivElement>(null)
   const composeTextareaRef = React.useRef<HTMLTextAreaElement>(null)
+  const attachInputRef = React.useRef<HTMLInputElement>(null)
 
   const defaultCatalogRow = React.useMemo(() => portalDefaultCatalogModel(models), [models])
   const sorted = React.useMemo(
@@ -217,6 +233,79 @@ export function ChatComposerDock({
 
       <div className="rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-950">
         <div className="p-2 pb-1.5">
+          {(onLocalFilesChosen != null ||
+            (pendingServerAttachments != null && pendingServerAttachments.length > 0) ||
+            (pendingLocalFileNames != null && pendingLocalFileNames.length > 0)) && (
+            <div
+              data-testid="chat-composer-attachments"
+              className="mb-1.5 flex flex-wrap items-center gap-1"
+            >
+              {pendingServerAttachments?.map((a) => (
+                <span
+                  key={`srv-${a.id}`}
+                  className="inline-flex max-w-[min(100%,14rem)] items-center gap-1 truncate rounded-md border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-xs text-neutral-800 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-200"
+                >
+                  <span className="min-w-0 truncate" title={a.name}>
+                    {a.name}
+                  </span>
+                  <button
+                    type="button"
+                    className="shrink-0 rounded p-0.5 text-neutral-500 hover:bg-neutral-200 dark:hover:bg-neutral-800"
+                    aria-label={`Remove ${a.name}`}
+                    disabled={Boolean(attachDisabled) || streaming}
+                    onClick={() => onRemoveServerAttachment?.(a.id)}
+                  >
+                    <X className="size-3" strokeWidth={2.5} />
+                  </button>
+                </span>
+              ))}
+              {pendingLocalFileNames?.map((name, i) => (
+                <span
+                  key={`loc-${i}-${name}`}
+                  className="inline-flex max-w-[min(100%,14rem)] items-center gap-1 truncate rounded-md border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-xs text-neutral-800 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-200"
+                >
+                  <span className="min-w-0 truncate" title={name}>
+                    {name}
+                  </span>
+                  <button
+                    type="button"
+                    className="shrink-0 rounded p-0.5 text-neutral-500 hover:bg-neutral-200 dark:hover:bg-neutral-800"
+                    aria-label={`Remove ${name}`}
+                    disabled={Boolean(attachDisabled) || streaming}
+                    onClick={() => onRemoveLocalFile?.(i)}
+                  >
+                    <X className="size-3" strokeWidth={2.5} />
+                  </button>
+                </span>
+              ))}
+              {onLocalFilesChosen != null && (
+                <>
+                  <input
+                    ref={attachInputRef}
+                    type="file"
+                    multiple
+                    className="sr-only"
+                    accept=".txt,.md,text/plain,text/markdown"
+                    disabled={Boolean(attachDisabled) || streaming}
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files ?? [])
+                      e.target.value = ''
+                      if (files.length) onLocalFilesChosen(files)
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="inline-flex size-7 items-center justify-center rounded-lg border border-neutral-200 text-neutral-600 hover:bg-neutral-50 disabled:opacity-40 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-900"
+                    aria-label="Attach files"
+                    disabled={Boolean(attachDisabled) || streaming}
+                    onClick={() => attachInputRef.current?.click()}
+                  >
+                    <Paperclip className="size-3.5" strokeWidth={2} />
+                  </button>
+                </>
+              )}
+            </div>
+          )}
           <textarea
             ref={composeTextareaRef}
             className={`min-h-0 w-full resize-none rounded-lg border px-2.5 py-2 text-sm leading-snug ${inputThemed}`}
@@ -263,24 +352,36 @@ export function ChatComposerDock({
                 </p>
                 {CAPABILITY_MENU.map(({ key, label }) => {
                   const on = capabilities[key]
+                  const desc = capabilityDescriptions?.[key]
                   return (
                     <button
                       key={key}
                       type="button"
                       role="menuitem"
                       disabled={capabilityDisabled}
-                      className="flex w-full px-2.5 py-1.5 text-left text-xs hover:bg-neutral-100 disabled:opacity-50 dark:hover:bg-neutral-900"
+                      className="flex w-full flex-col gap-0.5 px-2.5 py-1.5 text-left text-xs hover:bg-neutral-100 disabled:opacity-50 dark:hover:bg-neutral-900"
                       onClick={() => {
                         onToggleCapability(key)
                         setPlusOpen(false)
                       }}
                     >
-                      <span className={on ? 'font-medium text-neutral-900 dark:text-neutral-100' : ''}>
-                        {label}
+                      <span className="flex w-full items-center gap-2">
+                        <span
+                          className={
+                            on ? 'font-medium text-neutral-900 dark:text-neutral-100' : ''
+                          }
+                        >
+                          {label}
+                        </span>
+                        {on && (
+                          <span className="ml-auto shrink-0 text-xs text-neutral-400">on</span>
+                        )}
                       </span>
-                      {on && (
-                        <span className="ml-auto text-xs text-neutral-400">on</span>
-                      )}
+                      {desc ? (
+                        <span className="text-[10px] leading-snug text-neutral-500 dark:text-neutral-400">
+                          {desc}
+                        </span>
+                      ) : null}
                     </button>
                   )
                 })}

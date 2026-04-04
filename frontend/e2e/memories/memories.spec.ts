@@ -1,10 +1,13 @@
 import { test, expect } from '@playwright/test'
 
-import { createMemoryViaApi, deleteMemoryViaApi } from '../support/memories-api'
+import {
+  createMemoryViaApi,
+  deleteMemoryViaApi,
+  purgeE2eDatabase,
+  seedSystemMemoryForE2e,
+} from '../support/memories-api'
 
 test.describe.configure({ mode: 'serial' })
-
-const apiBase = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
 
 /** Memories are rendered in a <table> — find a row by its content text. */
 function memoryRow(page: import('@playwright/test').Page, content: string) {
@@ -26,7 +29,7 @@ test.describe('Memories page', () => {
   test('page heading and sub-heading are visible', async ({ page }) => {
     await page.goto('/memories', { waitUntil: 'networkidle' })
     await expect(page.getByRole('heading', { name: 'Memories', exact: true })).toBeVisible()
-    await expect(page.getByText(/persistent facts/i)).toBeVisible()
+    await expect(page.getByText(/profile row per account is auto-updated/i)).toBeVisible()
     await expect(page.getByRole('heading', { name: /add a memory/i })).toBeVisible()
     await expect(page.getByRole('heading', { name: /your memories/i })).toBeVisible()
   })
@@ -65,7 +68,7 @@ test.describe('Memories page', () => {
     await page.getByPlaceholder(/e\.g\. I prefer/i).fill(content)
     await page.getByRole('button', { name: /^add$/i }).click()
     await expect(page.getByText(content)).toBeVisible({ timeout: 5_000 })
-    const res = await request.get(`${apiBase}/api/users/me/memories`, {
+    const res = await request.get('/api/users/me/memories', {
       headers: { Authorization: 'Bearer devtoken' },
     })
     const memories = (await res.json()) as Array<{ id: number; content: string }>
@@ -79,7 +82,7 @@ test.describe('Memories page', () => {
     await page.getByPlaceholder(/e\.g\. I prefer/i).fill(content)
     await page.keyboard.press('Enter')
     await expect(page.getByText(content)).toBeVisible({ timeout: 5_000 })
-    const res = await request.get(`${apiBase}/api/users/me/memories`, {
+    const res = await request.get('/api/users/me/memories', {
       headers: { Authorization: 'Bearer devtoken' },
     })
     const memories = (await res.json()) as Array<{ id: number; content: string }>
@@ -95,7 +98,7 @@ test.describe('Memories page', () => {
     await page.getByRole('button', { name: /^add$/i }).click()
     await expect(page.getByText(content)).toBeVisible({ timeout: 5_000 })
     await expect(input).toHaveValue('')
-    const res = await request.get(`${apiBase}/api/users/me/memories`, {
+    const res = await request.get('/api/users/me/memories', {
       headers: { Authorization: 'Bearer devtoken' },
     })
     const memories = (await res.json()) as Array<{ id: number; content: string }>
@@ -113,11 +116,58 @@ test.describe('Memories page', () => {
     try {
       await page.goto('/memories', { waitUntil: 'networkidle' })
       await expect(
-        memoryRow(page, content).getByRole('cell').nth(1).getByText('manual', { exact: true }),
+        memoryRow(page, content).getByRole('cell').nth(2).getByText('manual', { exact: true }),
       ).toBeVisible()
     } finally {
       await deleteMemoryViaApi(request, id)
     }
+  })
+
+  test('system profile row shows "profile" badge and no delete control', async ({
+    page,
+    request,
+  }) => {
+    const content = `E2E profile row ${Date.now()}`
+    const purgeStatus = await purgeE2eDatabase(request)
+    test.skip(
+      purgeStatus !== 200,
+      'E2E purge unavailable (use ai_portal_e2e DB + ./scripts/e2e-up.sh)',
+    )
+    try {
+      const seedStatus = await seedSystemMemoryForE2e(request, content)
+      test.skip(
+        seedStatus === 404,
+        'POST /api/e2e/seed-system-memory not found — restart E2E API with latest backend code.',
+      )
+      test.skip(
+        seedStatus === 403,
+        'E2E seed requires database ai_portal_e2e (./scripts/e2e-up.sh).',
+      )
+      expect(seedStatus).toBe(201)
+      await page.goto('/memories', { waitUntil: 'networkidle' })
+      const row = memoryRow(page, content)
+      await expect(row.getByRole('cell').nth(2).getByText('profile', { exact: true })).toBeVisible()
+      await expect(row.getByTitle('Delete memory')).toHaveCount(0)
+    } finally {
+      await purgeE2eDatabase(request)
+    }
+  })
+
+  test('POST /api/users/me/memories returns is_system false for manual rows', async ({
+    request,
+  }) => {
+    const content = `E2E api-is-system ${Date.now()}`
+    const res = await request.post('/api/users/me/memories', {
+      headers: { Authorization: 'Bearer devtoken', 'Content-Type': 'application/json' },
+      data: { content },
+    })
+    expect(res.status()).toBe(201)
+    const body = (await res.json()) as { is_system?: boolean; id: number }
+    expect(typeof body.id).toBe('number')
+    if ('is_system' in body && body.is_system !== undefined) {
+      expect(body.is_system).toBe(false)
+    }
+    await deleteMemoryViaApi(request, body.id)
   })
 
   test('created memory shows a creation date', async ({ page, request }) => {
@@ -336,11 +386,8 @@ test.describe('Memories page', () => {
   // ──────────────────────────────────────────────────────────────
 
   test('shows "No memories yet" message when list is empty', async ({ page, request }) => {
-    const res = await request.get(`${apiBase}/api/users/me/memories`, {
-      headers: { Authorization: 'Bearer devtoken' },
-    })
-    const memories = (await res.json()) as Array<{ id: number }>
-    await Promise.all(memories.map((m) => deleteMemoryViaApi(request, m.id)))
+    const purgeStatus = await purgeE2eDatabase(request)
+    test.skip(purgeStatus !== 200, 'E2E purge unavailable (use ai_portal_e2e DB + ./scripts/e2e-up.sh)')
     await page.goto('/memories', { waitUntil: 'networkidle' })
     await expect(page.getByText(/no memories yet/i)).toBeVisible({ timeout: 20_000 })
   })

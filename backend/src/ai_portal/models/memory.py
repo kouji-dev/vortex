@@ -19,6 +19,10 @@ class UserMemory(Base):
     source: Mapped[str] = mapped_column(
         String(16), default="manual", server_default="manual"
     )
+    #: Exactly one active ``is_system`` row per user — auto-maintained profile from chat.
+    is_system: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false"
+    )
     is_active: Mapped[bool] = mapped_column(
         Boolean, default=True, server_default="true"
     )

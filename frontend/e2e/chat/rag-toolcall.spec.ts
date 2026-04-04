@@ -9,7 +9,10 @@ import {
 test.describe.configure({ mode: 'serial' })
 
 test.describe('RAG tool-call UI', () => {
-  test('KB indicator popover shows after seeded tool-call response', async ({ page, request }) => {
+  test('seeded tool-call assistant message is visible in the thread', async ({
+    page,
+    request,
+  }) => {
     const apiBase = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
     const kbName = `E2E ToolCall KB ${Date.now()}`
     const kbId = await createKnowledgeBase(request, apiBase, kbName)
@@ -24,10 +27,13 @@ test.describe('RAG tool-call UI', () => {
 
     await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
 
+    await expect(
+      page.getByText('This reply used the search_knowledge_base tool', { exact: false }),
+    ).toBeVisible({ timeout: 15_000 })
+
     const kbTrigger = page.getByTestId('message-kb-indicator-trigger')
     await expect(kbTrigger).toBeVisible({ timeout: 10_000 })
-    await kbTrigger.click()
-
+    await kbTrigger.hover()
     const popover = page.getByTestId('message-kb-indicator-popover')
     await expect(popover).toBeVisible()
     await expect(popover.getByText(kbName, { exact: false })).toBeVisible()

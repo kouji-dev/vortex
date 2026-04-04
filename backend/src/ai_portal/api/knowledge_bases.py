@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 import uuid
 from collections import defaultdict
@@ -32,6 +31,7 @@ from ai_portal.models import (
 )
 from ai_portal.models.connector import CONNECTOR_KINDS
 from ai_portal.services import embedding as embedding_svc
+from ai_portal.services.ingest_queue import enqueue_document_ingest, ingest_uses_queue
 from ai_portal.tasks.connector_jobs import run_connector_sync_job
 from ai_portal.tasks.ingest import ingest_document
 
@@ -72,9 +72,23 @@ class DocumentRead(BaseModel):
     knowledge_base_id: int
     filename: str
     status: str
+    ingest_error: str | None = None
     created_at: object
 
     model_config = {"from_attributes": True}
+
+
+class DocumentUploadResultRead(BaseModel):
+    """``document_id`` is set when a row was persisted; omitted when the file was rejected (e.g. too large)."""
+
+    document_id: int | None = None
+    status: str
+    filename: str
+    ingest_error: str | None = None
+
+
+class DocumentsUploadResponseRead(BaseModel):
+    results: list[DocumentUploadResultRead]
 
 
 ConnectorKind = Literal["files", "github", "gitlab", "confluence", "s3"]
@@ -134,6 +148,76 @@ def _get_owned_connector(
     if c is None or c.knowledge_base_id != kb_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Connector not found")
     return c
+
+
+def _schedule_document_ingest(document_id: int, background_tasks: BackgroundTasks) -> None:
+    """Run ingest asynchronously: RQ worker when Redis is configured, else FastAPI background task."""
+    settings = get_settings()
+    if ingest_uses_queue(settings):
+        try:
+            enqueue_document_ingest(document_id, settings=settings)
+            return
+        except Exception:
+            logger.exception(
+                "ingest_enqueue_failed_falling_back_to_background",
+                extra={"document_id": document_id},
+            )
+    background_tasks.add_task(ingest_document, document_id)
+
+
+async def _store_and_queue_kb_upload(
+    kb: KnowledgeBase,
+    upload: UploadFile,
+    db: Session,
+    settings,
+    background_tasks: BackgroundTasks,
+) -> DocumentUploadResultRead:
+    safe_name = Path(upload.filename or "upload").name
+    content = await upload.read()
+    max_bytes = settings.kb_max_file_size_mb * 1024 * 1024
+    if len(content) > max_bytes:
+        return DocumentUploadResultRead(
+            status="failed",
+            filename=safe_name,
+            ingest_error=(
+                f"File too large. Maximum size is {settings.kb_max_file_size_mb} MB."
+            ),
+        )
+
+    dest_dir = Path(settings.upload_dir) / "kb" / str(kb.id)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest_name = f"{uuid.uuid4().hex}_{safe_name}"
+    dest_path = dest_dir / dest_name
+    dest_path.write_bytes(content)
+
+    doc = Document(
+        knowledge_base_id=kb.id,
+        filename=safe_name,
+        storage_path=str(dest_path.resolve()),
+        status="pending",
+    )
+    db.add(doc)
+    db.commit()
+    db.refresh(doc)
+
+    if not embedding_svc.embeddings_configured(settings):
+        doc.status = "failed"
+        db.commit()
+        db.refresh(doc)
+        return DocumentUploadResultRead(
+            document_id=doc.id,
+            status=doc.status,
+            filename=safe_name,
+            ingest_error=embedding_svc.embeddings_missing_key_message(),
+        )
+
+    _schedule_document_ingest(doc.id, background_tasks)
+    db.refresh(doc)
+    return DocumentUploadResultRead(
+        document_id=doc.id,
+        status=doc.status,
+        filename=safe_name,
+    )
 
 
 def _build_kb_rows(db: Session, kbs: list[KnowledgeBase]) -> list[KnowledgeBaseRead]:
@@ -427,65 +511,35 @@ def delete_document(
     db.commit()
 
 
-@router.post("/{knowledge_base_id}/documents", status_code=status.HTTP_200_OK)
+@router.post(
+    "/{knowledge_base_id}/documents",
+    status_code=status.HTTP_200_OK,
+    response_model=DocumentsUploadResponseRead,
+)
 async def upload_document(
     knowledge_base_id: int,
-    file: UploadFile = File(...),
+    file: list[UploadFile] = File(
+        ...,
+        description="One or more files (repeat the `file` field for each part).",
+    ),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
-) -> dict[str, int | str]:
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+) -> DocumentsUploadResponseRead:
+    """Persist uploads and queue ingest. Response returns immediately with ``pending``; worker sets ``ingesting`` then ``ready``/``failed``."""
     kb = _get_owned_kb(db, user, knowledge_base_id)
-    settings = get_settings()
-
-    safe_name = Path(file.filename or "upload").name
-    dest_dir = Path(settings.upload_dir) / "kb" / str(kb.id)
-    dest_dir.mkdir(parents=True, exist_ok=True)
-    dest_name = f"{uuid.uuid4().hex}_{safe_name}"
-    dest_path = dest_dir / dest_name
-
-    content = await file.read()
-    max_bytes = settings.kb_max_file_size_mb * 1024 * 1024
-    if len(content) > max_bytes:
+    if not file:
         raise HTTPException(
-            status_code=413,
-            detail=f"File too large. Maximum size is {settings.kb_max_file_size_mb} MB.",
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="At least one file is required.",
         )
-    dest_path.write_bytes(content)
-
-    doc = Document(
-        knowledge_base_id=kb.id,
-        filename=safe_name,
-        storage_path=str(dest_path.resolve()),
-        status="pending",
-    )
-    db.add(doc)
-    db.commit()
-    db.refresh(doc)
-
-    if not embedding_svc.embeddings_configured(settings):
-        doc.status = "failed"
-        db.commit()
-        db.refresh(doc)
-        return {
-            "document_id": doc.id,
-            "status": doc.status,
-            "ingest_error": embedding_svc.embeddings_missing_key_message(),
-        }
-
-    try:
-        ingest_err = await asyncio.to_thread(ingest_document, doc.id)
-    except Exception as e:
-        logger.exception("ingest_failed", extra={"document_id": doc.id})
-        doc.status = "failed"
-        db.commit()
-        db.refresh(doc)
-        return {"document_id": doc.id, "status": doc.status, "ingest_error": str(e)}
-
-    db.refresh(doc)
-    out: dict[str, int | str] = {"document_id": doc.id, "status": doc.status}
-    if ingest_err:
-        out["ingest_error"] = ingest_err
-    return out
+    settings = get_settings()
+    results: list[DocumentUploadResultRead] = []
+    for part in file:
+        results.append(
+            await _store_and_queue_kb_upload(kb, part, db, settings, background_tasks)
+        )
+    return DocumentsUploadResponseRead(results=results)
 
 
 @router.get("/{kb_id}/documents/{doc_id}/progress")
@@ -509,4 +563,5 @@ def get_document_progress(
         "status": doc.status,
         "chunks_done": doc.chunks_done,
         "chunks_total": doc.chunks_total,
+        "ingest_error": doc.ingest_error,
     }

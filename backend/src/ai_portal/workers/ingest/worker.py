@@ -17,6 +17,32 @@ from ai_portal.workers.ingest.readers import stream_text_pages
 
 logger = logging.getLogger(__name__)
 
+_MAX_INGEST_ERR_LEN = 8192
+
+
+def _persist_document_failure(
+    db: Session,
+    document_id: int,
+    message: str | None,
+) -> None:
+    """Load a fresh row and mark failed so status survives ``expire_on_commit`` / stale instances."""
+    row = db.get(Document, document_id)
+    if row is None:
+        return
+    row.status = "failed"
+    text = (message or "Ingest failed").strip() or "Ingest failed"
+    row.ingest_error = text[:_MAX_INGEST_ERR_LEN]
+    db.commit()
+
+
+def _mark_document_ready(db: Session, document_id: int) -> None:
+    row = db.get(Document, document_id)
+    if row is None:
+        return
+    row.status = "ready"
+    row.ingest_error = None
+    db.commit()
+
 
 def ingest_document_worker(document_id: int, *, db: Session | None = None) -> str | None:
     """Ingest a document into chunks + embeddings with progress tracking.
@@ -36,8 +62,7 @@ def ingest_document_worker(document_id: int, *, db: Session | None = None) -> st
 
         path = Path(doc.storage_path)
         if not path.is_file():
-            doc.status = "failed"
-            db.commit()
+            _persist_document_failure(db, document_id, "Stored file is missing")
             return "Stored file is missing"
 
         suffix = Path(doc.filename).suffix.lower()
@@ -47,17 +72,17 @@ def ingest_document_worker(document_id: int, *, db: Session | None = None) -> st
         try:
             raw_pages = list(stream_text_pages(path, suffix))
         except ValueError as e:
-            doc.status = "failed"
-            db.commit()
             msg = str(e)
             if msg.startswith("unsupported_type:"):
                 suf = msg.split(":", 1)[-1]
-                return f"Unsupported file type ({suf})"
+                detail = f"Unsupported file type ({suf})"
+                _persist_document_failure(db, document_id, detail)
+                return detail
+            _persist_document_failure(db, document_id, "Could not read file")
             return "Could not read file"
 
         if not raw_pages:
-            doc.status = "failed"
-            db.commit()
+            _persist_document_failure(db, document_id, "File has no extractable text")
             return "File has no extractable text"
 
         # Semantic chunk all pages
@@ -66,11 +91,16 @@ def ingest_document_worker(document_id: int, *, db: Session | None = None) -> st
             all_chunks.extend(semantic_chunks(page_text, file_type, doc.filename, page_num))
 
         if not all_chunks:
-            doc.status = "failed"
-            db.commit()
+            _persist_document_failure(db, document_id, "File has no extractable text")
             return "File has no extractable text"
 
+        doc.ingest_error = None
         set_chunks_total(db, doc, total=len(all_chunks))
+        doc = db.get(Document, document_id)
+        if doc is None:
+            return "Document not found"
+        doc.status = "ingesting"
+        db.commit()
 
         # Embed and commit in batches
         batch_size = settings.ingest_embed_batch_size
@@ -85,13 +115,15 @@ def ingest_document_worker(document_id: int, *, db: Session | None = None) -> st
             try:
                 embeddings = embedding_svc.embed_texts(texts)
             except ValueError as e:
-                doc.status = "failed"
-                db.commit()
+                _persist_document_failure(db, document_id, str(e))
                 return str(e)
-            except Exception:
+            except Exception as e:
                 logger.exception("ingest_embed_failed", extra={"document_id": document_id})
-                doc.status = "failed"
-                db.commit()
+                _persist_document_failure(
+                    db,
+                    document_id,
+                    f"Embedding request failed: {e!s}",
+                )
                 return "Embedding request failed"
 
             for (content, meta), emb in zip(batch, embeddings, strict=True):
@@ -135,17 +167,12 @@ def ingest_document_worker(document_id: int, *, db: Session | None = None) -> st
                 )
             update_progress(db, doc, chunks_done=chunk_index)
 
-        doc.status = "ready"
-        db.commit()
+        _mark_document_ready(db, document_id)
         return None
 
     except Exception:
         logger.exception("ingest_failed", extra={"document_id": document_id})
-        if doc is None:
-            doc = db.get(Document, document_id)
-        if doc is not None:
-            doc.status = "failed"
-            db.commit()
+        _persist_document_failure(db, document_id, "Ingest failed unexpectedly")
         return "Ingest failed unexpectedly"
     finally:
         if own_db:

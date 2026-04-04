@@ -1,102 +1,46 @@
-import * as Popover from '@radix-ui/react-popover'
+import { Library } from 'lucide-react'
 
 import type { UsedKbEntry } from '~/lib/chat-types'
 
-export interface MessageKbIndicatorProps {
+export type MessageKbIndicatorProps = {
   usedKbs: UsedKbEntry[]
 }
 
+/** KB icon in the message header; hover (or focus) shows which knowledge bases contributed. */
 export function MessageKbIndicator({ usedKbs }: MessageKbIndicatorProps) {
-  if (!usedKbs || usedKbs.length === 0) return null
-
-  const allCitations = usedKbs.flatMap((kb) => kb.citations ?? [])
+  if (usedKbs.length === 0) return null
 
   return (
-    <Popover.Root modal={false}>
-      <Popover.Trigger asChild>
-        <button
-          type="button"
-          data-testid="message-kb-indicator-trigger"
-          className="inline-flex cursor-pointer select-none border-0 bg-transparent p-0 text-[10px] leading-none text-green-500 underline-offset-2 hover:underline"
-          aria-label="Knowledge bases used — show details"
-        >
-          📚
-        </button>
-      </Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Content
-          side="top"
-          align="center"
-          sideOffset={6}
-          collisionPadding={8}
-          data-testid="message-kb-indicator-popover"
-          className="z-100 w-72 rounded-lg border border-neutral-700 bg-neutral-800 p-3 text-left shadow-xl outline-none"
-          onCloseAutoFocus={(e) => e.preventDefault()}
-        >
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
-            Knowledge bases used
-          </p>
-
-          <ul className="flex max-h-64 flex-col gap-2 overflow-y-auto">
-            {usedKbs.map((kb) => (
-              <li key={kb.kb_id} className="flex flex-col gap-0.5">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[11px] leading-none">📄</span>
-                  <span className="text-xs font-medium text-neutral-100">{kb.kb_name}</span>
-                </div>
-                <div className="ml-[19px] flex flex-wrap gap-x-3 text-[10px] text-neutral-400">
-                  <span>
-                    <span className="text-neutral-300">{kb.chunks_used}</span> chunk
-                    {kb.chunks_used !== 1 ? 's' : ''}
-                  </span>
-                  <span>
-                    top score{' '}
-                    <span className="text-neutral-300">{kb.top_score.toFixed(2)}</span>
-                  </span>
-                </div>
-                {kb.sections.length > 0 && (
-                  <div className="ml-[19px] text-[10px] text-neutral-400">
-                    {kb.sections.length === 1 ? (
-                      <span>{kb.sections[0]}</span>
-                    ) : (
-                      <ul className="list-inside list-disc space-y-0.5">
-                        {kb.sections.map((s, i) => (
-                          <li key={i}>{s}</li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
-
-          {allCitations.length > 0 && (
-            <div className="mt-2 border-t border-neutral-700 pt-2">
-              <p className="mb-1 text-[10px] font-medium text-neutral-400">Sources</p>
-              <div className="flex flex-wrap gap-1">
-                {allCitations.map((c, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    className="inline-flex items-center gap-1 rounded border border-neutral-600 px-1.5 py-0.5 text-[10px] text-neutral-300 transition-colors hover:bg-neutral-700"
-                    title={[c.source, c.section].filter(Boolean).join(' — ')}
-                    onClick={() => {
-                      const ref = [c.source, c.section].filter(Boolean).join(' › ')
-                      void navigator.clipboard.writeText(ref)
-                    }}
-                  >
-                    {c.source}
-                    {c.section && (
-                      <span className="text-neutral-500">› {c.section}</span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </Popover.Content>
-      </Popover.Portal>
-    </Popover.Root>
+    <div className="group relative inline-flex">
+      <button
+        type="button"
+        data-testid="message-kb-indicator-trigger"
+        className="relative z-10 rounded p-1 text-neutral-500 transition-colors hover:bg-neutral-200/70 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-700/60 dark:hover:text-neutral-200"
+        aria-label={`Used ${usedKbs.length} knowledge base${usedKbs.length === 1 ? '' : 's'}`}
+        aria-haspopup="true"
+      >
+        <Library className="size-3.5" strokeWidth={2} aria-hidden />
+      </button>
+      <div
+        data-testid="message-kb-indicator-popover"
+        className="pointer-events-none absolute right-0 top-full z-20 -mt-1 w-max max-w-[min(18rem,calc(100vw-2rem))] translate-y-0 rounded-md border border-neutral-200 bg-white py-1.5 pl-2 pr-2.5 text-left text-xs shadow-md opacity-0 transition-opacity duration-100 dark:border-neutral-700 dark:bg-neutral-950 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100"
+        role="tooltip"
+      >
+        <p className="mb-1 font-medium text-neutral-600 dark:text-neutral-400">Knowledge bases</p>
+        <ul className="space-y-1 text-neutral-800 dark:text-neutral-200">
+          {usedKbs.map((kb) => (
+            <li key={kb.kb_id} className="leading-snug">
+              <span className="font-medium">{kb.kb_name}</span>
+              {typeof kb.chunks_used === 'number' && kb.chunks_used > 0 ? (
+                <span className="text-neutral-500 dark:text-neutral-500">
+                  {' '}
+                  · {kb.chunks_used} chunk{kb.chunks_used === 1 ? '' : 's'}
+                </span>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
   )
 }

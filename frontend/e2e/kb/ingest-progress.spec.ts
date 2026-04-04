@@ -17,7 +17,7 @@ test.describe('Ingest progress', () => {
 
     const row = page.getByRole('row', { name: /sample-e2e\.txt/ })
     await expect(row).toBeVisible({ timeout: 60_000 })
-    await expect(row.locator('[data-e2e-doc-status]')).toHaveText('ready', { timeout: 120_000 })
+    await expect(row.getByTestId('kb-doc-status')).toHaveText('ready', { timeout: 120_000 })
   })
 
   test('file too large shows a client-side or server error', async ({ page }) => {

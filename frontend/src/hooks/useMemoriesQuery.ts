@@ -8,6 +8,8 @@ export interface Memory {
   id: number
   content: string
   source: string
+  /** Single auto-maintained profile row per user when true. */
+  is_system: boolean
   is_active: boolean
   created_at: string
   updated_at: string

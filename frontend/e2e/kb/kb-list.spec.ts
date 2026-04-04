@@ -128,7 +128,7 @@ test.describe('Knowledge Bases list page', () => {
     await expect(page.getByRole('dialog')).toBeVisible({ timeout: 10_000 })
   })
 
-  test('can create a KB through the dialog and it appears on the detail page', async ({
+  test('can create a KB through the dialog and lands on the detail page immediately', async ({
     page,
     request,
   }) => {
@@ -139,7 +139,9 @@ test.describe('Knowledge Bases list page', () => {
     await expect(dialog).toBeVisible({ timeout: 10_000 })
     await dialog.getByRole('textbox').first().fill(name)
     await dialog.getByRole('button', { name: /next/i }).click()
-    await page.getByRole('dialog').getByRole('button', { name: /create/i }).click()
+    await dialog.getByRole('button', { name: /create/i }).click()
+    await expect(dialog).toBeHidden({ timeout: 15_000 })
+    await expect(page).toHaveURL(/\/knowledge-bases\/\d+/)
     await expect(page.getByRole('heading', { name, exact: true })).toBeVisible({ timeout: 15_000 })
     const url = page.url()
     const idMatch = url.match(/\/knowledge-bases\/(\d+)/)
@@ -147,6 +149,9 @@ test.describe('Knowledge Bases list page', () => {
       await deleteKbViaApi(request, Number(idMatch[1]))
     }
   })
+
+  // Upload → ingest → ready is covered by e2e/kb/ingest-progress.spec.ts (avoids duplicate
+  // embedding load and races with parallel E2E workers).
 
   // ──────────────────────────────────────────────────────────────
   // KB name cell links to detail page

@@ -10,7 +10,7 @@ This layout matches `docs/superpowers/specs/2026-04-04-e2e-refactor-design.md`: 
 
 ### Option A — from this worktree root (Linux / macOS / Git Bash)
 
-Starts Docker, migrations, seed, API **8001**, then Playwright (Vite **5174**):
+Starts Docker, migrations, seed, API **8001**, then Playwright (Vite **5175** via `scripts/e2e-vite.mjs`):
 
 ```bash
 pnpm test:e2e:all
@@ -68,7 +68,7 @@ See `scripts/e2e-up.sh` for the full env (`E2E_ENABLE_CHAT_MESSAGES_SEED`, `E2E_
 
 ### Frontend
 
-Playwright `webServer` starts Vite on **5174** with `VITE_DEV_API_PROXY_TARGET` pointing at **8001**.
+Playwright `webServer` runs **`node ./scripts/e2e-vite.mjs`**, which starts Vite on **5175** with `VITE_DEV_API_PROXY_TARGET` pointing at **8001** (avoids Windows env issues with `pnpm dev`).
 
 ---
 
@@ -77,8 +77,13 @@ Playwright `webServer` starts Vite on **5174** with `VITE_DEV_API_PROXY_TARGET` 
 | Variable | Default | Effect |
 |----------|---------|--------|
 | `E2E_API_URL` | `http://127.0.0.1:8001` | Backend URL for helpers + global-setup |
+| `E2E_ALLOW_DEV_API_URL` | *(unset)* | Set to `1` only if you must point Playwright at port **8000** (not recommended). |
 | `E2E_BASE_URL` | *(unset — Playwright starts Vite)* | Use a running dev server instead of auto-start |
 | `E2E_BEARER_TOKEN` | `devtoken` | Dev bearer for API helpers |
+
+**Safety:** `POST /api/e2e/purge` (global teardown) runs only when the API’s database is **`ai_portal_e2e`**. It will **not** truncate the main dev database (`ai_portal` on port 5434) even if `E2E_API_URL` is wrong.
+
+**KB create flow:** The UI redirects to `/knowledge-bases/:id` as soon as the KB (and connector) are created; an optional initial file uploads in the background. Helpers: `kb/helpers.ts` (`createKbThroughUi`, `createKbWithInitialFileThroughUi`). Document status cells expose `data-testid="kb-doc-status"`.
 
 ---
 

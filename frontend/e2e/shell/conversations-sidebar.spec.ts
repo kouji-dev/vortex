@@ -210,6 +210,9 @@ test.describe('Conversations sidebar', () => {
     const id = await createEmptyConversation(request, apiBase)
     try {
       await page.goto('/chat/conversations', { waitUntil: 'networkidle' })
+      await expect(page.locator(`a[href*="/chat/conversations/${id}"]`).first()).toBeVisible({
+        timeout: 30_000,
+      })
       await page.getByRole('button', { name: /conversation actions/i }).click()
       await page.getByRole('menuitem', { name: /select conversations/i }).click()
       await page.getByRole('checkbox', { name: /select all/i }).click()
@@ -234,6 +237,12 @@ test.describe('Conversations sidebar', () => {
     const id2 = await createEmptyConversation(request, apiBase)
     try {
       await page.goto('/chat/conversations', { waitUntil: 'networkidle' })
+      await expect(page.locator(`a[href*="/chat/conversations/${id1}"]`).first()).toBeVisible({
+        timeout: 30_000,
+      })
+      await expect(page.locator(`a[href*="/chat/conversations/${id2}"]`).first()).toBeVisible({
+        timeout: 30_000,
+      })
       await page.getByRole('button', { name: /conversation actions/i }).click()
       await page.getByRole('menuitem', { name: /select conversations/i }).click()
       await page.getByRole('checkbox', { name: /select all/i }).click()
@@ -252,6 +261,9 @@ test.describe('Conversations sidebar', () => {
     const id = await createEmptyConversation(request, apiBase)
     try {
       await page.goto('/chat/conversations', { waitUntil: 'networkidle' })
+      await expect(page.locator(`a[href*="/chat/conversations/${id}"]`).first()).toBeVisible({
+        timeout: 30_000,
+      })
       await page.getByRole('button', { name: /conversation actions/i }).click()
       await page.getByRole('menuitem', { name: /select conversations/i }).click()
       await page.getByRole('checkbox', { name: /select all/i }).click()

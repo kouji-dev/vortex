@@ -50,19 +50,13 @@ test.describe('Chat attachments — stream request', () => {
     )
 
     await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
-    await page.getByTestId('chat-add-options').click()
-    await page.getByRole('menuitem', { name: /attach text file/i }).click()
-    await page.locator('input[type="file"][accept=".txt,.md,text/plain"]').setInputFiles({
+    const attachRoot = page.getByTestId('chat-composer-attachments')
+    await attachRoot.locator('input[type="file"]').setInputFiles({
       name: 'stream-payload.txt',
       mimeType: 'text/plain',
       buffer: Buffer.from('Stream payload check: file is attached to this turn.'),
     })
-    await expect(page.getByRole('list', { name: /attachments to send/i })).toBeVisible({
-      timeout: 20_000,
-    })
-    await expect(page.getByRole('list', { name: /attachments to send/i })).toContainText(
-      'stream-payload.txt',
-    )
+    await expect(attachRoot).toContainText('stream-payload.txt', { timeout: 20_000 })
 
     await page
       .getByRole('textbox', { name: /message/i })
@@ -92,16 +86,13 @@ test.describe('Chat attachments — assistant uses file (Claude Haiku)', () => {
     const fileBody = `Confidential line for automated testing.\nThe secret codeword is exactly: ${secret}\nEnd of file.\n`
 
     await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
-    await page.getByTestId('chat-add-options').click()
-    await page.getByRole('menuitem', { name: /attach text file/i }).click()
-    await page.locator('input[type="file"][accept=".txt,.md,text/plain"]').setInputFiles({
+    const attachRoot = page.getByTestId('chat-composer-attachments')
+    await attachRoot.locator('input[type="file"]').setInputFiles({
       name: 'secret-e2e.txt',
       mimeType: 'text/plain',
       buffer: Buffer.from(fileBody),
     })
-    await expect(page.getByRole('list', { name: /attachments to send/i })).toBeVisible({
-      timeout: 20_000,
-    })
+    await expect(attachRoot).toContainText('secret-e2e.txt', { timeout: 20_000 })
 
     await page.getByRole('textbox', { name: /message/i }).fill(
       'Read ONLY the attached text file. What is the secret codeword on the line that starts with "The secret codeword is exactly:"? Reply with only that codeword (one token, same spelling), no quotes or punctuation.',

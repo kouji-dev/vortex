@@ -405,3 +405,11 @@ def test_e2e_seed_rag_assistant_inserts_messages_with_used_kbs(monkeypatch):
     assert assistants[0]["extra"] is None
     assert assistants[1]["extra"] is not None
     assert assistants[1]["extra"]["used_kbs"][0]["kb_name"] == "Seeded KB"
+
+
+@requires_postgres
+def test_e2e_purge_refused_when_not_e2e_database():
+    """Playwright teardown must not truncate the main dev DB (ai_portal)."""
+    r = client.post("/api/e2e/purge", headers=AUTH)
+    assert r.status_code == 403
+    assert "ai_portal_e2e" in r.json()["detail"]

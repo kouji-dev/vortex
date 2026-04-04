@@ -1,7 +1,6 @@
-"""Background worker that extracts persistent user-profile facts from conversations.
+"""Background worker: update the single ``is_system`` user profile after each chat turn.
 
-Uses LLM structured output to manage memories: add new facts, update
-existing ones, and remove outdated/contradicted ones — all in one call.
+Manual memories (``is_system`` false) are never created or changed here.
 """
 from __future__ import annotations
 
@@ -18,71 +17,68 @@ from ai_portal.models.memory import UserMemory
 
 logger = logging.getLogger(__name__)
 
-_EXTRACTION_SYSTEM_PROMPT = (
-    "You manage persistent facts about the user. You are given:\n"
-    "1. The user's existing memories (with IDs)\n"
-    "2. A new conversation turn\n\n"
-    "Decide what changes to make:\n"
-    "- add: genuinely new facts not already captured\n"
-    "- update: existing facts that should be refined, corrected, or merged "
-    "(provide the ID and the new wording)\n"
-    "- remove: IDs of facts that are now outdated or contradicted\n\n"
-    "Be conservative — only act on clear, persistent user traits, preferences, "
-    "role, tools, constraints, etc. If nothing changed, return empty lists."
+_SYSTEM_PROFILE_PROMPT = (
+    "You maintain one concise user profile (persistent facts, preferences, role, tools, "
+    "constraints) for use in future chats.\n\n"
+    "You are given the current profile text (may be empty) and the latest user + assistant "
+    "messages from one turn.\n"
+    "Return an UPDATED profile that:\n"
+    "- Incorporates only clear new durable facts from the turn\n"
+    "- Removes or corrects contradictions when the turn clearly updates older information\n"
+    "- Stays compact (aim under ~800 words)\n"
+    "- Uses short bullet lines starting with '- ' when listing facts\n\n"
+    "Do NOT add or change the profile for low-signal content, including:\n"
+    "- Greetings, thanks, small talk, or acknowledgements alone (e.g. the user only said "
+    "hello / hi / thanks)\n"
+    "- The assistant merely restating or rephrasing the user with no new stable fact\n"
+    "- Purely procedural chat (e.g. \"continue\", \"go on\") with no new information about "
+    "the user\n\n"
+    "If the turn does not add new lasting value about the user, return the current profile "
+    "unchanged (verbatim if possible). Prefer no change over inventing or padding the profile."
 )
 
 
-class MemoryUpdate(BaseModel):
-    id: int
-    content: str
+class SystemProfileUpdate(BaseModel):
+    profile_text: str = Field(
+        default="",
+        description=(
+            "Full updated profile text. Return empty string if the turn adds no durable user "
+            "facts (e.g. greetings only, pure reformulation). Otherwise return the profile, "
+            "unchanged verbatim when nothing should change."
+        ),
+    )
 
 
-class MemoryDelta(BaseModel):
-    add: list[str] = Field(default_factory=list)
-    update: list[MemoryUpdate] = Field(default_factory=list)
-    remove: list[int] = Field(default_factory=list)
-
-
-def _call_extraction_llm(
+def _call_system_profile_llm(
     *,
+    current_profile: str,
     user_message: str,
     assistant_message: str,
-    existing_memories: list[dict[str, Any]],
     settings: Any | None = None,
-) -> MemoryDelta:
+) -> str:
     from ai_portal.services.llm_providers import get_chat_provider
 
     settings = settings or get_settings()
-
-    if existing_memories:
-        mem_lines = "\n".join(
-            f"- [id={m['id']}] {m['content']}" for m in existing_memories
-        )
-        memories_block = f"[Existing memories]\n{mem_lines}"
-    else:
-        memories_block = "[Existing memories]\n(none)"
-
+    profile_block = current_profile.strip() if current_profile.strip() else "(empty)"
     llm_messages: list[dict[str, str]] = [
-        {"role": "system", "content": _EXTRACTION_SYSTEM_PROMPT},
+        {"role": "system", "content": _SYSTEM_PROFILE_PROMPT},
         {
             "role": "user",
             "content": (
-                f"{memories_block}\n\n"
-                f"[New conversation turn]\n"
-                f"User: {user_message}\n"
-                f"Assistant: {assistant_message}"
+                f"[Current profile]\n{profile_block}\n\n"
+                f"[Latest turn]\nUser: {user_message}\nAssistant: {assistant_message}"
             ),
         },
     ]
-
     provider = get_chat_provider(settings)
     try:
-        return provider.complete_structured(
-            llm_messages, schema=MemoryDelta, model=None
+        out = provider.complete_structured(
+            llm_messages, schema=SystemProfileUpdate, model=None
         )
+        return (out.profile_text or "").strip()
     except Exception:
-        logger.exception("extraction_llm_structured_failed")
-        return MemoryDelta()
+        logger.exception("system_profile_llm_structured_failed")
+        return ""
 
 
 def extract_user_memories(
@@ -97,53 +93,52 @@ def extract_user_memories(
         db = SessionLocal()
     try:
         settings = get_settings()
+        sys_mem = db.scalars(
+            select(UserMemory)
+            .where(
+                UserMemory.user_id == user_id,
+                UserMemory.is_system == True,  # noqa: E712
+                UserMemory.is_active == True,  # noqa: E712
+            )
+            .limit(1)
+        ).first()
 
-        existing = list(
-            db.scalars(
-                select(UserMemory).where(
-                    UserMemory.user_id == user_id,
-                    UserMemory.is_active == True,  # noqa: E712
-                )
-            ).all()
-        )
-        existing_dicts = [{"id": m.id, "content": m.content} for m in existing]
-        existing_by_id = {m.id: m for m in existing}
-
-        delta = _call_extraction_llm(
+        current = sys_mem.content if sys_mem else ""
+        updated = _call_system_profile_llm(
+            current_profile=current,
             user_message=user_message,
             assistant_message=assistant_message,
-            existing_memories=existing_dicts,
             settings=settings,
         )
 
-        if not delta.add and not delta.update and not delta.remove:
+        if not updated:
             return
 
-        for fact in delta.add:
-            stripped = fact.strip()
-            if stripped:
-                db.add(
-                    UserMemory(
-                        user_id=user_id,
-                        content=stripped,
-                        source="auto",
-                        is_active=True,
-                    )
+        changed = False
+        if sys_mem is None:
+            db.add(
+                UserMemory(
+                    user_id=user_id,
+                    content=updated,
+                    source="auto",
+                    is_system=True,
+                    is_active=True,
                 )
+            )
+            changed = True
+        elif updated != current:
+            sys_mem.content = updated
+            changed = True
 
-        for upd in delta.update:
-            mem = existing_by_id.get(upd.id)
-            if mem and upd.content.strip():
-                mem.content = upd.content.strip()
-
-        for mem_id in delta.remove:
-            mem = existing_by_id.get(mem_id)
-            if mem:
-                mem.is_active = False
-
-        db.commit()
+        if changed:
+            db.commit()
     except Exception:
         logger.exception("extract_user_memories_failed", extra={"user_id": user_id})
+        if own_session:
+            try:
+                db.rollback()
+            except Exception:
+                pass
     finally:
         if own_session:
             db.close()

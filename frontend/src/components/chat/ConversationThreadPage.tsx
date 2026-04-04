@@ -45,6 +45,11 @@ function isPersistedStreamErrorMessage(content: string): boolean {
   return content.trimStart().startsWith('**Error:**')
 }
 
+function usedKbsFromMessage(m: ChatMessage): UsedKbEntry[] {
+  const raw = m.used_kbs ?? m.extra?.used_kbs
+  return Array.isArray(raw) ? (raw as UsedKbEntry[]) : []
+}
+
 export type ConversationThreadPageProps = {
   /** `null` = composer on `/chat/conversations` before a thread exists in the API. */
   conversationId: number | null
@@ -725,8 +730,6 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
               (m.extra?.attachments as
                 | { id: number; original_filename: string }[]
                 | undefined) ?? []
-            const extraKeys = m.extra ? Object.keys(m.extra) : []
-            const showMetaDetails = extraKeys.some((k) => k !== 'attachments')
             return (
               <li
                 key={m.id}
@@ -755,10 +758,8 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
                       {roleLabel}
                     </span>
                     <div className="flex items-center gap-1">
-                      {m.role === 'assistant' && (
-                        <MessageKbIndicator
-                          usedKbs={(m.extra?.used_kbs as UsedKbEntry[] | undefined) ?? []}
-                        />
+                      {m.role === 'assistant' && !isErrorAssistant && (
+                        <MessageKbIndicator usedKbs={usedKbsFromMessage(m)} />
                       )}
                       <time
                         className="text-[10px] tabular-nums text-neutral-400 dark:text-neutral-500"
@@ -823,22 +824,6 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
                       }
                     />
                   </div>
-                  {showMetaDetails && m.extra != null && Object.keys(m.extra).length > 0 && (
-                    <details className="mt-2 text-xs">
-                      <summary className="cursor-pointer text-neutral-500 dark:text-neutral-400">
-                        Message metadata
-                      </summary>
-                      <pre
-                        className={`mt-1 max-h-40 overflow-auto rounded border p-2 font-mono ${
-                          isUserSide
-                            ? 'border-neutral-200 bg-neutral-200/40 text-neutral-800 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-300'
-                            : 'border-neutral-200 bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-950'
-                        }`}
-                      >
-                        {JSON.stringify(m.extra, null, 2)}
-                      </pre>
-                    </details>
-                  )}
                 </div>
               </li>
             )

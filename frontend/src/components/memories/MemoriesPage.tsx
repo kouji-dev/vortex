@@ -51,12 +51,19 @@ export function MemoriesPage() {
         m.is_active ? 'active' : 'paused',
         m.created_at,
         m.updated_at,
+        m.is_system ? 'system profile main auto-maintained' : 'manual',
       ]
         .join(' ')
         .toLowerCase()
       return haystack.includes(q)
     })
   }, [memories, search])
+
+  const orderedFilteredMemories = React.useMemo(() => {
+    return [...filteredMemories].sort(
+      (a, b) => Number(b.is_system) - Number(a.is_system) || b.id - a.id,
+    )
+  }, [filteredMemories])
   const loadMoreRef = React.useRef<HTMLDivElement | null>(null)
   const tableScrollRef = React.useRef<HTMLDivElement | null>(null)
 
@@ -79,7 +86,7 @@ export function MemoriesPage() {
     return () => obs.disconnect()
   }, [memoriesQ])
   const activeCount = memories.filter((m) => m.is_active).length
-  const autoCount = memories.filter((m) => m.source === 'auto').length
+  const profileRowCount = memories.filter((m) => m.is_system).length
 
   return (
     <>
@@ -87,8 +94,8 @@ export function MemoriesPage() {
       <header>
         <h1 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Memories</h1>
         <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-          Persistent facts the assistant remembers about you. Active memories are included in every
-          conversation.
+          One profile row per account is auto-updated from your chats and used when active. Manual
+          memories are the ones you add below; active manual rows are included in conversations.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
           <span className="rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-neutral-600 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300">
@@ -98,7 +105,7 @@ export function MemoriesPage() {
             Active: <span className="font-semibold tabular-nums">{activeCount}</span>
           </span>
           <span className="rounded-full border border-purple-200 bg-purple-50 px-2.5 py-1 text-purple-700 dark:border-purple-800/60 dark:bg-purple-950/30 dark:text-purple-300">
-            Auto: <span className="font-semibold tabular-nums">{autoCount}</span>
+            Profile row: <span className="font-semibold tabular-nums">{profileRowCount}</span>
           </span>
         </div>
       </header>
@@ -165,19 +172,20 @@ export function MemoriesPage() {
         )}
         {!memoriesQ.isPending && memories.length === 0 && (
           <p className="text-sm text-neutral-500">
-            No memories yet. Add one above or chat with the assistant — it will learn from your
-            conversations automatically.
+            No memories yet. Add a manual memory above, or chat — a profile row will be created and
+            updated automatically from your conversations.
           </p>
         )}
         {!memoriesQ.isPending && memories.length > 0 && filteredMemories.length === 0 && (
           <p className="text-sm text-neutral-500 dark:text-neutral-400">No memories match your search.</p>
         )}
-        {filteredMemories.length > 0 && (
+        {orderedFilteredMemories.length > 0 && (
           <TableShell className="flex-1" containerRef={tableScrollRef}>
-            <table className="w-full min-w-[56rem] text-left text-sm">
+            <table className="w-full min-w-[62rem] text-left text-sm">
               <thead className="sticky top-0 z-10 border-b border-neutral-200 bg-neutral-50 text-xs text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
                 <tr>
                   <th className="px-4 py-2 font-medium">Memory</th>
+                  <th className="px-4 py-2 font-medium">Type</th>
                   <th className="px-4 py-2 font-medium">Source</th>
                   <th className="px-4 py-2 font-medium">Status</th>
                   <th className="px-4 py-2 font-medium">Created</th>
@@ -186,22 +194,41 @@ export function MemoriesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
-                {filteredMemories.map((m) => (
+                {orderedFilteredMemories.map((m) => (
                   <tr
                     key={m.id}
                     className={cn(
                       'align-top hover:bg-neutral-50 dark:hover:bg-neutral-900/60',
                       !m.is_active && 'opacity-70',
+                      m.is_system &&
+                        'bg-purple-50/40 dark:bg-purple-950/15',
                     )}
                   >
                     <td className="px-4 py-2.5 text-neutral-900 dark:text-neutral-100">
                       <p className="line-clamp-2">{m.content}</p>
+                      {m.is_system && (
+                        <p className="mt-1 text-[11px] text-purple-700 dark:text-purple-300">
+                          Main profile memory — updated from your conversations when active.
+                        </p>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      {m.is_system ? (
+                        <span
+                          data-testid="memory-system-badge"
+                          className="inline-flex rounded-full border border-violet-300 bg-violet-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-violet-900 dark:border-violet-700 dark:bg-violet-950/60 dark:text-violet-200"
+                        >
+                          System
+                        </span>
+                      ) : (
+                        <span className="text-xs text-neutral-500 dark:text-neutral-400">Manual</span>
+                      )}
                     </td>
                     <td className="px-4 py-2.5">
                       <span
                         className={cn(
                           'inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium',
-                          m.source === 'auto'
+                          m.is_system
                             ? 'border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-800/60 dark:bg-purple-950/30 dark:text-purple-300'
                             : 'border-neutral-200 bg-neutral-100 text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300',
                         )}
