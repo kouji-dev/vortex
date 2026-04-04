@@ -4,7 +4,7 @@ import uuid as _uuid
 from datetime import UTC, datetime
 
 import jwt
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -123,7 +123,7 @@ def refresh_token(body: RefreshRequest, db: Session = Depends(get_db)) -> TokenR
 
 @router.get("/me", response_model=UserRead)
 def auth_me(
-    authorization: str | None = None,
+    authorization: str | None = Header(None),
     db: Session = Depends(get_db),
 ) -> UserRead:
     """Lightweight identity endpoint for local auth mode."""

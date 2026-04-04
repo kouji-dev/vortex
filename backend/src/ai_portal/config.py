@@ -159,6 +159,14 @@ class Settings(BaseSettings):
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
     @model_validator(mode="after")
+    def _require_secret_key_in_auth_modes(self) -> "Settings":
+        if self.deployment_mode in ("saas", "selfhosted") and not self.secret_key.strip():
+            raise ValueError(
+                "SECRET_KEY must be set when DEPLOYMENT_MODE is 'saas' or 'selfhosted'"
+            )
+        return self
+
+    @model_validator(mode="after")
     def _entra_requires_portal_api_key_pepper(self) -> "Settings":
         validate_portal_api_key_pepper_for_auth_mode(
             self.auth_mode,

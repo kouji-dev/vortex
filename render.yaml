@@ -35,8 +35,8 @@ services:
     name: ai-portal-app
     runtime: node
     rootDir: frontend
-    buildCommand: npm install && npm run build
-    startCommand: npm run start
+    buildCommand: npm install -g pnpm && pnpm install && pnpm run build
+    startCommand: pnpm run start
     plan: starter
     envVars:
       - key: VITE_AUTH_MODE
@@ -51,8 +51,8 @@ services:
     name: ai-portal-landing
     runtime: node
     rootDir: landing
-    buildCommand: npm install && npm run build
-    startCommand: npm run start
+    buildCommand: npm install -g pnpm && pnpm install && pnpm run build
+    startCommand: pnpm run start
     plan: starter
     envVars:
       - key: VITE_APP_URL

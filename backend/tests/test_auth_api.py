@@ -6,6 +6,7 @@ client = TestClient(app)
 
 def test_setup_endpoint_returns_400_in_saas_mode(monkeypatch):
     monkeypatch.setenv("DEPLOYMENT_MODE", "saas")
+    monkeypatch.setenv("SECRET_KEY", "test-secret-key-for-saas-mode")
     resp = client.post("/setup", json={
         "org_name": "Test Org",
         "admin_email": "admin@example.com",
