@@ -1,143 +1,193 @@
-# RAG capabilities — consolidated specification
+# RAG — actionable delivery checklist
 
-**Status:** living document (reconciles older RAG specs with the repo)  
+**Status:** living task list (replaces narrative-only planning for RAG)  
 **Date:** 2026-04-04  
-**Audience:** engineers and PM; use this file when planning RAG work.  
-**Supersedes as “index of truth”:** nothing — older specs remain historical detail. **This doc wins** when it disagrees with prose in older files.
+**Legacy detail:** [`2026-03-25-rag-enterprise-design.md`](./2026-03-25-rag-enterprise-design.md), [`2026-03-30-rag-retrieval-quality-improvements.md`](./2026-03-30-rag-retrieval-quality-improvements.md), [`2026-03-31-rag-toolcall-ingest-retrieval-design.md`](./2026-03-31-rag-toolcall-ingest-retrieval-design.md)
+
+This document is the **checklist engineers run against**: implementation boxes, validation boxes (pytest + **Playwright E2E** on the **isolated E2E stack** — not `local-dev`).
 
 ---
 
-## 1. Why this document exists
+## 1. E2E environment: `local-e2e` (not `local-dev`)
 
-The RAG story was captured across several specs written at different times. Some sections describe **pre-shipping** behavior (fixed-size chunking, `top_k=5` only, no citations). The codebase has **moved on**. Reading only [`2026-03-25-rag-enterprise-design.md`](./2026-03-25-rag-enterprise-design.md) or [`2026-03-30-rag-retrieval-quality-improvements.md`](./2026-03-30-rag-retrieval-quality-improvements.md) without cross-checking code is misleading.
+Playwright tests **must** target the dedicated E2E backend and database. Do **not** point E2E at the default dev API/DB.
 
-This document:
+| Stack | Compose project | Postgres | API default | Purpose |
+|--------|-----------------|----------|-------------|---------|
+| **Day-to-day dev** | `local-dev` (`docker-compose.yml`) | `127.0.0.1:5434` | varies | Human development |
+| **Playwright E2E** | **`local-e2e`** (`docker-compose.e2e.yml`) | **`127.0.0.1:5435`** / DB `ai_portal_e2e` | **`127.0.0.1:8001`** | Automated UI tests only |
 
-- **Resumes** the intent of the legacy specs in one place.
-- States **recommended delivery order** for remaining work.
-- Gives **backend vs UI** ownership per capability.
-- Gives **validation criteria** you can turn into tests or checklists.
+**Start the E2E API (from repo root):**
 
-### Source specs (read for depth, not for “current” flags)
+```bash
+./scripts/e2e-up.sh
+```
 
-| Document | Role |
-|----------|------|
-| [`2026-03-25-rag-enterprise-design.md`](./2026-03-25-rag-enterprise-design.md) | Product/engineering breadth (R-01–R-08), UX expectations, enterprise backlog. Many “as implemented” paragraphs are **stale**. |
-| [`2026-03-30-rag-retrieval-quality-improvements.md`](./2026-03-30-rag-retrieval-quality-improvements.md) | Ordered quality ideas (chunking, rerank, hybrid, HyDE). **Tier 1 narrative is stale** (chunking and retrieval evolved). Still useful for **backlog tiers** (HyDE, compression). |
-| [`2026-03-31-rag-toolcall-ingest-retrieval-design.md`](./2026-03-31-rag-toolcall-ingest-retrieval-design.md) | Tool-call RAG, ingest worker layout, hybrid + rerank, frontend behaviors. **Status line is stale** (several items are implemented). Phased plan at doc end is still a good **skeleton**. |
-| [`README.md`](./README.md) (implementation snapshot) | High-level shipped vs backlog; keep in sync when RAG milestones move. |
+**Run Playwright (separate terminal):**
 
-### Suggested reading order (onboarding)
+```bash
+cd frontend
+pnpm test:e2e          # headless
+pnpm test:e2e:ui       # UI mode
+```
 
-1. **This file** — scope, order, validation.
-2. **[`2026-03-31-rag-toolcall-ingest-retrieval-design.md`](./2026-03-31-rag-toolcall-ingest-retrieval-design.md)** — tool loop, ingest module layout, retrieval pipeline diagram.
-3. **[`2026-03-25-rag-enterprise-design.md`](./2026-03-25-rag-enterprise-design.md)** — product vocabulary and enterprise phases ( skim “as implemented”; trust §1 table below instead).
+Playwright (`playwright.config.ts`) starts Vite on **5174** with `VITE_DEV_API_PROXY_TARGET` → **`E2E_API_URL`** (default `http://127.0.0.1:8001`). `global-setup` fails fast if `/health` on that URL is down.
 
----
+**Reference:** [`frontend/e2e/README.md`](../../../frontend/e2e/README.md)
 
-## 2. Implementation snapshot (vs legacy prose)
+### E2E env vars (copy-paste awareness)
 
-Use this table when updating older specs or the README snapshot.
-
-| Area | Legacy docs often say | Repo today (high level) |
-|------|------------------------|-------------------------|
-| Chunking | Fixed 800-char splits | **`workers/ingest/chunking.py`** — Chonkie (semantic / code / fallback), ~512-token target, rich `meta`. |
-| Ingest execution | Inline only | **Still inline** from API (`asyncio.to_thread` → `ingest_document_worker`). Worker code is **modular**; **queue + separate process** is not done. |
-| Retrieval | Cosine `top_k=5`, inject into system | **Tool path:** `search_knowledge_base_tool` in **`services/rag.py`** — vector + **BM25** + **RRF** + **Voyage rerank** (cosine fallback) + **threshold**; used from **`api/conversations.py`** agent loop. **`retrieve_context_with_meta`** remains for simpler/tests; not the primary chat path. |
-| Chat UX | No citations | **`MessageKbIndicator`** shows KB usage + **source chips** (copy to clipboard). Stream shows **“Searching knowledge bases…”** during tool execution. |
-| Ingest UX | Async progress TBD | **KB detail** polls **`GET …/documents/{id}/progress`** for `chunks_done` / `chunks_total` while `ingesting`. |
-| DB | No tsvector | Migration **`017_ingest_progress_and_tsvector.py`** — `search_vector` on chunks, `chunks_total` / `chunks_done` on documents. |
-| `use_rag` request flag | Gates RAG | Field exists on **`StreamMessageBody`**; **not wired** to tool gating in the stream handler — tools are offered when **conversation has attached KBs**. (Follow-up: wire flag or document as reserved.) |
+| Variable | When needed |
+|----------|-------------|
+| `E2E_API_URL` | Default `http://127.0.0.1:8001` — must match `e2e-up.sh` API |
+| `E2E_BASE_URL` | Set only if Vite already running (skip Playwright `webServer`) |
+| `E2E_ENABLE_RAG_SEED=1` | On API: enables RAG seed routes for `rag-toolcall.spec.ts` / `chat-rag-indicator.spec.ts` |
+| `E2E_CHAT_ENABLED=1` | Run live LLM tests in `chat-send.spec.ts` |
+| `E2E_REQUIRE_LIVE_STREAM=1` | Run live streaming tool indicator test in `rag-toolcall.spec.ts` |
+| `E2E_REQUIRE_INGEST_READY=1` | Stricter ingest / file-size tests (embedding key + fixtures) |
 
 ---
 
-## 3. Recommended delivery order (remaining RAG work)
+## 2. Backend pytest bundle (all RAG-related PRs)
 
-This order matches **finish what we already agreed** (queue + reliability) before adding **new** retrieval science.
+Run from `backend/` with your normal `DATABASE_URL` for **unit** work, or against E2E DB when debugging ingest:
 
-| Phase | Theme | Rationale |
-|-------|--------|-----------|
-| **P0** | **Queued ingest + worker process** | Matches [`2026-03-31`](./2026-03-31-rag-toolcall-ingest-retrieval-design.md) §2 and enterprise §3: API should not block on large files; Redis already exists in Compose. |
-| **P1** | **Resumable / idempotent ingest** | Same specs: crash mid-batch should not always mean “start from zero” or undefined partial state; pairs with job retries from P0. |
-| **P2** | **Spec & registry hygiene** | Update status lines in 03-25 / 03-30 / 03-31 and the README snapshot so engineers do not re-implement hybrid search. |
-| **P3** | **Ingest UX polish** | Client-side **max file size** before upload; optional **HTTP upload progress** ([`2026-03-31`](./2026-03-31-rag-toolcall-ingest-retrieval-design.md) §5.1). |
-| **P4** | **`use_rag` semantics** | Either enforce “no tools when false” or remove/rename the field; align frontend. |
-| **P5** | **Agentic RAG** | Raise **`rag_max_tool_iterations`** above 1 when product wants multi-step search; add tests and UI affordances for multiple tool rounds. |
-| **P6+** | **Enterprise / quality backlog** | HyDE, OCR (**R-05**), connectors (**R-06**), shared KB ACL, guardrails on RAG text, FinOps — from enterprise + 03-30 Tier 2–3. |
+```bash
+cd backend
+pytest tests/test_rag_retrieval.py tests/test_ingest_worker.py tests/test_ingest_progress.py tests/test_knowledge_bases_api.py tests/test_conversations_api.py -q
+```
 
-Phases **P0–P1** are the critical path for “RAG pipeline is production-shaped.” **P2** prevents organizational thrash.
+- [ ] **T-B-00** — Above command passes locally before merge (expand with any new `test_*rag*` / `test_*kb*` / `test_*ingest*` files you add).
 
 ---
 
-## 4. Capability catalog — RAG features
+## 3. Playwright regression bundle (all RAG-related PRs)
 
-Each row: **what** the capability is, **backend** and **UI** surfaces, **status**, and **validation criteria** (objective checks).
+With **`./scripts/e2e-up.sh`** running (API on **8001**, DB **5435**):
 
-**Status legend:** `shipped` | `partial` | `planned` | `backlog`
+```bash
+cd frontend
+pnpm test:e2e
+```
 
-### 4.1 Corpus, access, and chat binding
+- [ ] **T-E-00** — Full default suite green (includes KB + conversation specs; excludes optional skips).
+- [ ] **T-E-01** — If you changed RAG seed / tool UI: start API with `E2E_ENABLE_RAG_SEED=1` and confirm `e2e/rag-toolcall.spec.ts` and `e2e/chat-rag-indicator.spec.ts` are not skipped and pass.
+- [ ] **T-E-02** — If you changed live streaming RAG: run with `E2E_REQUIRE_LIVE_STREAM=1` + working LLM key and confirm `rag-toolcall` live test passes.
+- [ ] **T-E-03** — If you changed ingest / file limits: run with `E2E_REQUIRE_INGEST_READY=1` when you have embeddings configured and confirm ingest + size tests pass.
 
-| ID | Capability | Backend | UI | Status | Validation criteria |
-|----|------------|---------|----|--------|---------------------|
-| **R-C01** | Knowledge bases (CRUD, owner-scoped) | `api/knowledge_bases.py`, `models/knowledge_base.py` | `/knowledge-bases`, create/edit flows | shipped | User can create KB, rename, see in list; API returns 403 for other user’s KB. |
-| **R-C02** | Documents under KB (upload, list, delete) | `POST/GET/DELETE …/knowledge-bases/{id}/documents` | KB detail route | shipped | Upload creates `pending` → terminal `ready` or `failed`; list shows status. |
-| **R-C03** | Attach KBs to conversation | `PUT …/conversations/{id}/knowledge-bases`, join table | `KbChatPicker` / conversation KB UI | shipped | Thread uses only attached KB IDs; API rejects unattached KBs. |
-| **R-C04** | Shared / tenant KB ACL | Not implemented | N/a | backlog | `can_access_knowledge_base` beyond owner; tests for cross-user attach and retrieval denial. |
+**Spec file map (existing):**
 
-### 4.2 Ingest pipeline
-
-| ID | Capability | Backend | UI | Status | Validation criteria |
-|----|------------|---------|----|--------|---------------------|
-| **R-I01** | Text extraction (pdf, md, txt, …) | `workers/ingest/readers.py` | Error surfaced on doc row | partial | Unsupported ext → `failed` with clear reason; golden file tests per type. |
-| **R-I02** | Semantic / code chunking | `workers/ingest/chunking.py` | N/a | shipped | Chunks have stable `meta` (source, section, page where applicable); no empty-only success. |
-| **R-I03** | Embeddings + persist chunks | `services/embedding.py`, `worker.py` | N/a | shipped | `document_chunks` rows with embedding; `documents.status=ready`. |
-| **R-I04** | Full-text `search_vector` on chunks | Ingest updates `tsvector`; migration `017_*` | N/a | shipped | BM25 leg of retrieval returns hits for keyword-only queries in tests. |
-| **R-I05** | Progress fields | `chunks_total`, `chunks_done`, progress API | Progress sub-row on KB detail while ingesting | shipped | During ingest, `chunks_done` increases; completes at `chunks_total`; stops polling when `ready`. |
-| **R-I06** | File size limit | Config `kb_max_file_size_mb`, API enforcement | Spec: client pre-check | partial | Reject oversize at API with clear error; optional: UI rejects before upload ([`2026-03-31`](./2026-03-31-rag-toolcall-ingest-retrieval-design.md) §5.1). |
-| **R-I07** | **Async queue + worker deployment** | Enqueue from API; consumer in separate process/container; Redis (or chosen broker) | Fast return on upload; job status visible | planned | Upload HTTP returns without waiting for embed completion; worker drains queue; integration test with real Redis. |
-| **R-I08** | **Resumable ingest** | Worker restarts from last safe batch OR defined full-replay rule | Same progress UI; no duplicate chunks | planned | Kill worker mid-ingest → retry completes to `ready` without corruption; DB chunk count matches expected. |
-
-### 4.3 Retrieval and grounding (chat)
-
-| ID | Capability | Backend | UI | Status | Validation criteria |
-|----|------------|---------|----|--------|---------------------|
-| **R-R01** | Tool `search_knowledge_base` in stream | `api/conversations.py` loop, `rag.search_knowledge_base_tool` | “Searching knowledge bases…” state | shipped | With KB attached, model can invoke tool; stream receives tool events; answer follows. |
-| **R-R02** | pgvector candidate retrieval | `services/rag.py` | N/a | shipped | Only `ready` docs in attached KBs; respects `rag_max_top_k`. |
-| **R-R03** | BM25 + RRF merge | `services/rag.py` | N/a | shipped | For query matching rare token in corpus, chunk appears in merged set (regression test). |
-| **R-R04** | Rerank (Voyage) + cosine fallback | `services/rag.py` | N/a | shipped | With `VOYAGE_API_KEY`, rerank path invoked; without key, cosine ordering still returns results. |
-| **R-R05** | Similarity threshold | `rag_similarity_threshold` | N/a | shipped | When all scores below threshold, tool returns empty context path; no bogus “sources”. |
-| **R-R06** | Source attribution + structured citations | Formatting in `rag.py`; parsing into `message.extra` | `MessageKbIndicator` Sources chips | shipped | Assistant message `extra` contains `used_kbs` with citations; UI lists chips; click copies ref. |
-| **R-R07** | `use_rag` request flag | Field on `StreamMessageBody` | Frontend may send flag | partial | **Either** flag disables tools when false **or** API docs state flag unused — covered by contract test. |
-| **R-R08** | Multi-iteration tool loop | `rag_max_tool_iterations` | Loading states for multiple searches | partial | Default 1; increasing N allows multiple tool rounds without stream corruption; e2e optional. |
-| **R-R09** | HyDE / query rewriting | N/a | N/a | backlog | Measurable recall improvement on short-query fixture set; latency budget documented. |
-| **R-R10** | `retrieve_context_with_meta` (legacy/simple) | `services/rag.py` | N/a | shipped | Unit tests; used where chat tool path is not invoked. |
-
-### 4.4 Enterprise / platform (explicit backlog)
-
-| ID | Capability | Backend | UI | Status | Validation criteria |
-|----|------------|---------|----|--------|---------------------|
-| **R-E01** | OCR / scanned PDF (**R-05**) | Extractor routing | Upload hints | backlog | Golden PDF images → text; failed docs marked clearly. |
-| **R-E02** | External connectors (**R-06**) | Sync jobs, cursors | Connector admin UI | backlog | Incremental sync; conflict rules documented. |
-| **R-E03** | Virus scan / content policy | Pre-ingest hook | Quarantine status | backlog | Infected file never reaches `ready`. |
-| **R-E04** | Guardrails on retrieved text (**GR-**) | Same pipeline as user input | Policy messaging | backlog | Block/redact logged; user sees safe outcome. |
-| **R-E05** | Blob storage + hashing | `storage_path` abstraction | N/a | backlog | Worker streams from blob URL; integrity check. |
+| File | Covers (high level) |
+|------|---------------------|
+| `e2e/kb.spec.ts` | KB list, create/delete |
+| `e2e/kb-list.spec.ts` | KB list behavior |
+| `e2e/kb-detail.spec.ts` | KB detail, upload, delete |
+| `e2e/ingest-progress.spec.ts` | Status transitions during ingest |
+| `e2e/chat-kb.spec.ts` | Attach KB, persistence, multi-KB retrieval (LLM) |
+| `e2e/conversation.spec.ts` | Composer, KB picker, indicator |
+| `e2e/rag-toolcall.spec.ts` | Seeded tool-call + optional live stream indicator |
+| `e2e/chat-rag-indicator.spec.ts` | KB indicator on messages (seed) |
+| `e2e/chat-send.spec.ts` | Chat flow (`E2E_CHAT_ENABLED=1`) |
 
 ---
 
-## 5. Cross-cutting validation (CI-friendly)
+## 4. Track A — Shipped capabilities (maintenance only)
 
-- **Backend:** `pytest` for `services/rag.py` (hybrid, rerank fallback, threshold), ingest worker tests, knowledge base API tests.
-- **Frontend:** e2e or component tests for KB progress, `MessageKbIndicator`, stream tool states (`frontend/e2e/` patterns).
-- **Contract:** OpenAPI / typed client stays aligned with `progress` and stream SSE event shapes when queue work lands.
+Complete **§2** and **§3** before merging. Below: per-area acceptance checks when you touch that code.
+
+### A-1 Corpus & KB UI
+
+| Task | Backend / UI | Validation checklist |
+|------|----------------|----------------------|
+| **A-1.1** KB CRUD & ownership | `api/knowledge_bases.py`, `/knowledge-bases` | - [ ] pytest: `test_knowledge_bases_api` relevant cases<br>- [ ] Playwright: `kb.spec.ts`, `kb-list.spec.ts` |
+| **A-1.2** Document upload & list | KB detail route, upload API | - [ ] Playwright: `kb-detail.spec.ts`<br>- [ ] Row reaches `ready` or `failed` (fixture + optional `E2E_REQUIRE_INGEST_READY`) |
+| **A-1.3** Attach KB to conversation | `PUT …/knowledge-bases`, picker | - [ ] Playwright: `chat-kb.spec.ts`, `conversation.spec.ts` |
+
+### A-2 Ingest pipeline (current: inline worker)
+
+| Task | Backend / UI | Validation checklist |
+|------|----------------|----------------------|
+| **A-2.1** Chunking + embeddings + `search_vector` | `workers/ingest/*`, migration `017_*` | - [ ] pytest: `test_ingest_worker.py`, `test_rag_retrieval.py` (BM25 path if covered) |
+| **A-2.2** Progress API + UI | progress endpoint, KB detail rows | - [ ] Playwright: `ingest-progress.spec.ts`<br>- [ ] Manual: `chunks_done` / `chunks_total` while `ingesting` |
+| **A-2.3** File size limit | `kb_max_file_size_mb` API | - [ ] pytest: API rejects oversize<br>- [ ] Playwright: extend `ingest-progress.spec.ts` or un-skip size test when `E2E_REQUIRE_INGEST_READY=1` + fixture exists |
+| **A-2.4** Unsupported file types | `readers.py` | - [ ] pytest or Playwright: upload → `failed` with clear outcome |
+
+### A-3 Retrieval & chat (tool-call RAG)
+
+| Task | Backend / UI | Validation checklist |
+|------|----------------|----------------------|
+| **A-3.1** `search_knowledge_base` tool + stream | `conversations.py`, `rag.py` | - [ ] pytest: conversation/kb tests that mock RAG where applicable<br>- [ ] Playwright: `E2E_ENABLE_RAG_SEED=1` → `rag-toolcall.spec.ts` |
+| **A-3.2** Hybrid + RRF + rerank + threshold | `rag.py` | - [ ] pytest: `test_rag_retrieval.py` (vector, threshold, etc.) |
+| **A-3.3** Citations + `MessageKbIndicator` | `rag.py`, indicator component | - [ ] Playwright: `rag-toolcall.spec.ts` popover; `chat-rag-indicator.spec.ts` if enabled<br>- [ ] Sources chips visible when `citations` present |
+| **A-3.4** “Searching knowledge bases…” | `ConversationThreadPage` | - [ ] Playwright: `E2E_REQUIRE_LIVE_STREAM=1` path in `rag-toolcall.spec.ts` OR manual stream observation |
+
+### A-4 Known gaps (document or fix)
+
+| Task | Work | Validation checklist |
+|------|------|----------------------|
+| **A-4.1** `use_rag` on `StreamMessageBody` | Wire to tool gating **or** document unused | - [ ] pytest: contract test for flag behavior<br>- [ ] OpenAPI / client types updated |
+| **A-4.2** Client-side max file size | `CreateKnowledgeBaseDialog` (per 03-31 spec) | - [ ] Playwright: reject before upload<br>- [ ] Copy matches server limit |
 
 ---
 
-## 6. Maintaining this document
+## 5. Track B — Queued ingest + worker process (P0)
 
-When you ship **R-I07**, **R-I08**, or move a row from `partial` → `shipped`:
+**Goal:** HTTP upload returns quickly; a **separate process** drains jobs (Redis or chosen broker); same DB as today.
 
-1. Update **§2** snapshot and the row in **§4**.
-2. Adjust **§3** phases (completed phases sink to “done” bullets or remove).
-3. Patch **[`README.md`](./README.md)** implementation snapshot so the registry matches.
+| Task | Backend | UI | Validation checklist |
+|------|---------|-----|----------------------|
+| **B-1** Job enqueue from API | Replace blocking `asyncio.to_thread(ingest…)` with enqueue + `queued` status | Show `queued` / `ingesting` in doc list | - [ ] pytest: API returns before ingest completes<br>- [ ] Integration: worker consumes job<br>- [ ] Playwright: `ingest-progress.spec.ts` updated for `queued` state if shown<br>- [ ] **E2E:** `pnpm test:e2e` on `local-e2e` stack still green |
+| **B-2** Worker container / script | Dockerfile or `python -m` entrypoint documented | N/a | - [ ] `docker-compose.e2e.yml` or `e2e-up.sh` can start worker (optional profile) OR documented second process<br>- [ ] CI doc updated |
+| **B-3** Redis (or broker) wiring | Config `REDIS_URL`, connection health | N/a | - [ ] pytest or smoke: enqueue + dequeue in test env<br>- [ ] No regression: existing `local-dev` redis unused by mistake for E2E DB |
 
-Do not delete older specs; add a one-line banner at the top of heavily stale files pointing here if confusion persists.
+---
+
+## 6. Track C — Resumable / idempotent ingest (P1)
+
+**Goal:** Retry after crash does not corrupt chunk sets; behavior matches chosen strategy (full replay vs tail resume).
+
+| Task | Backend | UI | Validation checklist |
+|------|---------|-----|----------------------|
+| **C-1** Define strategy | Document: wipe+replay **or** deterministic tail from `chunks_done` | N/a | - [ ] Spec paragraph in this file or 03-31 updated |
+| **C-2** Implement resume | Worker + job retry safe | Progress bar consistent | - [ ] pytest: simulate mid-batch failure + retry → `ready`, chunk count correct<br>- [ ] Playwright: optional long-file test with `E2E_REQUIRE_INGEST_READY=1` |
+| **C-3** Duplicate job idempotency | Same `document_id` enqueued twice | No double chunks | - [ ] pytest: concurrent / duplicate enqueue |
+
+---
+
+## 7. Track D — Docs & registry hygiene (P2)
+
+| Task | Validation checklist |
+|------|----------------------|
+| **D-1** Update status banners in `2026-03-31-rag-toolcall-ingest-retrieval-design.md` | - [ ] “Hybrid/rerank shipped” reflected<br>- [ ] Open items = queue + resume + UX gaps |
+| **D-2** Update `2026-03-25` / `2026-03-30` stale “as implemented” paragraphs | - [ ] Or pointer: “see consolidated checklist” |
+| **D-3** Sync [`README.md`](./README.md) implementation snapshot | - [ ] Matches Tracks A–C |
+
+---
+
+## 8. Track E — Product follow-ups (P3–P5)
+
+| Task | Validation checklist |
+|------|----------------------|
+| **E-1** Client upload progress (XHR) | - [ ] Playwright: assert progress UI during upload |
+| **E-2** `use_rag` semantics (see A-4.1) | - [ ] E2E: send with `use_rag: false` → no tool call path |
+| **E-3** `rag_max_tool_iterations` > 1 | - [ ] pytest: multi-tool round trip<br>- [ ] Playwright: multiple “Searching…” or stable loading state |
+| **E-4** HyDE / OCR / connectors / ACL | - [ ] Each gets its own spec + pytest + Playwright when scoped |
+
+---
+
+## 9. CI recommendation
+
+- **PR gate:** `ruff`, `pytest` (backend subset in §2), **`pnpm test:e2e`** against API on **8001** (job starts `e2e-up` or compose `local-e2e` + migrations + uvicorn).
+- **Optional jobs:** `E2E_ENABLE_RAG_SEED=1`, `E2E_REQUIRE_LIVE_STREAM=1`, `E2E_REQUIRE_INGEST_READY=1` as separate workflows with secrets.
+
+---
+
+## 10. Maintaining this checklist
+
+When a Track B/C task ships:
+
+1. Move its validation rows into **§3** / **§4** as regression items.
+2. Add or rename Playwright specs in the tables above.
+3. Bump **§1** if ports, compose project name, or env vars change.
+
+Do not delete older RAG specs; link here from their header when they drift.
