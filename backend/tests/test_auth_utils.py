@@ -56,3 +56,25 @@ def test_settings_has_secret_key_field():
     from ai_portal.config import Settings
     s = Settings(SECRET_KEY="mysecret")
     assert s.secret_key == "mysecret"
+
+
+def test_get_current_org_id_returns_uuid():
+    from unittest.mock import MagicMock
+    from ai_portal.api.deps import get_current_org_id
+
+    user = MagicMock()
+    user.org_id = uuid.uuid4()
+    result = get_current_org_id(user=user)
+    assert result == user.org_id
+
+
+def test_get_current_org_id_raises_when_no_org():
+    from unittest.mock import MagicMock
+    from fastapi import HTTPException
+    from ai_portal.api.deps import get_current_org_id
+
+    user = MagicMock()
+    user.org_id = None
+    with pytest.raises(HTTPException) as exc:
+        get_current_org_id(user=user)
+    assert exc.value.status_code == 403
