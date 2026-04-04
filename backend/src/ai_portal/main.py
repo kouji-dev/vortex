@@ -9,6 +9,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from ai_portal.api import (
+    auth,
     assistants,
     conversations,
     e2e,
@@ -72,6 +73,7 @@ def health() -> dict[str, Any]:
     }
 
 
+app.include_router(auth.router)
 app.include_router(model_catalog.router)
 app.include_router(me.router)
 app.include_router(assistants.router)

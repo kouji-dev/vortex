@@ -1,4 +1,5 @@
 import logging
+import uuid as _uuid
 from collections.abc import Generator
 
 import jwt
@@ -7,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ai_portal.auth.entra import decode_entra_access_token, roles_from_claims
+from ai_portal.auth.jwt import decode_token
 from ai_portal.config import get_settings
 from ai_portal.db.session import SessionLocal
 from ai_portal.models import User
@@ -56,6 +58,20 @@ def get_current_user(
                 status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid API key",
             )
+        return user
+
+    # New local auth: deployment_mode=saas|selfhosted uses JWT with uuid sub
+    if settings.deployment_mode in ("saas", "selfhosted"):
+        try:
+            payload = decode_token(token, secret=settings.secret_key)
+        except jwt.PyJWTError as e:
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from e
+        if payload.get("type") != "access":
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Not an access token")
+        user_uuid = _uuid.UUID(payload["sub"])
+        user = db.scalars(select(User).where(User.uuid == user_uuid)).first()
+        if user is None or not user.is_active:
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="User not found")
         return user
 
     if settings.auth_mode == "dev":
@@ -123,3 +139,15 @@ def get_current_user(
 
 def get_app_roles(request: Request) -> list[str]:
     return list(getattr(request.state, "app_roles", []) or [])
+
+
+def get_current_org_id(
+    user: User = Depends(get_current_user),
+) -> _uuid.UUID:
+    """Extract org_id from the authenticated user for tenant-scoped queries."""
+    if user.org_id is None:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            detail="User has no organization assigned.",
+        )
+    return user.org_id
