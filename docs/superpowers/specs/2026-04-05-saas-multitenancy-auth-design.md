@@ -213,6 +213,73 @@ The existing dev-token flow (`VITE_DEV_TOKEN`) continues to work for local devel
 
 ---
 
+## Landing Page (`landing/`)
+
+A separate TanStack Start app at `landing/` in the monorepo root, deployed independently on Render.
+
+**Purpose:** Public-facing marketing site — hero section, feature highlights, pricing placeholder, sign-up CTA that links to `app.<domain>/register`.
+
+**Structure:**
+```
+landing/
+  package.json         — separate TanStack Start app
+  src/
+    routes/
+      index.tsx        — home / hero
+      pricing.tsx      — pricing page (placeholder tiers)
+      features.tsx     — feature highlights
+  public/
+```
+
+**Domain split:**
+- `landing/` → `yourdomain.com` (Render static or Node service)
+- `frontend/` → `app.yourdomain.com`
+- `backend/` → `api.yourdomain.com`
+
+The landing app has no backend dependency — it is purely static/SSR marketing content.
+
+---
+
+## Deployment: Render + Supabase
+
+### Database
+
+Supabase is used as the managed Postgres provider. The app connects via the **Supabase connection string** only — no Supabase client SDK, no Supabase auth. The connection string is set in `DATABASE_URL` (same env var as today). pgvector must be enabled in the Supabase project settings (`CREATE EXTENSION vector`).
+
+```
+DATABASE_URL=postgresql://postgres:<password>@<host>:5432/<db>
+```
+
+Alembic migrations run as a Render deploy hook (`python -m alembic upgrade head`).
+
+### Render services
+
+| Service | Type | Source | Notes |
+|---------|------|--------|-------|
+| `ai-portal-api` | Web Service (Python) | `backend/` | Uvicorn; `$PORT` env var |
+| `ai-portal-app` | Web Service (Node) | `frontend/` | TanStack Start SSR or static |
+| `ai-portal-landing` | Static Site or Web Service | `landing/` | Marketing site |
+
+**Redis:** Render Redis add-on (or Upstash) for future async queue. Not required for Phase 1 (ingest is synchronous).
+
+### Environment variables (Render)
+
+```
+DEPLOYMENT_MODE=saas
+DATABASE_URL=<supabase connection string>
+SECRET_KEY=<jwt secret>
+EMAIL_FROM=<smtp config>
+CORS_ORIGINS=https://app.yourdomain.com
+```
+
+Self-hosted deployers set `DEPLOYMENT_MODE=selfhosted` and provide their own `DATABASE_URL`.
+
+### `render.yaml` (Infrastructure as Code)
+
+A `render.yaml` at the repo root declares all three services so both you (SaaS) and self-hosted customers can deploy with one click.
+
+---
+
 ## What is out of scope
 
 - Billing, subscription plans, payment processing (separate phase)
@@ -231,3 +298,5 @@ Each sub-project is implemented in sequence. They can each have their own `writi
 1. **Auth overhaul** — fastapi-users integration, new user table, login/register endpoints, JWT with org_id, dev/entra compat
 2. **Multi-tenancy core** — orgs table, tenant_id on all tables, Alembic migration, TenantRepository, API isolation
 3. **Deployment modes** — DEPLOYMENT_MODE config, setup wizard, org management API + UI, invite flow, frontend auth pages
+4. **Landing page** — `landing/` TanStack Start app, marketing pages, sign-up CTA
+5. **Render + Supabase deployment** — `render.yaml`, deploy hooks, env var docs, pgvector setup on Supabase
