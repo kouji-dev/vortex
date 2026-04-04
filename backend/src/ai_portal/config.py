@@ -39,6 +39,26 @@ class Settings(BaseSettings):
     # Local debugging only: include PyJWT error text in 401 responses for Entra tokens.
     entra_debug_jwt: bool = Field(default=False, validation_alias="ENTRA_DEBUG_JWT")
 
+    # New deployment mode — replaces auth_mode for new deployments.
+    # dev = dev token (backward compat)
+    # saas = open signup, JWT local auth
+    # selfhosted = invite-only, JWT local auth, setup wizard on first boot
+    deployment_mode: Literal["dev", "saas", "selfhosted"] = Field(
+        default="dev",
+        validation_alias=AliasChoices("DEPLOYMENT_MODE"),
+    )
+
+    # Required for local auth JWT signing.
+    # Generate with: python -c "import secrets; print(secrets.token_hex(32))"
+    secret_key: str = Field(default="", validation_alias=AliasChoices("SECRET_KEY"))
+
+    # SMTP for email verification, password reset, and invites
+    smtp_host: str = Field(default="", validation_alias=AliasChoices("SMTP_HOST"))
+    smtp_port: int = Field(default=587, validation_alias=AliasChoices("SMTP_PORT"))
+    smtp_user: str = Field(default="", validation_alias=AliasChoices("SMTP_USER"))
+    smtp_password: str = Field(default="", validation_alias=AliasChoices("SMTP_PASSWORD"))
+    email_from: str = Field(default="noreply@example.com", validation_alias=AliasChoices("EMAIL_FROM"))
+
     # OpenAI chat + OpenAI-compatible embeddings (direct API or compatible gateway).
     openai_api_base: str = Field(
         default="https://api.openai.com/v1",
@@ -185,6 +205,9 @@ def settings_log_snapshot(st: Settings) -> dict[str, Any]:
         "langfuse_host": st.langfuse_host,
         "langfuse_public_key_set": bool(st.langfuse_public_key.strip()),
         "langfuse_secret_key_set": bool(st.langfuse_secret_key.strip()),
+        "deployment_mode": st.deployment_mode,
+        "secret_key_set": bool(st.secret_key.strip()),
+        "smtp_host": st.smtp_host or "(not set)",
     }
 
 

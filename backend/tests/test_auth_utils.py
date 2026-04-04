@@ -42,3 +42,17 @@ def test_decode_token_wrong_secret_raises():
     token = create_access_token(user_uuid=user_uuid, org_id=org_id, role="member", secret="good")
     with pytest.raises(Exception):
         decode_token(token, secret="bad")
+
+
+def test_settings_deployment_mode_defaults_to_dev():
+    import os
+    # Save and clear env vars that might affect this test
+    from ai_portal.config import Settings
+    s = Settings()
+    assert s.deployment_mode == "dev"
+
+
+def test_settings_has_secret_key_field():
+    from ai_portal.config import Settings
+    s = Settings(SECRET_KEY="mysecret")
+    assert s.secret_key == "mysecret"
