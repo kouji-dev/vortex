@@ -83,6 +83,7 @@ def list_catalog_models(
     db: Session = Depends(get_db),
     _user: User = Depends(get_current_user),
 ) -> list[CatalogModelRead]:
+    # catalog_models.org_id is set but not yet used for per-org visibility
     rows = list(
         db.scalars(
             select(CatalogModel)
