@@ -8,7 +8,7 @@
 
 ## Product intent
 
-Ship a **Product Hunt–ready public beta**: a **separate marketing site** (own domain), a **hosted product** on **Render**, and **self-serve sign-in** via **Google**, **GitHub**, and **email magic link**—implemented **in-house** (no managed B2C vendor for v1). **Enterprise** customers continue toward **organization + Microsoft Entra** (or similar) as a **later phase**, sharing the same long-term **user / tenant** model.
+Ship a **Product Hunt–ready public beta**: a **separate marketing site** (own domain), **API and web apps served on Render**, **PostgreSQL on Supabase** (for now), and **self-serve sign-in** via **Google**, **GitHub**, and **email magic link**—implemented **in-house** (no managed B2C vendor for v1). **Enterprise** customers continue toward **organization + Microsoft Entra** (or similar) as a **later phase**, sharing the same long-term **user / tenant** model.
 
 **Success criteria (beta)**
 
@@ -28,6 +28,12 @@ Ship a **Product Hunt–ready public beta**: a **separate marketing site** (own 
 ---
 
 ## Architecture
+
+### Hosting and database (v1)
+
+- **Render** hosts **only** the **backend API** and the **two web frontends** (`frontend/` product app and `landing/` marketing site). **No** managed Postgres on Render for this beta.
+- **Supabase** provides **PostgreSQL** (same engine the app already targets). Use Supabase’s **connection string** as `DATABASE_URL` (and related settings) on the Render API service. Enable the **`vector`** extension in Supabase for **pgvector** / RAG if not already on the project.
+- **Migrations** (Alembic) run against Supabase from **CI or deploy hooks** or a **one-off** process; use Supabase docs for **pooling vs direct** URLs (migrations typically need the **direct** session-capable connection; the API may use the **pooler** for steady traffic—implementation plan will spell this out).
 
 ### Identity spine
 
@@ -64,7 +70,7 @@ Ship a **Product Hunt–ready public beta**: a **separate marketing site** (own 
 | Product app | `frontend/` | Existing TanStack Start app; sign-in/up routes, post-login shell. |
 | Landing | `landing/` | **New** app, **same stack** as `frontend/` (TanStack Start, Vite, Tailwind). |
 | API | `backend/` | OAuth callbacks, magic link, email, JWT/session issuance, identity tables. |
-| Infra | `render.yaml` (to be added) | Postgres + API + frontend + landing services; env groups as needed. |
+| Infra | `render.yaml` (to be added) | **API + frontend + landing** web services only; **`DATABASE_URL`** points at **Supabase** (secret on Render). |
 
 **Landing content (v1)**
 
@@ -102,7 +108,7 @@ Ship a **Product Hunt–ready public beta**: a **separate marketing site** (own 
 - **Unit:** Token hashing, TTL, linking rules, JWT/session creation.
 - **Integration:** Mocked IdP token/userinfo exchange; magic-link flow with test fixtures.
 - **E2E:** Staging or dev-only fixtures; do not weaken production security for tests.
-- **Render:** **Staging** stack with real OAuth app **redirect URIs** for staging URLs.
+- **Render (web):** **Staging** URLs registered in OAuth apps for **redirect URIs** and **CORS**.
 
 ---
 
@@ -110,7 +116,7 @@ Ship a **Product Hunt–ready public beta**: a **separate marketing site** (own 
 
 | Phase | Goal |
 |-------|------|
-| **0 — Render skeleton** | Managed Postgres; deploy API, `frontend/`, `landing/`; migrations; health checks; staging + prod; custom domains. |
+| **0 — Hosting skeleton** | **Supabase** project (Postgres, `vector` for RAG); **Render** services for API + `frontend/` + `landing/`; wire `DATABASE_URL` and secrets; run migrations against Supabase; health checks; staging + prod; custom domains on Render. |
 | **1 — Consumer auth** | Google + GitHub OAuth + magic link; identity persistence; wire `frontend/` auth UI; CORS and redirect URIs for all deployed origins. |
 | **2 — Beta hardening** | Stabilize core product paths; logging/alerts; privacy/terms; support channel; optional status banner. |
 | **3 — Product Hunt** | Landing polish, assets, demo narrative, launch-day monitoring. |
@@ -120,7 +126,7 @@ Ship a **Product Hunt–ready public beta**: a **separate marketing site** (own 
 
 ## Self-review notes (2026-04-04)
 
-- **Placeholders:** OAuth client registration steps are generic by necessity; implementation plan will name concrete env vars and Render service names.
+- **Placeholders:** OAuth client registration steps are generic by necessity; implementation plan will name concrete env vars, Render service names, and Supabase connection/pooling choices.
 - **Consistency:** Entra doc assumes SPA Bearer for MVP; consumer path may use refresh cookies **when domain layout allows**—both coexist under explicit `AUTH_MODE` / deployment docs.
 - **Scope:** Single spec for landing + deploy + consumer auth + roadmap; implementation should still be split into **tickets** (deploy vs auth vs landing content).
 - **Ambiguity resolved:** Account linking v1 = **verified-email auto-link**; magic links are **single-use, short TTL, stored hashed**.
