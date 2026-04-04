@@ -72,6 +72,8 @@ const markdownComponents: Components = {
       {children}
     </a>
   ),
+  /** Model-generated `![]()` is not rendered (privacy / hot-link / SSRF). See delivery memo Step 1 decisions. */
+  img: () => null,
   pre: ({ children }) => {
     const fence = extractFenceFromPreChildren(children)
     if (fence) {

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLocation, useNavigate } from '@tanstack/react-router'
 import { Copy } from 'lucide-react'
 import * as React from 'react'
+import { flushSync } from 'react-dom'
 
 import {
   ChatComposerDock,
@@ -12,8 +13,10 @@ import { KbChatPicker } from '~/components/knowledge-bases/KbChatPicker'
 import { MessageKbIndicator } from '~/components/knowledge-bases/MessageKbIndicator'
 import { EmptyConversationState } from '~/components/chat/EmptyConversationState'
 import { MarkdownMessage } from '~/components/chat/MarkdownMessage'
+import { StartersPanel } from '~/components/chat/StartersPanel'
 import type { SessionModelTuning } from '~/components/chat/ModelTuningModal'
 import { defaultTuningFromCatalog } from '~/components/chat/ModelTuningModal'
+import { useChatCapabilityProfileQuery } from '~/hooks/useChatCapabilityProfileQuery'
 import { useCatalogModelsQuery } from '~/hooks/useCatalogModelsQuery'
 import { useConversationMessagesTailQuery } from '~/hooks/useConversationMessagesTailQuery'
 import { useConversationQuery } from '~/hooks/useConversationQuery'
@@ -33,6 +36,7 @@ import { parseSseBlocks } from '~/lib/sse-parse'
 import { useConversationsOutlet } from '~/contexts/ConversationsOutletContext'
 
 const MESSAGES_LIMIT = 100
+const MAX_ATTACHMENTS_PER_MESSAGE = 5
 
 /** Distance from scroll bottom (px) treated as "following" the thread — auto-scroll SSE only then. */
 const THREAD_BOTTOM_STICKY_PX = 80
@@ -76,9 +80,27 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
     defaultTuningFromCatalog(null),
   )
   const [draftKbIds, setDraftKbIds] = React.useState<number[]>([])
+  const [pendingAttachments, setPendingAttachments] = React.useState<
+    { id: number; name: string }[]
+  >([])
+  const [pendingComposerFiles, setPendingComposerFiles] = React.useState<File[]>([])
+  const lastStreamBodyRef = React.useRef<Record<string, unknown> | null>(null)
+  const streamHadSseErrorRef = React.useRef(false)
 
   const convQ = useConversationQuery(conversationId)
   const catalogQ = useCatalogModelsQuery()
+  const capProfileQ = useChatCapabilityProfileQuery(true)
+  const capabilityDescriptions = React.useMemo(
+    () =>
+      capProfileQ.data
+        ? {
+            reflection: capProfileQ.data.reflection.description,
+            research: capProfileQ.data.research.description,
+            web: capProfileQ.data.web.description,
+          }
+        : undefined,
+    [capProfileQ.data],
+  )
 
   const knowledge_base_ids = convQ.data?.knowledge_base_ids ?? []
 
@@ -106,6 +128,11 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
 
   React.useEffect(() => {
     if (conversationId != null) setDraftKbIds([])
+  }, [conversationId])
+
+  React.useEffect(() => {
+    setPendingAttachments([])
+    setPendingComposerFiles([])
   }, [conversationId])
 
   const conversationMissing =
@@ -174,6 +201,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
       if (!res.ok) throw new Error(await res.text())
     },
     onSuccess: () => {
+      setConfirmDeleteOpen(false)
       void qc.invalidateQueries({ queryKey: queryKeys.conversations() })
       void navigate({ to: '/chat/conversations' })
     },
@@ -212,6 +240,43 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
     })
   }
 
+  const onLocalFilesChosen = React.useCallback(
+    async (files: File[]) => {
+      const list = files.slice(0, MAX_ATTACHMENTS_PER_MESSAGE)
+      if (isComposerMode) {
+        setPendingComposerFiles((p) => [...p, ...list].slice(0, MAX_ATTACHMENTS_PER_MESSAGE))
+        return
+      }
+      if (conversationId == null) return
+      const room = MAX_ATTACHMENTS_PER_MESSAGE - pendingAttachments.length
+      if (room <= 0) return
+      for (const f of list.slice(0, room)) {
+        try {
+          const fd = new FormData()
+          fd.append('file', f)
+          const res = await fetch(
+            `${apiBase}/api/chat/conversations/${conversationId}/uploads`,
+            { method: 'POST', headers: await getAuthHeaders(), body: fd },
+          )
+          if (!res.ok) {
+            setSendError(await res.text())
+            return
+          }
+          const j = (await res.json()) as { id: number; original_filename: string }
+          setPendingAttachments((p) =>
+            [...p, { id: j.id, name: j.original_filename }].slice(
+              0,
+              MAX_ATTACHMENTS_PER_MESSAGE,
+            ),
+          )
+        } catch (e) {
+          setSendError(e instanceof Error ? e.message : 'Upload failed')
+        }
+      }
+    },
+    [apiBase, conversationId, isComposerMode, pendingAttachments.length],
+  )
+
   const loadOlder = async () => {
     if (conversationId == null) return
     const first = visibleMessages[0]
@@ -244,6 +309,8 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
     streamAbortRef.current?.abort()
     const ac = new AbortController()
     streamAbortRef.current = ac
+    lastStreamBodyRef.current = body
+    streamHadSseErrorRef.current = false
     setSendError(null)
     setStreaming(true)
     setStreamingText('')
@@ -287,6 +354,12 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
           }
           if (e.type === 'error') {
             setIsSearchingKb(false)
+            streamHadSseErrorRef.current = true
+            setSendError(
+              typeof e.detail === 'string' && e.detail.trim()
+                ? e.detail
+                : 'The assistant returned an error.',
+            )
           }
           if (e.type === 'done') {
             setIsSearchingKb(false)
@@ -323,6 +396,10 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
     }
     if (streamReachedTerminal && body.regenerate_after_message_id == null) {
       setComposeDraft('')
+      if (!streamHadSseErrorRef.current) {
+        setPendingAttachments([])
+        setSendError(null)
+      }
     }
   }
 
@@ -331,19 +408,29 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
 
   const pendingStream = location.state?.pendingStream
 
+  const pendingAttachIdsKey = (pendingStream?.attachment_ids ?? []).join(',')
+
   React.useLayoutEffect(() => {
     if (conversationId == null) return
     const pending = pendingStream
-    if (!pending?.content?.trim() || !pending.bootstrapId) return
+    if (!pending?.bootstrapId) return
+    const hasPayload =
+      Boolean(pending.content?.trim()) ||
+      (pending.attachment_ids != null && pending.attachment_ids.length > 0)
+    if (!hasPayload) return
     const key = `aip-bs-${pending.bootstrapId}`
     if (sessionStorage.getItem(key)) return
     sessionStorage.setItem(key, '1')
 
     const body: Record<string, unknown> = {
-      content: pending.content.trim(),
+      content:
+        pending.content.trim() ||
+        (pending.attachment_ids?.length ? '(Attached files)' : ''),
       use_rag: pending.use_rag,
     }
     if (pending.model) body.model = pending.model
+    if (pending.attachment_ids?.length)
+      body.attachment_ids = pending.attachment_ids
 
     void (async () => {
       try {
@@ -357,11 +444,23 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
         })
       }
     })()
-  }, [conversationId, pendingStream?.bootstrapId, pendingStream?.content, navigate])
+  }, [
+    conversationId,
+    navigate,
+    pendingAttachIdsKey,
+    pendingStream?.bootstrapId,
+    pendingStream?.content,
+    pendingStream?.model,
+    pendingStream?.use_rag,
+  ])
 
   const sendStream = async (text: string) => {
     const trimmed = text.trim()
-    if (!trimmed) return
+    const canSend =
+      Boolean(trimmed) ||
+      (!isComposerMode && pendingAttachments.length > 0) ||
+      (isComposerMode && pendingComposerFiles.length > 0)
+    if (!canSend) return
 
     if (isComposerMode) {
       setSendError(null)
@@ -388,9 +487,27 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
           return
         }
         const created = (await res.json()) as { id: number }
+        const attachment_ids: number[] = []
+        const filesToSend = [...pendingComposerFiles]
+        for (const f of filesToSend) {
+          const fd = new FormData()
+          fd.append('file', f)
+          const up = await fetch(
+            `${apiBase}/api/chat/conversations/${created.id}/uploads`,
+            { method: 'POST', headers: await getAuthHeaders(), body: fd },
+          )
+          if (!up.ok) {
+            setSendError(await up.text())
+            return
+          }
+          attachment_ids.push((await up.json()).id as number)
+        }
+        setPendingComposerFiles([])
         void qc.invalidateQueries({ queryKey: queryKeys.conversations() })
         const modelParam = draftModel.trim() || undefined
         const bootstrapId = crypto.randomUUID()
+        const streamContent =
+          trimmed || (attachment_ids.length > 0 ? '(Attached files)' : '')
         setComposeDraft('')
         void navigate({
           to: '/chat/conversations/$id',
@@ -399,9 +516,10 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
           state: {
             pendingStream: {
               bootstrapId,
-              content: trimmed,
+              content: streamContent,
               use_rag: draftKbIds.length > 0,
               ...(modelParam ? { model: modelParam } : {}),
+              ...(attachment_ids.length > 0 ? { attachment_ids } : {}),
             },
           },
         })
@@ -413,10 +531,12 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
 
     const modelParam = modelDraft.trim() || undefined
     const body: Record<string, unknown> = {
-      content: trimmed,
+      content: trimmed || (pendingAttachments.length > 0 ? '(Attached files)' : ''),
       use_rag: true,
     }
     if (modelParam) body.model = modelParam
+    if (pendingAttachments.length > 0)
+      body.attachment_ids = pendingAttachments.map((a) => a.id)
     await runStream(body)
   }
 
@@ -522,6 +642,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
           <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
             <button
               type="button"
+              data-testid="thread-header-delete-open"
               className="rounded border border-red-300 px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/40"
               disabled={deleteConv.isPending}
               onClick={() => setConfirmDeleteOpen(true)}
@@ -568,7 +689,29 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
           />
         ) : (
           <>
-        <ul className="flex w-full flex-col gap-5">
+        {!threadMessagesLoading &&
+          !showEmptyHub &&
+          visibleMessages.length > 0 &&
+          chatStartersFetched &&
+          chatStarters?.sections &&
+          chatStarters.sections.length > 0 && (
+            <details
+              data-testid="chat-starters-collapsed"
+              className="mb-4 rounded-lg border border-neutral-200/80 bg-neutral-50/50 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900/40"
+            >
+              <summary className="cursor-pointer text-xs font-medium text-neutral-600 dark:text-neutral-400">
+                Suggested prompts
+              </summary>
+              <div className="mt-2 border-t border-neutral-200/60 pt-3 dark:border-neutral-700">
+                <StartersPanel
+                  variant="sidebar"
+                  sections={chatStarters.sections}
+                  setComposeDraft={setComposeDraft}
+                />
+              </div>
+            </details>
+          )}
+        <ul className="flex w-full flex-col gap-5" role="log" aria-label="Conversation messages">
           {visibleMessages.map((m) => {
             const isUserSide = m.role === 'user'
             const isSystem = m.role === 'system'
@@ -578,6 +721,12 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
               m.role === 'assistant' && isPersistedStreamErrorMessage(m.content)
             const roleLabel =
               isErrorAssistant ? 'error' : m.role === 'system' ? 'system' : m.role
+            const userAttachments =
+              (m.extra?.attachments as
+                | { id: number; original_filename: string }[]
+                | undefined) ?? []
+            const extraKeys = m.extra ? Object.keys(m.extra) : []
+            const showMetaDetails = extraKeys.some((k) => k !== 'attachments')
             return (
               <li
                 key={m.id}
@@ -646,6 +795,21 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
                         : ''
                     }
                   >
+                    {isUserSide && userAttachments.length > 0 && (
+                      <ul
+                        className="mb-2 flex flex-wrap gap-1.5"
+                        aria-label="Attachments sent with this message"
+                      >
+                        {userAttachments.map((a) => (
+                          <li
+                            key={a.id}
+                            className="rounded-full border border-neutral-200/90 bg-white/80 px-2 py-0.5 text-[10px] text-neutral-700 dark:border-neutral-600 dark:bg-neutral-950/60 dark:text-neutral-300"
+                          >
+                            {a.original_filename}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                     <MarkdownMessage
                       content={m.content}
                       className={
@@ -659,7 +823,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
                       }
                     />
                   </div>
-                  {m.extra != null && Object.keys(m.extra).length > 0 && (
+                  {showMetaDetails && m.extra != null && Object.keys(m.extra).length > 0 && (
                     <details className="mt-2 text-xs">
                       <summary className="cursor-pointer text-neutral-500 dark:text-neutral-400">
                         Message metadata
@@ -682,7 +846,12 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
         </ul>
         {streaming && (
           <div className="mt-1 w-full">
-            <div className="stream-surface-breathe w-full max-w-none rounded-2xl bg-white/90 px-4 py-3 dark:bg-neutral-900/75">
+            <div
+              className="stream-surface-breathe w-full max-w-none rounded-2xl bg-white/90 px-4 py-3 dark:bg-neutral-900/75"
+              aria-live="polite"
+              aria-busy="true"
+              aria-label="Assistant is responding"
+            >
               <div className="mb-1.5 flex items-center justify-between gap-2">
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
                   assistant
@@ -699,7 +868,10 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
                 </div>
               </div>
               {isSearchingKb && (
-                <p className="mb-1.5 flex items-center gap-1.5 text-xs text-blue-500 dark:text-blue-400 animate-pulse">
+                <p
+                  data-testid="chat-stream-kb-searching"
+                  className="mb-1.5 flex items-center gap-1.5 text-xs text-blue-500 dark:text-blue-400 animate-pulse"
+                >
                   Searching knowledge bases…
                 </p>
               )}
@@ -727,7 +899,21 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
           className="shrink-0 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/50 dark:text-red-200"
           role="alert"
         >
-          {sendError}
+          <p>{sendError}</p>
+          {lastStreamBodyRef.current && (
+            <button
+              type="button"
+              data-testid="chat-stream-retry"
+              className="mt-2 text-xs font-medium text-blue-700 underline decoration-dotted underline-offset-2 dark:text-blue-400"
+              disabled={streaming}
+              onClick={() => {
+                const b = lastStreamBodyRef.current
+                if (b) void runStream(b)
+              }}
+            >
+              Retry
+            </button>
+          )}
         </div>
       )}
 
@@ -746,12 +932,24 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
         capabilities={caps}
         onToggleCapability={toggleCapability}
         capabilityDisabled={!isComposerMode && (patchConv.isPending || convQ.isPending)}
+        capabilityDescriptions={capabilityDescriptions}
         composeDraft={composeDraft}
         setComposeDraft={setComposeDraft}
         onSubmit={() => {
-          const t = composeDraft.trim()
-          if (t && !streaming) void sendStream(t)
+          if (!streaming) void sendStream(composeDraft)
         }}
+        pendingServerAttachments={isComposerMode ? undefined : pendingAttachments}
+        pendingLocalFileNames={
+          isComposerMode ? pendingComposerFiles.map((f) => f.name) : undefined
+        }
+        onRemoveServerAttachment={(id) =>
+          setPendingAttachments((p) => p.filter((x) => x.id !== id))
+        }
+        onRemoveLocalFile={(index) =>
+          setPendingComposerFiles((p) => p.filter((_, i) => i !== index))
+        }
+        onLocalFilesChosen={onLocalFilesChosen}
+        attachDisabled={streaming}
         streaming={streaming}
         onStop={stopStream}
         inputThemed={inputThemed}
@@ -803,7 +1001,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
                 className="rounded-lg bg-red-600 px-3 py-1.5 text-sm text-white hover:bg-red-500 disabled:opacity-50"
                 disabled={deleteConv.isPending}
                 onClick={() => {
-                  deleteConv.mutate(undefined, { onSuccess: () => setConfirmDeleteOpen(false) })
+                  deleteConv.mutate()
                 }}
               >
                 Delete

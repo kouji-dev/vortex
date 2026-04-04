@@ -7,10 +7,9 @@
  */
 import { test, expect } from '@playwright/test'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
-import { createKnowledgeBase } from './helpers/knowledge-api'
+import { createKnowledgeBase } from '../support/knowledge-api'
+import { E2E_FIXTURES_DIR } from '../support/fixtures-dir'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const apiBase = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
 
 async function createKbAndNavigate(
@@ -186,7 +185,7 @@ test.describe('KB detail page', () => {
     const name = `E2E KB upload-doc ${Date.now()}`
     const id = await createKbAndNavigate(page, request, name)
     try {
-      const filePath = path.join(__dirname, 'fixtures', 'sample-e2e.txt')
+      const filePath = path.join(E2E_FIXTURES_DIR, 'sample-e2e.txt')
       await page.getByTestId('kb-upload-input').setInputFiles(filePath)
       // The documents section heading appears
       await expect(page.getByRole('heading', { name: 'Documents', exact: true })).toBeVisible()
@@ -198,47 +197,7 @@ test.describe('KB detail page', () => {
     }
   })
 
-  test('document row reaches ready or failed terminal state', async ({ page, request }) => {
-    test.setTimeout(180_000)
-    const name = `E2E KB terminal ${Date.now()}`
-    const id = await createKbAndNavigate(page, request, name)
-    try {
-      const filePath = path.join(__dirname, 'fixtures', 'sample-e2e.txt')
-      await page.getByTestId('kb-upload-input').setInputFiles(filePath)
-      await expect(async () => {
-        const row = page.getByRole('row', { name: /sample-e2e\.txt/ })
-        await expect(row).toBeVisible()
-        const statusText = (await row.getByRole('cell').nth(1).textContent())?.trim() ?? ''
-        expect(['ready', 'failed']).toContain(statusText)
-      }).toPass({ timeout: 120_000 })
-    } finally {
-      await deleteKbViaApi(request, id)
-    }
-  })
-
-  test('document status cell is colour-coded: green for ready', async ({ page, request }) => {
-    test.skip(
-      process.env.E2E_REQUIRE_INGEST_READY !== '1',
-      'Set E2E_REQUIRE_INGEST_READY=1 with a working embeddings API key.',
-    )
-    test.setTimeout(180_000)
-    const name = `E2E KB color-ready ${Date.now()}`
-    const id = await createKbAndNavigate(page, request, name)
-    try {
-      await page.getByTestId('kb-upload-input').setInputFiles(
-        path.join(__dirname, 'fixtures', 'sample-e2e.txt'),
-      )
-      await expect(async () => {
-        const statusCell = page
-          .getByRole('row', { name: /sample-e2e\.txt/ })
-          .getByRole('cell')
-          .nth(1)
-        await expect(statusCell.locator('span')).toHaveClass(/text-green-700/, { timeout: 0 })
-      }).toPass({ timeout: 120_000 })
-    } finally {
-      await deleteKbViaApi(request, id)
-    }
-  })
+  // Full ingest-to-ready is covered in kb/ingest-progress.spec.ts.
 
   // ──────────────────────────────────────────────────────────────
   // Document deletion
@@ -250,7 +209,7 @@ test.describe('KB detail page', () => {
     const id = await createKbAndNavigate(page, request, name)
     try {
       await page.getByTestId('kb-upload-input').setInputFiles(
-        path.join(__dirname, 'fixtures', 'sample-e2e.txt'),
+        path.join(E2E_FIXTURES_DIR, 'sample-e2e.txt'),
       )
       const row = page.getByRole('row', { name: /sample-e2e\.txt/ })
       await expect(row).toBeVisible({ timeout: 15_000 })
@@ -266,7 +225,7 @@ test.describe('KB detail page', () => {
     const id = await createKbAndNavigate(page, request, name)
     try {
       await page.getByTestId('kb-upload-input').setInputFiles(
-        path.join(__dirname, 'fixtures', 'sample-e2e.txt'),
+        path.join(E2E_FIXTURES_DIR, 'sample-e2e.txt'),
       )
       const row = page.getByRole('row', { name: /sample-e2e\.txt/ })
       await expect(row).toBeVisible({ timeout: 15_000 })
@@ -284,7 +243,7 @@ test.describe('KB detail page', () => {
     const id = await createKbAndNavigate(page, request, name)
     try {
       await page.getByTestId('kb-upload-input').setInputFiles(
-        path.join(__dirname, 'fixtures', 'sample-e2e.txt'),
+        path.join(E2E_FIXTURES_DIR, 'sample-e2e.txt'),
       )
       const row = page.getByRole('row', { name: /sample-e2e\.txt/ })
       await expect(row).toBeVisible({ timeout: 15_000 })

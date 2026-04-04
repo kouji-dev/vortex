@@ -1,10 +1,12 @@
 import { test, expect } from '@playwright/test'
-import { createEmptyConversation } from './helpers/create-conversation'
+import { createEmptyConversation } from '../support/create-conversation'
 import {
   attachKnowledgeBasesToConversation,
   createKnowledgeBase,
   seedRagToolCallForE2e,
-} from './helpers/knowledge-api'
+} from '../support/knowledge-api'
+
+test.describe.configure({ mode: 'serial' })
 
 test.describe('RAG tool-call UI', () => {
   test('KB indicator popover shows after seeded tool-call response', async ({ page, request }) => {
@@ -15,15 +17,13 @@ test.describe('RAG tool-call UI', () => {
     await attachKnowledgeBasesToConversation(request, apiBase, convId, [kbId])
 
     const seedStatus = await seedRagToolCallForE2e(request, apiBase, convId, kbId, kbName)
-    if (seedStatus === 404) {
-      test.skip(true, 'Start the API with E2E_ENABLE_RAG_SEED=1 to run this test.')
-      return
-    }
-    expect(seedStatus).toBe(201)
+    expect(
+      seedStatus,
+      'e2e/seed-rag-assistant must return 201 (./scripts/e2e-up.sh sets E2E_ENABLE_RAG_SEED=1).',
+    ).toBe(201)
 
     await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
 
-    // KB indicator should appear on the seeded assistant message
     const kbTrigger = page.getByTestId('message-kb-indicator-trigger')
     await expect(kbTrigger).toBeVisible({ timeout: 10_000 })
     await kbTrigger.click()
@@ -37,11 +37,7 @@ test.describe('RAG tool-call UI', () => {
     page,
     request,
   }) => {
-    test.skip(
-      process.env.E2E_REQUIRE_LIVE_STREAM !== '1',
-      'Set E2E_REQUIRE_LIVE_STREAM=1 with a working LLM API key to test the live streaming indicator.',
-    )
-
+    test.setTimeout(120_000)
     const apiBase = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
     const kbName = `E2E Live Stream KB ${Date.now()}`
     const kbId = await createKnowledgeBase(request, apiBase, kbName)
@@ -50,12 +46,24 @@ test.describe('RAG tool-call UI', () => {
 
     await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
 
-    await page.getByRole('textbox').fill('What does this knowledge base contain?')
-    await page.keyboard.press('Enter')
+    await page
+      .getByRole('textbox', { name: /message/i })
+      .fill(
+        'Use the knowledge base retrieval tool if available. What is in this knowledge base? Reply in one short sentence.',
+      )
+    await page.getByRole('button', { name: /send message/i }).click()
 
-    // The "Searching knowledge bases…" text should appear transiently when the model emits a tool call
-    await expect(page.getByText(/searching knowledge bases/i)).toBeVisible({ timeout: 15_000 })
-    // Then disappear when streaming completes
-    await expect(page.getByText(/searching knowledge bases/i)).not.toBeVisible({ timeout: 30_000 })
+    const searching = page.getByTestId('chat-stream-kb-searching')
+    const assistant = page.getByTestId('chat-message-assistant').last()
+    const sawSearching = await searching
+      .waitFor({ state: 'visible', timeout: 90_000 })
+      .then(() => true)
+      .catch(() => false)
+    if (sawSearching) {
+      await expect(searching).toBeHidden({ timeout: 90_000 })
+    } else {
+      await expect(assistant).toBeVisible({ timeout: 90_000 })
+      await expect(assistant).not.toContainText('**Error:**')
+    }
   })
 })

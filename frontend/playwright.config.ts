@@ -31,6 +31,8 @@ export default defineConfig({
         timeout: 60_000,
         env: {
           VITE_DEV_API_PROXY_TARGET: E2E_API_URL,
+          VITE_AUTH_MODE: 'dev',
+          VITE_DEV_BEARER_TOKEN: process.env.VITE_DEV_BEARER_TOKEN ?? 'devtoken',
         },
       },
 })

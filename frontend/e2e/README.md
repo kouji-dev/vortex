@@ -2,32 +2,43 @@
 
 Runs against a **dedicated E2E backend** (port **8001**) and an **isolated Postgres** (port **5435**, database `ai_portal_e2e`). Tests never touch your local-dev database.
 
+This layout matches `docs/superpowers/specs/2026-04-04-e2e-refactor-design.md`: specs are grouped by **topic** under `shell/`, `chat/`, `kb/`, and `memories/`, with shared code in `support/` and KB UI flows in `kb/helpers.ts`.
+
 ---
 
-## Quick start (recommended)
+## Quick start
 
-### 1. Start the E2E backend
+### Option A — from this worktree root (Linux / macOS / Git Bash)
 
-From the repo root — one command does everything (Docker DB, migrations, catalog seed, uvicorn on 8001):
+Starts Docker, migrations, seed, API **8001**, then Playwright (Vite **5174**):
 
 ```bash
-./scripts/e2e-up.sh
+pnpm test:e2e:all
 ```
 
-Requires:
-- Docker running
-- Python venv active: `cd backend && pip install -e ".[dev]"`
-- LLM keys in `.env` (only needed for `chat-send.spec.ts`)
+If the stack is **already** running:
 
-### 2. Run Playwright (separate terminal)
+```bash
+SKIP_E2E_STACK=1 pnpm test:e2e:all
+```
+
+### Option B — Windows PowerShell
+
+Terminal 1 (Git Bash recommended): `./scripts/e2e-up.sh`  
+Terminal 2:
+
+```powershell
+pnpm test:e2e:win
+```
+
+Or from `frontend/` only:
 
 ```bash
 cd frontend
-pnpm test:e2e          # headless
-pnpm test:e2e:ui       # interactive UI
+pnpm test:e2e
 ```
 
-Playwright auto-starts the Vite dev server proxied to port 8001.
+Playwright auto-starts the Vite dev server proxied to port **8001**.
 
 First-time browser install: `npx playwright install`
 
@@ -53,69 +64,48 @@ DATABASE_URL="postgresql+psycopg://postgres:postgres@127.0.0.1:5435/ai_portal_e2
 
 ### API on port 8001
 
-```bash
-# Windows PowerShell
-$env:DATABASE_URL="postgresql+psycopg://postgres:postgres@127.0.0.1:5435/ai_portal_e2e"
-$env:API_PORT="8001"
-$env:AUTH_MODE="dev"
-$env:DEV_BEARER_TOKEN="devtoken"
-$env:DEV_SEED_USER_EMAIL="dev@localhost"
-$env:UPLOAD_DIR="C:\path\to\ai-portal\.e2e-uploads"
-$env:E2E_ENABLE_RAG_SEED="1"    # optional — enables RAG seed endpoint
-uvicorn ai_portal.main:app --reload --host 127.0.0.1 --port 8001
-```
+See `scripts/e2e-up.sh` for the full env (`E2E_ENABLE_CHAT_MESSAGES_SEED`, `E2E_ENABLE_RAG_SEED`, `KB_MAX_FILE_SIZE_MB=1`, etc.).
 
 ### Frontend
 
-Playwright's `webServer` block auto-starts Vite with `VITE_DEV_API_PROXY_TARGET=http://127.0.0.1:8001`.
-If you want to start it manually:
-
-```bash
-cd frontend
-VITE_DEV_API_PROXY_TARGET=http://127.0.0.1:8001 pnpm dev
-```
-
-Then run Playwright with:
-
-```bash
-E2E_BASE_URL=http://localhost:5173 E2E_API_URL=http://127.0.0.1:8001 pnpm test:e2e
-```
+Playwright `webServer` starts Vite on **5174** with `VITE_DEV_API_PROXY_TARGET` pointing at **8001**.
 
 ---
 
-## Environment flags
+## Environment (Playwright only)
 
-| Flag | Default | Effect |
-|------|---------|--------|
-| `E2E_API_URL` | `http://127.0.0.1:8001` | Backend URL used by test helpers and global-setup |
-| `E2E_BASE_URL` | *(unset — Playwright starts Vite)* | Set to skip auto-start of the dev server |
-| `E2E_CHAT_ENABLED` | *(unset)* | Set to `1` to run `chat-send.spec.ts` (requires live LLM) |
-| `E2E_ENABLE_RAG_SEED` | *(unset)* | Set to `1` to enable RAG seed endpoint for KB indicator tests |
-| `E2E_REQUIRE_INGEST_READY` | *(unset)* | Set to `1` + working embedding key to assert green "ready" status |
-| `E2E_BEARER_TOKEN` | `devtoken` | Bearer token used by test helpers |
+| Variable | Default | Effect |
+|----------|---------|--------|
+| `E2E_API_URL` | `http://127.0.0.1:8001` | Backend URL for helpers + global-setup |
+| `E2E_BASE_URL` | *(unset — Playwright starts Vite)* | Use a running dev server instead of auto-start |
+| `E2E_BEARER_TOKEN` | `devtoken` | Dev bearer for API helpers |
 
 ---
 
-## Spec overview
+## Spec layout
 
-| Spec | What it tests | Requires |
-|------|---------------|----------|
-| `conversation.spec.ts` | Composer, KB picker, attach/detach/search/keyboard, KB indicator | — |
-| `chat-parity.spec.ts` | Step 1 spec parity: empty state, starters panel, capabilities menu, model select, no load-older on short thread | — |
-| `kb-detail.spec.ts` | KB edit form, save state, upload, delete, empty states | — |
-| `kb.spec.ts` | KB list page, create/delete KB | — |
-| `chat-kb.spec.ts` | Attach KB via picker, persistence across reload | — |
-| `memories.spec.ts` | Memories CRUD, pause/resume, badges | — |
-| `chat-send.spec.ts` | Send messages, chat history, model switching | `E2E_CHAT_ENABLED=1` + live LLM |
-| `chat-rag-indicator.spec.ts` | KB indicator on assistant messages | `E2E_ENABLE_RAG_SEED=1` |
-| `ingest-progress.spec.ts` | Upload → ingest progress tracking | — |
-| `rag-toolcall.spec.ts` | RAG tool-call agent loop indicator | `E2E_ENABLE_RAG_SEED=1` |
-| `memories-chat.spec.ts` | Homepage cards, memories API visibility | — |
+| Folder | Spec | What it tests | Requires |
+|--------|------|---------------|----------|
+| `shell/` | `conversations-sidebar.spec.ts` | Sidebar selection mode, bulk/single delete dialogs | — |
+| `shell/` | `chat-parity.spec.ts` | Empty state, starters, capabilities menu, load-older seed | `e2e-up.sh` (`E2E_ENABLE_CHAT_MESSAGES_SEED`) |
+| `shell/` | `memories-chat.spec.ts` | Home → Memories link, API create/delete | — |
+| `chat/` | `conversation.spec.ts` | Composer, KB picker, indicator popover, thread delete | RAG seed for seeded-message tests |
+| `chat/` | `chat-send.spec.ts` | Send/stream, model select, sidebar after message | **Anthropic** (Haiku) |
+| `chat/` | `chat-kb.spec.ts` | Create KB + attach via picker, reload persistence | — |
+| `chat/` | `chat-rag-indicator.spec.ts` | KB control on seeded assistant message | RAG seed |
+| `chat/` | `rag-toolcall.spec.ts` | Seeded tool-call UI + live stream line | RAG seed + **Anthropic** |
+| `chat/` | `chat-attachments.spec.ts` | Upload API, stream `attachment_ids`, file in answer | Migration + **Anthropic** |
+| `kb/` | `kb-list.spec.ts` | List table, search, create via dialog | — |
+| `kb/` | `kb-detail.spec.ts` | Detail form, upload row, delete doc, empty state | Embeddings for row visibility timing |
+| `kb/` | `ingest-progress.spec.ts` | Ingest → **ready**; oversize rejection | Embeddings; `KB_MAX_FILE_SIZE_MB=1` |
+| `memories/` | `memories.spec.ts` | Memories CRUD, pause/resume, delete dialogs | — |
+
+**Removed (redundant):** `kb.spec.ts` duplicated the ingest-to-ready journey now covered by `kb/ingest-progress.spec.ts`. **Green “ready” styling** on the detail page is intentionally only asserted in `ingest-progress` to avoid two long embeddings-backed tests.
 
 ---
 
 ## Notes
 
+- Shared helpers: `support/*.ts`, topic UI: `kb/helpers.ts` (importable from other folders when needed).
 - Use `waitUntil: 'networkidle'` before clicking UI dependent on React state (TanStack hydration).
-- Upload tests wait for `ready` or `failed` status; without an embedding key you'll see `failed` (which is still a passing test).
-- All tests run `workers: 1` (serial browser) to avoid port contention on the Vite dev server.
+- `playwright.config.ts` sets `workers` as configured for this branch; adjust for local stability vs speed.

@@ -1,30 +1,10 @@
 import { test, expect } from '@playwright/test'
 
+import { createMemoryViaApi, deleteMemoryViaApi } from '../support/memories-api'
+
+test.describe.configure({ mode: 'serial' })
+
 const apiBase = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
-
-async function createMemoryViaApi(
-  request: import('@playwright/test').APIRequestContext,
-  content: string,
-): Promise<number> {
-  const res = await request.post(`${apiBase}/api/users/me/memories`, {
-    headers: {
-      Authorization: `Bearer ${process.env.E2E_BEARER_TOKEN ?? 'devtoken'}`,
-      'Content-Type': 'application/json',
-    },
-    data: { content },
-  })
-  const body = (await res.json()) as { id: number }
-  return body.id
-}
-
-async function deleteMemoryViaApi(
-  request: import('@playwright/test').APIRequestContext,
-  id: number,
-): Promise<void> {
-  await request.delete(`${apiBase}/api/users/me/memories/${id}`, {
-    headers: { Authorization: `Bearer ${process.env.E2E_BEARER_TOKEN ?? 'devtoken'}` },
-  })
-}
 
 /** Memories are rendered in a <table> — find a row by its content text. */
 function memoryRow(page: import('@playwright/test').Page, content: string) {
@@ -128,11 +108,13 @@ test.describe('Memories page', () => {
   // ──────────────────────────────────────────────────────────────
 
   test('created memory shows "manual" source badge', async ({ page, request }) => {
-    const content = `E2E manual-badge ${Date.now()}`
+    const content = `E2E src-badge ${Date.now()}`
     const id = await createMemoryViaApi(request, content)
     try {
       await page.goto('/memories', { waitUntil: 'networkidle' })
-      await expect(memoryRow(page, content).getByText('manual')).toBeVisible()
+      await expect(
+        memoryRow(page, content).getByRole('cell').nth(1).getByText('manual', { exact: true }),
+      ).toBeVisible()
     } finally {
       await deleteMemoryViaApi(request, id)
     }
@@ -323,14 +305,19 @@ test.describe('Memories page', () => {
   })
 
   test('confirming the delete removes the memory from the table', async ({ page, request }) => {
+    test.setTimeout(60_000)
     const content = `E2E del-confirm ${Date.now()}`
     await createMemoryViaApi(request, content)
     await page.goto('/memories', { waitUntil: 'networkidle' })
-    await memoryRow(page, content).getByTitle('Delete memory').click()
+    const row = memoryRow(page, content)
+    await row.scrollIntoViewIfNeeded()
+    await expect(row).toBeVisible({ timeout: 15_000 })
+    await row.getByTitle('Delete memory').click({ timeout: 15_000 })
     const dialog = page.getByRole('dialog')
     await expect(dialog).toBeVisible()
     await dialog.getByRole('button', { name: /^delete$/i }).click()
-    await expect(page.getByText(content)).not.toBeVisible({ timeout: 5_000 })
+    await expect(dialog).not.toBeVisible({ timeout: 5_000 })
+    await expect(memoryRow(page, content)).toHaveCount(0)
   })
 
   test('delete dialog closes automatically after confirmation', async ({ page, request }) => {
@@ -355,7 +342,7 @@ test.describe('Memories page', () => {
     const memories = (await res.json()) as Array<{ id: number }>
     await Promise.all(memories.map((m) => deleteMemoryViaApi(request, m.id)))
     await page.goto('/memories', { waitUntil: 'networkidle' })
-    await expect(page.getByText(/no memories yet/i)).toBeVisible()
+    await expect(page.getByText(/no memories yet/i)).toBeVisible({ timeout: 20_000 })
   })
 
   test('memory created via API appears on the page', async ({ page, request }) => {

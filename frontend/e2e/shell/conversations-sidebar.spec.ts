@@ -2,7 +2,9 @@
  * Conversations sidebar — selection mode, bulk delete, in-app delete dialogs.
  */
 import { test, expect } from '@playwright/test'
-import { createEmptyConversation } from './helpers/create-conversation'
+import { createEmptyConversation } from '../support/create-conversation'
+
+test.describe.configure({ mode: 'serial' })
 
 const apiBase = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
 
@@ -13,6 +15,15 @@ async function deleteConversationViaApi(
   await request.delete(`${apiBase}/api/chat/conversations/${id}`, {
     headers: { Authorization: 'Bearer devtoken' },
   })
+}
+
+/** Avoid strict-mode clashes between selection-bar Cancel and dialog Cancel. */
+async function closeOpenDeleteDialogIfAny(page: import('@playwright/test').Page) {
+  const dlg = page.locator('[role="dialog"]').first()
+  if (await dlg.isVisible().catch(() => false)) {
+    await dlg.getByRole('button', { name: /^cancel$/i }).click()
+    await dlg.waitFor({ state: 'hidden', timeout: 5_000 }).catch(() => {})
+  }
 }
 
 test.describe('Conversations sidebar', () => {
@@ -97,9 +108,7 @@ test.describe('Conversations sidebar', () => {
       const selectAll = page.getByRole('checkbox', { name: /select all/i })
       await selectAll.click() // check all
       await selectAll.click() // uncheck all
-      await expect(
-        page.getByRole('button', { name: /delete/i }).last(),
-      ).toBeDisabled({ timeout: 3_000 })
+      await expect(page.getByTestId('sidebar-bulk-delete')).toBeDisabled({ timeout: 3_000 })
     } finally {
       await deleteConversationViaApi(request, id)
     }
@@ -171,8 +180,7 @@ test.describe('Conversations sidebar', () => {
       await expect(dialog.getByRole('button', { name: /cancel/i })).toBeVisible()
       await expect(dialog.getByRole('button', { name: /^delete$/i })).toBeVisible()
     } finally {
-      const cancelBtn = page.getByRole('button', { name: /cancel/i })
-      if (await cancelBtn.isVisible()) await cancelBtn.click()
+      await closeOpenDeleteDialogIfAny(page)
       await deleteConversationViaApi(request, id)
     }
   })
@@ -209,12 +217,11 @@ test.describe('Conversations sidebar', () => {
         d.dismiss()
         throw new Error('Native window.confirm appeared — expected in-app dialog')
       })
-      await page.getByRole('button', { name: /delete/i }).last().click()
+      await page.getByTestId('sidebar-bulk-delete').click()
       const dialog = page.getByRole('dialog')
       await expect(dialog).toBeVisible({ timeout: 5_000 })
     } finally {
-      const cancelBtn = page.getByRole('button', { name: /cancel/i })
-      if (await cancelBtn.isVisible()) await cancelBtn.click()
+      await closeOpenDeleteDialogIfAny(page)
       await deleteConversationViaApi(request, id).catch(() => {})
     }
   })
@@ -230,13 +237,12 @@ test.describe('Conversations sidebar', () => {
       await page.getByRole('button', { name: /conversation actions/i }).click()
       await page.getByRole('menuitem', { name: /select conversations/i }).click()
       await page.getByRole('checkbox', { name: /select all/i }).click()
-      await page.getByRole('button', { name: /delete/i }).last().click()
+      await page.getByTestId('sidebar-bulk-delete').click()
       const dialog = page.getByRole('dialog')
       await expect(dialog).toBeVisible({ timeout: 5_000 })
       await expect(dialog.getByText(/delete selected conversations/i)).toBeVisible()
     } finally {
-      const cancelBtn = page.getByRole('button', { name: /cancel/i })
-      if (await cancelBtn.isVisible()) await cancelBtn.click()
+      await closeOpenDeleteDialogIfAny(page)
       await deleteConversationViaApi(request, id1).catch(() => {})
       await deleteConversationViaApi(request, id2).catch(() => {})
     }
@@ -249,7 +255,7 @@ test.describe('Conversations sidebar', () => {
       await page.getByRole('button', { name: /conversation actions/i }).click()
       await page.getByRole('menuitem', { name: /select conversations/i }).click()
       await page.getByRole('checkbox', { name: /select all/i }).click()
-      await page.getByRole('button', { name: /delete/i }).last().click()
+      await page.getByTestId('sidebar-bulk-delete').click()
       const dialog = page.getByRole('dialog')
       await expect(dialog).toBeVisible()
       await dialog.getByRole('button', { name: /cancel/i }).click()

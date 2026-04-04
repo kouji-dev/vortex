@@ -1,17 +1,18 @@
 import { test, expect } from '@playwright/test'
 
-import { createEmptyConversation } from './helpers/create-conversation'
+import { createEmptyConversation } from '../support/create-conversation'
 import {
   attachKnowledgeBasesToConversation,
   createKnowledgeBase,
   seedRagAssistantForE2e,
-} from './helpers/knowledge-api'
+} from '../support/knowledge-api'
 
 test.describe('Chat RAG KB indicator', () => {
   test('only assistant message with used_kbs shows the KB control', async ({
     page,
     request,
   }) => {
+    test.setTimeout(90_000)
     const apiBase = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
     const kbName = `E2E RAG KB ${Date.now()}`
     const kbId = await createKnowledgeBase(request, apiBase, kbName)
@@ -19,18 +20,16 @@ test.describe('Chat RAG KB indicator', () => {
     await attachKnowledgeBasesToConversation(request, apiBase, convId, [kbId])
 
     const seedStatus = await seedRagAssistantForE2e(request, apiBase, convId, kbId, kbName)
-    if (seedStatus === 404) {
-      test.skip(
-        true,
-        'Start the API with E2E_ENABLE_RAG_SEED=1 (dev auth) to enable the RAG indicator seed endpoint.',
-      )
-      return
-    }
-    expect(seedStatus).toBe(201)
+    expect(
+      seedStatus,
+      'e2e/seed-rag-assistant must return 201 (./scripts/e2e-up.sh sets E2E_ENABLE_RAG_SEED=1).',
+    ).toBe(201)
 
     await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
 
-    await expect(page.getByText('A short reply without retrieval metadata.')).toBeVisible()
+    await expect(page.getByText('A short reply without retrieval metadata.')).toBeVisible({
+      timeout: 20_000,
+    })
     await expect(
       page.getByText('Grounded answer from E2E seed', { exact: false }),
     ).toBeVisible()
@@ -39,8 +38,9 @@ test.describe('Chat RAG KB indicator', () => {
     await expect(kbTriggers).toHaveCount(1)
 
     await kbTriggers.click()
-    await expect(page.getByTestId('message-kb-indicator-popover')).toBeVisible()
-    await expect(page.getByText(kbName, { exact: false }).first()).toBeVisible()
-    await expect(page.getByText(/chunks/i).first()).toBeVisible()
+    const popover = page.getByTestId('message-kb-indicator-popover')
+    await expect(popover).toBeVisible()
+    await expect(popover.getByText(kbName, { exact: false })).toBeVisible()
+    await expect(popover.getByText(/chunks/i)).toBeVisible()
   })
 })
