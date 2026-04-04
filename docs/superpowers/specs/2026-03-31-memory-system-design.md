@@ -1,8 +1,8 @@
 # Memory System Design
 
-**Status:** approved
+**Status:** approved — **implemented** (profile memories: `api/memories.py`, `/memories` UI, `workers/memory/extractor.py`; conversation compression: `conversation.summary`, sliding window + `workers/memory/summarizer.py` from `api/conversations.py`).
 **Date:** 2026-03-31
-**Context:** The portal currently has no persistent memory beyond raw conversation history. This spec introduces two memory layers: user profile memories (persistent facts about the user) and conversation context compression (sliding window + summarization). Users can manage their memories manually.
+**Context:** Beyond raw conversation history, the portal adds two memory layers: **user profile memories** (persistent facts about the user) and **conversation context compression** (sliding window + summarization). Users can manage profile memories in the UI; extraction runs in the worker layer.
 
 ---
 

@@ -6,6 +6,30 @@ This folder holds **feature design specs**, created **lazily** as work starts. T
 
 ---
 
+## Implementation snapshot (vs brainstorm / registry)
+
+This section records **what the repository actually contains today** so the capability registry and older plans do not read as “nothing shipped.” Individual specs may still say `spec-draft` for product depth; **code is ahead of several MVP rows** below.
+
+### Shipped or largely present
+
+- **Scaffold & local infra (MVP-0, F-01–F-04):** FastAPI + TanStack Start, Docker Compose (`local-dev`, Postgres **pgvector** + Redis on **5434** / **6380**), CI, `/health`, CORS, `X-Request-ID`, structured logging.
+- **Identity (MVP-1 core):** `AUTH_MODE=dev` (fixed bearer + seed user) or **`AUTH_MODE=entra`** (JWT validation, app roles on `request.state`, profile upsert). **Portal API keys** (`aip_…`): create/list/revoke on **`/api/me/portal-api-keys`** (no dedicated settings UI in the web app yet—API-first).
+- **RBAC helper:** `api/rbac.require_app_roles` (e.g. `/api/admin/ping`); dev mode bypasses role checks.
+- **Model catalog (REQ-META thin slice):** `GET /api/model-catalog` + `catalog_models` seed; chat UI selects models.
+- **Assistants + conversations (MVP-3):** Assistant CRUD/list; conversation CRUD; **streaming chat** via **LangChain** (`ChatOpenAI` / `ChatAnthropic`); optional **`use_rag`** with KBs attached per conversation; **conversation summary** + sliding window (`workers/memory/summarizer.py`).
+- **RAG / knowledge bases (MVP-4 core):** KB CRUD, document upload, **inline ingest** on the API thread (`workers/ingest/*` from `api/knowledge_bases.py`—not Celery), pgvector retrieval (`services/rag.py`), frontend routes `/knowledge-bases`, chat KB picker.
+- **User memories:** Profile memories API (`api/memories.py`), `/memories` UI, background extraction (`workers/memory/extractor.py`) — [memory system spec](./2026-03-31-memory-system-design.md).
+
+### Not shipped / still backlog (or diverges from early plans)
+
+- **Celery (or other) async ingest queue** — plans assumed Redis workers; Redis is wired for local dev but ingest is **synchronous** on the request path (see [RAG enterprise spec](./2026-03-25-rag-enterprise-design.md) §3).
+- **LiteLLM** as the primary model gateway — runtime is **LangChain → provider APIs** (OpenAI-compatible + Anthropic); no LiteLLM sidecar in the default compose profile.
+- **Central I-08 entitlements** gating product features in UI and on every API (roles exist; feature flags / SKU matrix not productized).
+- **MVP-2 “my keys” UX** — parity with API: no in-app panel for portal keys yet.
+- **MVP-5 / MVP-6:** Full observability dashboards (O-02), admin console depth, FinOps budgets, hybrid search / rerank / citations UX, guardrails product (**GR-**), external connectors (**R-06**), OCR (**R-05**), etc.
+
+---
+
 ## Principles
 
 - **Root = source of truth for scope and priority.** Feature specs add detail when that row moves toward implementation.
@@ -28,17 +52,19 @@ This folder holds **feature design specs**, created **lazily** as work starts. T
 
 | Document | Status | Notes |
 |----------|--------|--------|
-| [2026-03-22-auth-entra-design.md](./2026-03-22-auth-entra-design.md) | spec-approved | **MVP-1 identity (first impl):** Microsoft Entra — SPA + Bearer API JWT, app roles RBAC, user upsert, worker **client credentials** for org-wide jobs (**I-06**); plan: [../plans/2026-03-22-auth-entra.md](../plans/2026-03-22-auth-entra.md) |
-| [2026-03-22-chat-conversations-design.md](./2026-03-22-chat-conversations-design.md) | spec-draft | Conversations-first chat — **API + frontend** (streaming, capabilities, attachments, model, syllabus); **auth:** [auth-entra spec](./2026-03-22-auth-entra-design.md); assistants deferred |
+| [2026-03-22-auth-entra-design.md](./2026-03-22-auth-entra-design.md) | spec-approved | **Implemented in code:** `AUTH_MODE=entra` + dev bearer mode; JWT validation, app roles, `/api/me`. **I-06** worker client-credentials and full I-08 entitlements payload — partial vs spec. Plan: [../plans/2026-03-22-auth-entra.md](../plans/2026-03-22-auth-entra.md) |
+| [2026-03-22-chat-conversations-design.md](./2026-03-22-chat-conversations-design.md) | spec-draft | **Core shipped:** conversations + streaming (`api/conversations.py`), model picker, assistants, KB attach + RAG flag. **Deferred / partial:** chat attachments (**C-04**), syllabus, and spec polish |
 | [2026-03-22-llm-access-model-governance-design.md](./2026-03-22-llm-access-model-governance-design.md) | spec-draft | **LLM access & governance:** in-process LiteLLM (no proxy as primary path), portal-owned catalog/entitlements, OIDC + portal API keys (`aip_…`), RAG boundaries |
 | [2026-03-22-model-platform-requirements.md](./2026-03-22-model-platform-requirements.md) | spec-draft | **Delivery spec:** baseline + tasks; **REQ-META** (metadata in DB + APIs); appendix **REQ-*** — [LLM governance design](./2026-03-22-llm-access-model-governance-design.md) |
-| [2026-03-25-rag-enterprise-design.md](./2026-03-25-rag-enterprise-design.md) | spec-draft | **MVP-4 / R-01–R-08:** RAG depth for enterprises — product + engineering; as-implemented vs target; maps to capability registry (R, M-06, I-08, GR, V, O families) |
-| [Worktree merge order (Entra → chat)](../plans/2026-03-22-git-worktree-merge-order.md) | plan | **Epic 10** merge before **epic 11**; paths `.worktrees/entra-auth-mvp`, `.worktrees/chat-post-auth` |
+| [2026-03-25-rag-enterprise-design.md](./2026-03-25-rag-enterprise-design.md) | spec-draft | **MVP-4 / R-01–R-08:** RAG depth for enterprises — **as-implemented** sections match repo (inline ingest, KB UI, no `api/chat.py`). Enterprise targets still backlog |
+| [2026-03-31-memory-system-design.md](./2026-03-31-memory-system-design.md) | approved / implemented | User profile memories + conversation summarization; plan: [../plans/2026-03-31-memory-system-plan.md](../plans/2026-03-31-memory-system-plan.md) |
+| [2026-03-31-rag-toolcall-ingest-retrieval-design.md](./2026-03-31-rag-toolcall-ingest-retrieval-design.md) | approved (partial) | **In code:** tool-based `search_knowledge_base` streaming path in `api/conversations.py`. **Still open vs spec:** async ingest queue, hybrid search, Voyage rerank, full decoupling described in the doc |
+| [Worktree merge order (Entra → chat)](../plans/2026-03-22-git-worktree-merge-order.md) | plan | Historical merge guidance; **Epic 10** before **epic 11**; paths `.worktrees/entra-auth-mvp`, `.worktrees/chat-post-auth` |
 
 ### Registry integrity (feature specs ↔ MVP rows)
 
-- **MVP-3 “catalog + chat”** vs **conversations-first chat spec (assistants deferred):** the chat spec is a **delivery refinement** — implement **MVP-1 auth** first, then **conversations/chat API + UI**, then **assistant catalog** as follow-on tickets if the EPIC is split.
-- **MVP-1 I-08 entitlements:** the [auth-entra spec](./2026-03-22-auth-entra-design.md) can ship **without** full **I-08**; add entitlements payload and enforcement when gating catalog capabilities.
+- **MVP-3 “catalog + chat”** vs **conversations-first chat spec:** the repo shipped **conversations + streaming + assistants + model catalog** together; the chat spec remains **spec-draft** for attachments (**C-04**), syllabus, and other polish.
+- **MVP-1 I-08 entitlements:** the [auth-entra spec](./2026-03-22-auth-entra-design.md) is **implementable without** full **I-08** — current code has roles and admin probe routes but **not** a centralized entitlements matrix on every feature.
 
 ---
 
@@ -47,7 +73,7 @@ This folder holds **feature design specs**, created **lazily** as work starts. T
 | Topic | Decision |
 |--------|-----------|
 | **Cloud (now)** | **Microsoft Azure** for hosted infra (containers, managed data stores, secrets, networking). Keep app logic portable where reasonable. |
-| **Models (now)** | **Azure OpenAI** is the **default** runtime for chat and embeddings in early delivery. All calls go through a **provider abstraction** in application code so other vendors (**Anthropic**, Google, OpenAI direct, local/OpenAI-compatible inference, etc.) can be added as **adapters** without rewriting chat/RAG orchestration. |
+| **Models (now)** | **LangChain** in the API to **OpenAI-compatible** chat/embeddings and **Anthropic** chat (`OPENAI_API_BASE` / `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`). **Embeddings:** **Voyage** when `VOYAGE_API_KEY` is set (default `voyage-4-lite`), else OpenAI-compatible embeddings via LangChain. Azure OpenAI remains a **deployment choice** (point `OPENAI_API_BASE` at the Azure endpoint). Provider-specific adapters can still expand (Gemini, local vLLM, etc.). |
 | **Auth — identity** | **Multiple connectors** to customer IdPs (OIDC/OAuth2 primary; SAML optional). **First concrete slice:** [Microsoft Entra](./2026-03-22-auth-entra-design.md) (single tenant, SPA + API JWT); additional providers later under **I-01**. |
 | **Principal model** | Treat **tenant**, **workspace** (when introduced), **user**, **service account**, and **API key** as explicit first-class subjects. Ownership, access checks, budgets, and audit should always resolve against this model rather than ad hoc per feature. |
 | **Auth — AI usage** | **API key manager per user** (and later team/workspace) for **model API** access—separate from SSO identity; supports CLI, IDE, and automation. |
@@ -318,12 +344,12 @@ Each row is one **vertical EPIC** when you start it: **API + UI** for that slice
 
 | ID | Vertical slice | Status | Spec | Plan / notes |
 |----|----------------|--------|------|----------------|
-| **MVP-0** | **Bootstrap** — backend + frontend scaffolds, shared contract story, CI, local + Azure-oriented config, health checks **in browser and API** | backlog | — | First “done” = two apps run and deploy pipeline is green |
-| **MVP-1** | **Identity & access** — login/logout UX, API JWT validation, **Microsoft Entra** first; app roles → RBAC; `/api/me`; **all product routes protected**; **feature entitlements (I-08)** thin slice (e.g. “all on” + admin route) when ready | backlog | [2026-03-22-auth-entra-design.md](./2026-03-22-auth-entra-design.md) | Plan: [../plans/2026-03-22-auth-entra.md](../plans/2026-03-22-auth-entra.md). **I-08** may trail the first Entra vertical; **I-06** worker (client credentials) specified in auth spec for jobs. |
-| **MVP-2** | **User API keys** — key CRUD API + **my keys** UI; hashing, scopes, revoke | backlog | — | Pair with M-01 stub if needed |
-| **MVP-3** | **Chat & assistants** — target: catalog + chat in one slice (**A-01–A-03**, **C-01–C-03**). **Refinement:** [conversations-first chat spec](./2026-03-22-chat-conversations-design.md) may ship **conversations before** full assistant catalog; adjust EPICs (auth → chat shell → assistants) without rewriting MVP phases | backlog | [2026-03-22-chat-conversations-design.md](./2026-03-22-chat-conversations-design.md) | Depends **MVP-1**; models: **Azure OpenAI** via **M-01** |
-| **MVP-4** | **RAG** — upload UI + job status + retrieval in chat; storage on Azure when not local | backlog | [2026-03-25-rag-enterprise-design.md](./2026-03-25-rag-enterprise-design.md) | Extends MVP-3 **conversations** with grounding |
-| **MVP-5** | **Observability & admin** — logging/tracing (**O-01**); **metrics + LLM performance views** (**O-02**: latency, errors, trends, model compare, cost/caching signals); admin shell (**O-03**) | backlog | — | Can thin-start during MVP-3; includes a **thin slice of M-03** (usage metering needed to power O-02 cost/performance views) |
+| **MVP-0** | **Bootstrap** — backend + frontend scaffolds, shared contract story, CI, local + Azure-oriented config, health checks **in browser and API** | **done** (local scope) | — | Compose + both apps + CI per [bootstrap plan](../plans/2026-03-21-mvp-0-bootstrap.md) |
+| **MVP-1** | **Identity & access** — login/logout UX, API JWT validation, **Microsoft Entra** first; app roles → RBAC; `/api/me`; **all product routes protected**; **feature entitlements (I-08)** thin slice (e.g. “all on” + admin route) when ready | **partial** | [2026-03-22-auth-entra-design.md](./2026-03-22-auth-entra-design.md) | **In code:** dev + Entra modes, JWT, roles, `/api/me`, portal API keys API. **Gaps:** SPA login UX is environment-dependent; **I-08** not centralized; **I-06** worker CC as specified — verify jobs |
+| **MVP-2** | **User API keys** — key CRUD API + **my keys** UI; hashing, scopes, revoke | **partial** | — | **In code:** `/api/me/portal-api-keys` (create/list/revoke). **Gap:** no dedicated frontend for keys yet |
+| **MVP-3** | **Chat & assistants** — target: catalog + chat in one slice (**A-01–A-03**, **C-01–C-03**). **Refinement:** [conversations-first chat spec](./2026-03-22-chat-conversations-design.md) may ship **conversations before** full assistant catalog; adjust EPICs (auth → chat shell → assistants) without rewriting MVP phases | **done** (core) | [2026-03-22-chat-conversations-design.md](./2026-03-22-chat-conversations-design.md) | Streaming chat, assistants, model catalog, conversation persistence; some spec items still open (**C-04**, etc.) |
+| **MVP-4** | **RAG** — upload UI + job status + retrieval in chat; storage on Azure when not local | **partial** | [2026-03-25-rag-enterprise-design.md](./2026-03-25-rag-enterprise-design.md) | **In code:** KB + upload + retrieval + UI. **Gaps:** inline ingest (not queued), local disk storage by default, no citations UX, owner-only KB ACL |
+| **MVP-5** | **Observability & admin** — logging/tracing (**O-01**); **metrics + LLM performance views** (**O-02**: latency, errors, trends, model compare, cost/caching signals); admin shell (**O-03**) | backlog | — | Logging/request IDs exist; dashboards + LLM cost UI not shipped |
 | **MVP-6** | **FinOps / routing / token efficiency (stretch)** — budgets UI, model allowlist UI, gateway integration; **token dashboards** and **org defaults** for context caps, concise mode, RAG inject limits (**M-04**, **M-06**) | backlog | — | After stable chat; build on metering already started in MVP-5 |
 
 **Capability crosswalk (informal):** MVP-0 → F-01–F-04; MVP-1 → **I-01–I-04** (first impl [Entra](./2026-03-22-auth-entra-design.md)), **I-08** when entitlements ship; MVP-2 → I-05; MVP-3 → A-01–A-03, C-01–C-03, M-01 (conversations-first may reorder A vs C); MVP-4 → R-01–R-04, **R-07** (thin eval start when useful); MVP-5 → O-01–O-03 + **M-03** (thin slice); MVP-6 → M-02, **M-04–M-06**.

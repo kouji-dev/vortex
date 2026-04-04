@@ -1,8 +1,8 @@
 # RAG Tool-Call, Ingest Worker & Retrieval Optimizations
 
-**Status:** approved
+**Status:** approved — **partially implemented** (tool-call RAG path exists in `api/conversations.py`; hybrid search, rerank, and queued ingest remain targets).
 **Date:** 2026-03-31
-**Context:** Current RAG pre-injects retrieved chunks into the system prompt before the model sees them. This spec replaces that with tool-call-based retrieval, upgrades the retrieval pipeline quality, decouples the ingest pipeline into a scalable worker module, and introduces hybrid search and semantic chunking.
+**Context:** RAG can **pre-inject** retrieved chunks into the system prompt **or** use **tool-call-based retrieval** (model invokes `search_knowledge_base`). This spec also targets retrieval quality upgrades, a **decoupled** ingest worker, hybrid search, and semantic chunking — not all items are done.
 **Related specs:** [`2026-03-30-rag-retrieval-quality-improvements.md`](./2026-03-30-rag-retrieval-quality-improvements.md), [`2026-03-25-rag-enterprise-design.md`](./2026-03-25-rag-enterprise-design.md)
 
 ---

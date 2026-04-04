@@ -24,7 +24,7 @@
 
 ### Engineering — as implemented
 
-- Retrieval applies when the client sends `use_rag: true` **and** the conversation has **at least one attached KB** (`StreamMessageBody` in `api/conversations.py`; legacy `ChatRequest` in `api/chat.py` uses the same rule via `conversation_knowledge_bases`).
+- Retrieval applies when the client sends `use_rag: true` **and** the conversation has **at least one attached KB** (`StreamMessageBody` in `api/conversations.py`; there is no separate `api/chat.py` router—all chat flows through conversations).
 - Schema: `knowledge_bases`, `documents.knowledge_base_id`, `conversation_knowledge_bases` (composite PK), migration `013_kb_conv`. Upgrades from older DBs may backfill KB rows and conversation links from legacy data; greenfield installs start with empty KBs until users create and attach them.
 - `ConversationRead` includes `knowledge_base_ids`; `PUT /api/chat/conversations/{id}/knowledge-bases` replaces the attached set (owner must own conversation and each KB).
 
@@ -83,7 +83,7 @@ Enterprises expect this surface for **governance** (who owns which corpus) and *
 
 - **Upload:** Multipart to `POST /api/knowledge-bases/{knowledge_base_id}/documents`; files under `settings.upload_dir / kb / {knowledge_base_id} / {uuid}_{filename}`; `Document` with `status="pending"`.
 - **Ingest:** `ingest_document(doc.id)` is run **inline** via `asyncio.to_thread` in the request handler (`api/knowledge_bases.py`). **Critique:** still blocks the request; bad for large files and enterprise SLAs.
-- **Extract:** `.txt`, `.md`, `.pdf` via `pypdf` (`tasks/ingest.py`); other extensions → `failed` / unsupported.
+- **Extract:** `.txt`, `.md`, `.pdf` via `pypdf` (`workers/ingest/readers.py`); other extensions → `failed` / unsupported.
 - **No Celery/redis** ingest queue in this path yet (plan mentioned workers in MVP doc; implementation is synchronous on API thread).
 
 ### Enterprise target — how we implement it
@@ -105,9 +105,9 @@ Enterprises expect this surface for **governance** (who owns which corpus) and *
 
 ### Engineering — as implemented
 
-- **Chunking:** Fixed character windows, `CHUNK_SIZE = 800`, strip-only chunks (`tasks/ingest.py`).
+- **Chunking:** Semantic / character windows in `workers/ingest/chunking.py` (see code for `CHUNK_SIZE` and strip-empty behavior).
 - **Metadata:** `DocumentChunk.meta` JSONB defaults to `{"source": doc.filename}`.
-- **Embeddings:** `embedding.embed_texts` uses **LangChain** `OpenAIEmbeddings` with `settings.embedding_model` (default `text-embedding-3-small`) and `settings.openai_api_key` / `settings.openai_api_base` (`services/embedding.py`). Vectors stored as **pgvector** `Vector(1536)` (`document_chunks.embedding`).
+- **Embeddings:** `services/embedding.py` — **Voyage** when `VOYAGE_API_KEY` is set (default model `voyage-4-lite`), else **LangChain** `OpenAIEmbeddings` with `EMBEDDING_MODEL` / OpenAI-compatible base; `text-embedding-3-*` uses **1024** dimensions to match the pgvector column. Vectors stored as **pgvector** (`document_chunks.embedding`).
 - **Re-embedding:** Not implemented (no version on embedding model).
 
 ### Enterprise target — how we implement it
@@ -127,9 +127,9 @@ Enterprises expect this surface for **governance** (who owns which corpus) and *
 
 ### Engineering — as implemented
 
-- **Query:** Embed the **current user message** text (streaming path) or **last user message** in request body (legacy chat).
+- **Query:** Embed the **current user message** text on the streaming path (conversations API).
 - **Search:** `rag.retrieve_context(db, knowledge_base_ids=..., query_embedding=...)`: cosine distance over `document_chunks.embedding`, filter documents in those KBs with `status == "ready"`; `top_k=5`; concatenates chunk text (`services/rag.py`).
-- **Injection:** Prepended to **system** content with instruction: *“Use the following context… If insufficient, say so.”* (`api/conversations.py`, `api/chat.py`).
+- **Injection:** Prepended to **system** content with instruction: *“Use the following context… If insufficient, say so.”* (`api/conversations.py` only).
 - **No citations** in UI/API; no char cap beyond model limits; no rerank; no hybrid keyword search.
 
 ### Enterprise target — how we implement it
@@ -272,7 +272,7 @@ Enterprises expect this surface for **governance** (who owns which corpus) and *
 | **R-08 Pipeline builder**               | Serialize ingest recipe (sources → extract → chunk → embed → index); worker executes versioned JSON; optional visual editor later (**R-08** in root registry).                        |
 | **Skip-generation / confidence (M-06)** | Server-side gate when similarity low or corpus empty.                                                                                                                           |
 | **Hybrid + rerank**                     | See §5.                                                                                                                                                                         |
-| **LangChain / chat migration**          | Chat provider may move to LangChain; **RAG stays portal-owned** (embed + retrieve + inject) per `[../plans/chat-langchain-migration.md](../plans/chat-langchain-migration.md)`. |
+| **LangChain / chat**                    | Chat streaming uses **LangChain** (`ChatOpenAI` / `ChatAnthropic`); **RAG stays portal-owned** (embed + retrieve + inject). Historical note: `[../plans/chat-langchain-migration.md](../plans/chat-langchain-migration.md)`. |
 
 
 ---
@@ -284,10 +284,10 @@ Enterprises expect this surface for **governance** (who owns which corpus) and *
 | ----------- | ------------------------------------------------- | --------------------------------------------------------- |
 | KB admin UI | `routes/knowledge-bases/*`, `ConversationKnowledgeBasesPanel` | I-08 gating, pagination, async job progress |
 | Upload      | `api/knowledge_bases.py`                          | Async queue, blob, scan, entitlements, list-documents API |
-| Ingest      | `tasks/ingest.py`                                 | Rich extractors, OCR, batch embed, re-embed job           |
-| Embed       | `services/embedding.py`, `config.embedding_model` | Model versioning, dimension checks, rate limits           |
+| Ingest      | `workers/ingest/worker.py` (invoked from `api/knowledge_bases.py`) | Async queue, blob, scan, rich extractors, re-embed job   |
+| Embed       | `services/embedding.py`, `config` (`VOYAGE_*`, `EMBEDDING_MODEL`, …) | Model versioning, dimension checks, rate limits         |
 | Retrieve    | `services/rag.py`                                 | Thresholds, rerank, hybrid, structured sources            |
-| Chat inject | `api/conversations.py`, `api/chat.py`             | Citations in `extra`, SSE metadata, char caps             |
+| Chat inject | `api/conversations.py`                            | Citations in `extra`, SSE metadata, char caps             |
 | KB ↔ chat   | `api/conversations.py` (`PUT …/knowledge-bases`)  | Shared KB ACL, audit fields on links                     |
 | Schema      | `013_kb_conv`, `models/knowledge_base.py`       | Tenant id, `KnowledgeBaseAcl`, classification on docs     |
 

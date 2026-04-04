@@ -12,6 +12,18 @@
 
 **Prerequisites / note:** This plan assumes requirements aligned with the earlier feature map (catalog, RBAC, RAG, APIs, observability). If scope changes, revise Chunk 1–2 first. Formal brainstorming workflow would add `docs/superpowers/specs/2026-03-21-ai-portal-design.md` and user approval before execution—create that doc if you need stakeholder sign-off.
 
+### Implementation status (code vs this document)
+
+This file stays the **syllabus and chunk map**. The repo has **outpaced** several sections:
+
+- **Chat** is implemented under **`api/conversations.py`** (streaming, RAG flag, summaries). There is **no** separate **`api/chat.py`** router.
+- **Ingest** uses **`workers/ingest/worker.py`**, invoked **inline** from **`api/knowledge_bases.py`** (`asyncio.to_thread`), **not** Celery + Redis as in Chunk 4 below.
+- **LLM path:** **LangChain** in-process to OpenAI-compatible and Anthropic APIs—not LiteLLM as the default integration.
+- **Identity:** **`AUTH_MODE=dev`** or **`AUTH_MODE=entra`** in `config.py`; portal API keys on **`/api/me/portal-api-keys`**.
+- **Additional features** not in the original file map: **`api/memories.py`**, **`api/model_catalog.py`**, **`workers/memory/*`**, TanStack Start frontend layout under **`frontend/src/routes/`**.
+
+For a maintained **shipped vs backlog** summary, use **[`../specs/README.md`](../specs/README.md) → Implementation snapshot**. Checkboxes below are **historical**—verify against the tree before executing remaining steps.
+
 ---
 
 ## Syllabus: major feature areas (full platform)
@@ -113,11 +125,11 @@ This syllabus lists **everything a production-grade self-hosted AI portal typica
 
 | Module | In MVP chunks below? |
 |--------|----------------------|
-| 1 — Product UX | Partial: assistant catalog + **conversation** chat shell (order per [chat spec](../specs/2026-03-22-chat-conversations-design.md)); onboarding/training/FAQ later |
-| 2 — Identity & access | Partial: dev bearer today; **Microsoft Entra** per [auth spec](../specs/2026-03-22-auth-entra-design.md); RBAC/ACL; SAML/SCIM later |
-| 3 — APIs & lifecycle | Partial: assistant CRUD + chat API; versioning + public API keys later |
-| 4 — FinOps | Partial: logging foundation; LiteLLM/budgets later |
-| 5 — RAG | Partial: upload → embed → retrieve; OCR/connectors/evals later |
+| 1 — Product UX | Partial: assistants + **conversation** chat, KB + memories pages; onboarding/training/FAQ later |
+| 2 — Identity & access | Partial: **`AUTH_MODE=dev` or `entra`** + portal API keys REST; app roles helper; SAML/SCIM and full **I-08** later |
+| 3 — APIs & lifecycle | Partial: assistant CRUD + **conversations** streaming API; portal keys; versioning + public OpenAI-compatible proxy later |
+| 4 — FinOps | Partial: logging foundation; LangChain direct (not LiteLLM-by-default); budgets later |
+| 5 — RAG | Partial: upload → **inline** ingest worker → retrieve; queued workers / OCR / connectors / evals later |
 | 6 — Agents & safety | Later (or thin guardrails only) |
 | 7 — Observability | Partial: logs/conversations; full traces/metrics later |
 | 8 — Platform | Partial: Compose + CI; K8s/Terraform later |

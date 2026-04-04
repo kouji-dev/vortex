@@ -1,6 +1,23 @@
 # AI Portal
 
-Self-hosted AI portal (spec: [`docs/superpowers/specs/README.md`](docs/superpowers/specs/README.md)).
+Self-hosted AI portal. **Capability registry and what is actually in the repo:** [`docs/superpowers/specs/README.md`](docs/superpowers/specs/README.md) (includes an **implementation snapshot** vs brainstorm backlog).
+
+### What is implemented today (short)
+
+- **Backend:** FastAPI — assistants, **conversations** (streaming chat via **LangChain** to OpenAI-compatible and Anthropic APIs), **knowledge bases** (upload, inline ingest worker, pgvector retrieval), **model catalog**, **user profile memories** API, **`/api/me`** and **portal API keys** (`aip_…` when using Entra-oriented settings).
+- **Auth:** `AUTH_MODE=dev` (fixed bearer token + seed user) or **`AUTH_MODE=entra`** (JWT validation and app roles). Local dev typically uses `VITE_DEV_TOKEN` / `DEV_BEARER_TOKEN`.
+- **Frontend:** TanStack Start — home, **chat** (conversations), **knowledge bases**, **memories** page.
+- **Infra:** Docker Compose `local-dev` — Postgres (**pgvector**, port **5434**) and Redis (**6380**); optional **`full`** profile builds API + web.
+
+### What is not (yet) or differs from early MVP docs
+
+- **No Celery** — document ingest runs **on the API request path** (thread offload), not a Redis queue worker.
+- **No LiteLLM sidecar** in the default path — models are called via **LangChain** in the API process.
+- **No full I-08 entitlements** product layer — RBAC / roles exist; feature gating across the app is not complete.
+- **Portal API keys:** REST CRUD exists; a **dedicated “my keys” UI** in the web app is not wired yet.
+- **Stretch items** (FinOps dashboards, hybrid search, citations UX, guardrails productization, external KB connectors, etc.) remain in specs as **target**, not current behavior.
+
+Full detail and file pointers: [`docs/superpowers/specs/README.md`](docs/superpowers/specs/README.md). Historical chunk map (checkboxes may be stale): [`docs/superpowers/plans/2026-03-21-ai-portal-mvp-implementation.md`](docs/superpowers/plans/2026-03-21-ai-portal-mvp-implementation.md).
 
 ## Local dev — Postgres & Redis (`local-dev`)
 
@@ -61,6 +78,6 @@ Full MVP chunk map: [`docs/superpowers/plans/2026-03-21-ai-portal-mvp-implementa
 
 ## API contract
 
-The backend invokes models via **in-process LangChain**; catalog and entitlement metadata are planned as **DB + APIs** per [`docs/superpowers/specs/2026-03-22-model-platform-requirements.md`](docs/superpowers/specs/2026-03-22-model-platform-requirements.md) (REQ-META).
+The backend invokes models via **in-process LangChain**. A read-only **model catalog** is exposed at **`GET /api/model-catalog`** (seeded in DB; see REQ-META in [`docs/superpowers/specs/2026-03-22-model-platform-requirements.md`](docs/superpowers/specs/2026-03-22-model-platform-requirements.md)). Deeper entitlement / governance behavior is still specified there and in [`docs/superpowers/specs/2026-03-22-llm-access-model-governance-design.md`](docs/superpowers/specs/2026-03-22-llm-access-model-governance-design.md) — not all of it is enforced in API/UI yet.
 
-The **MVP-0** API contract is defined by the running backend’s OpenAPI document. See [`contracts/README.md`](contracts/README.md) for **`GET /openapi.json`** as source of truth and how to save an optional local snapshot.
+The live API contract is defined by the running backend’s OpenAPI document. See [`contracts/README.md`](contracts/README.md) for **`GET /openapi.json`** as source of truth and how to save an optional local snapshot.
