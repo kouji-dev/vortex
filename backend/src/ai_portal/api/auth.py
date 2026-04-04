@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid as _uuid
+from datetime import UTC, datetime
 
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -12,6 +13,8 @@ from ai_portal.api.deps import get_db
 from ai_portal.auth.jwt import decode_token
 from ai_portal.auth.manager import AuthenticationError, RegistrationError, UserManager
 from ai_portal.config import get_settings
+from ai_portal.models.org import Org
+from ai_portal.models.org_invite import OrgInvite
 from ai_portal.models.user import User
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -145,3 +148,62 @@ def auth_me(
         is_superuser=user.is_superuser,
         org_id=str(user.org_id) if user.org_id else None,
     )
+
+
+class AcceptInviteRequest(BaseModel):
+    token: str
+    password: str = Field(min_length=8, max_length=128)
+
+
+@router.post("/accept-invite", status_code=status.HTTP_201_CREATED, response_model=TokenResponse)
+def accept_invite(body: AcceptInviteRequest, db: Session = Depends(get_db)) -> TokenResponse:
+    """Accept an org invite and create an account (or migrate an existing one)."""
+    invite = db.scalars(
+        select(OrgInvite).where(
+            OrgInvite.token == body.token,
+            OrgInvite.accepted_at == None,  # noqa: E711
+            OrgInvite.revoked_at == None,  # noqa: E711
+        )
+    ).first()
+    if invite is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Invite not found or expired")
+    if invite.expires_at.replace(tzinfo=UTC) < datetime.now(UTC):
+        raise HTTPException(status.HTTP_410_GONE, detail="Invite has expired")
+
+    settings = get_settings()
+    manager = UserManager(db=db, secret=settings.secret_key)
+
+    # Check if user already exists (migrate) or create new
+    existing_user = db.scalars(
+        select(User).where(User.email == invite.invited_email)
+    ).first()
+
+    if existing_user:
+        # Migrate to new org — archive old personal org if it exists
+        old_org = db.scalars(
+            select(Org).where(
+                Org.id == existing_user.org_id,
+                Org.instance_mode == False,  # noqa: E712
+            )
+        ).first()
+        if old_org and old_org.slug.startswith(existing_user.email.split("@")[0]):
+            old_org.archived_at = datetime.now(UTC)
+        existing_user.org_id = invite.org_id
+        existing_user.role = invite.role
+        user = existing_user
+    else:
+        try:
+            user = manager.register(
+                email=invite.invited_email,
+                password=body.password,
+                org_id=invite.org_id,
+                role=invite.role,
+            )
+        except RegistrationError as e:
+            raise HTTPException(status.HTTP_409_CONFLICT, detail=str(e))
+
+    invite.accepted_at = datetime.now(UTC)
+    db.commit()
+    db.refresh(user)
+    tokens = manager.create_tokens(user)
+    return TokenResponse(**tokens)
