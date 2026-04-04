@@ -17,7 +17,7 @@ This section records **what the repository actually contains today** so the capa
 - **RBAC helper:** `api/rbac.require_app_roles` (e.g. `/api/admin/ping`); dev mode bypasses role checks.
 - **Model catalog (REQ-META thin slice):** `GET /api/model-catalog` + `catalog_models` seed; chat UI selects models.
 - **Assistants + conversations (MVP-3):** Assistant CRUD/list; conversation CRUD; **streaming chat** via **LangChain** (`ChatOpenAI` / `ChatAnthropic`); optional **`use_rag`** with KBs attached per conversation; **conversation summary** + sliding window (`workers/memory/summarizer.py`).
-- **RAG / knowledge bases (MVP-4 core):** KB CRUD, document upload, **inline ingest** on the API thread (`workers/ingest/*` from `api/knowledge_bases.py`—not Celery), pgvector retrieval (`services/rag.py`), frontend routes `/knowledge-bases`, chat KB picker.
+- **RAG / knowledge bases (MVP-4 core):** KB CRUD, document upload, **inline ingest** on the API thread (`workers/ingest/*` from `api/knowledge_bases.py`—not Celery), **tool-call retrieval** with hybrid BM25 + vector + rerank in `services/rag.py`, frontend routes `/knowledge-bases`, chat KB picker, citation chips. **Single index:** [RAG capabilities consolidated](./2026-04-04-rag-capabilities-consolidated.md).
 - **User memories:** Profile memories API (`api/memories.py`), `/memories` UI, background extraction (`workers/memory/extractor.py`) — [memory system spec](./2026-03-31-memory-system-design.md).
 
 ### Not shipped / still backlog (or diverges from early plans)
@@ -26,7 +26,7 @@ This section records **what the repository actually contains today** so the capa
 - **LiteLLM** as the primary model gateway — runtime is **LangChain → provider APIs** (OpenAI-compatible + Anthropic); no LiteLLM sidecar in the default compose profile.
 - **Central I-08 entitlements** gating product features in UI and on every API (roles exist; feature flags / SKU matrix not productized).
 - **MVP-2 “my keys” UX** — parity with API: no in-app panel for portal keys yet.
-- **MVP-5 / MVP-6:** Full observability dashboards (O-02), admin console depth, FinOps budgets, hybrid search / rerank / citations UX, guardrails product (**GR-**), external connectors (**R-06**), OCR (**R-05**), etc.
+- **MVP-5 / MVP-6:** Full observability dashboards (O-02), admin console depth, FinOps budgets, **async ingest queue + resumability**, guardrails product (**GR-**), external connectors (**R-06**), OCR (**R-05**), HyDE / deeper retrieval tuning, etc.
 
 ---
 
@@ -58,7 +58,8 @@ This section records **what the repository actually contains today** so the capa
 | [2026-03-22-model-platform-requirements.md](./2026-03-22-model-platform-requirements.md) | spec-draft | **Delivery spec:** baseline + tasks; **REQ-META** (metadata in DB + APIs); appendix **REQ-*** — [LLM governance design](./2026-03-22-llm-access-model-governance-design.md) |
 | [2026-03-25-rag-enterprise-design.md](./2026-03-25-rag-enterprise-design.md) | spec-draft | **MVP-4 / R-01–R-08:** RAG depth for enterprises — **as-implemented** sections match repo (inline ingest, KB UI, no `api/chat.py`). Enterprise targets still backlog |
 | [2026-03-31-memory-system-design.md](./2026-03-31-memory-system-design.md) | approved / implemented | User profile memories + conversation summarization; plan: [../plans/2026-03-31-memory-system-plan.md](../plans/2026-03-31-memory-system-plan.md) |
-| [2026-03-31-rag-toolcall-ingest-retrieval-design.md](./2026-03-31-rag-toolcall-ingest-retrieval-design.md) | approved (partial) | **In code:** tool-based `search_knowledge_base` streaming path in `api/conversations.py`. **Still open vs spec:** async ingest queue, hybrid search, Voyage rerank, full decoupling described in the doc |
+| [2026-03-31-rag-toolcall-ingest-retrieval-design.md](./2026-03-31-rag-toolcall-ingest-retrieval-design.md) | approved (partial) | **In code:** tool path, hybrid + RRF + rerank + tsvector ingest, Chonkie chunking, progress API. **Stale status line in doc body —** use [RAG consolidated](./2026-04-04-rag-capabilities-consolidated.md). **Still open:** queued worker, resumable ingest, some UX items |
+| [2026-04-04-rag-capabilities-consolidated.md](./2026-04-04-rag-capabilities-consolidated.md) | living | **RAG index:** reconciles 03-25 / 03-30 / 03-31 + code; delivery order, backend/UI/validation per capability |
 | [Worktree merge order (Entra → chat)](../plans/2026-03-22-git-worktree-merge-order.md) | plan | Historical merge guidance; **Epic 10** before **epic 11**; paths `.worktrees/entra-auth-mvp`, `.worktrees/chat-post-auth` |
 
 ### Registry integrity (feature specs ↔ MVP rows)
