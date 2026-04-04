@@ -2,9 +2,17 @@ import { InteractionRequiredAuthError } from '@azure/msal-browser'
 
 import { apiTokenRequest, getAuthMode, getEntraApiScope } from '~/auth/msalConfig'
 import { getMsalInstance } from '~/auth/msalInstance'
+import { tokenStore } from '~/auth/tokenStore'
 
 export async function getAuthHeaders(): Promise<HeadersInit> {
   const mode = getAuthMode()
+
+  if (mode === 'local') {
+    const token = tokenStore.getAccess()
+    if (!token) throw new Error('Not authenticated. Please log in.')
+    return { Authorization: `Bearer ${token}` }
+  }
+
   if (mode !== 'entra') {
     const t =
       import.meta.env.VITE_DEV_BEARER_TOKEN ??
@@ -27,9 +35,7 @@ export async function getAuthHeaders(): Promise<HeadersInit> {
   }
   const account = msal.getActiveAccount() ?? msal.getAllAccounts()[0]
   if (!account) {
-    throw new Error(
-      'No Entra account in MSAL cache. Sign in again or wait until EntraAuthGate has completed.',
-    )
+    throw new Error('No Entra account in MSAL cache. Sign in again.')
   }
   try {
     const result = await msal.acquireTokenSilent({
@@ -39,10 +45,7 @@ export async function getAuthHeaders(): Promise<HeadersInit> {
     return { Authorization: `Bearer ${result.accessToken}` }
   } catch (e) {
     if (e instanceof InteractionRequiredAuthError) {
-      await msal.acquireTokenRedirect({
-        ...apiTokenRequest(),
-        account,
-      })
+      await msal.acquireTokenRedirect({ ...apiTokenRequest(), account })
     }
     throw e
   }

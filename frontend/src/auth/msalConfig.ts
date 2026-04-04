@@ -5,9 +5,11 @@ export function getEntraApiScope(): string {
   return (import.meta.env.VITE_ENTRA_API_SCOPE ?? '').trim()
 }
 
-export function getAuthMode(): 'dev' | 'entra' {
+export function getAuthMode(): 'dev' | 'entra' | 'local' {
   const m = import.meta.env.VITE_AUTH_MODE
-  return m === 'entra' ? 'entra' : 'dev'
+  if (m === 'entra') return 'entra'
+  if (m === 'local') return 'local'
+  return 'dev'
 }
 
 export function buildMsalConfig(): Configuration {
