@@ -25,9 +25,11 @@ test.describe('Chat RAG KB indicator', () => {
       'e2e/seed-rag-assistant must return 201 (./scripts/e2e-up.sh sets E2E_ENABLE_RAG_SEED=1).',
     ).toBe(201)
 
-    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'load' })
+    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
 
-    await expect(page.getByText('A short reply without retrieval metadata.')).toBeVisible()
+    await expect(page.getByText('A short reply without retrieval metadata.')).toBeVisible({
+      timeout: 20_000,
+    })
     await expect(
       page.getByText('Grounded answer from E2E seed', { exact: false }),
     ).toBeVisible()
@@ -39,6 +41,6 @@ test.describe('Chat RAG KB indicator', () => {
     const popover = page.getByTestId('message-kb-indicator-popover')
     await expect(popover).toBeVisible()
     await expect(popover.getByText(kbName, { exact: false })).toBeVisible()
-    await expect(page.getByText(/chunks/i).first()).toBeVisible()
+    await expect(popover.getByText(/chunks/i)).toBeVisible()
   })
 })

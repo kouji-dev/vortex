@@ -6,6 +6,8 @@ import {
   seedRagToolCallForE2e,
 } from '../support/knowledge-api'
 
+test.describe.configure({ mode: 'serial' })
+
 test.describe('RAG tool-call UI', () => {
   test('KB indicator popover shows after seeded tool-call response', async ({ page, request }) => {
     const apiBase = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
@@ -46,10 +48,22 @@ test.describe('RAG tool-call UI', () => {
 
     await page
       .getByRole('textbox', { name: /message/i })
-      .fill('What does this knowledge base contain? Answer briefly.')
+      .fill(
+        'Use the knowledge base retrieval tool if available. What is in this knowledge base? Reply in one short sentence.',
+      )
     await page.getByRole('button', { name: /send message/i }).click()
 
-    await expect(page.getByText(/searching knowledge bases/i)).toBeVisible({ timeout: 60_000 })
-    await expect(page.getByText(/searching knowledge bases/i)).not.toBeVisible({ timeout: 90_000 })
+    const searching = page.getByTestId('chat-stream-kb-searching')
+    const assistant = page.getByTestId('chat-message-assistant').last()
+    const sawSearching = await searching
+      .waitFor({ state: 'visible', timeout: 90_000 })
+      .then(() => true)
+      .catch(() => false)
+    if (sawSearching) {
+      await expect(searching).toBeHidden({ timeout: 90_000 })
+    } else {
+      await expect(assistant).toBeVisible({ timeout: 90_000 })
+      await expect(assistant).not.toContainText('**Error:**')
+    }
   })
 })

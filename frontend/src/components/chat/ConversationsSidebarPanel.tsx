@@ -53,6 +53,7 @@ export function ConversationsSidebarPanel({
       if (!res.ok) throw new Error(await res.text())
     },
     onSuccess: () => {
+      setConfirmDelete(null)
       void qc.invalidateQueries({ queryKey: queryKeys.conversations() })
     },
   })
@@ -70,6 +71,7 @@ export function ConversationsSidebarPanel({
       )
     },
     onSuccess: () => {
+      setConfirmDelete(null)
       setSelectedIds(new Set())
       setSelectionMode(false)
       void qc.invalidateQueries({ queryKey: queryKeys.conversations() })
@@ -181,6 +183,7 @@ export function ConversationsSidebarPanel({
             </button>
             <button
               type="button"
+              data-testid="sidebar-bulk-delete"
               disabled={selectedCount === 0 || bulkDeleteMut.isPending}
               className="inline-flex items-center gap-1 rounded bg-red-600 px-2 py-1 text-white disabled:cursor-not-allowed disabled:opacity-50"
               onClick={() => {
@@ -307,10 +310,10 @@ export function ConversationsSidebarPanel({
                 disabled={singleDeleteMut.isPending || bulkDeleteMut.isPending}
                 onClick={() => {
                   if (confirmDelete.kind === 'single') {
-                    singleDeleteMut.mutate(confirmDelete.id, { onSuccess: () => setConfirmDelete(null) })
+                    singleDeleteMut.mutate(confirmDelete.id)
                     return
                   }
-                  bulkDeleteMut.mutate(confirmDelete.ids, { onSuccess: () => setConfirmDelete(null) })
+                  bulkDeleteMut.mutate(confirmDelete.ids)
                 }}
               >
                 Delete

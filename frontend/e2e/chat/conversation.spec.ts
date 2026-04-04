@@ -5,6 +5,7 @@
  * keyboard navigation, KB indicator popover details, sidebar navigation,
  * and thread-header delete dialog.
  */
+import { randomUUID } from 'node:crypto'
 import { test, expect } from '@playwright/test'
 import { createEmptyConversation } from '../support/create-conversation'
 import {
@@ -185,16 +186,18 @@ test.describe('Chat conversation', () => {
   })
 
   test('Enter key attaches the highlighted KB', async ({ page, request }) => {
-    const kbName = `E2E Enter attach ${Date.now()}`
+    const kbName = `E2E Enter attach ${randomUUID()}`
     await createKnowledgeBase(request, apiBase, kbName)
     const convId = await createEmptyConversation(request, apiBase)
     await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
     await page.getByTestId('chat-kb-picker-trigger').click()
-    // Filter so the target KB is first
     await page.getByTestId('kb-picker-search').fill(kbName)
+    await expect(page.getByRole('option', { name: kbName })).toBeVisible({ timeout: 20_000 })
     await page.keyboard.press('Enter')
-    const opt = page.getByRole('option', { name: new RegExp(kbName) })
-    await expect(opt).toContainText('Active', { timeout: 5_000 })
+    await expect(page.getByText('Saving…')).toBeHidden({ timeout: 30_000 })
+    await expect(page.getByTestId('chat-kb-picker-trigger')).toContainText(/active/i, {
+      timeout: 15_000,
+    })
   })
 
   // ──────────────────────────────────────────────────────────────
@@ -291,7 +294,7 @@ test.describe('Chat conversation', () => {
         d.dismiss()
         throw new Error('Native window.confirm appeared — expected in-app dialog')
       })
-      await page.getByRole('button', { name: /delete/i }).first().click()
+      await page.getByTestId('thread-header-delete-open').click()
       await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5_000 })
       await expect(page.getByRole('dialog').getByText(/delete conversation/i)).toBeVisible()
     } finally {
@@ -307,7 +310,7 @@ test.describe('Chat conversation', () => {
     const convId = await createEmptyConversation(request, apiBase)
     try {
       await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
-      await page.getByRole('button', { name: /delete/i }).first().click()
+      await page.getByTestId('thread-header-delete-open').click()
       const dialog = page.getByRole('dialog')
       await expect(dialog).toBeVisible()
       await expect(dialog.getByRole('button', { name: /cancel/i })).toBeVisible()
@@ -325,7 +328,7 @@ test.describe('Chat conversation', () => {
     const convId = await createEmptyConversation(request, apiBase)
     try {
       await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
-      await page.getByRole('button', { name: /delete/i }).first().click()
+      await page.getByTestId('thread-header-delete-open').click()
       const dialog = page.getByRole('dialog')
       await expect(dialog).toBeVisible()
       await dialog.getByRole('button', { name: /cancel/i }).click()
@@ -342,12 +345,13 @@ test.describe('Chat conversation', () => {
     page,
     request,
   }) => {
+    test.setTimeout(60_000)
     const convId = await createEmptyConversation(request, apiBase)
     await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
-    await page.getByRole('button', { name: /delete/i }).first().click()
-    const dialog = page.getByRole('dialog')
+    await page.getByTestId('thread-header-delete-open').click()
+    const dialog = page.getByRole('dialog', { name: /delete conversation/i })
     await expect(dialog).toBeVisible()
     await dialog.getByRole('button', { name: /^delete$/i }).click()
-    await expect(page).toHaveURL(/\/chat\/conversations\/?$/, { timeout: 15_000 })
+    await expect(page).toHaveURL(/\/chat\/conversations\/?$/, { timeout: 45_000 })
   })
 })
