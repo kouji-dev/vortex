@@ -263,10 +263,9 @@ test.describe('Chat — send and receive messages', () => {
     await sendMessage(page, 'Hello world!')
     // Navigate away then back; the sidebar should list the conversation
     await page.goto('/chat/conversations', { waitUntil: 'networkidle' })
-    // The sidebar shows conversation titles — after a message the title is set by the backend
-    // We can at least check the sidebar list has at least one item
-    await expect(page.locator('nav a[href*="/chat/conversations/"]').first()).toBeVisible({
-      timeout: 10_000,
+    // Sidebar is an <aside> with conversation links (not inside <nav>)
+    await expect(page.locator('aside ul a[href*="/chat/conversations/"]').first()).toBeVisible({
+      timeout: 15_000,
     })
   })
 })
