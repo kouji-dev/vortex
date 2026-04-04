@@ -7,6 +7,7 @@ from ai_portal.models.document import Document, DocumentChunk
 from ai_portal.models.knowledge_base import ConversationKnowledgeBase, KnowledgeBase
 from ai_portal.models.memory import UserMemory
 from ai_portal.models.org import Org
+from ai_portal.models.org_invite import OrgInvite
 from ai_portal.models.user import User
 from ai_portal.models.user_portal_api_key import UserPortalApiKey
 
@@ -24,6 +25,7 @@ __all__ = [
     "KnowledgeBase",
     "KnowledgeBaseConnector",
     "Org",
+    "OrgInvite",
     "User",
     "UserMemory",
     "UserPortalApiKey",

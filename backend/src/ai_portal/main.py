@@ -17,6 +17,7 @@ from ai_portal.api import (
     me,
     memories,
     model_catalog,
+    orgs as orgs_api,
     setup as setup_api,
 )
 from ai_portal.config import get_settings, settings_log_snapshot
@@ -86,6 +87,7 @@ app.include_router(conversations.router)
 app.include_router(memories.router)
 app.include_router(knowledge_bases.router)
 app.include_router(setup_api.router)
+app.include_router(orgs_api.router)
 
 if settings.auth_mode == "dev":
     app.include_router(e2e.router)
