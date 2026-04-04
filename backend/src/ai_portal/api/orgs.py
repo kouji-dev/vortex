@@ -109,8 +109,10 @@ def update_my_org(
 @router.get("/me/members", response_model=list[MemberRead])
 def list_members(
     org_id: _uuid.UUID = Depends(get_current_org_id),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[MemberRead]:
+    _require_role(user, "owner", "admin")
     members = db.scalars(select(User).where(User.org_id == org_id)).all()
     return [MemberRead.model_validate(m) for m in members]
 
@@ -152,7 +154,8 @@ def remove_member(
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Member not found")
     if member.id == user.id:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Cannot remove yourself")
-    db.delete(member)
+    member.org_id = None
+    member.role = "member"
     db.commit()
 
 
@@ -203,6 +206,7 @@ def list_invites(
             OrgInvite.org_id == org_id,
             OrgInvite.accepted_at == None,  # noqa: E711
             OrgInvite.revoked_at == None,  # noqa: E711
+            OrgInvite.expires_at > datetime.now(UTC),
         )
     ).all()
     return [InviteRead.model_validate(i) for i in invites]
