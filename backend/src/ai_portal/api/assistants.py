@@ -1,3 +1,4 @@
+import uuid as _uuid
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -5,7 +6,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from ai_portal.api.deps import get_current_user, get_db
+from ai_portal.api.deps import get_current_org_id, get_current_user, get_db
 from ai_portal.models import Assistant, AssistantAcl, User
 
 router = APIRouter(prefix="/api/assistants", tags=["assistants"])
@@ -36,37 +37,35 @@ class AssistantPatch(BaseModel):
     visibility: Literal["private", "org"] | None = None
 
 
-def _visible_assistants_stmt(user: User):
+def _visible_assistants_stmt(user: User, org_id: _uuid.UUID):
     acl = select(AssistantAcl.assistant_id).where(AssistantAcl.user_id == user.id)
     return select(Assistant).where(
+        Assistant.org_id == org_id,
         or_(
             Assistant.owner_user_id == user.id,
             Assistant.visibility == "org",
             Assistant.id.in_(acl),
-        )
+        ),
     )
 
 
-def _can_access_assistant(db: Session, user: User, assistant: Assistant) -> bool:
-    if assistant.owner_user_id == user.id or assistant.visibility == "org":
-        return True
-    return (
-        db.scalars(
-            select(AssistantAcl).where(
-                AssistantAcl.assistant_id == assistant.id,
-                AssistantAcl.user_id == user.id,
-            )
-        ).first()
-        is not None
-    )
+def _can_access_assistant(
+    assistant_id: int, user: User, org_id: _uuid.UUID, db: Session
+) -> Assistant:
+    stmt = _visible_assistants_stmt(user, org_id).where(Assistant.id == assistant_id)
+    assistant = db.scalars(stmt).first()
+    if assistant is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Assistant not found")
+    return assistant
 
 
 @router.get("", response_model=list[AssistantRead])
 def list_assistants(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
 ) -> list[Assistant]:
-    return list(db.scalars(_visible_assistants_stmt(user).order_by(Assistant.id)))
+    return list(db.scalars(_visible_assistants_stmt(user, org_id).order_by(Assistant.id)))
 
 
 @router.post("", response_model=AssistantRead, status_code=status.HTTP_201_CREATED)
@@ -74,6 +73,7 @@ def create_assistant(
     body: AssistantCreate,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
 ) -> Assistant:
     a = Assistant(
         name=body.name,
@@ -81,6 +81,7 @@ def create_assistant(
         system_prompt=body.system_prompt,
         owner_user_id=user.id,
         visibility=body.visibility,
+        org_id=org_id,
     )
     db.add(a)
     db.commit()
@@ -93,11 +94,9 @@ def get_assistant(
     assistant_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
 ) -> Assistant:
-    a = db.get(Assistant, assistant_id)
-    if a is None or not _can_access_assistant(db, user, a):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Assistant not found")
-    return a
+    return _can_access_assistant(assistant_id, user, org_id, db)
 
 
 @router.patch("/{assistant_id}", response_model=AssistantRead)
@@ -106,10 +105,9 @@ def patch_assistant(
     body: AssistantPatch,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
 ) -> Assistant:
-    a = db.get(Assistant, assistant_id)
-    if a is None or not _can_access_assistant(db, user, a):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Assistant not found")
+    a = _can_access_assistant(assistant_id, user, org_id, db)
     if a.owner_user_id != user.id:
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
