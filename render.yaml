@@ -1,0 +1,61 @@
+services:
+  # ── Backend API ───────────────────────────────────────────────────────────
+  - type: web
+    name: ai-portal-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: starter
+    envVars:
+      - key: DEPLOYMENT_MODE
+        value: saas
+      - key: DATABASE_URL
+        sync: false          # Set manually in Render dashboard (Supabase connection string)
+      - key: SECRET_KEY
+        generateValue: true  # Render auto-generates a secure random value
+      - key: CORS_ORIGINS
+        value: https://app.yourdomain.com
+      - key: EMAIL_FROM
+        value: noreply@yourdomain.com
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+
+  # ── Frontend App ─────────────────────────────────────────────────────────
+  - type: web
+    name: ai-portal-app
+    runtime: node
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    plan: starter
+    envVars:
+      - key: VITE_AUTH_MODE
+        value: local
+      - key: VITE_API_URL
+        value: https://ai-portal-api.onrender.com
+      - key: NODE_VERSION
+        value: "20"
+
+  # ── Landing Page ─────────────────────────────────────────────────────────
+  - type: web
+    name: ai-portal-landing
+    runtime: node
+    rootDir: landing
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    plan: starter
+    envVars:
+      - key: VITE_APP_URL
+        value: https://ai-portal-app.onrender.com
+      - key: NODE_VERSION
+        value: "20"
