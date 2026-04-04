@@ -17,6 +17,7 @@ from ai_portal.api import (
     me,
     memories,
     model_catalog,
+    setup as setup_api,
 )
 from ai_portal.config import get_settings, settings_log_snapshot
 from ai_portal.logging_config import configure_logging
@@ -43,6 +44,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+from ai_portal.middleware.setup_guard import SetupGuardMiddleware
+
+app.add_middleware(SetupGuardMiddleware)
 
 
 @app.middleware("http")
@@ -80,6 +85,7 @@ app.include_router(assistants.router)
 app.include_router(conversations.router)
 app.include_router(memories.router)
 app.include_router(knowledge_bases.router)
+app.include_router(setup_api.router)
 
 if settings.auth_mode == "dev":
     app.include_router(e2e.router)
