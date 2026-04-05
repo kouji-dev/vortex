@@ -4,7 +4,6 @@ from typing import Any, Literal
 
 import yaml
 from pydantic import AliasChoices, Field, model_validator
-from pydantic.fields import FieldInfo
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
 
@@ -97,11 +96,6 @@ class YamlSettingsSource(PydanticBaseSettingsSource):
                 if field_name is not None:
                     flat[field_name] = value
         return flat
-
-    def get_field_value(self, field: FieldInfo, field_name: str) -> tuple[Any, str, bool]:
-        data = self._load()
-        value = data.get(field_name)
-        return value, field_name, False
 
     def __call__(self) -> dict[str, Any]:
         return self._load()
