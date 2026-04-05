@@ -1,7 +1,11 @@
+import os
+from pathlib import Path
 from typing import Any, Literal
 
+import yaml
 from pydantic import AliasChoices, Field, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic.fields import FieldInfo
+from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
 
 def validate_portal_api_key_pepper_for_auth_mode(
@@ -17,13 +21,108 @@ def validate_portal_api_key_pepper_for_auth_mode(
         raise ValueError(msg)
 
 
+# Maps YAML nested path → flat Settings field name.
+# Format: "section.yaml_key": "settings_field_name"
+_YAML_KEY_MAP: dict[str, str] = {
+    "server.host": "api_host",
+    "server.port": "api_port",
+    "server.cors_origins": "cors_origins",
+    "server.upload_dir": "upload_dir",
+    "server.deployment_mode": "deployment_mode",
+    "database.url": "database_url",
+    "auth.mode": "auth_mode",
+    "auth.secret_key": "secret_key",
+    "auth.dev_bearer_token": "dev_bearer_token",
+    "auth.dev_seed_user_email": "dev_seed_user_email",
+    "auth.portal_api_key_pepper": "portal_api_key_pepper",
+    "auth.entra_tenant_id": "entra_tenant_id",
+    "auth.entra_api_audience": "entra_api_audience",
+    "auth.entra_debug_jwt": "entra_debug_jwt",
+    "smtp.host": "smtp_host",
+    "smtp.port": "smtp_port",
+    "smtp.user": "smtp_user",
+    "smtp.password": "smtp_password",
+    "smtp.email_from": "email_from",
+    "llm.openai_api_base": "openai_api_base",
+    "llm.openai_api_key": "openai_api_key",
+    "llm.anthropic_api_key": "anthropic_api_key",
+    "llm.chat_default_api_model": "chat_default_api_model",
+    "llm.default_system_prompt": "default_system_prompt",
+    "embedding.voyage_api_key": "voyage_api_key",
+    "embedding.model": "embedding_model",
+    "ingest.max_file_size_mb": "kb_max_file_size_mb",
+    "ingest.commit_batch_size": "ingest_commit_batch_size",
+    "ingest.embed_batch_size": "ingest_embed_batch_size",
+    "rag.max_top_k": "rag_max_top_k",
+    "rag.min_top_k": "rag_min_top_k",
+    "rag.similarity_threshold": "rag_similarity_threshold",
+    "rag.max_tool_iterations": "rag_max_tool_iterations",
+    "conversation.base_window_size": "conversation_base_window_size",
+    "conversation.summary_interval": "conversation_summary_interval",
+    "conversation.inactivity_summary_hours": "conversation_inactivity_summary_hours",
+    "observability.langfuse_public_key": "langfuse_public_key",
+    "observability.langfuse_secret_key": "langfuse_secret_key",
+    "observability.langfuse_host": "langfuse_host",
+}
+
+
+def _default_config_path() -> Path:
+    """Return path to config.yaml next to pyproject.toml (i.e. backend/config.yaml)."""
+    return Path(__file__).parent.parent.parent / "config.yaml"
+
+
+class YamlSettingsSource(PydanticBaseSettingsSource):
+    """Loads settings from a structured config.yaml, flattening nested sections."""
+
+    def __init__(self, settings_cls: type[BaseSettings]) -> None:
+        super().__init__(settings_cls)
+        env_path = os.environ.get("AI_PORTAL_CONFIG")
+        self._path = Path(env_path) if env_path else _default_config_path()
+
+    def _load(self) -> dict[str, Any]:
+        if not self._path.exists():
+            return {}
+        with self._path.open("r", encoding="utf-8") as fh:
+            try:
+                data = yaml.safe_load(fh) or {}
+            except yaml.YAMLError as exc:
+                raise ValueError(f"Invalid YAML in {self._path}: {exc}") from exc
+        flat: dict[str, Any] = {}
+        for section, values in data.items():
+            if not isinstance(values, dict):
+                continue
+            for key, value in values.items():
+                yaml_path = f"{section}.{key}"
+                field_name = _YAML_KEY_MAP.get(yaml_path)
+                if field_name is not None:
+                    flat[field_name] = value
+        return flat
+
+    def get_field_value(self, field: FieldInfo, field_name: str) -> tuple[Any, str, bool]:
+        data = self._load()
+        value = data.get(field_name)
+        return value, field_name, False
+
+    def __call__(self) -> dict[str, Any]:
+        return self._load()
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=(".env", "../.env"),
-        env_file_encoding="utf-8",
         extra="ignore",
         populate_by_name=True,
     )
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        return (env_settings, YamlSettingsSource(settings_cls), init_settings)
 
     database_url: str = "postgresql+psycopg://postgres:postgres@127.0.0.1:5434/ai_portal"
     cors_origins: str = "http://localhost:5173"
