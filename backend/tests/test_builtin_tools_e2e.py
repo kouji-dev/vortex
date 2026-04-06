@@ -66,9 +66,9 @@ def test_web_search_tool_called_and_reply_streamed():
 
     assert resp.status_code == 200
     events = _parse_sse(resp.text)
-    tool_call_events = [e for e in events if e.get("type") == "tool_call"]
+    tool_call_events = [e for e in events if e.get("type") == "item_start" and e.get("item", {}).get("kind") == "tool_call"]
     assert len(tool_call_events) >= 1
-    assert tool_call_events[0]["name"] == "web_search"
+    assert tool_call_events[0]["item"]["tool"] == "web_search"
 
 
 @requires_postgres
@@ -144,8 +144,8 @@ def test_data_query_tool_called():
 
     assert resp.status_code == 200
     events = _parse_sse(resp.text)
-    tool_call_events = [e for e in events if e.get("type") == "tool_call"]
-    assert any(e["name"] == "query_structured_data" for e in tool_call_events)
+    tool_call_events = [e for e in events if e.get("type") == "item_start" and e.get("item", {}).get("kind") == "tool_call"]
+    assert any(e["item"]["tool"] == "query_structured_data" for e in tool_call_events)
 
 
 @requires_postgres
@@ -221,3 +221,60 @@ def test_capability_profile_includes_new_tools():
     assert "data_query" in body
     assert body["web_search"]["description"]
     assert body["data_query"]["description"]
+
+
+@requires_postgres
+def test_item_start_done_protocol():
+    """Verify item_start/item_done SSE events are emitted and old tool_call event is gone."""
+    r = client.post(
+        "/api/chat/conversations",
+        headers=AUTH,
+        json={"settings": {"capabilities": {"web_search": True}}},
+    )
+    assert r.status_code == 201, r.text
+    cid = r.json()["id"]
+
+    call_count = 0
+
+    def fake_stream(messages, model=None, tools=None):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            yield {"type": "tool_call", "tool_call": {"name": "web_search", "arguments": '{"query": "test query"}'}}
+        else:
+            yield {"type": "delta", "text": "Here is the answer."}
+
+    with patch("ai_portal.api.conversations.llm_svc.chat_completions_stream_with_tools", side_effect=fake_stream), \
+         patch("ai_portal.tools.registry.DuckDuckGoProvider") as MockDDG:
+        instance = MagicMock()
+        from ai_portal.tools.search.base import SearchResult
+        instance.search.return_value = [
+            SearchResult(title="Test", url="https://example.com", snippet="Test result")
+        ]
+        MockDDG.return_value = instance
+
+        resp = client.post(
+            f"/api/chat/conversations/{cid}/messages/stream",
+            headers=AUTH,
+            json={"content": "test question"},
+        )
+
+    assert resp.status_code == 200
+    events = _parse_sse(resp.text)
+
+    thinking_starts = [e for e in events if e.get("type") == "item_start" and e.get("item", {}).get("kind") == "thinking"]
+    assert len(thinking_starts) >= 1
+
+    tool_starts = [e for e in events if e.get("type") == "item_start" and e.get("item", {}).get("kind") == "tool_call"]
+    assert len(tool_starts) >= 1
+    assert tool_starts[0]["item"]["tool"] == "web_search"
+
+    tool_dones = [e for e in events if e.get("type") == "item_done" and e.get("item", {}).get("kind") == "tool_call"]
+    assert len(tool_dones) >= 1
+    assert tool_dones[0]["item"]["status"] == "done"
+
+    thinking_dones = [e for e in events if e.get("type") == "item_done" and e.get("item", {}).get("kind") == "thinking"]
+    assert len(thinking_dones) >= 1
+
+    old_tool_events = [e for e in events if e.get("type") == "tool_call"]
+    assert len(old_tool_events) == 0

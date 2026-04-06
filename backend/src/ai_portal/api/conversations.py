@@ -856,6 +856,18 @@ def stream_message(
         messages = list(llm_messages)
         max_iterations = settings.rag_max_tool_iterations
         iterations = 0
+        thinking_started = False
+
+        _active_memory_count = sum(
+            1 for m in manual_memories if m.is_active and not m.is_system and (m.content or "").strip()
+        ) + (1 if system_profile is not None and getattr(system_profile, "content", "").strip() and system_profile.is_active else 0)
+        _has_tools = bool(tools)
+        if _active_memory_count > 0 or _has_tools:
+            yield _sse({"type": "item_start", "item": {"kind": "thinking"}})
+            thinking_started = True
+            if _active_memory_count > 0:
+                yield _sse({"type": "item_start", "item": {"kind": "memory", "count": _active_memory_count}})
+                yield _sse({"type": "item_done", "item": {"kind": "memory", "status": "done"}})
 
         while iterations <= max_iterations:
             full: list[str] = []
@@ -867,9 +879,15 @@ def stream_message(
                 ):
                     if isinstance(piece, dict) and piece.get("type") == "tool_call":
                         tool_call_buffer = piece.get("tool_call")
-                        yield _sse(
-                            {"type": "tool_call", "name": tool_call_buffer.get("name", "")}
-                        )
+                        _tool_name = tool_call_buffer.get("name", "")
+                        try:
+                            _tool_params = json.loads(tool_call_buffer.get("arguments", "{}"))
+                        except Exception:
+                            _tool_params = {}
+                        yield _sse({
+                            "type": "item_start",
+                            "item": {"kind": "tool_call", "tool": _tool_name, "params": _tool_params},
+                        })
                     elif isinstance(piece, dict) and piece.get("type") == "delta":
                         text = piece.get("text", "")
                         full.append(text)
@@ -929,6 +947,10 @@ def stream_message(
                         "content": tool_result["content"],
                     }
                 )
+                yield _sse({
+                    "type": "item_done",
+                    "item": {"kind": "tool_call", "tool": tool_call_buffer.get("name", ""), "status": "done"},
+                })
                 iterations += 1
                 continue
 
@@ -969,6 +991,8 @@ def stream_message(
                 daemon=True,
             ).start()
 
+            if thinking_started:
+                yield _sse({"type": "item_done", "item": {"kind": "thinking"}})
             yield _sse({"type": "done", "message_id": _tail_message_id()})
             return
 
