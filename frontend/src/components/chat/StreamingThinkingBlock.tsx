@@ -142,7 +142,7 @@ export function StreamingThinkingBlock({ items, expanded, onToggle }: Props) {
 
   // done state
   return (
-    <div data-testid="chat-thinking-block">
+    <div {...(expanded ? { 'data-testid': 'chat-thinking-block' } : {})}>
       <button
         data-testid="chat-thinking-pill"
         onClick={onToggle}
