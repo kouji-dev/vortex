@@ -28,12 +28,16 @@ import {
   type Conversation,
   type ConversationSettings,
   type UsedKbEntry,
+  type StreamItem,
+  type ThinkingItem,
+  type ToolCallItem,
 } from '~/lib/chat-types'
 import { isConversationNotFoundError } from '~/lib/conversation-not-found'
 import { getAuthHeaders } from '~/lib/authorizedFetch'
 import { queryKeys } from '~/lib/queryKeys'
 import { parseSseBlocks } from '~/lib/sse-parse'
 import { useConversationsOutlet } from '~/contexts/ConversationsOutletContext'
+import { StreamingThinkingBlock } from '~/components/chat/StreamingThinkingBlock'
 
 const MESSAGES_LIMIT = 100
 const MAX_ATTACHMENTS_PER_MESSAGE = 5
@@ -64,7 +68,8 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
     useConversationsOutlet()
   const [streamingText, setStreamingText] = React.useState('')
   const [streaming, setStreaming] = React.useState(false)
-  const [isSearchingKb, setIsSearchingKb] = React.useState(false)
+  const [streamItems, setStreamItems] = React.useState<StreamItem[]>([])
+  const [thinkingExpanded, setThinkingExpanded] = React.useState(false)
   const [sendError, setSendError] = React.useState<string | null>(null)
   const [modelDraft, setModelDraft] = React.useState('')
   const [olderMessages, setOlderMessages] = React.useState<ChatMessage[]>([])
@@ -348,17 +353,103 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
       let buf = ''
       const applyEvents = (events: unknown[]) => {
         for (const ev of events) {
-          const e = ev as { type?: string; text?: string; detail?: string; name?: string }
-          if (e.type === 'tool_call') {
-            setIsSearchingKb(true)
+          const e = ev as {
+            type?: string
+            text?: string
+            detail?: string
+            item?: {
+              kind?: string
+              tool?: string
+              params?: Record<string, string>
+              count?: number
+              status?: string
+            }
           }
+
+          if (e.type === 'item_start') {
+            const item = e.item ?? {}
+            if (item.kind === 'thinking') {
+              setStreamItems(prev => [...prev, { kind: 'thinking', status: 'running', children: [] }])
+              setThinkingExpanded(true)
+            } else if (item.kind === 'memory') {
+              setStreamItems(prev => {
+                const next = [...prev]
+                const thinking = [...next].reverse().find(
+                  (i): i is ThinkingItem => i.kind === 'thinking' && i.status === 'running',
+                )
+                if (thinking) {
+                  thinking.children.push({ kind: 'memory', count: item.count ?? 0, status: 'running' })
+                }
+                return next
+              })
+            } else if (item.kind === 'tool_call') {
+              setStreamItems(prev => {
+                const next = [...prev]
+                const thinking = [...next].reverse().find(
+                  (i): i is ThinkingItem => i.kind === 'thinking' && i.status === 'running',
+                )
+                const toolItem: ToolCallItem = {
+                  kind: 'tool_call',
+                  tool: item.tool ?? '',
+                  params: item.params ?? {},
+                  status: 'running',
+                }
+                if (thinking) thinking.children.push(toolItem)
+                else next.push(toolItem)
+                return next
+              })
+            }
+          }
+
+          if (e.type === 'item_done') {
+            const item = e.item ?? {}
+            if (item.kind === 'thinking') {
+              setStreamItems(prev =>
+                prev.map(i =>
+                  i.kind === 'thinking' && i.status === 'running' ? { ...i, status: 'done' } : i,
+                ),
+              )
+              setThinkingExpanded(false)
+            } else if (item.kind === 'memory') {
+              setStreamItems(prev => {
+                const next = [...prev]
+                for (const si of next) {
+                  if (si.kind === 'thinking') {
+                    const mem = [...si.children].reverse().find(
+                      c => c.kind === 'memory' && c.status === 'running',
+                    )
+                    if (mem) {
+                      mem.status = 'done'
+                      return next
+                    }
+                  }
+                }
+                return next
+              })
+            } else if (item.kind === 'tool_call') {
+              setStreamItems(prev => {
+                const next = [...prev]
+                for (const si of next) {
+                  if (si.kind === 'thinking') {
+                    const tc = [...si.children].reverse().find(
+                      c => c.kind === 'tool_call' && (c as ToolCallItem).tool === item.tool && c.status === 'running',
+                    )
+                    if (tc) {
+                      tc.status = 'done'
+                      return next
+                    }
+                  }
+                }
+                return next
+              })
+            }
+          }
+
           if (e.type === 'delta' && e.text) {
-            setIsSearchingKb(false)
             assembled += e.text
             setStreamingText(assembled)
           }
           if (e.type === 'error') {
-            setIsSearchingKb(false)
             streamHadSseErrorRef.current = true
             setSendError(
               typeof e.detail === 'string' && e.detail.trim()
@@ -367,7 +458,6 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
             )
           }
           if (e.type === 'done') {
-            setIsSearchingKb(false)
             streamReachedTerminal = true
           }
         }
@@ -391,7 +481,8 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
       if (streamAbortRef.current === ac) streamAbortRef.current = null
       setStreaming(false)
       setStreamingText('')
-      setIsSearchingKb(false)
+      setStreamItems([])
+      setThinkingExpanded(false)
       setOlderMessages([])
       void qc.invalidateQueries({
         queryKey: queryKeys.conversationMessagesTail(conversationId),
@@ -852,21 +943,18 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
                   </button>
                 </div>
               </div>
-              {isSearchingKb && (
-                <p
-                  data-testid="chat-stream-kb-searching"
-                  className="mb-1.5 flex items-center gap-1.5 text-xs text-blue-500 dark:text-blue-400 animate-pulse"
-                >
-                  Searching knowledge bases…
-                </p>
-              )}
+              <StreamingThinkingBlock
+                items={streamItems}
+                expanded={thinkingExpanded}
+                onToggle={() => setThinkingExpanded(e => !e)}
+              />
               {streamingText ? (
                 <MarkdownMessage
                   content={streamingText}
                   streaming
                   className="text-neutral-900 dark:text-neutral-100"
                 />
-              ) : !isSearchingKb ? (
+              ) : streamItems.length === 0 ? (
                 <p className="flex items-center gap-2 text-sm text-neutral-400">
                   <span className="inline-block h-3.5 w-0.5 animate-pulse rounded-full bg-neutral-400 dark:bg-neutral-500" />
                   Waiting for tokens…
