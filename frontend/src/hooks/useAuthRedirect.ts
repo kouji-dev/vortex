@@ -19,9 +19,16 @@ export function useAuthRedirect(): void {
     if (getAuthMode() !== 'local') return
     if (UNPROTECTED.some((p) => location.pathname.startsWith(p))) return
 
-    const token = tokenStore.getAccess()
-    if (!token) {
-      navigate({ to: '/login', replace: true })
+    const checkAuth = () => {
+      const token = tokenStore.getAccess()
+      if (!token) {
+        navigate({ to: '/login', replace: true })
+      }
     }
+
+    checkAuth()
+
+    window.addEventListener('storage', checkAuth)
+    return () => window.removeEventListener('storage', checkAuth)
   }, [location.pathname, navigate])
 }
