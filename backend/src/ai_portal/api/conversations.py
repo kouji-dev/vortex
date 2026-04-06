@@ -905,6 +905,8 @@ def stream_message(
                     )
                 )
                 db.commit()
+                if thinking_started:
+                    yield _sse({"type": "item_done", "item": {"kind": "thinking"}})
                 yield _sse({"type": "error", "detail": detail})
                 yield _sse({"type": "done", "message_id": _tail_message_id()})
                 return
@@ -919,6 +921,8 @@ def stream_message(
                     )
                 )
                 db.commit()
+                if thinking_started:
+                    yield _sse({"type": "item_done", "item": {"kind": "thinking"}})
                 yield _sse({"type": "error", "detail": detail})
                 yield _sse({"type": "done", "message_id": _tail_message_id()})
                 return
@@ -953,6 +957,13 @@ def stream_message(
                 })
                 iterations += 1
                 continue
+            else:
+                # Iteration cap reached — close the open tool item
+                if tool_call_buffer:
+                    yield _sse({
+                        "type": "item_done",
+                        "item": {"kind": "tool_call", "tool": tool_call_buffer.get("name", ""), "status": "done"},
+                    })
 
             reply = "".join(full)
             db.add(

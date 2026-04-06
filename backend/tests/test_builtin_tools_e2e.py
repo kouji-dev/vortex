@@ -267,7 +267,10 @@ def test_item_start_done_protocol():
 
     tool_starts = [e for e in events if e.get("type") == "item_start" and e.get("item", {}).get("kind") == "tool_call"]
     assert len(tool_starts) >= 1
-    assert tool_starts[0]["item"]["tool"] == "web_search"
+    tool_start = tool_starts[0]
+    assert tool_start["item"]["tool"] == "web_search"
+    assert "params" in tool_start["item"]
+    assert isinstance(tool_start["item"]["params"], dict)
 
     tool_dones = [e for e in events if e.get("type") == "item_done" and e.get("item", {}).get("kind") == "tool_call"]
     assert len(tool_dones) >= 1
