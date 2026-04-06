@@ -9,18 +9,37 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SetupRouteImport } from './routes/setup'
+import { Route as RegisterRouteImport } from './routes/register'
 import { Route as MemoriesRouteImport } from './routes/memories'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as ChatRouteRouteImport } from './routes/chat/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as KnowledgeBasesIndexRouteImport } from './routes/knowledge-bases/index'
+import { Route as OrgSettingsRouteImport } from './routes/org/settings'
 import { Route as KnowledgeBasesIdRouteImport } from './routes/knowledge-bases/$id'
 import { Route as ChatConversationsRouteRouteImport } from './routes/chat/conversations/route'
 import { Route as ChatConversationsIndexRouteImport } from './routes/chat/conversations/index'
 import { Route as ChatConversationsIdRouteImport } from './routes/chat/conversations/$id'
 
+const SetupRoute = SetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RegisterRoute = RegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MemoriesRoute = MemoriesRouteImport.update({
   id: '/memories',
   path: '/memories',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ChatRouteRoute = ChatRouteRouteImport.update({
@@ -36,6 +55,11 @@ const IndexRoute = IndexRouteImport.update({
 const KnowledgeBasesIndexRoute = KnowledgeBasesIndexRouteImport.update({
   id: '/knowledge-bases/',
   path: '/knowledge-bases/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrgSettingsRoute = OrgSettingsRouteImport.update({
+  id: '/org/settings',
+  path: '/org/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const KnowledgeBasesIdRoute = KnowledgeBasesIdRouteImport.update({
@@ -62,9 +86,13 @@ const ChatConversationsIdRoute = ChatConversationsIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/chat': typeof ChatRouteRouteWithChildren
+  '/login': typeof LoginRoute
   '/memories': typeof MemoriesRoute
+  '/register': typeof RegisterRoute
+  '/setup': typeof SetupRoute
   '/chat/conversations': typeof ChatConversationsRouteRouteWithChildren
   '/knowledge-bases/$id': typeof KnowledgeBasesIdRoute
+  '/org/settings': typeof OrgSettingsRoute
   '/knowledge-bases/': typeof KnowledgeBasesIndexRoute
   '/chat/conversations/$id': typeof ChatConversationsIdRoute
   '/chat/conversations/': typeof ChatConversationsIndexRoute
@@ -72,8 +100,12 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/chat': typeof ChatRouteRouteWithChildren
+  '/login': typeof LoginRoute
   '/memories': typeof MemoriesRoute
+  '/register': typeof RegisterRoute
+  '/setup': typeof SetupRoute
   '/knowledge-bases/$id': typeof KnowledgeBasesIdRoute
+  '/org/settings': typeof OrgSettingsRoute
   '/knowledge-bases': typeof KnowledgeBasesIndexRoute
   '/chat/conversations/$id': typeof ChatConversationsIdRoute
   '/chat/conversations': typeof ChatConversationsIndexRoute
@@ -82,9 +114,13 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/chat': typeof ChatRouteRouteWithChildren
+  '/login': typeof LoginRoute
   '/memories': typeof MemoriesRoute
+  '/register': typeof RegisterRoute
+  '/setup': typeof SetupRoute
   '/chat/conversations': typeof ChatConversationsRouteRouteWithChildren
   '/knowledge-bases/$id': typeof KnowledgeBasesIdRoute
+  '/org/settings': typeof OrgSettingsRoute
   '/knowledge-bases/': typeof KnowledgeBasesIndexRoute
   '/chat/conversations/$id': typeof ChatConversationsIdRoute
   '/chat/conversations/': typeof ChatConversationsIndexRoute
@@ -94,9 +130,13 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/chat'
+    | '/login'
     | '/memories'
+    | '/register'
+    | '/setup'
     | '/chat/conversations'
     | '/knowledge-bases/$id'
+    | '/org/settings'
     | '/knowledge-bases/'
     | '/chat/conversations/$id'
     | '/chat/conversations/'
@@ -104,8 +144,12 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/chat'
+    | '/login'
     | '/memories'
+    | '/register'
+    | '/setup'
     | '/knowledge-bases/$id'
+    | '/org/settings'
     | '/knowledge-bases'
     | '/chat/conversations/$id'
     | '/chat/conversations'
@@ -113,9 +157,13 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/chat'
+    | '/login'
     | '/memories'
+    | '/register'
+    | '/setup'
     | '/chat/conversations'
     | '/knowledge-bases/$id'
+    | '/org/settings'
     | '/knowledge-bases/'
     | '/chat/conversations/$id'
     | '/chat/conversations/'
@@ -124,18 +172,43 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ChatRouteRoute: typeof ChatRouteRouteWithChildren
+  LoginRoute: typeof LoginRoute
   MemoriesRoute: typeof MemoriesRoute
+  RegisterRoute: typeof RegisterRoute
+  SetupRoute: typeof SetupRoute
   KnowledgeBasesIdRoute: typeof KnowledgeBasesIdRoute
+  OrgSettingsRoute: typeof OrgSettingsRoute
   KnowledgeBasesIndexRoute: typeof KnowledgeBasesIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/setup': {
+      id: '/setup'
+      path: '/setup'
+      fullPath: '/setup'
+      preLoaderRoute: typeof SetupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/register': {
+      id: '/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof RegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/memories': {
       id: '/memories'
       path: '/memories'
       fullPath: '/memories'
       preLoaderRoute: typeof MemoriesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/chat': {
@@ -157,6 +230,13 @@ declare module '@tanstack/react-router' {
       path: '/knowledge-bases'
       fullPath: '/knowledge-bases/'
       preLoaderRoute: typeof KnowledgeBasesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/org/settings': {
+      id: '/org/settings'
+      path: '/org/settings'
+      fullPath: '/org/settings'
+      preLoaderRoute: typeof OrgSettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/knowledge-bases/$id': {
@@ -221,8 +301,12 @@ const ChatRouteRouteWithChildren = ChatRouteRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ChatRouteRoute: ChatRouteRouteWithChildren,
+  LoginRoute: LoginRoute,
   MemoriesRoute: MemoriesRoute,
+  RegisterRoute: RegisterRoute,
+  SetupRoute: SetupRoute,
   KnowledgeBasesIdRoute: KnowledgeBasesIdRoute,
+  OrgSettingsRoute: OrgSettingsRoute,
   KnowledgeBasesIndexRoute: KnowledgeBasesIndexRoute,
 }
 export const routeTree = rootRouteImport
