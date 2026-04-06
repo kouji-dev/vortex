@@ -9,7 +9,7 @@ import {
   Table2,
   Wrench,
 } from 'lucide-react'
-import { StreamItem, ThinkingChildItem, ThinkingItem } from '~/lib/chat-types'
+import type { StreamItem, ThinkingChildItem, ThinkingItem } from '~/lib/chat-types'
 
 interface Props {
   items: StreamItem[]
@@ -74,17 +74,19 @@ function ToolCard({ child }: { child: ThinkingChildItem }) {
       className={`flex items-center gap-2 rounded-lg px-2.5 py-2 ${cardClass}`}
     >
       <span className={iconColor}>{icon}</span>
-      <span
-        data-testid="chat-tool-card-name"
-        className="text-[11px] font-medium text-neutral-700 dark:text-neutral-300"
-      >
-        {label}
-      </span>
-      {param && (
-        <span className="text-[11px] text-neutral-400 dark:text-neutral-500 truncate flex-1">
-          {param}
+      <div className="flex flex-1 flex-col min-w-0">
+        <span
+          data-testid="chat-tool-card-name"
+          className="text-[11px] font-medium text-neutral-700 dark:text-neutral-300"
+        >
+          {label}
         </span>
-      )}
+        {param ? (
+          <span className="text-[11px] text-neutral-400 dark:text-neutral-500 truncate">
+            {param}
+          </span>
+        ) : null}
+      </div>
       <span
         data-testid="chat-tool-card-status"
         className={`flex items-center gap-1 shrink-0 text-[11px] ${
@@ -141,8 +143,10 @@ export function StreamingThinkingBlock({ items, expanded, onToggle }: Props) {
   }
 
   // done state
+  const toolCount = thinking.children.filter((c) => c.kind === 'tool_call').length
+
   return (
-    <div {...(expanded ? { 'data-testid': 'chat-thinking-block' } : {})}>
+    <div data-testid="chat-thinking-block" className="mb-2">
       <button
         data-testid="chat-thinking-pill"
         onClick={onToggle}
@@ -154,6 +158,11 @@ export function StreamingThinkingBlock({ items, expanded, onToggle }: Props) {
           <ChevronRight className="size-3 text-neutral-400 dark:text-neutral-500" strokeWidth={2} />
         )}
         Thinking
+        {toolCount > 0 && (
+          <span className="text-neutral-400 dark:text-neutral-500">
+            · {toolCount} tool{toolCount === 1 ? '' : 's'} used
+          </span>
+        )}
       </button>
       {expanded && children.length > 0 && (
         <div className="border-l border-neutral-200/60 dark:border-neutral-700/50 ml-1.5 pl-3 flex flex-col gap-1.5 mt-1.5">
