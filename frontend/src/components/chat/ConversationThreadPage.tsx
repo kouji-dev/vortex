@@ -412,35 +412,39 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
               setThinkingExpanded(false)
             } else if (item.kind === 'memory') {
               setStreamItems(prev => {
-                const next = [...prev]
-                for (const si of next) {
-                  if (si.kind === 'thinking') {
-                    const mem = [...si.children].reverse().find(
-                      c => c.kind === 'memory' && c.status === 'running',
-                    )
-                    if (mem) {
-                      mem.status = 'done'
-                      return next
-                    }
+                let fixed = false
+                return prev.map(si => {
+                  if (fixed || si.kind !== 'thinking') return si
+                  const lastRunningIdx = [...si.children].map((c, i) => [c, i] as const).reverse().find(
+                    ([c]) => c.kind === 'memory' && c.status === 'running',
+                  )?.[1]
+                  if (lastRunningIdx === undefined) return si
+                  fixed = true
+                  return {
+                    ...si,
+                    children: si.children.map((c, i) =>
+                      i === lastRunningIdx ? { ...c, status: 'done' as const } : c,
+                    ),
                   }
-                }
-                return next
+                })
               })
             } else if (item.kind === 'tool_call') {
               setStreamItems(prev => {
-                const next = [...prev]
-                for (const si of next) {
-                  if (si.kind === 'thinking') {
-                    const tc = [...si.children].reverse().find(
-                      c => c.kind === 'tool_call' && (c as ToolCallItem).tool === item.tool && c.status === 'running',
-                    )
-                    if (tc) {
-                      tc.status = 'done'
-                      return next
-                    }
+                let fixed = false
+                return prev.map(si => {
+                  if (fixed || si.kind !== 'thinking') return si
+                  const lastRunningIdx = [...si.children].map((c, i) => [c, i] as const).reverse().find(
+                    ([c]) => c.kind === 'tool_call' && (c as ToolCallItem).tool === item.tool && c.status === 'running',
+                  )?.[1]
+                  if (lastRunningIdx === undefined) return si
+                  fixed = true
+                  return {
+                    ...si,
+                    children: si.children.map((c, i) =>
+                      i === lastRunningIdx ? { ...c, status: 'done' as const } : c,
+                    ),
                   }
-                }
-                return next
+                })
               })
             }
           }
