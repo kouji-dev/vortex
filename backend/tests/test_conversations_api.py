@@ -39,7 +39,13 @@ def test_create_conversation_defaults_model_and_settings():
     assert r.status_code == 201, r.text
     body = r.json()
     assert body["settings"] == {
-        "capabilities": {"reflection": False, "research": False, "web": False},
+        "capabilities": {
+            "reflection": False,
+            "research": False,
+            "web": False,
+            "web_search": False,
+            "data_query": False,
+        },
     }
     assert body["model"] == expected_model
 

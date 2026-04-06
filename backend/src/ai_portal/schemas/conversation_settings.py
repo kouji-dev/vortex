@@ -6,13 +6,15 @@ from pydantic import BaseModel, ConfigDict
 
 
 class CapabilityToggles(BaseModel):
-    """Feature toggles for a conversation (reflection / research / web)."""
+    """Feature toggles for a conversation (reflection / research / web / web_search / data_query)."""
 
     model_config = ConfigDict(extra="forbid")
 
     reflection: bool = False
     research: bool = False
     web: bool = False
+    web_search: bool = False
+    data_query: bool = False
 
 
 class ConversationSettings(BaseModel):
