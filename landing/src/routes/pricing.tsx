@@ -5,9 +5,9 @@ export const Route = createFileRoute('/pricing')({
   component: PricingPage,
 })
 
-const registerHref = `${getAppUrl()}/register`
-
-const PLANS = [
+function getPlans() {
+  const registerHref = `${getAppUrl()}/register`
+  return [
   {
     name: 'Personal',
     price: 'Free',
@@ -60,9 +60,11 @@ const PLANS = [
       'Open source',
     ],
   },
-]
+  ]
+}
 
 function PricingPage() {
+  const plans = getPlans()
   return (
     <div className="py-16">
       <div className="mx-auto max-w-5xl px-6">
@@ -74,7 +76,7 @@ function PricingPage() {
         </div>
 
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-          {PLANS.map((plan) => (
+          {plans.map((plan) => (
             <div
               key={plan.name}
               className={`rounded-2xl p-8 flex flex-col ${
