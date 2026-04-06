@@ -86,6 +86,7 @@ def e2e_seed_system_memory(
 ) -> dict[str, bool]:
     """Create or replace the dev user's single ``is_system`` profile row (E2E DB only)."""
     _require_e2e_database(db)
+    from ai_portal.models.memory import UserMemory
     existing = db.scalars(
         select(UserMemory)
         .where(
@@ -111,3 +112,60 @@ def e2e_seed_system_memory(
         )
     db.commit()
     return {"ok": True}
+
+
+class E2eSeedToolStreamBody(BaseModel):
+    conversation_id: int
+
+
+@router.post("/seed-tool-stream", status_code=status.HTTP_201_CREATED)
+def e2e_seed_tool_stream(
+    body: E2eSeedToolStreamBody,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> dict:
+    """
+    Seed a conversation with a user + assistant message pair, and return
+    the SSE text that a tool-using stream would have produced.
+
+    Used by Playwright E2E tests to replay a pre-built SSE stream without
+    hitting a real LLM or external tools.
+    """
+    _require_e2e_database(db)
+    from ai_portal.models.chat import ChatMessage as ChatMessageModel
+    import json as _json
+
+    # Seed user message
+    user_msg = ChatMessageModel(
+        conversation_id=body.conversation_id,
+        role="user",
+        content="What is the latest news?",
+    )
+    db.add(user_msg)
+
+    # Seed assistant reply
+    assistant_msg = ChatMessageModel(
+        conversation_id=body.conversation_id,
+        role="assistant",
+        content="Here is the latest news based on my web search.",
+    )
+    db.add(assistant_msg)
+    db.commit()
+
+    def _e(payload: dict) -> str:
+        return f"data: {_json.dumps(payload)}\n\n"
+
+    sse_events = (
+        _e({"type": "item_start", "item": {"kind": "thinking"}})
+        + _e({"type": "item_start", "item": {"kind": "memory", "count": 1}})
+        + _e({"type": "item_done", "item": {"kind": "memory", "status": "done"}})
+        + _e({"type": "item_start", "item": {"kind": "tool_call", "tool": "web_search", "params": {"query": "latest news"}}})
+        + _e({"type": "item_done", "item": {"kind": "tool_call", "tool": "web_search", "status": "done"}})
+        + _e({"type": "item_start", "item": {"kind": "tool_call", "tool": "search_knowledge_base", "params": {"query": "news"}}})
+        + _e({"type": "item_done", "item": {"kind": "tool_call", "tool": "search_knowledge_base", "status": "done"}})
+        + _e({"type": "item_done", "item": {"kind": "thinking"}})
+        + _e({"type": "delta", "text": "Here is the latest news based on my web search."})
+        + _e({"type": "done", "message_id": assistant_msg.id})
+    )
+
+    return {"sse": sse_events, "message_id": str(assistant_msg.id), "conversation_id": str(body.conversation_id)}
