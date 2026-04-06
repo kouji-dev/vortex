@@ -29,6 +29,8 @@ dependencies = [
   "pyjwt[crypto]>=2.9",
   "passlib[bcrypt]>=1.7",
   "chonkie[semantic,code]>=1.0",
+  "duckduckgo-search>=6.0",
+  "pandas>=2.0",
 ]
 
 [project.optional-dependencies]
