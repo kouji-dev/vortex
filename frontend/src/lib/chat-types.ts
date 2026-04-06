@@ -128,3 +128,26 @@ export type CatalogModelEntry = {
   /** Server default when conversation ``model`` is unset; at most one row per response. */
   is_default?: boolean
 }
+
+export type ToolCallItem = {
+  kind: 'tool_call'
+  tool: string
+  params: Record<string, string>
+  status: 'running' | 'done'
+}
+
+export type MemoryItem = {
+  kind: 'memory'
+  count: number
+  status: 'running' | 'done'
+}
+
+export type ThinkingChildItem = ToolCallItem | MemoryItem
+
+export type ThinkingItem = {
+  kind: 'thinking'
+  status: 'running' | 'done'
+  children: ThinkingChildItem[]
+}
+
+export type StreamItem = ThinkingItem | ThinkingChildItem
