@@ -7,14 +7,15 @@
 
 ## Overview
 
-Replace the current hardcoded "Searching knowledge bases…" indicator with a unified, collapsible **Thinking block** that renders all tool calls (web search, KB search, data query) as a live thread during streaming. When the stream ends the block auto-collapses into a pill; the user can re-expand it to inspect what was called and with what parameters.
+Replace the current hardcoded "Searching knowledge bases…" indicator with a unified, collapsible **Thinking block** that renders all context items — tool calls (web search, KB search, data query) and memory injection — as a live thread during streaming. When the stream ends the block auto-collapses into a pill; the user can re-expand it to inspect what was used.
 
 ---
 
 ## Goals
 
-- Consistent UI for every tool — no tool-specific strings hardcoded in the frontend
-- Live feedback: user sees each tool call appear as it happens, with running → done status
+- Consistent UI for every tool and context source — no hardcoded strings in the frontend
+- Live feedback: user sees each item appear as it happens, with running → done status
+- Memory visibility: user can see that their saved memories were injected into the conversation
 - Clean final state: thinking details are hidden by default after streaming, response is the focus
 - Respect existing design system (Tailwind classes, colors, animations, component patterns)
 
@@ -27,8 +28,12 @@ Two new event types are added. All existing events (`delta`, `done`, `error`) ar
 ### New events
 
 ```jsonc
-// Thinking container opens (emitted before first tool call)
+// Thinking container opens (emitted at the very start of every stream turn that has any context)
 { "type": "item_start", "item": { "kind": "thinking" } }
+
+// Memory injection — emitted once per turn when memories are injected into the system prompt
+{ "type": "item_start", "item": { "kind": "memory", "count": 3 } }
+{ "type": "item_done",  "item": { "kind": "memory", "status": "done" } }
 
 // Tool call starts
 { "type": "item_start", "item": { "kind": "tool_call", "tool": "web_search",            "params": { "query": "..." } } }
@@ -52,6 +57,8 @@ Two new event types are added. All existing events (`delta`, `done`, `error`) ar
 
 ```
 item_start  { kind: "thinking" }
+item_start  { kind: "memory", count: 2 }
+item_done   { kind: "memory", status: "done" }
 item_start  { kind: "tool_call", tool: "search_knowledge_base", params: { query: "average revenue per region" } }
 item_done   { kind: "tool_call", tool: "search_knowledge_base", status: "done" }
 item_start  { kind: "tool_call", tool: "web_search", params: { query: "North America revenue news 2025" } }
@@ -61,6 +68,14 @@ delta       { text: " the top region is North America…" }
 item_done   { kind: "thinking" }
 done
 ```
+
+### When to emit the thinking block
+
+The `item_start {kind: "thinking"}` is emitted at the start of a turn **only if** at least one of the following is true:
+- Memories (system profile or manual) are active and injected
+- At least one tool is enabled (web_search, data_query, KB attached)
+
+If none of these apply (plain text conversation with no tools and no memories), no thinking block is emitted and the stream is just `delta` + `done` as today.
 
 Note: `delta` events can interleave with `item_done` — the frontend handles both independently.
 
@@ -78,13 +93,21 @@ export type ToolCallItem = {
   status: 'running' | 'done'
 }
 
+export type MemoryItem = {
+  kind: 'memory'
+  count: number
+  status: 'running' | 'done'
+}
+
+export type ThinkingChildItem = ToolCallItem | MemoryItem
+
 export type ThinkingItem = {
   kind: 'thinking'
   status: 'running' | 'done'
-  children: ToolCallItem[]
+  children: ThinkingChildItem[]
 }
 
-export type StreamItem = ThinkingItem | ToolCallItem
+export type StreamItem = ThinkingItem | ThinkingChildItem
 ```
 
 ### State changes in `ConversationThreadPage`
@@ -161,23 +184,40 @@ interface Props {
   - `expanded === true` → expanded list indented under left border
   - Clicking pill toggles `onToggle()`
 
-**Tool icons by name:**
+**Tool icons by name (Lucide React):**
 
-| tool | icon |
-|---|---|
-| `web_search` | `🔍` (or Lucide `Globe`) |
-| `search_knowledge_base` | `📚` (or Lucide `Library`) |
-| `query_structured_data` | `📊` (or Lucide `Table`) |
-| unknown | `⚙️` (or Lucide `Wrench`) |
+All icons use `className="size-3.5 shrink-0"` and `strokeWidth={2}`.
+
+| tool / kind | Lucide component | icon color (running) | icon color (done) |
+|---|---|---|---|
+| `web_search` | `Globe` | `text-blue-500 dark:text-blue-400` | `text-neutral-400 dark:text-neutral-500` |
+| `search_knowledge_base` | `Library` | `text-blue-500 dark:text-blue-400` | `text-neutral-400 dark:text-neutral-500` |
+| `query_structured_data` | `Table2` | `text-blue-500 dark:text-blue-400` | `text-neutral-400 dark:text-neutral-500` |
+| `memory` | `Brain` | `text-blue-500 dark:text-blue-400` | `text-neutral-400 dark:text-neutral-500` |
+| unknown | `Wrench` | `text-blue-500 dark:text-blue-400` | `text-neutral-400 dark:text-neutral-500` |
+
+Status indicators inside each tool card:
+
+- **Running:** `<Loader2 className="size-3 animate-spin text-blue-500 dark:text-blue-400" strokeWidth={2} />` + label `"running"` in `text-[11px] text-blue-500 dark:text-blue-400`
+- **Done:** `<Check className="size-3 text-green-500" strokeWidth={2.5} />` + label `"done"` in `text-[11px] text-green-500`
+
+Thinking block header chevron (expand/collapse toggle):
+
+- **Open:** `<ChevronDown className="size-3 text-neutral-400 dark:text-neutral-500" strokeWidth={2} />`
+- **Closed (pill):** `<ChevronRight className="size-3 text-neutral-400 dark:text-neutral-500" strokeWidth={2} />`
 
 **Design system alignment:**
 
 - Thinking block border: `border border-neutral-200/60 dark:border-neutral-700/50 rounded-xl`
-- Tool card background (running): `bg-blue-500/5 dark:bg-blue-500/7 border border-blue-500/20`
-- Tool card background (done): `bg-neutral-100/50 dark:bg-white/[0.03] border border-neutral-200/50 dark:border-white/[0.06]`
-- Running status dot: `animate-pulse text-blue-500 dark:text-blue-400` (matches existing KB indicator color)
-- Done status checkmark: `text-green-500`
-- Collapsed pill: `inline-flex items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-400 rounded-full border border-neutral-200 dark:border-neutral-700/60 px-2.5 py-1 cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800/50`
+- Thinking block header: `flex items-center gap-1.5 px-3 py-2 text-[11px] font-medium text-neutral-500 dark:text-neutral-400`
+- Running header pulse dot: `size-1.5 rounded-full bg-blue-500 dark:bg-blue-400 animate-pulse`
+- Tool card layout: `flex items-center gap-2 rounded-lg px-2.5 py-2`
+- Tool card (running): `bg-blue-500/5 dark:bg-blue-500/[0.07] border border-blue-500/20`
+- Tool card (done): `bg-neutral-100/50 dark:bg-white/[0.03] border border-neutral-200/50 dark:border-white/[0.06]`
+- Tool name: `text-[11px] font-medium text-neutral-700 dark:text-neutral-300`
+- Tool param (query preview): `text-[11px] text-neutral-400 dark:text-neutral-500 truncate`
+- Collapsed pill: `inline-flex items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-400 rounded-full border border-neutral-200 dark:border-neutral-700/60 px-2.5 py-1 cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800/50 transition-colors`
+- Expanded post-stream children indent: `border-l border-neutral-200/60 dark:border-neutral-700/50 ml-1.5 pl-3 flex flex-col gap-1.5 mt-1.5`
 - All font sizes: `text-xs` / `text-[11px]` consistent with existing message header elements
 
 **data-testid attributes:**
