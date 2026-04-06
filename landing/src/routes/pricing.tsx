@@ -1,19 +1,20 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { getAppUrl } from '~/lib/app-url'
 
 export const Route = createFileRoute('/pricing')({
   component: PricingPage,
 })
 
-const APP_URL = import.meta.env.VITE_APP_URL ?? 'https://app.example.com'
-
-const PLANS = [
+function getPlans() {
+  const registerHref = `${getAppUrl()}/register`
+  return [
   {
     name: 'Personal',
     price: 'Free',
     period: '',
     description: 'For individuals exploring AI Portal.',
     cta: 'Get started',
-    ctaHref: `${APP_URL}/register`,
+    ctaHref: registerHref,
     highlighted: false,
     features: [
       '1 workspace',
@@ -30,7 +31,7 @@ const PLANS = [
     period: '/month',
     description: 'For small teams that need shared knowledge and assistants.',
     cta: 'Start free trial',
-    ctaHref: `${APP_URL}/register`,
+    ctaHref: registerHref,
     highlighted: true,
     features: [
       'Up to 10 members',
@@ -59,9 +60,11 @@ const PLANS = [
       'Open source',
     ],
   },
-]
+  ]
+}
 
 function PricingPage() {
+  const plans = getPlans()
   return (
     <div className="py-16">
       <div className="mx-auto max-w-5xl px-6">
@@ -73,7 +76,7 @@ function PricingPage() {
         </div>
 
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-          {PLANS.map((plan) => (
+          {plans.map((plan) => (
             <div
               key={plan.name}
               className={`rounded-2xl p-8 flex flex-col ${

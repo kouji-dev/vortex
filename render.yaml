@@ -10,13 +10,13 @@ services:
       - key: DEPLOYMENT_MODE
         value: saas
       - key: DATABASE_URL
-        sync: false          # Set manually in Render dashboard (Supabase connection string)
+        sync: false          # Supabase / Render Postgres connection string
       - key: SECRET_KEY
         generateValue: true  # Render auto-generates a secure random value
       - key: CORS_ORIGINS
-        value: https://app.yourdomain.com
+        sync: false          # e.g. https://app.yourdomain.com
       - key: EMAIL_FROM
-        value: noreply@yourdomain.com
+        sync: false          # e.g. noreply@yourdomain.com
       - key: SMTP_HOST
         sync: false
       - key: SMTP_PORT
@@ -42,7 +42,7 @@ services:
       - key: VITE_AUTH_MODE
         value: local
       - key: VITE_API_URL
-        value: https://ai-portal-api.onrender.com
+        sync: false          # e.g. https://ai-portal-api.onrender.com
       - key: NODE_VERSION
         value: "20"
 
@@ -56,6 +56,6 @@ services:
     plan: starter
     envVars:
       - key: VITE_APP_URL
-        value: https://ai-portal-app.onrender.com
+        sync: false          # e.g. https://ai-portal-app.onrender.com
       - key: NODE_VERSION
         value: "20"

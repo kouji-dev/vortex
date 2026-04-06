@@ -7,23 +7,30 @@ import { SessionProfileCard } from '~/components/home/SessionProfileCard'
 import { SystemStatusCard } from '~/components/home/SystemStatusCard'
 
 function authModeMismatchHint(
-  viteMode: 'dev' | 'entra',
-  apiMode: 'dev' | 'entra' | undefined,
+  viteMode: 'dev' | 'entra' | 'local',
+  apiDeploymentMode: 'dev' | 'saas' | 'selfhosted' | undefined,
+  apiAuthMode: 'dev' | 'entra' | undefined,
 ): string | null {
-  if (apiMode == null || viteMode === apiMode) {
+  // local VITE mode is correct for saas/selfhosted backends
+  if (viteMode === 'local') {
+    if (apiDeploymentMode === 'dev') {
+      return (
+        'VITE_AUTH_MODE=local but the API is running in deployment_mode=dev. ' +
+        'Set DEPLOYMENT_MODE=saas or selfhosted on the API, or set VITE_AUTH_MODE=dev.'
+      )
+    }
     return null
   }
-  if (viteMode === 'dev' && apiMode === 'entra') {
+  if (apiAuthMode == null || viteMode === apiAuthMode) return null
+  if (viteMode === 'dev' && apiAuthMode === 'entra') {
     return (
       'This app is in dev auth (static bearer token), but the API reports auth_mode=entra. ' +
-      'The API will try to parse your token as a Microsoft JWT and /api/me will fail. ' +
-      'Set AUTH_MODE=dev in the API environment (check for AUTH_MODE=entra in your shell, IDE, or Docker), ' +
-      'restart the API, or switch the SPA to VITE_AUTH_MODE=entra.'
+      'Set AUTH_MODE=dev in the API environment and restart, or switch the SPA to VITE_AUTH_MODE=entra.'
     )
   }
   return (
     'This app uses Entra (MSAL), but the API reports auth_mode=dev. ' +
-    'Set AUTH_MODE=entra on the API and restart, or set VITE_AUTH_MODE=dev with matching DEV_BEARER_TOKEN values.'
+    'Set AUTH_MODE=entra on the API and restart, or set VITE_AUTH_MODE=dev.'
   )
 }
 
@@ -33,7 +40,7 @@ export function HomePage() {
   const viteAuth = getAuthMode()
   const mismatch =
     health.isSuccess && health.data
-      ? authModeMismatchHint(viteAuth, health.data.auth_mode)
+      ? authModeMismatchHint(viteAuth, health.data.deployment_mode, health.data.auth_mode)
       : null
 
   return (

@@ -1,10 +1,9 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
+import { getAppUrl } from '~/lib/app-url'
 
 export const Route = createFileRoute('/features')({
   component: FeaturesPage,
 })
-
-const APP_URL = import.meta.env.VITE_APP_URL ?? 'https://app.example.com'
 
 const SECTIONS = [
   {
@@ -124,7 +123,7 @@ function FeaturesPage() {
 
         <div className="mt-24 text-center">
           <a
-            href={`${APP_URL}/register`}
+            href={`${getAppUrl()}/register`}
             className="rounded-xl bg-indigo-600 px-8 py-3.5 text-base font-semibold text-white hover:bg-indigo-700 transition-colors"
           >
             Get started for free

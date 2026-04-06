@@ -16,6 +16,8 @@ import { AppShell } from '~/components/layout/AppShell'
 import { NotFound } from '~/components/NotFound'
 import appCss from '~/styles/app.css?url'
 import { seo } from '~/utils/seo'
+import { useAuthRedirect } from '~/hooks/useAuthRedirect'
+import { useSetupRedirect } from '~/hooks/useSetupRedirect'
 
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient
@@ -71,6 +73,9 @@ export const Route = createRootRouteWithContext<{
 })
 
 function RootComponent() {
+  useAuthRedirect()
+  useSetupRedirect()
+
   const shell = (
     <AppShell>
       <Outlet />
