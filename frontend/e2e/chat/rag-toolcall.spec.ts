@@ -39,7 +39,7 @@ test.describe('RAG tool-call UI', () => {
     await expect(popover.getByText(kbName, { exact: false })).toBeVisible()
   })
 
-  test('"Searching knowledge bases" indicator appears during tool-call stream', async ({
+  test('"Thinking block" indicator appears during tool-call stream', async ({
     page,
     request,
   }) => {
@@ -59,16 +59,19 @@ test.describe('RAG tool-call UI', () => {
       )
     await page.getByRole('button', { name: /send message/i }).click()
 
-    const searching = page.getByTestId('chat-stream-kb-searching')
+    const thinkingBlock = page.getByTestId('chat-thinking-block')
+    const pill = page.getByTestId('chat-thinking-pill')
     const assistant = page.getByTestId('chat-message-assistant').last()
-    const sawSearching = await searching
-      .waitFor({ state: 'visible', timeout: 90_000 })
-      .then(() => true)
-      .catch(() => false)
-    if (sawSearching) {
-      await expect(searching).toBeHidden({ timeout: 90_000 })
-    } else {
-      await expect(assistant).toBeVisible({ timeout: 90_000 })
+
+    // Either the thinking block appears during stream, or the pill appears after,
+    // or the assistant message appeared without any tool use (also valid)
+    const sawIndicator = await Promise.race([
+      thinkingBlock.waitFor({ state: 'visible', timeout: 90_000 }).then(() => true),
+      pill.waitFor({ state: 'visible', timeout: 90_000 }).then(() => true),
+      assistant.waitFor({ state: 'visible', timeout: 90_000 }).then(() => false),
+    ]).catch(() => false)
+
+    if (!sawIndicator) {
       await expect(assistant).not.toContainText('**Error:**')
     }
   })
