@@ -51,6 +51,9 @@ from ai_portal.services.default_conversation_model import (
 )
 from ai_portal.workers.memory.extractor import extract_user_memories
 from ai_portal.workers.memory.summarizer import summarize_conversation
+from ai_portal.tools.registry import ToolRegistry
+
+_tool_registry = ToolRegistry()
 
 logger = logging.getLogger(__name__)
 
@@ -163,6 +166,16 @@ def _capability_instructions(st: ConversationSettings | None) -> str:
             "Recency: you have no live web access. If the answer depends on current events or "
             "post-training facts, say so and suggest how the user can verify."
         )
+    if cap.web_search:
+        parts.append(
+            "Web search: you have access to the web_search tool. "
+            "Use it to find current information when needed."
+        )
+    if cap.data_query:
+        parts.append(
+            "Data analysis: you have access to the query_structured_data tool. "
+            "Use it when the user shares CSV, JSON, or table data and asks questions about it."
+        )
     if not parts:
         return ""
     return "\n\n[Conversation capabilities]\n" + "\n".join(f"- {p}" for p in parts)
@@ -223,6 +236,8 @@ def _dispatch_tool_call(
             "_used_kbs": result.get("used_kbs", []),
             "_citations": result.get("citations", []),
         }
+    if name in ("web_search", "query_structured_data"):
+        return _tool_registry.dispatch(name, args)
     return {"role": "tool", "name": name, "content": f"Error: unknown tool '{name}'"}
 
 
@@ -341,6 +356,8 @@ class CapabilityProfileRead(BaseModel):
     reflection: CapabilityProfileEntryRead
     research: CapabilityProfileEntryRead
     web: CapabilityProfileEntryRead
+    web_search: CapabilityProfileEntryRead
+    data_query: CapabilityProfileEntryRead
 
 
 @router.get("/capability-profile", response_model=CapabilityProfileRead)
@@ -365,6 +382,12 @@ def get_capability_profile(
                 "No live web search is configured. If the answer depends on current events or "
                 "post-training facts, say so and suggest how the user can verify."
             )
+        ),
+        web_search=CapabilityProfileEntryRead(
+            description="Search the web in real time to answer questions about current events or recent information."
+        ),
+        data_query=CapabilityProfileEntryRead(
+            description="Analyse CSV, JSON, or table data you share in the conversation."
         ),
     )
 
@@ -745,6 +768,61 @@ def stream_message(
                 },
             }
         ]
+
+    cap = conv.settings.capabilities if conv.settings else None
+    if cap and cap.web_search:
+        tools.append(
+            {
+                "type": "function",
+                "function": {
+                    "name": "web_search",
+                    "description": (
+                        "Search the web for current information. Use when the user asks about "
+                        "recent events, facts you are unsure about, or anything requiring "
+                        "up-to-date data."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "query": {"type": "string", "description": "The search query"},
+                            "num_results": {
+                                "type": "integer",
+                                "description": "Number of results to return. Default 5, max 10.",
+                            },
+                        },
+                        "required": ["query"],
+                    },
+                },
+            }
+        )
+    if cap and cap.data_query:
+        tools.append(
+            {
+                "type": "function",
+                "function": {
+                    "name": "query_structured_data",
+                    "description": (
+                        "Answer questions about structured data (CSV, JSON, or table) "
+                        "the user has provided in the conversation. Use for aggregations, "
+                        "filtering, lookups, or comparisons."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "data": {
+                                "type": "string",
+                                "description": "The raw CSV, JSON, or table content to analyze",
+                            },
+                            "question": {
+                                "type": "string",
+                                "description": "The question to answer about the data",
+                            },
+                        },
+                        "required": ["data", "question"],
+                    },
+                },
+            }
+        )
 
     cap_instr = _capability_instructions(conv.settings)
     if cap_instr:
