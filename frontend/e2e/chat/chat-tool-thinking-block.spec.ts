@@ -36,11 +36,12 @@ test.describe('Thinking block UI', () => {
     await page.getByRole('textbox', { name: /message/i }).fill('What is the latest news?')
     await page.getByRole('button', { name: /send message/i }).click()
 
-    // After stream resolves: pill visible, block hidden
+    // After stream resolves: pill visible, tool cards hidden (collapsed)
     const pill = page.getByTestId('chat-thinking-pill')
     await expect(pill).toBeVisible({ timeout: 15_000 })
-    const block = page.getByTestId('chat-thinking-block')
-    await expect(block).toBeHidden()
+    // Block container is present but tool cards are not visible when collapsed
+    const toolCards = page.getByTestId('chat-tool-card')
+    await expect(toolCards.first()).toBeHidden()
   })
 
   test('user can expand thinking block by clicking the pill', async ({ page, request }) => {
@@ -83,7 +84,9 @@ test.describe('Thinking block UI', () => {
 
     // Click pill again (it's still visible in expanded state)
     await pill.click()
-    await expect(block).toBeHidden()
+    // After collapse, tool cards should not be visible
+    const toolCards = page.getByTestId('chat-tool-card')
+    await expect(toolCards.first()).toBeHidden()
   })
 
   test('tool cards show correct tool names after expanding', async ({ page, request }) => {
