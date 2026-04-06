@@ -6,6 +6,7 @@ import {
   createRootRoute,
 } from '@tanstack/react-router'
 import * as React from 'react'
+import { getAppUrl } from '~/lib/app-url'
 import appCss from '~/styles/app.css?url'
 
 export const Route = createRootRoute({
@@ -52,8 +53,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
   )
 }
 
-const APP_URL = import.meta.env.VITE_APP_URL ?? 'https://app.example.com'
-
 function Nav() {
   return (
     <header className="sticky top-0 z-40 border-b border-gray-100 bg-white/80 backdrop-blur dark:border-gray-800 dark:bg-gray-950/80">
@@ -72,13 +71,13 @@ function Nav() {
         </nav>
         <div className="flex items-center gap-3">
           <a
-            href={`${APP_URL}/login`}
+            href={`${getAppUrl()}/login`}
             className="text-sm font-medium text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors"
           >
             Sign in
           </a>
           <a
-            href={`${APP_URL}/register`}
+            href={`${getAppUrl()}/register`}
             className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors"
           >
             Get started

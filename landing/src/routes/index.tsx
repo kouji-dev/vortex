@@ -1,10 +1,9 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
+import { getAppUrl } from '~/lib/app-url'
 
 export const Route = createFileRoute('/')({
   component: HomePage,
 })
-
-const APP_URL = import.meta.env.VITE_APP_URL ?? 'https://app.example.com'
 
 const FEATURES = [
   {
@@ -67,7 +66,7 @@ function HomePage() {
           </p>
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
             <a
-              href={`${APP_URL}/register`}
+              href={`${getAppUrl()}/register`}
               className="rounded-xl bg-indigo-600 px-8 py-3.5 text-base font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors"
             >
               Start for free
@@ -123,7 +122,7 @@ function HomePage() {
           </p>
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
             <a
-              href={`${APP_URL}/register`}
+              href={`${getAppUrl()}/register`}
               className="rounded-xl bg-indigo-600 px-8 py-3.5 text-base font-semibold text-white hover:bg-indigo-700 transition-colors"
             >
               Create your workspace
