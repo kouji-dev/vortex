@@ -330,37 +330,38 @@ export function CreateKnowledgeBaseDialog({
         onClick={(ev) => ev.stopPropagation()}
       >
         <div className="px-4 pt-4">
-        <div aria-hidden className="mx-auto mb-4 h-1 w-10 rounded-full bg-neutral-300 dark:bg-neutral-700 md:hidden" />
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
-              Step {step} of 2
-            </p>
-            <h2
-              id="create-kb-title"
-              className="mt-0.5 text-base font-semibold text-neutral-900 dark:text-neutral-100"
+          <div aria-hidden className="mx-auto mb-4 h-1 w-10 rounded-full bg-neutral-300 dark:bg-neutral-700 md:hidden" />
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+                Step {step} of 2
+              </p>
+              <h2
+                id="create-kb-title"
+                className="mt-0.5 text-base font-semibold text-neutral-900 dark:text-neutral-100"
+              >
+                {step === 1 ? 'Knowledge base details' : 'Source & configuration'}
+              </h2>
+            </div>
+            <button
+              type="button"
+              className="rounded p-1 text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-900"
+              onClick={onClose}
+              aria-label="Close"
             >
-              {step === 1 ? 'Knowledge base details' : 'Source & configuration'}
-            </h2>
+              <X className="h-4 w-4" />
+            </button>
           </div>
-          <button
-            type="button"
-            className="rounded p-1 text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-900"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
-          {step === 1
-            ? 'Choose a name and optional description for this corpus.'
-            : 'Pick how content will be connected. Only some types can be created today; others show a preview of the settings we will use when the integration is ready.'}
-        </p>
+          <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+            {step === 1
+              ? 'Choose a name and optional description for this corpus.'
+              : 'Pick how content will be connected. Only some types can be created today; others show a preview of the settings we will use when the integration is ready.'}
+          </p>
         </div>
 
         {step === 1 ? (
-          <form className="flex min-h-0 flex-1 flex-col" onSubmit={goNext}><div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 pt-4">
+          <form className="flex min-h-0 flex-1 flex-col" onSubmit={goNext}>
+            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 pt-4">
             <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400">
               Name
               <input
@@ -401,7 +402,8 @@ export function CreateKnowledgeBaseDialog({
             </div>
           </form>
         ) : (
-          <form className="flex min-h-0 flex-1 flex-col" onSubmit={finish}><div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 pt-4">
+          <form className="flex min-h-0 flex-1 flex-col" onSubmit={finish}>
+            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 pt-4">
             <fieldset>
               <legend className="text-xs font-medium text-neutral-600 dark:text-neutral-400">
                 Source type
