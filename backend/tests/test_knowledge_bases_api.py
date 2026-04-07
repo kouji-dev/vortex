@@ -307,3 +307,10 @@ def test_stream_stores_used_kbs_in_extra():
     assert assistant_msgs[0]["extra"] is not None
     assert "used_kbs" in assistant_msgs[0]["extra"]
     assert assistant_msgs[0]["extra"]["used_kbs"][0]["kb_name"] == "Test KB"
+
+
+def test_ingest_job_func_canonical_path():
+    """INGEST_JOB_FUNC must point to the new domain location, not the old workers/ path."""
+    from ai_portal.knowledge_base.service import INGEST_JOB_FUNC
+    assert INGEST_JOB_FUNC == "ai_portal.knowledge_base.workers.ingest.job.run_ingest_job"
+    assert "ai_portal.workers.ingest" not in INGEST_JOB_FUNC
