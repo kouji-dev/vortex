@@ -8,20 +8,21 @@ from typing import Any
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
+from ai_portal.auth.router import router as auth_router
+from ai_portal.catalog.router import router as catalog_router
+from ai_portal.chat.router import router as chat_router
+from ai_portal.knowledge_base.router import router as knowledge_base_router
 from ai_portal.api import (
-    auth,
     assistants,
-    conversations,
     e2e,
-    knowledge_bases,
     me,
     memories,
-    model_catalog,
     orgs as orgs_api,
     setup as setup_api,
 )
-from ai_portal.config import get_settings, settings_log_snapshot
-from ai_portal.logging_config import configure_logging
+from ai_portal.core.config import get_settings, settings_log_snapshot
+from ai_portal.core.logging import configure_logging
+from ai_portal.core.middleware.setup_guard import SetupGuardMiddleware
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -45,8 +46,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-from ai_portal.middleware.setup_guard import SetupGuardMiddleware
 
 app.add_middleware(SetupGuardMiddleware)
 
@@ -79,13 +78,13 @@ def health() -> dict[str, Any]:
     }
 
 
-app.include_router(auth.router)
-app.include_router(model_catalog.router)
+app.include_router(auth_router)
+app.include_router(catalog_router)
 app.include_router(me.router)
 app.include_router(assistants.router)
-app.include_router(conversations.router)
+app.include_router(chat_router)
 app.include_router(memories.router)
-app.include_router(knowledge_bases.router)
+app.include_router(knowledge_base_router)
 app.include_router(setup_api.router)
 app.include_router(orgs_api.router)
 

@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import uuid as _uuid
-from datetime import UTC, datetime
 
 import jwt
 from fastapi import APIRouter, Depends, Header, HTTPException, status
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ai_portal.auth import repository as repo
 from ai_portal.auth.deps import get_db
 from ai_portal.auth.schemas import (
     AcceptInviteRequest,
@@ -20,8 +19,6 @@ from ai_portal.auth.schemas import (
 from ai_portal.auth.strategies.dev import AuthenticationError, RegistrationError, UserManager
 from ai_portal.auth.strategies.jwt import decode_token
 from ai_portal.config import get_settings
-from ai_portal.models.org import Org
-from ai_portal.models.org_invite import OrgInvite
 from ai_portal.models.user import User
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -111,7 +108,7 @@ def auth_me(
     except jwt.PyJWTError:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
     user_uuid = _uuid.UUID(payload["sub"])
-    user = db.scalars(select(User).where(User.uuid == user_uuid)).first()
+    user = repo.get_user_by_uuid(db, user_uuid)
     if user is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="User not found")
     return UserRead(
@@ -127,13 +124,9 @@ def auth_me(
 @router.post("/accept-invite", status_code=status.HTTP_201_CREATED, response_model=TokenResponse)
 def accept_invite(body: AcceptInviteRequest, db: Session = Depends(get_db)) -> TokenResponse:
     """Accept an org invite and create an account (or migrate an existing one)."""
-    invite = db.scalars(
-        select(OrgInvite).where(
-            OrgInvite.token == body.token,
-            OrgInvite.accepted_at == None,  # noqa: E711
-            OrgInvite.revoked_at == None,  # noqa: E711
-        )
-    ).first()
+    from datetime import UTC, datetime
+
+    invite = repo.get_pending_invite_by_token(db, body.token)
     if invite is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Invite not found or expired")
     if invite.expires_at.replace(tzinfo=UTC) < datetime.now(UTC):
@@ -143,18 +136,11 @@ def accept_invite(body: AcceptInviteRequest, db: Session = Depends(get_db)) -> T
     manager = UserManager(db=db, secret=settings.secret_key)
 
     # Check if user already exists (migrate) or create new
-    existing_user = db.scalars(
-        select(User).where(User.email == invite.invited_email)
-    ).first()
+    existing_user = repo.get_user_by_email(db, invite.invited_email)
 
     if existing_user:
         # Migrate to new org — archive old personal org if it exists
-        old_org = db.scalars(
-            select(Org).where(
-                Org.id == existing_user.org_id,
-                Org.instance_mode == False,  # noqa: E712
-            )
-        ).first()
+        old_org = repo.get_personal_org_for_user(db, existing_user)
         if old_org and old_org.slug.startswith(existing_user.email.split("@")[0]):
             old_org.archived_at = datetime.now(UTC)
         existing_user.org_id = invite.org_id
@@ -171,8 +157,6 @@ def accept_invite(body: AcceptInviteRequest, db: Session = Depends(get_db)) -> T
         except RegistrationError as e:
             raise HTTPException(status.HTTP_409_CONFLICT, detail=str(e))
 
-    invite.accepted_at = datetime.now(UTC)
-    db.commit()
-    db.refresh(user)
+    repo.accept_invite_and_commit(db, invite, user)
     tokens = manager.create_tokens(user)
     return TokenResponse(**tokens)

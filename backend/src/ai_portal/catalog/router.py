@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ai_portal.api.deps import get_current_user, get_db
+from ai_portal.catalog import repository as repo
 from ai_portal.catalog.schemas import CatalogModelRead
 from ai_portal.models import CatalogModel, User
 from ai_portal.schemas.catalog_model_settings import model_settings_from_metadata
@@ -58,12 +58,6 @@ def list_catalog_models(
     _user: User = Depends(get_current_user),
 ) -> list[CatalogModelRead]:
     # catalog_models.org_id is set but not yet used for per-org visibility
-    rows = list(
-        db.scalars(
-            select(CatalogModel)
-            .where(CatalogModel.is_active.is_(True))
-            .order_by(CatalogModel.sort_order, CatalogModel.id)
-        ).all()
-    )
+    rows = repo.get_all_active_catalog_models(db)
     default_id = _default_catalog_row_id(rows, db)
     return [_row_to_read(m, is_default=(m.id == default_id)) for m in rows]

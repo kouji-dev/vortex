@@ -31,6 +31,8 @@ def get_active_catalog_models_by_api_model_id(
 def get_all_active_catalog_models(db: Session) -> list[CatalogModel]:
     return list(
         db.scalars(
-            select(CatalogModel).where(CatalogModel.is_active.is_(True))
+            select(CatalogModel)
+            .where(CatalogModel.is_active.is_(True))
+            .order_by(CatalogModel.sort_order, CatalogModel.id)
         ).all()
     )
