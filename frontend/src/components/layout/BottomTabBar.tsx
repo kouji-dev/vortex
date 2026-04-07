@@ -32,17 +32,17 @@ export function BottomTabBar() {
   return (
     <>
       {/* More sheet backdrop */}
-      {moreOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/30"
-          onClick={() => setMoreOpen(false)}
-          aria-hidden
-        />
-      )}
+      <div
+        className={`fixed inset-0 z-40 bg-black/30 transition-opacity duration-200 ${moreOpen ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+        onClick={() => setMoreOpen(false)}
+        aria-hidden
+      />
 
       {/* More sheet */}
-      {moreOpen && (
-        <div className="fixed bottom-0 inset-x-0 z-50 rounded-t-2xl border-t border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950 transition-transform duration-200 ease-out">
+      <div
+        className={`fixed bottom-0 inset-x-0 z-50 rounded-t-2xl border-t border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950 transition-transform duration-200 ease-out ${moreOpen ? 'translate-y-0' : 'translate-y-full'}`}
+        aria-hidden={!moreOpen}
+      >
           <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-neutral-300 dark:bg-neutral-700" />
           <p className="px-4 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
             More
@@ -60,7 +60,6 @@ export function BottomTabBar() {
           ))}
           <div className="pb-safe" />
         </div>
-      )}
 
       {/* Tab bar */}
       <nav
@@ -77,7 +76,6 @@ export function BottomTabBar() {
               key={to}
               to={to}
               className="flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-neutral-500 dark:text-neutral-400"
-              activeProps={{}}
             >
               <Icon
                 className={`size-5 shrink-0 ${active ? 'text-neutral-900 dark:text-neutral-100' : ''}`}
