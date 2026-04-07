@@ -318,7 +318,9 @@ export function ChatComposerDockMobile({
             </>
           )}
 
-          {kbSlot != null && <div className="shrink-0">{kbSlot}</div>}
+          {kbSlot != null && (
+            <div className="shrink-0 [&_button]:h-10 [&_button]:rounded-xl [&_button]:px-3 [&_button]:text-sm">{kbSlot}</div>
+          )}
 
           <div className="flex-1" />
 
