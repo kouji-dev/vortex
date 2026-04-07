@@ -319,16 +319,17 @@ export function CreateKnowledgeBaseDialog({
 
   return (
     <div
-      className="fixed inset-0 z-60 flex items-center justify-center bg-black/45 p-4"
+      className="fixed inset-0 z-60 flex items-end justify-center bg-black/45 md:items-center md:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="create-kb-title"
       onClick={(ev) => ev.target === ev.currentTarget && onClose()}
     >
       <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-neutral-200 bg-white p-4 shadow-xl dark:border-neutral-700 dark:bg-neutral-950"
+        className="max-h-[90vh] w-full overflow-y-auto rounded-t-2xl border border-neutral-200 bg-white p-4 shadow-xl dark:border-neutral-700 dark:bg-neutral-950 md:max-w-lg md:rounded-xl"
         onClick={(ev) => ev.stopPropagation()}
       >
+        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-neutral-300 dark:bg-neutral-700 md:hidden" />
         <div className="flex items-start justify-between gap-2">
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
@@ -668,6 +669,7 @@ export function CreateKnowledgeBaseDialog({
             </div>
           </form>
         )}
+        <div className="md:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }} />
       </div>
     </div>
   )
