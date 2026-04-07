@@ -1,6 +1,8 @@
 # Local worktrees (parallel EPIC branches)
 .worktrees/
 worktrees/
+.worktree.env
+.worktrees.json
 
 # Local uploads (RAG)
 data/

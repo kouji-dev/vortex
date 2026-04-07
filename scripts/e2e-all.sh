@@ -6,6 +6,16 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
+# Source .worktree.env so E2E_API_PORT / E2E_FRONTEND_PORT are available
+if [ -f "$ROOT/.worktree.env" ]; then
+  set -o allexport
+  # shellcheck disable=SC1091
+  source "$ROOT/.worktree.env"
+  set +o allexport
+fi
+
+: "${E2E_API_PORT:=8001}"
+
 if [ "${SKIP_E2E_STACK:-}" = "1" ]; then
   exec pnpm --dir frontend test:e2e "$@"
 fi
@@ -15,11 +25,11 @@ UP_PID=$!
 
 cleanup() {
   kill "$UP_PID" 2>/dev/null || true
-  pkill -f "uvicorn ai_portal.main:app.*8001" 2>/dev/null || true
+  pkill -f "uvicorn ai_portal.main:app.*${E2E_API_PORT}" 2>/dev/null || true
 }
 trap cleanup EXIT
 
-BASE="${E2E_API_URL:-http://127.0.0.1:8001}"
+BASE="${E2E_API_URL:-http://127.0.0.1:${E2E_API_PORT}}"
 BASE="${BASE%/}"
 deadline=$((SECONDS + 120))
 while true; do

@@ -3,11 +3,13 @@ import react from '@vitejs/plugin-react'
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 import { defineConfig } from 'vite'
 
-const devApiTarget = process.env.VITE_DEV_API_PROXY_TARGET ?? 'http://127.0.0.1:8000'
+const devApiTarget = process.env.VITE_DEV_API_PROXY_TARGET ?? `http://127.0.0.1:${process.env.API_PORT ?? '8000'}`
+const frontendPort = Number(process.env.FRONTEND_PORT ?? '5173')
 
 export default defineConfig({
   server: {
-    port: 5173,
+    port: frontendPort,
+    allowedHosts: true,
     proxy: {
       '/api': { target: devApiTarget, changeOrigin: true },
       '/health': { target: devApiTarget, changeOrigin: true },

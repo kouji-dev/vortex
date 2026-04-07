@@ -1,33 +1,63 @@
 #!/usr/bin/env bash
 # ---------------------------------------------------------------------------
-# e2e-up.sh  —  Spin up the isolated E2E backend on port 8001.
+# e2e-up.sh  —  Spin up the isolated E2E backend.
 #
 # What it does:
-#   1. Starts the E2E Postgres container (port 5435, db ai_portal_e2e).
-#   2. Waits until Postgres is ready.
-#   3. Runs alembic migrations (seeds dev user automatically).
-#   4. Seeds catalog models (needed for the model-select UI).
-#   5. Starts uvicorn on port 8001 pointing at the E2E database.
+#   1. Sources .worktree.env if present (worktree-aware ports/DB names).
+#   2. Starts the E2E Postgres container (or verifies it's running).
+#   3. Waits until Postgres is ready.
+#   4. Runs alembic migrations (seeds dev user automatically).
+#   5. Seeds catalog models (needed for the model-select UI).
+#   6. Starts uvicorn on E2E_API_PORT pointing at the E2E database.
+#
+# Default ports (main branch, no .worktree.env):
+#   Postgres : 5435  db: ai_portal_e2e
+#   API      : 8001
+#
+# Worktree mode (when .worktree.env is present):
+#   Ports/DB names come from .worktree.env — set by scripts/worktree-up.sh.
+#   The Postgres container is already running; this script skips creation.
 #
 # Prerequisites:
 #   - Docker running
 #   - Python venv active  (cd backend && pip install -e ".[dev]")
-#   - LLM API keys in .env (ANTHROPIC_API_KEY / LLM_API_KEY) — only needed
-#     for the chat interaction tests; other tests run without them.
+#   - LLM API keys in .env — only needed for chat interaction tests.
 #
 # Usage:
 #   ./scripts/e2e-up.sh                # foreground — Ctrl-C to stop
 #   ./scripts/e2e-up.sh &              # background
-#   cd frontend && pnpm e2e            # run Playwright in another shell
+#   cd frontend && pnpm test:e2e       # run Playwright in another shell
 # ---------------------------------------------------------------------------
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-E2E_DB_URL="postgresql+psycopg://postgres:postgres@127.0.0.1:5435/ai_portal_e2e"
 
-# Resolve the Python interpreter: use $PYTHON if set, otherwise find the first
-# python/python3 on PATH that actually has alembic installed (the project venv
-# or Windows Python — not the system /usr/bin/python3 which lacks the deps).
+# ── 1. Source .worktree.env if present ───────────────────────────────────────
+if [ -f "$REPO_ROOT/.worktree.env" ]; then
+  echo "▶ Loading .worktree.env..."
+  set -o allexport
+  # shellcheck disable=SC1091
+  source "$REPO_ROOT/.worktree.env"
+  set +o allexport
+fi
+
+# Apply defaults for main-branch (no .worktree.env) runs
+: "${E2E_DB_PORT:=5435}"
+: "${E2E_DB_NAME:=ai_portal_e2e}"
+: "${E2E_API_PORT:=8001}"
+: "${E2E_FRONTEND_PORT:=5175}"
+: "${WORKTREE_NAME:=}"
+
+E2E_DB_URL="postgresql+psycopg://postgres:postgres@127.0.0.1:${E2E_DB_PORT}/${E2E_DB_NAME}"
+
+# Container name: worktree-specific or the default compose name
+if [ -n "$WORKTREE_NAME" ]; then
+  E2E_CONTAINER="local-e2e-ai-portal-db-${WORKTREE_NAME}"
+else
+  E2E_CONTAINER="local-e2e-ai-portal-db"
+fi
+
+# ── Resolve Python ────────────────────────────────────────────────────────────
 if [ -z "${PYTHON:-}" ]; then
   for _candidate in python python3; do
     if command -v "$_candidate" &>/dev/null && "$_candidate" -c "import alembic" &>/dev/null; then
@@ -42,14 +72,30 @@ if [ -z "${PYTHON:-}" ]; then
   fi
 fi
 
-# ── 1. Start the E2E Postgres ─────────────────────────────────────────────
-echo "▶ Starting E2E Postgres (port 5435)…"
-docker compose -f "$REPO_ROOT/docker-compose.e2e.yml" up -d
+# ── 2. Start E2E Postgres ─────────────────────────────────────────────────────
+if [ -n "$WORKTREE_NAME" ]; then
+  # Worktree mode: container should already be running from worktree-up.sh
+  echo "▶ Worktree mode — verifying E2E Postgres (${E2E_CONTAINER})..."
+  if ! docker inspect "$E2E_CONTAINER" &>/dev/null; then
+    echo "   ERROR: container '$E2E_CONTAINER' not found." >&2
+    echo "   Run ./scripts/worktree-up.sh ${WORKTREE_NAME} first." >&2
+    exit 1
+  fi
+  state=$(docker inspect -f '{{.State.Status}}' "$E2E_CONTAINER")
+  if [ "$state" != "running" ]; then
+    echo "   Container is $state — starting..."
+    docker start "$E2E_CONTAINER" > /dev/null
+  fi
+else
+  # Main mode: use docker-compose
+  echo "▶ Starting E2E Postgres (port ${E2E_DB_PORT})..."
+  docker compose -f "$REPO_ROOT/docker-compose.e2e.yml" up -d
+fi
 
-# ── 2. Wait for Postgres to be ready ─────────────────────────────────────
-echo "▶ Waiting for Postgres to be ready…"
+# ── 3. Wait for Postgres ──────────────────────────────────────────────────────
+echo "▶ Waiting for Postgres to be ready..."
 for i in $(seq 1 30); do
-  if docker exec local-e2e-ai-portal-db pg_isready -U postgres -d ai_portal_e2e -q 2>/dev/null; then
+  if docker exec "$E2E_CONTAINER" pg_isready -U postgres -d "$E2E_DB_NAME" -q 2>/dev/null; then
     echo "   Postgres ready after ${i}s."
     break
   fi
@@ -60,27 +106,26 @@ for i in $(seq 1 30); do
   sleep 1
 done
 
-# ── 3. Run migrations ────────────────────────────────────────────────────
-echo "▶ Running alembic migrations…"
+# ── 4. Run migrations ─────────────────────────────────────────────────────────
+echo "▶ Running alembic migrations..."
 (cd "$REPO_ROOT/backend" && DATABASE_URL="$E2E_DB_URL" "$PYTHON" -m alembic upgrade head)
 
-# ── 4. Seed catalog models ────────────────────────────────────────────────
-# Load LLM keys from the root .env so seed-catalog-models can validate them.
-echo "▶ Seeding catalog models…"
+# ── 5. Seed catalog models ────────────────────────────────────────────────────
+echo "▶ Seeding catalog models..."
 if [ -f "$REPO_ROOT/.env" ]; then
   set -o allexport
   # shellcheck disable=SC1091
   source "$REPO_ROOT/.env"
   set +o allexport
 fi
-(cd "$REPO_ROOT/backend" && DATABASE_URL="$E2E_DB_URL" "$PYTHON" -m ai_portal.scripts.seed_catalog_models)
+(cd "$REPO_ROOT/backend" && DATABASE_URL="$E2E_DB_URL" \
+  "$PYTHON" -m ai_portal.scripts.seed_catalog_models --skip-model-validation)
 
-# ── 5. Start the API on port 8001 ────────────────────────────────────────
-echo "▶ Starting API on http://127.0.0.1:8001 (E2E database)…"
+# ── 6. Start the API ──────────────────────────────────────────────────────────
+echo "▶ Starting API on http://127.0.0.1:${E2E_API_PORT} (E2E database)..."
 echo "   Press Ctrl-C to stop."
 (
   cd "$REPO_ROOT/backend"
-  # Re-export all vars from root .env, then override the DB URL and port.
   if [ -f "$REPO_ROOT/.env" ]; then
     set -o allexport
     # shellcheck disable=SC1091
@@ -88,7 +133,10 @@ echo "   Press Ctrl-C to stop."
     set +o allexport
   fi
   export DATABASE_URL="$E2E_DB_URL"
-  export API_PORT=8001
-  export CORS_ORIGINS="http://localhost:5173,http://127.0.0.1:5173"
-  "$PYTHON" -m uvicorn ai_portal.main:app --host 127.0.0.1 --port 8001 --reload
+  export API_PORT="$E2E_API_PORT"
+  export CORS_ORIGINS="http://localhost:${E2E_FRONTEND_PORT},http://127.0.0.1:${E2E_FRONTEND_PORT}"
+  export E2E_ENABLE_RAG_SEED=1
+  export E2E_ENABLE_CHAT_MESSAGES_SEED=1
+  export KB_MAX_FILE_SIZE_MB=1
+  "$PYTHON" -m uvicorn ai_portal.main:app --host 127.0.0.1 --port "$E2E_API_PORT" --reload
 )
