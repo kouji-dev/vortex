@@ -28,11 +28,13 @@ export function MobileAppShell({ children }: { children: React.ReactNode }) {
 
   const handleCloseDrawer = React.useCallback(() => setDrawerOpen(false), [])
 
+  const handleOpenDrawer = React.useCallback(() => setDrawerOpen(true), [])
+
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-white dark:bg-neutral-950">
       <MobileHeader
         conversationTitle={conversationTitle}
-        onOpenDrawer={() => setDrawerOpen(true)}
+        onOpenDrawer={handleOpenDrawer}
         onNewConversation={handleNewConversation}
       />
 
