@@ -889,7 +889,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
                 <div
                   className={`rounded-2xl px-4 py-3 ${
                     isUserSide
-                      ? 'ml-auto max-w-[min(92%,42rem)] bg-neutral-100/95 text-neutral-900 dark:bg-neutral-800/95 dark:text-neutral-100'
+                      ? 'ml-auto max-w-[85%] md:max-w-[70%] bg-neutral-100/95 text-neutral-900 dark:bg-neutral-800/95 dark:text-neutral-100'
                       : isSystem
                         ? 'w-full max-w-none bg-neutral-100/70 text-neutral-800 dark:bg-neutral-800/50 dark:text-neutral-200'
                         : isErrorAssistant
