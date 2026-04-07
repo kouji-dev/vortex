@@ -29,15 +29,17 @@ export function ConversationsRouteLayout() {
   return (
     <ConversationsOutletProvider value={outletValue}>
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
-        <ConversationsSidebarPanel
-          conversations={convsQ.data}
-          conversationsPending={convsQ.isPending}
-          conversationsError={convsQ.error as Error | null}
-          onNewConversation={() => {
-            void navigate({ to: '/chat/conversations' })
-          }}
-        />
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-4">
+        <div className="hidden md:flex md:min-h-0 md:flex-col md:shrink-0">
+          <ConversationsSidebarPanel
+            conversations={convsQ.data}
+            conversationsPending={convsQ.isPending}
+            conversationsError={convsQ.error as Error | null}
+            onNewConversation={() => {
+              void navigate({ to: '/chat/conversations' })
+            }}
+          />
+        </div>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-2 md:p-4">
           <Outlet />
         </div>
       </div>
