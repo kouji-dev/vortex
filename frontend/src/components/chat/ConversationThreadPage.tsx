@@ -9,6 +9,8 @@ import {
   resolveSelectedCatalogModel,
   type CapabilityKey,
 } from '~/components/chat/ChatComposerDock'
+import { ChatComposerDockMobile } from '~/components/chat/ChatComposerDockMobile'
+import { useIsMobile } from '~/hooks/useIsMobile'
 import { KbChatPicker } from '~/components/knowledge-bases/KbChatPicker'
 import { MessageKbIndicator } from '~/components/knowledge-bases/MessageKbIndicator'
 import { EmptyConversationState } from '~/components/chat/EmptyConversationState'
@@ -81,6 +83,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
   const stickToBottomRef = React.useRef(true)
   const streamAbortRef = React.useRef<AbortController | null>(null)
   const isComposerMode = conversationId == null
+  const isMobile = useIsMobile()
   const [draftModel, setDraftModel] = React.useState('')
   const [confirmDeleteOpen, setConfirmDeleteOpen] = React.useState(false)
   const [draftCaps, setDraftCaps] = React.useState<CapabilityToggles>({
@@ -96,6 +99,28 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
   const [pendingComposerFiles, setPendingComposerFiles] = React.useState<File[]>([])
   const lastStreamBodyRef = React.useRef<Record<string, unknown> | null>(null)
   const streamHadSseErrorRef = React.useRef(false)
+  const composerRef = React.useRef<HTMLDivElement>(null)
+
+  React.useEffect(() => {
+    if (!isMobile) return
+    const vv = window.visualViewport
+    if (!vv) return
+    const apply = () => {
+      const node = composerRef.current
+      if (!node) return
+      const offsetFromBottom = window.innerHeight - (vv.offsetTop + vv.height)
+      node.style.paddingBottom = `${offsetFromBottom}px`
+    }
+    apply()
+    vv.addEventListener('resize', apply)
+    vv.addEventListener('scroll', apply)
+    return () => {
+      vv.removeEventListener('resize', apply)
+      vv.removeEventListener('scroll', apply)
+      const node = composerRef.current
+      if (node) node.style.paddingBottom = ''
+    }
+  }, [isMobile])
 
   const convQ = useConversationQuery(conversationId)
   const catalogQ = useCatalogModelsQuery()
@@ -130,6 +155,8 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
   React.useEffect(() => {
     setOlderMessages([])
     setCanLoadOlder(false)
+    setStreamItems([])
+    setThinkingExpanded(false)
   }, [conversationId])
 
   React.useEffect(() => {
@@ -324,6 +351,8 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
     setSendError(null)
     setStreaming(true)
     setStreamingText('')
+    setStreamItems([])
+    setThinkingExpanded(false)
     let streamReachedTerminal = false
     let assembled = ''
     try {
@@ -372,31 +401,57 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
               setStreamItems(prev => [...prev, { kind: 'thinking', status: 'running', children: [] }])
               setThinkingExpanded(true)
             } else if (item.kind === 'memory') {
-              setStreamItems(prev => {
-                const next = [...prev]
-                const thinking = [...next].reverse().find(
-                  (i): i is ThinkingItem => i.kind === 'thinking' && i.status === 'running',
-                )
-                if (thinking) {
-                  thinking.children.push({ kind: 'memory', count: item.count ?? 0, status: 'running' })
+              setStreamItems((prev) => {
+                let thinkingIdx = -1
+                for (let j = prev.length - 1; j >= 0; j--) {
+                  const it = prev[j]
+                  if (it.kind === 'thinking' && it.status === 'running') {
+                    thinkingIdx = j
+                    break
+                  }
                 }
-                return next
+                if (thinkingIdx === -1) return prev
+                return prev.map((si, j) => {
+                  if (j !== thinkingIdx || si.kind !== 'thinking') return si
+                  return {
+                    ...si,
+                    children: [
+                      ...si.children,
+                      {
+                        kind: 'memory' as const,
+                        count: item.count ?? 0,
+                        status: 'running' as const,
+                      },
+                    ],
+                  }
+                })
               })
             } else if (item.kind === 'tool_call') {
-              setStreamItems(prev => {
-                const next = [...prev]
-                const thinking = [...next].reverse().find(
-                  (i): i is ThinkingItem => i.kind === 'thinking' && i.status === 'running',
-                )
+              setStreamItems((prev) => {
                 const toolItem: ToolCallItem = {
                   kind: 'tool_call',
                   tool: item.tool ?? '',
                   params: item.params ?? {},
                   status: 'running',
                 }
-                if (thinking) thinking.children.push(toolItem)
-                else next.push(toolItem)
-                return next
+                let thinkingIdx = -1
+                for (let j = prev.length - 1; j >= 0; j--) {
+                  const it = prev[j]
+                  if (it.kind === 'thinking' && it.status === 'running') {
+                    thinkingIdx = j
+                    break
+                  }
+                }
+                if (thinkingIdx === -1) {
+                  return [...prev, toolItem]
+                }
+                return prev.map((si, j) => {
+                  if (j !== thinkingIdx || si.kind !== 'thinking') return si
+                  return {
+                    ...si,
+                    children: [...si.children, toolItem],
+                  }
+                })
               })
             }
           }
@@ -481,12 +536,12 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
       } else {
         setSendError(e instanceof Error ? e.message : 'Stream failed')
       }
+      setStreamItems([])
+      setThinkingExpanded(false)
     } finally {
       if (streamAbortRef.current === ac) streamAbortRef.current = null
       setStreaming(false)
       setStreamingText('')
-      setStreamItems([])
-      setThinkingExpanded(false)
       setOlderMessages([])
       void qc.invalidateQueries({
         queryKey: queryKeys.conversationMessagesTail(conversationId),
@@ -924,6 +979,18 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
             )
           })}
         </ul>
+        {!streaming &&
+          streamItems.some((i) => i.kind === 'thinking') && (
+            <div className="mt-1 w-full">
+              <div className="w-full max-w-none rounded-2xl bg-white/90 px-4 py-3 dark:bg-neutral-900/75">
+                <StreamingThinkingBlock
+                  items={streamItems}
+                  expanded={thinkingExpanded}
+                  onToggle={() => setThinkingExpanded((e) => !e)}
+                />
+              </div>
+            </div>
+          )}
         {streaming && (
           <div className="mt-1 w-full">
             <div
@@ -994,58 +1061,112 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
         </div>
       )}
 
-      <div className="w-full shrink-0">
-      <ChatComposerDock
-        models={catalogQ.data}
-        modelsPending={catalogQ.isPending}
-        modelsError={catalogQ.error as Error | null}
-        chatModel={activeChatModel}
-        onSelectChatModel={(id) => {
-          if (isComposerMode) setDraftModel(id)
-          else setModelDraft(id)
-        }}
-        onCommitChatModel={isComposerMode ? undefined : commitChatModel}
-        modelSelectDisabled={!isComposerMode && (convQ.isPending || patchConv.isPending)}
-        capabilities={caps}
-        onToggleCapability={toggleCapability}
-        capabilityDisabled={!isComposerMode && (patchConv.isPending || convQ.isPending)}
-        capabilityDescriptions={capabilityDescriptions}
-        composeDraft={composeDraft}
-        setComposeDraft={setComposeDraft}
-        onSubmit={() => {
-          if (!streaming) void sendStream(composeDraft)
-        }}
-        pendingServerAttachments={isComposerMode ? undefined : pendingAttachments}
-        pendingLocalFileNames={
-          isComposerMode ? pendingComposerFiles.map((f) => f.name) : undefined
-        }
-        onRemoveServerAttachment={(id) =>
-          setPendingAttachments((p) => p.filter((x) => x.id !== id))
-        }
-        onRemoveLocalFile={(index) =>
-          setPendingComposerFiles((p) => p.filter((_, i) => i !== index))
-        }
-        onLocalFilesChosen={onLocalFilesChosen}
-        attachDisabled={streaming}
-        streaming={streaming}
-        onStop={stopStream}
-        inputThemed={inputThemed}
-        kbSlot={
-          isComposerMode ? (
-            <KbChatPicker
-              conversationId={null}
-              activeCount={draftKbIds.length}
-              draftKnowledgeBaseIds={draftKbIds}
-              onDraftKnowledgeBaseIdsChange={setDraftKbIds}
-            />
-          ) : conversationId != null ? (
-            <KbChatPicker conversationId={conversationId} activeCount={knowledge_base_ids.length} />
-          ) : undefined
-        }
-        selectedCatalogModel={selectedCatalogModel}
-        tuning={sessionTuning}
-        onTuningChange={setSessionTuning}
-      />
+      <div ref={composerRef} className="w-full shrink-0">
+        {isMobile ? (
+          <ChatComposerDockMobile
+            models={catalogQ.data}
+            modelsPending={catalogQ.isPending}
+            modelsError={catalogQ.error as Error | null}
+            chatModel={activeChatModel}
+            onSelectChatModel={(id) => {
+              if (isComposerMode) setDraftModel(id)
+              else setModelDraft(id)
+            }}
+            onCommitChatModel={isComposerMode ? undefined : commitChatModel}
+            modelSelectDisabled={!isComposerMode && (convQ.isPending || patchConv.isPending)}
+            capabilities={caps}
+            onToggleCapability={toggleCapability}
+            capabilityDisabled={!isComposerMode && (patchConv.isPending || convQ.isPending)}
+            capabilityDescriptions={capabilityDescriptions}
+            composeDraft={composeDraft}
+            setComposeDraft={setComposeDraft}
+            onSubmit={() => {
+              if (!streaming) void sendStream(composeDraft)
+            }}
+            pendingServerAttachments={isComposerMode ? undefined : pendingAttachments}
+            pendingLocalFileNames={
+              isComposerMode ? pendingComposerFiles.map((f) => f.name) : undefined
+            }
+            onRemoveServerAttachment={(id) =>
+              setPendingAttachments((p) => p.filter((x) => x.id !== id))
+            }
+            onRemoveLocalFile={(index) =>
+              setPendingComposerFiles((p) => p.filter((_, i) => i !== index))
+            }
+            onLocalFilesChosen={onLocalFilesChosen}
+            attachDisabled={streaming}
+            streaming={streaming}
+            onStop={stopStream}
+            inputThemed={inputThemed}
+            kbSlot={
+              isComposerMode ? (
+                <KbChatPicker
+                  conversationId={null}
+                  activeCount={draftKbIds.length}
+                  draftKnowledgeBaseIds={draftKbIds}
+                  onDraftKnowledgeBaseIdsChange={setDraftKbIds}
+                />
+              ) : conversationId != null ? (
+                <KbChatPicker conversationId={conversationId} activeCount={knowledge_base_ids.length} />
+              ) : undefined
+            }
+            selectedCatalogModel={selectedCatalogModel}
+            tuning={sessionTuning}
+            onTuningChange={setSessionTuning}
+          />
+        ) : (
+          <ChatComposerDock
+            models={catalogQ.data}
+            modelsPending={catalogQ.isPending}
+            modelsError={catalogQ.error as Error | null}
+            chatModel={activeChatModel}
+            onSelectChatModel={(id) => {
+              if (isComposerMode) setDraftModel(id)
+              else setModelDraft(id)
+            }}
+            onCommitChatModel={isComposerMode ? undefined : commitChatModel}
+            modelSelectDisabled={!isComposerMode && (convQ.isPending || patchConv.isPending)}
+            capabilities={caps}
+            onToggleCapability={toggleCapability}
+            capabilityDisabled={!isComposerMode && (patchConv.isPending || convQ.isPending)}
+            capabilityDescriptions={capabilityDescriptions}
+            composeDraft={composeDraft}
+            setComposeDraft={setComposeDraft}
+            onSubmit={() => {
+              if (!streaming) void sendStream(composeDraft)
+            }}
+            pendingServerAttachments={isComposerMode ? undefined : pendingAttachments}
+            pendingLocalFileNames={
+              isComposerMode ? pendingComposerFiles.map((f) => f.name) : undefined
+            }
+            onRemoveServerAttachment={(id) =>
+              setPendingAttachments((p) => p.filter((x) => x.id !== id))
+            }
+            onRemoveLocalFile={(index) =>
+              setPendingComposerFiles((p) => p.filter((_, i) => i !== index))
+            }
+            onLocalFilesChosen={onLocalFilesChosen}
+            attachDisabled={streaming}
+            streaming={streaming}
+            onStop={stopStream}
+            inputThemed={inputThemed}
+            kbSlot={
+              isComposerMode ? (
+                <KbChatPicker
+                  conversationId={null}
+                  activeCount={draftKbIds.length}
+                  draftKnowledgeBaseIds={draftKbIds}
+                  onDraftKnowledgeBaseIdsChange={setDraftKbIds}
+                />
+              ) : conversationId != null ? (
+                <KbChatPicker conversationId={conversationId} activeCount={knowledge_base_ids.length} />
+              ) : undefined
+            }
+            selectedCatalogModel={selectedCatalogModel}
+            tuning={sessionTuning}
+            onTuningChange={setSessionTuning}
+          />
+        )}
       </div>
       {confirmDeleteOpen && (
         <div
