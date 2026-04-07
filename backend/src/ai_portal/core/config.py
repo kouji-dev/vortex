@@ -68,7 +68,7 @@ _YAML_KEY_MAP: dict[str, str] = {
 
 def _default_config_path() -> Path:
     """Return path to config.yaml next to pyproject.toml (i.e. backend/config.yaml)."""
-    return Path(__file__).parent.parent.parent / "config.yaml"
+    return Path(__file__).parent.parent.parent.parent / "config.yaml"
 
 
 class YamlSettingsSource(PydanticBaseSettingsSource):
