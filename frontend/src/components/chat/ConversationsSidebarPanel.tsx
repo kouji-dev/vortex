@@ -102,7 +102,7 @@ export function ConversationsSidebarPanel({
   }, [someSelected, selectedCount])
 
   return (
-    <aside className="flex w-full shrink-0 flex-col gap-2 border-b border-neutral-200 p-3 dark:border-neutral-800 md:h-full md:min-h-0 md:w-64 md:max-w-64 md:overflow-y-auto md:border-b-0 md:border-r md:overscroll-contain">
+    <aside className="flex h-full min-h-0 w-full shrink-0 flex-col gap-2 border-b border-neutral-200 p-3 dark:border-neutral-800 md:w-64 md:max-w-64 md:overflow-y-auto md:border-b-0 md:border-r md:overscroll-contain">
       {!hideHeader && (
         <div className="flex items-center justify-between gap-2">
           <span className="text-sm font-semibold">Conversations</span>
@@ -212,7 +212,7 @@ export function ConversationsSidebarPanel({
       {bulkDeleteMut.isError && (
         <p className="text-sm text-red-600">{(bulkDeleteMut.error as Error).message}</p>
       )}
-      <ul className="max-h-48 min-h-0 space-y-1 overflow-y-auto md:max-h-none">
+      <ul className="min-h-0 flex-1 space-y-1 overflow-y-auto">
         {(conversations ?? []).map((c) => (
           <li key={c.id}>
             <div className="group flex items-start gap-1 rounded hover:bg-neutral-100 dark:hover:bg-neutral-900">
