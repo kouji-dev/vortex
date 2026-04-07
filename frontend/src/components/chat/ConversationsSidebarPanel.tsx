@@ -13,6 +13,7 @@ type ConversationsSidebarPanelProps = {
   conversationsPending: boolean
   conversationsError: Error | null
   onNewConversation: () => void
+  hideHeader?: boolean
 }
 
 export function ConversationsSidebarPanel({
@@ -20,6 +21,7 @@ export function ConversationsSidebarPanel({
   conversationsPending,
   conversationsError,
   onNewConversation,
+  hideHeader,
 }: ConversationsSidebarPanelProps) {
   const apiBase = getApiBase()
   const qc = useQueryClient()
@@ -101,51 +103,53 @@ export function ConversationsSidebarPanel({
 
   return (
     <aside className="flex w-full shrink-0 flex-col gap-2 border-b border-neutral-200 p-3 dark:border-neutral-800 md:h-full md:min-h-0 md:w-64 md:max-w-64 md:overflow-y-auto md:border-b-0 md:border-r md:overscroll-contain">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-semibold">Conversations</span>
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200"
-            onClick={onNewConversation}
-            title="New conversation"
-            aria-label="New conversation"
-          >
-            <Plus className="size-4" aria-hidden />
-          </button>
-          <div className="relative">
+      {!hideHeader && (
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm font-semibold">Conversations</span>
+          <div className="flex items-center gap-1">
             <button
               type="button"
-              className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-200 dark:hover:bg-neutral-900"
-              onClick={() => setMenuOpen((v) => !v)}
-              title="Conversation actions"
-              aria-label="Conversation actions"
-              aria-expanded={menuOpen}
-              aria-haspopup="menu"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200"
+              onClick={onNewConversation}
+              title="New conversation"
+              aria-label="New conversation"
             >
-              <MoreHorizontal className="size-4" aria-hidden />
+              <Plus className="size-4" aria-hidden />
             </button>
-            {menuOpen && (
-              <div
-                role="menu"
-                className="absolute right-0 top-8 z-20 min-w-44 rounded-md border border-neutral-200 bg-white p-1 shadow-lg dark:border-neutral-700 dark:bg-neutral-950"
+            <div className="relative">
+              <button
+                type="button"
+                className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-200 dark:hover:bg-neutral-900"
+                onClick={() => setMenuOpen((v) => !v)}
+                title="Conversation actions"
+                aria-label="Conversation actions"
+                aria-expanded={menuOpen}
+                aria-haspopup="menu"
               >
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="w-full rounded px-2 py-1.5 text-left text-xs text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-900"
-                  onClick={() => {
-                    setSelectionMode(true)
-                    closeMenu()
-                  }}
+                <MoreHorizontal className="size-4" aria-hidden />
+              </button>
+              {menuOpen && (
+                <div
+                  role="menu"
+                  className="absolute right-0 top-8 z-20 min-w-44 rounded-md border border-neutral-200 bg-white p-1 shadow-lg dark:border-neutral-700 dark:bg-neutral-950"
                 >
-                  Select conversations
-                </button>
-              </div>
-            )}
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="w-full rounded px-2 py-1.5 text-left text-xs text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-900"
+                    onClick={() => {
+                      setSelectionMode(true)
+                      closeMenu()
+                    }}
+                  >
+                    Select conversations
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
       {selectionMode && (
         <div className="space-y-2 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs dark:border-neutral-700 dark:bg-neutral-900">
           <div className="flex items-center justify-between gap-2">
