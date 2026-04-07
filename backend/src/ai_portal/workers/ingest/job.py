@@ -1,8 +1,2 @@
-"""RQ entrypoint — importable string target for ``rq.Queue.enqueue``."""
-from __future__ import annotations
-
-from ai_portal.workers.ingest.worker import ingest_document_worker
-
-
-def run_ingest_job(document_id: int) -> None:
-    ingest_document_worker(document_id)
+# Re-export shim — real implementation moved to knowledge_base/workers/ingest/job.py
+from ai_portal.knowledge_base.workers.ingest.job import *  # noqa: F401, F403
