@@ -341,7 +341,7 @@ function KnowledgeBaseDetailPage() {
   const saveDisabled = patchMut.isPending || !detailsDirty
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-4 sm:p-6">
+    <div className="page-enter flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-4 sm:p-6">
       <div className="flex items-center gap-2">
         <Link
           to="/knowledge-bases"

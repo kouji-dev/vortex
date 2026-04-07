@@ -44,7 +44,7 @@ export function HomePage() {
       : null
 
   return (
-    <div className="mx-auto min-h-0 w-full max-w-4xl flex-1 space-y-8 overflow-y-auto overscroll-contain p-6">
+    <div className="page-enter mx-auto min-h-0 w-full max-w-4xl flex-1 space-y-8 overflow-y-auto overscroll-contain p-4 md:p-6">
       <header>
         <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">
           Home

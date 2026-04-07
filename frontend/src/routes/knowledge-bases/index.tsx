@@ -50,22 +50,44 @@ function KnowledgeBasesIndexPage() {
       return name.includes(q) || desc.includes(q)
     })
   }, [rows, search])
-  const loadMoreRef = React.useRef<HTMLDivElement | null>(null)
+  const loadMoreDesktopRef = React.useRef<HTMLDivElement | null>(null)
+  const loadMoreMobileRef = React.useRef<HTMLDivElement | null>(null)
   const tableScrollRef = React.useRef<HTMLDivElement | null>(null)
 
   React.useEffect(() => {
-    const el = loadMoreRef.current
-    if (!el) return
-    const obs = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((e) => e.isIntersecting) && listQ.hasNextPage && !listQ.isFetchingNextPage) {
-          void listQ.fetchNextPage()
-        }
-      },
-      { root: tableScrollRef.current, rootMargin: '200px' },
-    )
-    obs.observe(el)
-    return () => obs.disconnect()
+    const maybeFetch = () => {
+      if (listQ.hasNextPage && !listQ.isFetchingNextPage) {
+        void listQ.fetchNextPage()
+      }
+    }
+    const observers: IntersectionObserver[] = []
+
+    const mobileEl = loadMoreMobileRef.current
+    if (mobileEl) {
+      const obs = new IntersectionObserver(
+        (entries) => {
+          if (entries.some((e) => e.isIntersecting)) maybeFetch()
+        },
+        { root: null, rootMargin: '200px' },
+      )
+      obs.observe(mobileEl)
+      observers.push(obs)
+    }
+
+    const desktopEl = loadMoreDesktopRef.current
+    const scrollRoot = tableScrollRef.current
+    if (desktopEl && scrollRoot) {
+      const obs = new IntersectionObserver(
+        (entries) => {
+          if (entries.some((e) => e.isIntersecting)) maybeFetch()
+        },
+        { root: scrollRoot, rootMargin: '200px' },
+      )
+      obs.observe(desktopEl)
+      observers.push(obs)
+    }
+
+    return () => observers.forEach((o) => o.disconnect())
   }, [listQ])
 
   const formatBytes = (bytes: number | undefined) => {
@@ -96,7 +118,7 @@ function KnowledgeBasesIndexPage() {
   const totalDocs = rows.reduce((acc, kb) => acc + (kb.document_count ?? 0), 0)
 
   return (
-    <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col gap-4 overflow-hidden p-4 sm:p-6">
+    <div className="page-enter mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col gap-4 overflow-hidden p-4 sm:p-6">
       <header>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
@@ -177,68 +199,104 @@ function KnowledgeBasesIndexPage() {
           <p className="text-sm text-neutral-500 dark:text-neutral-400">No knowledge bases match your search.</p>
         )}
         {filteredRows.length > 0 && (
-          <TableShell containerRef={tableScrollRef}>
-            <table className="w-full min-w-[48rem] text-left text-sm">
-              <thead className="sticky top-0 z-10 border-b border-neutral-200 bg-neutral-50 text-xs text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
-                <tr>
-                  <th className="px-4 py-2 font-medium">Name</th>
-                  <th className="px-4 py-2 text-right font-medium">Size</th>
-                  <th className="px-4 py-2 text-right font-medium">Chunks</th>
-                  <th className="px-4 py-2 font-medium">Created</th>
-                  <th className="px-4 py-2 text-right font-medium">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
-                {filteredRows.map((kb) => (
-                  <tr key={kb.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-900/60">
-                    <td className="px-4 py-2.5">
-                      <Link
-                        to="/knowledge-bases/$id"
-                        params={{ id: String(kb.id) }}
-                        className="block"
-                      >
-                        <div className="font-medium text-neutral-900 dark:text-neutral-100">{kb.name}</div>
-                        <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
-                          {kb.description ? (
-                            <p className="line-clamp-1 text-xs text-neutral-600 dark:text-neutral-400">
-                              {kb.description}
-                            </p>
-                          ) : null}
-                          <span className="rounded-full border border-neutral-200 bg-neutral-100 px-1.5 py-0.5 text-[10px] text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
-                            {(kb.document_count ?? 0).toLocaleString()} docs
-                          </span>
-                        </div>
-                      </Link>
-                    </td>
-                    <td className="px-4 py-2.5 text-right font-medium tabular-nums text-neutral-700 dark:text-neutral-300">
-                      {formatBytes(kb.size_bytes)}
-                    </td>
-                    <td className="px-4 py-2.5 text-right font-medium tabular-nums text-neutral-700 dark:text-neutral-300">
-                      {(kb.chunks_count ?? 0).toLocaleString()}
-                    </td>
-                    <td className="px-4 py-2.5 text-neutral-700 dark:text-neutral-300">
-                      {formatDate(kb.created_at)}
-                    </td>
-                    <td className="px-4 py-2.5 text-right">
-                      <Link
-                        to="/knowledge-bases/$id"
-                        params={{ id: String(kb.id) }}
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-neutral-300 text-neutral-700 transition-colors hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
-                        title="View knowledge base"
-                        aria-label={`View ${kb.name}`}
-                      >
-                        <Eye className="size-3.5" aria-hidden />
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <div ref={loadMoreRef} className="h-1" />
+          <>
+            <div className="flex flex-col gap-2 md:hidden">
+              {filteredRows.map((kb) => (
+                <Link
+                  key={kb.id}
+                  to="/knowledge-bases/$id"
+                  params={{ id: String(kb.id) }}
+                  className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-medium text-neutral-900 dark:text-neutral-100">{kb.name}</p>
+                      {kb.description ? (
+                        <p className="mt-0.5 line-clamp-2 text-xs text-neutral-600 dark:text-neutral-400">
+                          {kb.description}
+                        </p>
+                      ) : null}
+                    </div>
+                    <Eye className="mt-0.5 size-4 shrink-0 text-neutral-400" aria-hidden />
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-2 text-xs text-neutral-500 dark:text-neutral-400">
+                    <span>{(kb.document_count ?? 0).toLocaleString()} docs</span>
+                    <span>{(kb.chunks_count ?? 0).toLocaleString()} chunks</span>
+                    <span>{formatBytes(kb.size_bytes)}</span>
+                    <span>{formatDate(kb.created_at)}</span>
+                  </div>
+                </Link>
+              ))}
+              <div ref={loadMoreMobileRef} className="h-1" />
+            </div>
             {listQ.isFetchingNextPage && (
-              <p className="px-4 py-2 text-xs text-neutral-500">Loading more...</p>
+              <p className="px-0 py-2 text-xs text-neutral-500 md:hidden">Loading more...</p>
             )}
-          </TableShell>
+            <div className="hidden md:flex md:min-h-0 md:flex-1 md:flex-col">
+              <TableShell containerRef={tableScrollRef}>
+                <table className="w-full min-w-[48rem] text-left text-sm">
+                  <thead className="sticky top-0 z-10 border-b border-neutral-200 bg-neutral-50 text-xs text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
+                    <tr>
+                      <th className="px-4 py-2 font-medium">Name</th>
+                      <th className="px-4 py-2 text-right font-medium">Size</th>
+                      <th className="px-4 py-2 text-right font-medium">Chunks</th>
+                      <th className="px-4 py-2 font-medium">Created</th>
+                      <th className="px-4 py-2 text-right font-medium">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+                    {filteredRows.map((kb) => (
+                      <tr key={kb.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-900/60">
+                        <td className="px-4 py-2.5">
+                          <Link
+                            to="/knowledge-bases/$id"
+                            params={{ id: String(kb.id) }}
+                            className="block"
+                          >
+                            <div className="font-medium text-neutral-900 dark:text-neutral-100">{kb.name}</div>
+                            <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                              {kb.description ? (
+                                <p className="line-clamp-1 text-xs text-neutral-600 dark:text-neutral-400">
+                                  {kb.description}
+                                </p>
+                              ) : null}
+                              <span className="rounded-full border border-neutral-200 bg-neutral-100 px-1.5 py-0.5 text-[10px] text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
+                                {(kb.document_count ?? 0).toLocaleString()} docs
+                              </span>
+                            </div>
+                          </Link>
+                        </td>
+                        <td className="px-4 py-2.5 text-right font-medium tabular-nums text-neutral-700 dark:text-neutral-300">
+                          {formatBytes(kb.size_bytes)}
+                        </td>
+                        <td className="px-4 py-2.5 text-right font-medium tabular-nums text-neutral-700 dark:text-neutral-300">
+                          {(kb.chunks_count ?? 0).toLocaleString()}
+                        </td>
+                        <td className="px-4 py-2.5 text-neutral-700 dark:text-neutral-300">
+                          {formatDate(kb.created_at)}
+                        </td>
+                        <td className="px-4 py-2.5 text-right">
+                          <Link
+                            to="/knowledge-bases/$id"
+                            params={{ id: String(kb.id) }}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-neutral-300 text-neutral-700 transition-colors hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                            title="View knowledge base"
+                            aria-label={`View ${kb.name}`}
+                          >
+                            <Eye className="size-3.5" aria-hidden />
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div ref={loadMoreDesktopRef} className="h-1" />
+                {listQ.isFetchingNextPage && (
+                  <p className="px-4 py-2 text-xs text-neutral-500">Loading more...</p>
+                )}
+              </TableShell>
+            </div>
+          </>
         )}
       </section>
     </div>

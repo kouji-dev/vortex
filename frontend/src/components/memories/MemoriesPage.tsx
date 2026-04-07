@@ -90,7 +90,7 @@ export function MemoriesPage() {
 
   return (
     <>
-    <div className="mx-auto min-h-0 w-full max-w-6xl flex-1 space-y-6 overflow-hidden p-4 sm:p-6">
+    <div className="page-enter mx-auto min-h-0 w-full max-w-6xl flex-1 space-y-6 overflow-hidden p-4 sm:p-6">
       <header>
         <h1 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Memories</h1>
         <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
