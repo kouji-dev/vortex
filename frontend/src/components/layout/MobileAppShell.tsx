@@ -47,7 +47,7 @@ export function MobileAppShell({ children }: { children: React.ReactNode }) {
         onNewConversation={handleNewConversation}
       />
 
-      <div className="min-h-0 flex-1 overflow-hidden">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         {children}
       </div>
 

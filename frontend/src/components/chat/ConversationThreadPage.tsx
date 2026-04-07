@@ -782,7 +782,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
-      <header className="shrink-0 flex flex-col gap-1.5 border-b border-neutral-200 pb-2 dark:border-neutral-800 sm:flex-row sm:items-start sm:justify-between">
+      <header className="hidden shrink-0 items-start justify-between gap-1.5 border-b border-neutral-200 pb-2 dark:border-neutral-800 md:flex">
         <div className="min-w-0 flex-1 space-y-0.5">
           <h1 className="truncate text-sm font-semibold text-neutral-900 dark:text-neutral-100 sm:text-base">
             {displayTitle}
