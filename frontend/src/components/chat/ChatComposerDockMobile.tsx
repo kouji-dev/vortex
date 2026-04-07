@@ -84,6 +84,7 @@ type ChatComposerDockMobileProps = {
   onRemoveLocalFile?: (index: number) => void
   onLocalFilesChosen?: (files: File[]) => void
   attachDisabled?: boolean
+  capabilityDescriptions?: Record<CapabilityKey, string>
 }
 
 export function ChatComposerDockMobile({
@@ -114,6 +115,7 @@ export function ChatComposerDockMobile({
   onRemoveLocalFile,
   onLocalFilesChosen,
   attachDisabled,
+  capabilityDescriptions,
 }: ChatComposerDockMobileProps) {
   const [tuningOpen, setTuningOpen] = React.useState(false)
   const [capsOpen, setCapsOpen] = React.useState(false)
@@ -217,6 +219,7 @@ export function ChatComposerDockMobile({
         </p>
         {CAPABILITY_MENU.map(({ key, label }) => {
           const on = capabilities[key]
+          const desc = capabilityDescriptions?.[key]
           return (
             <button
               key={key}
@@ -225,9 +228,14 @@ export function ChatComposerDockMobile({
               onClick={() => { onToggleCapability(key); setCapsOpen(false) }}
               className="flex w-full items-center justify-between px-4 py-3.5 text-sm text-neutral-800 hover:bg-neutral-50 disabled:opacity-50 dark:text-neutral-200 dark:hover:bg-neutral-900"
             >
-              <span className={on ? 'font-semibold' : ''}>{label}</span>
+              <span className="flex flex-col gap-0.5 text-left">
+                <span className={on ? 'font-semibold' : ''}>{label}</span>
+                {desc && (
+                  <span className="text-xs leading-snug text-neutral-500 dark:text-neutral-400">{desc}</span>
+                )}
+              </span>
               {on && (
-                <span className="size-2 rounded-full bg-neutral-900 dark:bg-neutral-100" />
+                <span className="ml-3 size-2 shrink-0 rounded-full bg-neutral-900 dark:bg-neutral-100" />
               )}
             </button>
           )

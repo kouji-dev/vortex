@@ -1080,19 +1080,11 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
             capabilityDescriptions={capabilityDescriptions}
             composeDraft={composeDraft}
             setComposeDraft={setComposeDraft}
-            onSubmit={() => {
-              if (!streaming) void sendStream(composeDraft)
-            }}
+            onSubmit={() => { if (!streaming) void sendStream(composeDraft) }}
             pendingServerAttachments={isComposerMode ? undefined : pendingAttachments}
-            pendingLocalFileNames={
-              isComposerMode ? pendingComposerFiles.map((f) => f.name) : undefined
-            }
-            onRemoveServerAttachment={(id) =>
-              setPendingAttachments((p) => p.filter((x) => x.id !== id))
-            }
-            onRemoveLocalFile={(index) =>
-              setPendingComposerFiles((p) => p.filter((_, i) => i !== index))
-            }
+            pendingLocalFileNames={isComposerMode ? pendingComposerFiles.map((f) => f.name) : undefined}
+            onRemoveServerAttachment={(id) => setPendingAttachments((p) => p.filter((x) => x.id !== id))}
+            onRemoveLocalFile={(index) => setPendingComposerFiles((p) => p.filter((_, i) => i !== index))}
             onLocalFilesChosen={onLocalFilesChosen}
             attachDisabled={streaming}
             streaming={streaming}
@@ -1132,19 +1124,11 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
             capabilityDescriptions={capabilityDescriptions}
             composeDraft={composeDraft}
             setComposeDraft={setComposeDraft}
-            onSubmit={() => {
-              if (!streaming) void sendStream(composeDraft)
-            }}
+            onSubmit={() => { if (!streaming) void sendStream(composeDraft) }}
             pendingServerAttachments={isComposerMode ? undefined : pendingAttachments}
-            pendingLocalFileNames={
-              isComposerMode ? pendingComposerFiles.map((f) => f.name) : undefined
-            }
-            onRemoveServerAttachment={(id) =>
-              setPendingAttachments((p) => p.filter((x) => x.id !== id))
-            }
-            onRemoveLocalFile={(index) =>
-              setPendingComposerFiles((p) => p.filter((_, i) => i !== index))
-            }
+            pendingLocalFileNames={isComposerMode ? pendingComposerFiles.map((f) => f.name) : undefined}
+            onRemoveServerAttachment={(id) => setPendingAttachments((p) => p.filter((x) => x.id !== id))}
+            onRemoveLocalFile={(index) => setPendingComposerFiles((p) => p.filter((_, i) => i !== index))}
             onLocalFilesChosen={onLocalFilesChosen}
             attachDisabled={streaming}
             streaming={streaming}
