@@ -1,6 +1,6 @@
 import pytest
 from pathlib import Path
-from ai_portal.workers.ingest.readers import stream_text_pages
+from ai_portal.knowledge_base.workers.ingest.readers import stream_text_pages
 
 
 def test_stream_txt_yields_tuples(tmp_path):

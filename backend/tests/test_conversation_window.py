@@ -1,4 +1,4 @@
-from ai_portal.api.conversations import _should_summarize, _slice_window_messages
+from ai_portal.chat.service import _should_summarize, _slice_window_messages
 
 BASE = 30
 INTERVAL = 10

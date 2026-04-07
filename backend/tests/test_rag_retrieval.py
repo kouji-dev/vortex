@@ -8,14 +8,14 @@ from tests.conftest import requires_postgres
 
 @requires_postgres
 def test_rag_module_importable():
-    from ai_portal.services import rag as rag_mod
+    from ai_portal.rag import service as rag_mod
 
     assert rag_mod.retrieve_context_with_meta is not None
     assert rag_mod.search_knowledge_base_tool is not None
 
 
 def test_returns_empty_when_no_kb_ids():
-    from ai_portal.services.rag import retrieve_context_with_meta
+    from ai_portal.rag.service import retrieve_context_with_meta
 
     db = MagicMock()
     context, meta = retrieve_context_with_meta(db, knowledge_base_ids=[], query_embedding=[0.1] * 3)
@@ -27,7 +27,7 @@ def test_returns_meta_per_kb():
     """Meta list has one entry per KB that contributed chunks."""
     from ai_portal.models import Document, DocumentChunk
     from ai_portal.models.knowledge_base import KnowledgeBase
-    from ai_portal.services.rag import retrieve_context_with_meta
+    from ai_portal.rag.service import retrieve_context_with_meta
 
     kb1 = MagicMock(spec=KnowledgeBase)
     kb1.id = 1
@@ -78,7 +78,7 @@ def test_returns_meta_per_kb():
 
 def test_cosine_score_plain_list_embeddings():
     from ai_portal.models import DocumentChunk
-    from ai_portal.services.rag import _cosine_score
+    from ai_portal.rag.service import _cosine_score
 
     c = MagicMock(spec=DocumentChunk)
     c.embedding = [1.0, 0.0, 0.0]
@@ -89,7 +89,7 @@ def test_cosine_score_plain_list_embeddings():
 def test_cosine_score_numpy_ndarray_embeddings():
     numpy = pytest.importorskip("numpy")
     from ai_portal.models import DocumentChunk
-    from ai_portal.services.rag import _cosine_score
+    from ai_portal.rag.service import _cosine_score
 
     c = MagicMock(spec=DocumentChunk)
     c.embedding = numpy.array([1.0, 0.0, 0.0], dtype=numpy.float64)

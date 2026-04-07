@@ -2,7 +2,7 @@
 
 from unittest.mock import patch
 
-from ai_portal.workers.ingest.job import run_ingest_job
+from ai_portal.knowledge_base.workers.ingest.job import run_ingest_job
 
 
 def test_run_ingest_job_delegates_to_worker():

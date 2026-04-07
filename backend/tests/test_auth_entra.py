@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 
 from ai_portal.auth.entra import decode_entra_access_token, roles_from_claims
 from ai_portal.main import app
-from ai_portal.services.user_identity import (
+from ai_portal.auth.service import (
     profile_fields_from_claims,
     upsert_user_from_entra_claims,
 )
@@ -177,7 +177,7 @@ def test_upsert_user_from_entra_claims(tmp_path):
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
 
-    from ai_portal.db.base import Base
+    from ai_portal.core.db.base import Base
     from ai_portal.models import User
 
     db_path = tmp_path / "t.db"

@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock, patch
 
-from ai_portal.workers.memory.summarizer import summarize_conversation
+from ai_portal.chat.workers.memory.summarizer import summarize_conversation
 
 
 def _make_mock_message(msg_id, role, content):

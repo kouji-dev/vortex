@@ -1,6 +1,6 @@
 from sqlalchemy import func, select
 
-from ai_portal.db.session import SessionLocal
+from ai_portal.core.db.session import SessionLocal
 from ai_portal.models import User
 from tests.conftest import requires_postgres
 

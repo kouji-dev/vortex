@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock, patch
 
-from ai_portal.workers.memory.extractor import extract_user_memories
+from ai_portal.chat.workers.memory.extractor import extract_user_memories
 
 
 def _mock_system_mem(content: str) -> MagicMock:

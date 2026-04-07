@@ -2,9 +2,9 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from ai_portal.db.session import SessionLocal
+from ai_portal.core.db.session import SessionLocal
 from ai_portal.main import app
-from ai_portal.services.default_conversation_model import (
+from ai_portal.catalog.service import (
     resolve_default_conversation_stored_model,
 )
 from tests.conftest import requires_postgres
@@ -133,7 +133,7 @@ def test_conversations_settings_rejects_unknown_capability_key():
 
 
 @requires_postgres
-@patch("ai_portal.api.conversations.llm_svc.chat_completions_stream_deltas")
+@patch("ai_portal.chat.service.llm_svc.chat_completions_stream_deltas")
 def test_first_stream_message_sets_title_from_prompt_truncated(mock_deltas, monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     mock_deltas.return_value = iter(["x"])
@@ -170,7 +170,7 @@ def test_first_stream_message_sets_title_from_prompt_truncated(mock_deltas, monk
 
 
 @requires_postgres
-@patch("ai_portal.api.conversations.llm_svc.chat_completions_stream_deltas")
+@patch("ai_portal.chat.service.llm_svc.chat_completions_stream_deltas")
 def test_stream_llm_error_persists_user_and_error_assistant(mock_deltas, monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     mock_deltas.side_effect = ValueError("model unavailable")
@@ -204,7 +204,7 @@ def test_stream_llm_error_persists_user_and_error_assistant(mock_deltas, monkeyp
 
 
 @requires_postgres
-@patch("ai_portal.api.conversations.llm_svc.chat_completions_stream_deltas")
+@patch("ai_portal.chat.service.llm_svc.chat_completions_stream_deltas")
 def test_messages_recent_tail_and_before_id(mock_deltas, monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     mock_deltas.return_value = iter(["ok"])
@@ -279,7 +279,7 @@ def test_patch_assistant_id_requires_visible_assistant():
 
 
 @requires_postgres
-@patch("ai_portal.api.conversations.llm_svc.chat_completions_stream_deltas")
+@patch("ai_portal.chat.service.llm_svc.chat_completions_stream_deltas")
 def test_patch_delete_and_regenerate_message(mock_deltas, monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     mock_deltas.return_value = iter(["x"])

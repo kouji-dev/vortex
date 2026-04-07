@@ -1,5 +1,5 @@
 from unittest.mock import MagicMock
-from ai_portal.workers.ingest.progress import update_progress, set_chunks_total
+from ai_portal.knowledge_base.workers.ingest.progress import update_progress, set_chunks_total
 
 
 def test_update_progress_sets_chunks_done():

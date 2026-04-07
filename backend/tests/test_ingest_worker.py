@@ -1,7 +1,7 @@
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from ai_portal.workers.ingest.worker import (
+from ai_portal.knowledge_base.workers.ingest.worker import (
     _mark_document_ready,
     _persist_document_failure,
     ingest_document_worker,

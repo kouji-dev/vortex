@@ -60,7 +60,7 @@ def test_settings_has_secret_key_field():
 
 def test_get_current_org_id_returns_uuid():
     from unittest.mock import MagicMock
-    from ai_portal.api.deps import get_current_org_id
+    from ai_portal.auth.deps import get_current_org_id
 
     user = MagicMock()
     user.org_id = uuid.uuid4()
@@ -71,7 +71,7 @@ def test_get_current_org_id_returns_uuid():
 def test_get_current_org_id_raises_when_no_org():
     from unittest.mock import MagicMock
     from fastapi import HTTPException
-    from ai_portal.api.deps import get_current_org_id
+    from ai_portal.auth.deps import get_current_org_id
 
     user = MagicMock()
     user.org_id = None
