@@ -3,7 +3,9 @@
   "private": true,
   "scripts": {
     "test:e2e": "pnpm --dir frontend test:e2e",
+    "test:e2e:filter": "pnpm --dir frontend test:e2e:filter",
     "test:e2e:all": "bash ./scripts/e2e-all.sh",
-    "test:e2e:win": "powershell -ExecutionPolicy Bypass -File ./scripts/e2e-all.ps1"
+    "worktree:up": "bash ./scripts/worktree-up.sh",
+    "worktree:down": "bash ./scripts/worktree-down.sh"
   }
 }
