@@ -1,5 +1,5 @@
 // frontend/src/components/chat/ChatComposerDockMobile.tsx
-import { ArrowUp, Paperclip, Settings2, Sparkles, Square, X } from 'lucide-react'
+import { ArrowUp, Lock, Paperclip, Settings2, Sparkles, Square, X } from 'lucide-react'
 import * as React from 'react'
 
 import {
@@ -370,17 +370,60 @@ export function ChatComposerDockMobile({
               </SelectTrigger>
               <SelectContent position="popper" side="top" sideOffset={6} align="start">
                 {!modelsPending &&
-                  sorted.map((m) =>
-                    m.accessible ? (
-                      <SelectItem key={m.id} value={`${CATALOG_SELECT_PREFIX}${m.slug}`} textValue={m.display_name}>
-                        {m.display_name}
+                  sorted.map((m) => {
+                    const actionable =
+                      m.can_request_access || Boolean(m.request_access_url)
+                    if (m.accessible) {
+                      return (
+                        <SelectItem
+                          key={m.id}
+                          value={`${CATALOG_SELECT_PREFIX}${m.slug}`}
+                          textValue={m.display_name}
+                        >
+                          {m.display_name}
+                        </SelectItem>
+                      )
+                    }
+                    return (
+                      <SelectItem
+                        key={m.id}
+                        value={`${CATALOG_SELECT_PREFIX}${m.slug}`}
+                        disabled
+                        textValue={m.display_name}
+                        itemSuffix={
+                          actionable ? (
+                            <button
+                              type="button"
+                              className="inline-flex size-6 shrink-0 items-center justify-center rounded-sm text-neutral-600 hover:bg-neutral-200/80 dark:text-neutral-400 dark:hover:bg-neutral-800"
+                              aria-label={`Request access to ${m.display_name}`}
+                              onPointerDown={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                              }}
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                setModelSelectOpen(false)
+                                if (m.request_access_url) {
+                                  window.open(
+                                    m.request_access_url,
+                                    '_blank',
+                                    'noopener,noreferrer',
+                                  )
+                                } else {
+                                  setRequestAccessModel(m)
+                                }
+                              }}
+                            >
+                              <Lock className="size-3" strokeWidth={2} />
+                            </button>
+                          ) : undefined
+                        }
+                      >
+                        {actionable ? m.display_name : `${m.display_name} (locked)`}
                       </SelectItem>
-                    ) : (
-                      <SelectItem key={m.id} value={`${CATALOG_SELECT_PREFIX}${m.slug}`} disabled textValue={m.display_name}>
-                        {m.display_name} (locked)
-                      </SelectItem>
-                    ),
-                  )}
+                    )
+                  })}
               </SelectContent>
             </Select>
             {modelsError && (
