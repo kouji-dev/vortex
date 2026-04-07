@@ -384,12 +384,12 @@ export function ChatComposerDockMobile({
         )}
 
         {/* Textarea pill — config · message · send all inside one border */}
-        <div className={`flex items-end rounded-2xl border px-2 py-1.5 ${inputThemed}`}>
+        <div className={`flex items-center rounded-2xl border px-2 py-1.5 ${inputThemed}`}>
           {/* Config button — left, borderless, merged */}
           <button
             type="button"
             onClick={() => setConfigOpen(true)}
-            className="mb-0.5 flex size-7 shrink-0 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 disabled:opacity-30 dark:hover:bg-neutral-800 dark:hover:text-neutral-300"
+            className="flex size-7 shrink-0 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 disabled:opacity-30 dark:hover:bg-neutral-800 dark:hover:text-neutral-300"
             aria-label="Composer options"
             disabled={Boolean(composerDisabled) && !streaming}
           >
@@ -413,7 +413,7 @@ export function ChatComposerDockMobile({
           {streaming ? (
             <button
               type="button"
-              className="mb-0.5 flex size-7 shrink-0 items-center justify-center rounded-full border border-red-300 text-red-600 dark:border-red-800 dark:text-red-400"
+              className="flex size-7 shrink-0 items-center justify-center rounded-full border border-red-300 text-red-600 dark:border-red-800 dark:text-red-400"
               aria-label="Stop generating"
               onClick={onStop}
             >
@@ -422,7 +422,7 @@ export function ChatComposerDockMobile({
           ) : (
             <button
               type="button"
-              className="mb-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-neutral-900 text-white disabled:opacity-30 dark:bg-neutral-100 dark:text-neutral-900"
+              className="flex size-7 shrink-0 items-center justify-center rounded-full bg-neutral-900 text-white disabled:opacity-30 dark:bg-neutral-100 dark:text-neutral-900"
               disabled={!canSubmit}
               aria-label="Send message"
               onClick={onSubmit}
