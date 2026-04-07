@@ -383,53 +383,53 @@ export function ChatComposerDockMobile({
           </div>
         )}
 
-        {/* Input row: [config] [textarea + send] */}
-        <div className="flex items-end gap-2">
-          {/* Config button */}
+        {/* Textarea pill — config · message · send all inside one border */}
+        <div className={`flex items-end rounded-2xl border px-2 py-1.5 ${inputThemed}`}>
+          {/* Config button — left, borderless, merged */}
           <button
             type="button"
             onClick={() => setConfigOpen(true)}
-            className="mb-1 flex size-9 shrink-0 items-center justify-center rounded-full border border-neutral-200 text-neutral-600 hover:bg-neutral-50 disabled:opacity-40 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-900"
+            className="mb-0.5 flex size-7 shrink-0 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 disabled:opacity-30 dark:hover:bg-neutral-800 dark:hover:text-neutral-300"
             aria-label="Composer options"
             disabled={Boolean(composerDisabled) && !streaming}
           >
-            <SlidersHorizontal className="size-4" strokeWidth={2} />
+            <SlidersHorizontal className="size-3.5" strokeWidth={2} />
           </button>
 
-          {/* Textarea pill */}
-          <div className={`flex flex-1 items-end rounded-2xl border px-3 py-2 ${inputThemed}`}>
-            <textarea
-              ref={composeTextareaRef}
-              className="min-h-0 flex-1 resize-none bg-transparent text-sm leading-snug outline-none placeholder:text-neutral-400"
-              value={composeDraft}
-              onChange={(e) => setComposeDraft(e.target.value)}
-              placeholder="Message…"
-              disabled={Boolean(composerDisabled) || streaming}
-              rows={1}
-              maxLength={maxInputChars}
-              aria-label="Message"
-            />
-            {streaming ? (
-              <button
-                type="button"
-                className="mb-0.5 flex size-8 shrink-0 items-center justify-center rounded-full border border-red-300 text-red-700 dark:border-red-800 dark:text-red-400"
-                aria-label="Stop generating"
-                onClick={onStop}
-              >
-                <Square className="size-3.5 fill-current" strokeWidth={2} />
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="mb-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-neutral-900 text-white shadow-sm disabled:opacity-40 dark:bg-neutral-100 dark:text-neutral-900"
-                disabled={!canSubmit}
-                aria-label="Send message"
-                onClick={onSubmit}
-              >
-                <ArrowUp className="size-4" strokeWidth={2.5} />
-              </button>
-            )}
-          </div>
+          {/* Textarea */}
+          <textarea
+            ref={composeTextareaRef}
+            className="mx-2 min-h-0 flex-1 resize-none bg-transparent text-sm leading-snug outline-none placeholder:text-neutral-400"
+            value={composeDraft}
+            onChange={(e) => setComposeDraft(e.target.value)}
+            placeholder="Message…"
+            disabled={Boolean(composerDisabled) || streaming}
+            rows={1}
+            maxLength={maxInputChars}
+            aria-label="Message"
+          />
+
+          {/* Send / stop button — right, small filled circle */}
+          {streaming ? (
+            <button
+              type="button"
+              className="mb-0.5 flex size-7 shrink-0 items-center justify-center rounded-full border border-red-300 text-red-600 dark:border-red-800 dark:text-red-400"
+              aria-label="Stop generating"
+              onClick={onStop}
+            >
+              <Square className="size-3 fill-current" strokeWidth={2} />
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="mb-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-neutral-900 text-white disabled:opacity-30 dark:bg-neutral-100 dark:text-neutral-900"
+              disabled={!canSubmit}
+              aria-label="Send message"
+              onClick={onSubmit}
+            >
+              <ArrowUp className="size-3.5" strokeWidth={2.5} />
+            </button>
+          )}
         </div>
       </div>
     </>
