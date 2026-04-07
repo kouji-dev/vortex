@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ai_portal.api.deps import get_current_org_id, get_current_user, get_db
+from ai_portal.auth.deps import get_current_org_id, get_current_user, get_db
 from ai_portal.models.org import Org
 from ai_portal.models.org_invite import OrgInvite
 from ai_portal.models.user import User

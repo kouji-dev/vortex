@@ -4,11 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from ai_portal.api.deps import get_app_roles, get_current_user, get_db
+from ai_portal.auth.deps import get_app_roles, get_current_user, get_db
 from ai_portal.api.rbac import require_app_roles
-from ai_portal.config import get_settings
+from ai_portal.core.config import get_settings
 from ai_portal.models import User
-from ai_portal.services import portal_api_keys as portal_keys_svc
+import ai_portal.auth.strategies.portal_keys as portal_keys_svc
 
 router = APIRouter(prefix="/api", tags=["me"])
 

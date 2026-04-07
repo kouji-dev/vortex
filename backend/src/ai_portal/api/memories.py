@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 import uuid as _uuid
 
-from ai_portal.api.deps import get_current_org_id, get_current_user, get_db
+from ai_portal.auth.deps import get_current_org_id, get_current_user, get_db
 from ai_portal.models.memory import UserMemory
 from ai_portal.models.user import User
 

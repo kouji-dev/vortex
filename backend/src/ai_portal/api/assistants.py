@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from ai_portal.api.deps import get_current_org_id, get_current_user, get_db
+from ai_portal.auth.deps import get_current_org_id, get_current_user, get_db
 from ai_portal.models import Assistant, AssistantAcl, User
 
 router = APIRouter(prefix="/api/assistants", tags=["assistants"])

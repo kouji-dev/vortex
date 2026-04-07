@@ -7,9 +7,9 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from ai_portal.api.deps import get_db
-from ai_portal.auth.manager import RegistrationError, UserManager
-from ai_portal.config import get_settings
+from ai_portal.auth.deps import get_db
+from ai_portal.auth.strategies.dev import RegistrationError, UserManager
+from ai_portal.core.config import get_settings
 from ai_portal.models.org import Org
 
 router = APIRouter(tags=["setup"])
