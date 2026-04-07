@@ -13,7 +13,6 @@ import uuid as _uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ai_portal.api.deps import get_current_org_id, get_current_user, get_db
@@ -34,8 +33,6 @@ from ai_portal.chat.schemas import (
 from ai_portal.config import get_settings
 from ai_portal.models import (
     ChatMessage,
-    ConversationKnowledgeBase,
-    KnowledgeBase,
     User,
 )
 
@@ -151,9 +148,7 @@ def put_conversation_knowledge_bases(
     org_id: _uuid.UUID = Depends(get_current_org_id),
 ) -> ConversationRead:
     conv = repo.get_owned_conversation(db, user, conversation_id)
-    repo.sync_conversation_knowledge_links(db, conv, user, body.knowledge_base_ids)
-    db.commit()
-    db.refresh(conv)
+    conv = repo.sync_conversation_knowledge_links(db, conv, user, body.knowledge_base_ids)
     return svc.conversation_read(db, conv)
 
 
@@ -165,8 +160,7 @@ def delete_conversation(
     org_id: _uuid.UUID = Depends(get_current_org_id),
 ) -> None:
     conv = repo.get_owned_conversation(db, user, conversation_id)
-    db.delete(conv)
-    db.commit()
+    repo.delete_conversation(db, conv)
 
 
 @router.get("/conversations/{conversation_id}/messages", response_model=list[MessageRead])
@@ -221,9 +215,7 @@ def patch_message(
     org_id: _uuid.UUID = Depends(get_current_org_id),
 ) -> ChatMessage:
     msg = repo.get_owned_message(db, user, conversation_id, message_id)
-    msg.content = body.content.strip()
-    db.commit()
-    db.refresh(msg)
+    msg = repo.update_message_content(db, msg, body.content)
     return msg
 
 
@@ -239,8 +231,7 @@ def delete_message(
     org_id: _uuid.UUID = Depends(get_current_org_id),
 ) -> None:
     msg = repo.get_owned_message(db, user, conversation_id, message_id)
-    db.delete(msg)
-    db.commit()
+    repo.delete_message(db, msg)
 
 
 @router.post("/conversations/{conversation_id}/messages/stream")
@@ -283,44 +274,12 @@ def e2e_seed_rag_assistant(
             detail="kb_id must be attached to this conversation",
         )
 
-    kb = db.get(KnowledgeBase, body.kb_id)
-    if kb is None or kb.owner_user_id != user.id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Knowledge base not found")
-
-    used_kbs_meta: list[dict[str, Any]] = [
-        {
-            "kb_id": body.kb_id,
-            "kb_name": body.kb_name,
-            "chunks_used": 2,
-            "top_score": 0.88,
-            "sections": ["E2E section"],
-        }
-    ]
-
-    db.add(
-        ChatMessage(
-            conversation_id=conv.id,
-            role="user",
-            content="E2E: what does the knowledge base say?",
-        )
+    _kb, _msg1, _msg2, msg3 = repo.seed_rag_conversation(
+        db,
+        conversation_id=conv.id,
+        user=user,
+        kb_id=body.kb_id,
+        kb_name=body.kb_name,
+        assistant_content=body.assistant_content,
     )
-    db.add(
-        ChatMessage(
-            conversation_id=conv.id,
-            role="assistant",
-            content="A short reply without retrieval metadata.",
-            extra=None,
-        )
-    )
-    db.add(
-        ChatMessage(
-            conversation_id=conv.id,
-            role="assistant",
-            content=body.assistant_content,
-            extra={"used_kbs": used_kbs_meta},
-        )
-    )
-    db.commit()
-
-    last = repo.get_latest_message(db, conv.id)
-    return {"ok": True, "assistant_message_id": last.id if last else None}
+    return {"ok": True, "assistant_message_id": msg3.id}

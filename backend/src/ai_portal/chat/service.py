@@ -14,7 +14,6 @@ from typing import Any
 
 from fastapi import HTTPException, status
 from fastapi.responses import StreamingResponse
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ai_portal.api.assistants import _can_access_assistant
@@ -309,25 +308,15 @@ def stream_message_svc(
                 status.HTTP_400_BAD_REQUEST,
                 detail="Invalid regenerate target message",
             )
-        latest = db.scalars(
-            select(ChatMessage)
-            .where(ChatMessage.conversation_id == conv.id)
-            .order_by(ChatMessage.id.desc())
-            .limit(1)
-        ).first()
+        latest = repo.get_latest_message(db, conv.id)
         if latest is None or latest.id != asst_msg.id:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
                 detail="Can only regenerate the latest assistant message",
             )
-        user_row = db.scalars(
-            select(ChatMessage)
-            .where(ChatMessage.conversation_id == conv.id)
-            .where(ChatMessage.id < asst_msg.id)
-            .where(ChatMessage.role == "user")
-            .order_by(ChatMessage.id.desc())
-            .limit(1)
-        ).first()
+        user_row = repo.get_latest_message_with_role_before(
+            db, conv.id, asst_msg.id, "user"
+        )
         if user_row is None:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
@@ -337,12 +326,7 @@ def stream_message_svc(
         anchor_id = user_row.id
         db.delete(asst_msg)
         db.commit()
-        prior_rows = db.scalars(
-            select(ChatMessage)
-            .where(ChatMessage.conversation_id == conv.id)
-            .where(ChatMessage.id < anchor_id)
-            .order_by(ChatMessage.id)
-        ).all()
+        prior_rows = repo.get_messages_before(db, conv.id, anchor_id)
     else:
         user_content = body.content.strip()
         user_msg = ChatMessage(
@@ -355,12 +339,7 @@ def stream_message_svc(
         db.commit()
         db.refresh(user_msg)
         anchor_id = user_msg.id
-        prior_rows = db.scalars(
-            select(ChatMessage)
-            .where(ChatMessage.conversation_id == conv.id)
-            .where(ChatMessage.id < anchor_id)
-            .order_by(ChatMessage.id)
-        ).all()
+        prior_rows = repo.get_messages_before(db, conv.id, anchor_id)
 
     prior: list[dict[str, str]] = [
         {"role": m.role, "content": m.content} for m in prior_rows
@@ -504,12 +483,7 @@ def stream_message_svc(
         use_model = resolve_stored_model_to_chat_model(db, stored_model)
 
     def _tail_message_id() -> int:
-        last = db.scalars(
-            select(ChatMessage)
-            .where(ChatMessage.conversation_id == conv.id)
-            .order_by(ChatMessage.id.desc())
-            .limit(1)
-        ).first()
+        last = repo.get_latest_message(db, conv.id)
         return last.id if last else 0
 
     def gen() -> Any:
