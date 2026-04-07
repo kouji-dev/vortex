@@ -326,10 +326,11 @@ export function CreateKnowledgeBaseDialog({
       onClick={(ev) => ev.target === ev.currentTarget && onClose()}
     >
       <div
-        className="max-h-[90vh] w-full overflow-y-auto rounded-t-2xl border border-neutral-200 bg-white p-4 shadow-xl dark:border-neutral-700 dark:bg-neutral-950 md:max-w-lg md:rounded-xl"
+        className="flex max-h-[90vh] w-full flex-col overflow-hidden rounded-t-2xl border border-neutral-200 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-950 md:max-w-lg md:rounded-xl"
         onClick={(ev) => ev.stopPropagation()}
       >
-        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-neutral-300 dark:bg-neutral-700 md:hidden" />
+        <div className="px-4 pt-4">
+        <div aria-hidden className="mx-auto mb-4 h-1 w-10 rounded-full bg-neutral-300 dark:bg-neutral-700 md:hidden" />
         <div className="flex items-start justify-between gap-2">
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
@@ -356,9 +357,10 @@ export function CreateKnowledgeBaseDialog({
             ? 'Choose a name and optional description for this corpus.'
             : 'Pick how content will be connected. Only some types can be created today; others show a preview of the settings we will use when the integration is ready.'}
         </p>
+        </div>
 
         {step === 1 ? (
-          <form className="mt-4 flex flex-col gap-4" onSubmit={goNext}>
+          <form className="flex min-h-0 flex-1 flex-col" onSubmit={goNext}><div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 pt-4">
             <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400">
               Name
               <input
@@ -380,7 +382,8 @@ export function CreateKnowledgeBaseDialog({
                 maxLength={10_000}
               />
             </label>
-            <div className="flex justify-end gap-2 border-t border-neutral-200 pt-3 dark:border-neutral-800">
+            </div>
+            <div className="flex justify-end gap-2 border-t border-neutral-200 px-4 py-3 dark:border-neutral-800">
               <button
                 type="button"
                 className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm dark:border-neutral-600"
@@ -398,7 +401,7 @@ export function CreateKnowledgeBaseDialog({
             </div>
           </form>
         ) : (
-          <form className="mt-4 flex flex-col gap-4" onSubmit={finish}>
+          <form className="flex min-h-0 flex-1 flex-col" onSubmit={finish}><div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 pt-4">
             <fieldset>
               <legend className="text-xs font-medium text-neutral-600 dark:text-neutral-400">
                 Source type
@@ -639,7 +642,8 @@ export function CreateKnowledgeBaseDialog({
               </p>
             ) : null}
 
-            <div className="flex flex-wrap justify-between gap-2 border-t border-neutral-200 pt-3 dark:border-neutral-800">
+            </div>
+            <div className="flex flex-wrap justify-between gap-2 border-t border-neutral-200 px-4 py-3 dark:border-neutral-800">
               <button
                 type="button"
                 className="inline-flex items-center gap-1 rounded-lg border border-neutral-300 px-3 py-1.5 text-sm dark:border-neutral-600"
@@ -669,7 +673,7 @@ export function CreateKnowledgeBaseDialog({
             </div>
           </form>
         )}
-        <div className="md:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }} />
+        <div aria-hidden className="shrink-0 md:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }} />
       </div>
     </div>
   )

@@ -46,6 +46,15 @@ export function ModelTuningModal({
   tuning,
   onTuningChange,
 }: ModelTuningModalProps) {
+  React.useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, onClose])
+
   if (!open) return null
 
   const r = model?.model_settings.reasoning
@@ -83,6 +92,7 @@ export function ModelTuningModal({
               className="rounded p-1 text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-900"
               onClick={onClose}
               aria-label="Close"
+              autoFocus
             >
               <X className="h-4 w-4" />
             </button>
