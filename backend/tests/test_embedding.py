@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock, patch
 
-from ai_portal.config import Settings
-from ai_portal.services import embedding as embedding_svc
+from ai_portal.core.config import Settings
+from ai_portal.rag.providers import voyage as embedding_svc
 
 
 @patch("langchain_openai.OpenAIEmbeddings")

@@ -1,6 +1,6 @@
 import pytest
 
-from ai_portal.config import Settings
+from ai_portal.core.config import Settings
 from ai_portal.catalog.providers.routing import (
     chat_provider_credential_kwargs,
     is_langchain_anthropic_model,

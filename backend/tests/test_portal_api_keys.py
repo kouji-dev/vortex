@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from ai_portal.config import get_settings
+from ai_portal.core.config import get_settings
 from ai_portal.main import app
 from tests.conftest import requires_postgres
 

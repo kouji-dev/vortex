@@ -16,10 +16,10 @@ from fastapi import (
 from sqlalchemy.orm import Session
 
 from ai_portal.auth.deps import get_current_org_id, get_current_user, get_db
-from ai_portal.config import get_settings
+from ai_portal.core.config import get_settings
 from ai_portal.models import User
 from ai_portal.models.connector import CONNECTOR_KINDS
-from ai_portal.tasks.connector_jobs import run_connector_sync_job
+from ai_portal.knowledge_base.workers.connector_jobs import run_connector_sync_job
 from ai_portal.knowledge_base import repository as repo
 from ai_portal.knowledge_base import service as svc
 from ai_portal.knowledge_base.schemas import (

@@ -7,8 +7,8 @@ from pathlib import Path
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from ai_portal.config import get_settings
-from ai_portal.db.session import SessionLocal
+from ai_portal.core.config import get_settings
+from ai_portal.core.db.session import SessionLocal
 from ai_portal.models.document import Document, DocumentChunk
 from ai_portal.rag.providers import voyage as embedding_svc
 from ai_portal.knowledge_base.workers.ingest.chunking import file_type_for_suffix, semantic_chunks

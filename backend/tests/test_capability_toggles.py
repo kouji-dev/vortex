@@ -1,4 +1,4 @@
-from ai_portal.schemas.conversation_settings import CapabilityToggles, ConversationSettings
+from ai_portal.chat.schemas import CapabilityToggles, ConversationSettings
 
 
 def test_capability_toggles_has_new_fields():

@@ -7,10 +7,10 @@ from pathlib import Path
 from fastapi import BackgroundTasks, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
-from ai_portal.config import Settings, get_settings
+from ai_portal.core.config import Settings, get_settings
 from ai_portal.models import KnowledgeBase, KnowledgeBaseConnector, User
-from ai_portal.services import embedding as embedding_svc
-from ai_portal.tasks.ingest import ingest_document
+from ai_portal.rag.providers import voyage as embedding_svc
+from ai_portal.knowledge_base.workers.ingest.worker import ingest_document_worker
 from ai_portal.knowledge_base import repository as repo
 from ai_portal.knowledge_base.schemas import (
     DocumentUploadResultRead,
@@ -58,7 +58,7 @@ def _schedule_document_ingest(document_id: int, background_tasks: BackgroundTask
                 "ingest_enqueue_failed_falling_back_to_background",
                 extra={"document_id": document_id},
             )
-    background_tasks.add_task(ingest_document, document_id)
+    background_tasks.add_task(ingest_document_worker, document_id)
 
 
 def get_owned_kb(db: Session, user: User, kb_id: int) -> KnowledgeBase:

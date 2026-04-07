@@ -18,7 +18,7 @@ from ai_portal.auth.schemas import (
 )
 from ai_portal.auth.strategies.dev import AuthenticationError, RegistrationError, UserManager
 from ai_portal.auth.strategies.jwt import decode_token
-from ai_portal.config import get_settings
+from ai_portal.core.config import get_settings
 from ai_portal.models.user import User
 
 router = APIRouter(prefix="/auth", tags=["auth"])

@@ -15,7 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from ai_portal.api.deps import get_current_org_id, get_current_user, get_db
+from ai_portal.auth.deps import get_current_org_id, get_current_user, get_db
 from ai_portal.chat import repository as repo
 from ai_portal.chat import service as svc
 from ai_portal.chat.schemas import (
@@ -30,7 +30,7 @@ from ai_portal.chat.schemas import (
     MessageRead,
     StreamMessageBody,
 )
-from ai_portal.config import get_settings
+from ai_portal.core.config import get_settings
 from ai_portal.models import (
     ChatMessage,
     User,

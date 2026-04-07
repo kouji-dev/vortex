@@ -9,7 +9,7 @@ from rq import Connection, Worker
 from rq.timeouts import TimerDeathPenalty
 from rq.worker import SimpleWorker
 
-from ai_portal.config import get_settings
+from ai_portal.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 

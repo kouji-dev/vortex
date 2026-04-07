@@ -11,8 +11,8 @@ def _make_mock_message(msg_id, role, content):
     return m
 
 
-@patch("ai_portal.workers.memory.summarizer.SessionLocal")
-@patch("ai_portal.workers.memory.summarizer._call_summary_llm")
+@patch("ai_portal.chat.workers.memory.summarizer.SessionLocal")
+@patch("ai_portal.chat.workers.memory.summarizer._call_summary_llm")
 def test_summarize_creates_summary(mock_llm, mock_session_cls):
     db = MagicMock()
     mock_session_cls.return_value = db
@@ -39,8 +39,8 @@ def test_summarize_creates_summary(mock_llm, mock_session_cls):
     db.close.assert_called_once()
 
 
-@patch("ai_portal.workers.memory.summarizer.SessionLocal")
-@patch("ai_portal.workers.memory.summarizer._call_summary_llm")
+@patch("ai_portal.chat.workers.memory.summarizer.SessionLocal")
+@patch("ai_portal.chat.workers.memory.summarizer._call_summary_llm")
 def test_summarize_skips_if_not_enough_messages(mock_llm, mock_session_cls):
     db = MagicMock()
     mock_session_cls.return_value = db
@@ -59,7 +59,7 @@ def test_summarize_skips_if_not_enough_messages(mock_llm, mock_session_cls):
     db.close.assert_called_once()
 
 
-@patch("ai_portal.workers.memory.summarizer.SessionLocal")
+@patch("ai_portal.chat.workers.memory.summarizer.SessionLocal")
 def test_summarize_unknown_conversation(mock_session_cls):
     db = MagicMock()
     mock_session_cls.return_value = db

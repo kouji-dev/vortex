@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from ai_portal.api.deps import get_current_user, get_db
+from ai_portal.auth.deps import get_current_user, get_db
 from ai_portal.catalog import repository as repo
 from ai_portal.catalog.schemas import CatalogModelRead
 from ai_portal.models import CatalogModel, User

@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ai_portal.config import Settings
+from ai_portal.core.config import Settings
 from ai_portal.models import User
 from ai_portal.models.user_portal_api_key import UserPortalApiKey
 

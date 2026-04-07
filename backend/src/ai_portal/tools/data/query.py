@@ -6,7 +6,8 @@ import logging
 
 import pandas as pd
 
-from ai_portal.services import llm as llm_svc
+from ai_portal.catalog.providers import get_chat_provider
+from ai_portal.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +35,7 @@ def query_structured_data(data: str, question: str) -> str:
     ]
 
     try:
-        chunks = list(llm_svc.chat_completions_stream_deltas(messages))
+        chunks = list(get_chat_provider(get_settings()).stream_deltas(messages, model=None))
         return "".join(chunks)
     except Exception:
         logger.exception("data_query_llm_failed")

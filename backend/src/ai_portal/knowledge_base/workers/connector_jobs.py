@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
-from ai_portal.db.session import SessionLocal
+from ai_portal.core.db.session import SessionLocal
 from ai_portal.models import ConnectorSyncJob, KnowledgeBaseConnector
 from ai_portal.models.connector import CONNECTOR_KINDS
 

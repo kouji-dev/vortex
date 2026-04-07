@@ -11,8 +11,8 @@ from ai_portal.auth.strategies.entra import decode_entra_access_token, roles_fro
 from ai_portal.auth.strategies.jwt import decode_token
 from ai_portal.auth.strategies.portal_keys import user_for_portal_api_key
 from ai_portal.auth.service import profile_fields_from_claims, upsert_user_from_entra_claims
-from ai_portal.config import get_settings
-from ai_portal.db.session import SessionLocal
+from ai_portal.core.config import get_settings
+from ai_portal.core.db.session import SessionLocal
 from ai_portal.models import User
 
 logger = logging.getLogger(__name__)

@@ -1,4 +1,4 @@
-from ai_portal.db.base import Base
+from ai_portal.core.db.base import Base
 from ai_portal.models.assistant import Assistant, AssistantAcl
 from ai_portal.models.catalog_model import CatalogModel
 from ai_portal.models.chat import ChatConversation, ChatMessage

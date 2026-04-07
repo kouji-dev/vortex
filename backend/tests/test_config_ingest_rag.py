@@ -1,4 +1,4 @@
-from ai_portal.config import Settings
+from ai_portal.core.config import Settings
 
 
 def test_ingest_defaults():

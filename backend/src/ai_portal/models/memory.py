@@ -5,7 +5,7 @@ from datetime import datetime
 from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
-from ai_portal.db.base import Base
+from ai_portal.core.db.base import Base
 
 
 class UserMemory(Base):

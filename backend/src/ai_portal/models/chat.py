@@ -6,9 +6,9 @@ from sqlalchemy import DateTime, ForeignKey, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from ai_portal.db.base import Base
-from ai_portal.db.json_types import ConversationSettingsJSON
-from ai_portal.schemas.conversation_settings import ConversationSettings
+from ai_portal.core.db.base import Base
+from ai_portal.core.db.types import ConversationSettingsJSON
+from ai_portal.chat.schemas import ConversationSettings
 
 
 class ChatConversation(Base):

@@ -9,7 +9,7 @@ from sqlalchemy import func as sa_func
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ai_portal.config import get_settings
+from ai_portal.core.config import get_settings
 from ai_portal.models import Document, DocumentChunk
 from ai_portal.models.knowledge_base import KnowledgeBase
 from ai_portal.rag.providers import voyage as embedding_svc

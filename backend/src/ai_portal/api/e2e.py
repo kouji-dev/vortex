@@ -12,7 +12,7 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from ai_portal.auth.deps import get_current_user, get_db
-from ai_portal.db.base import Base
+from ai_portal.core.db.base import Base
 from ai_portal.models import assistant, catalog_model, chat, connector, document, knowledge_base, memory, user, user_portal_api_key  # noqa: F401 — import all models so Base.metadata is fully populated
 from ai_portal.models.user import User
 

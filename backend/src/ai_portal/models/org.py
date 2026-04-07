@@ -7,7 +7,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 import uuid as _uuid
 
-from ai_portal.db.base import Base
+from ai_portal.core.db.base import Base
 
 
 class Org(Base):

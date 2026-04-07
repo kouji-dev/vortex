@@ -8,8 +8,8 @@ from ai_portal.catalog.repository import (
     get_active_catalog_model_by_slug,
     get_active_catalog_models_by_api_model_id,
 )
-from ai_portal.config import Settings, get_settings
-from ai_portal.schemas.conversation_settings import CapabilityToggles, ConversationSettings
+from ai_portal.core.config import Settings, get_settings
+from ai_portal.chat.schemas import CapabilityToggles, ConversationSettings
 
 _DEFAULT_CATALOG_SLUG_PRIORITY = (
     "anthropic-claude-haiku-4-5",

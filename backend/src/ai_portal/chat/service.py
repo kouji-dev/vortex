@@ -23,9 +23,9 @@ from ai_portal.chat.schemas import (
     ConversationSettings,
     StreamMessageBody,
 )
-from ai_portal.workers.memory.extractor import extract_user_memories
-from ai_portal.workers.memory.summarizer import summarize_conversation
-from ai_portal.config import get_settings
+from ai_portal.chat.workers.memory.extractor import extract_user_memories
+from ai_portal.chat.workers.memory.summarizer import summarize_conversation
+from ai_portal.core.config import get_settings
 from ai_portal.models import (
     Assistant,
     ChatConversation,
@@ -33,14 +33,12 @@ from ai_portal.models import (
     User,
 )
 from ai_portal.models.memory import UserMemory as UserMemoryModel
-from ai_portal.services import llm as llm_svc
-from ai_portal.services import rag as rag_svc
-from ai_portal.services.conversation_model_resolve import (
-    resolve_stored_model_to_chat_model,
-)
-from ai_portal.services.default_conversation_model import (
+from ai_portal.catalog.providers import get_chat_provider
+from ai_portal.rag import service as rag_svc
+from ai_portal.catalog.service import (
     default_conversation_settings,
     resolve_default_conversation_stored_model,
+    resolve_stored_model_to_chat_model,
 )
 from ai_portal.tools.registry import ToolRegistry
 
@@ -509,7 +507,7 @@ def stream_message_svc(
             tool_call_buffer: dict | None = None
 
             try:
-                for piece in llm_svc.chat_completions_stream_with_tools(
+                for piece in get_chat_provider(settings).stream_deltas_with_tools(
                     messages, model=use_model, tools=tools if tools else None
                 ):
                     if isinstance(piece, dict) and piece.get("type") == "tool_call":

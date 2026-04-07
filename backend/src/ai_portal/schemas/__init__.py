@@ -6,7 +6,7 @@ from ai_portal.schemas.catalog_model_settings import (
     SamplingSettingsPublic,
     model_settings_from_metadata,
 )
-from ai_portal.schemas.conversation_settings import (
+from ai_portal.chat.schemas import (
     CapabilityToggles,
     ConversationSettings,
 )

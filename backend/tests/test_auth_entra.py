@@ -9,7 +9,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi.testclient import TestClient
 
-from ai_portal.auth.entra import decode_entra_access_token, roles_from_claims
+from ai_portal.auth.strategies.entra import decode_entra_access_token, roles_from_claims
 from ai_portal.main import app
 from ai_portal.auth.service import (
     profile_fields_from_claims,

@@ -11,7 +11,7 @@ from typing import Any
 
 from sqlalchemy import JSON, TypeDecorator
 
-from ai_portal.schemas.conversation_settings import ConversationSettings
+from ai_portal.chat.schemas import ConversationSettings
 
 # TenantRepository stays in db.tenant so existing patch-based tests keep working.
 from ai_portal.db.tenant import TenantRepository  # noqa: F401

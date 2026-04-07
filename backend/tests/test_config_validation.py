@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from ai_portal.config import Settings, validate_portal_api_key_pepper_for_auth_mode
+from ai_portal.core.config import Settings, validate_portal_api_key_pepper_for_auth_mode
 
 
 def test_validate_portal_api_key_pepper_entra_requires_non_empty():

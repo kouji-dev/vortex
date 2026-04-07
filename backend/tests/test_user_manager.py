@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ai_portal.auth.manager import UserManager, RegistrationError, AuthenticationError
+from ai_portal.auth.strategies.dev import UserManager, RegistrationError, AuthenticationError
 
 
 @pytest.fixture

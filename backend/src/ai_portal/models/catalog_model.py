@@ -8,7 +8,7 @@ from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Tex
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from ai_portal.db.base import Base
+from ai_portal.core.db.base import Base
 
 
 class CatalogModel(Base):

@@ -3,7 +3,7 @@ import uuid
 import pytest
 
 from ai_portal.auth.password import hash_password, verify_password
-from ai_portal.auth.jwt import create_access_token, create_refresh_token, decode_token
+from ai_portal.auth.strategies.jwt import create_access_token, create_refresh_token, decode_token
 
 
 def test_hash_and_verify_password():
@@ -47,13 +47,13 @@ def test_decode_token_wrong_secret_raises():
 def test_settings_deployment_mode_defaults_to_dev():
     import os
     # Save and clear env vars that might affect this test
-    from ai_portal.config import Settings
+    from ai_portal.core.config import Settings
     s = Settings()
     assert s.deployment_mode == "dev"
 
 
 def test_settings_has_secret_key_field():
-    from ai_portal.config import Settings
+    from ai_portal.core.config import Settings
     s = Settings(SECRET_KEY="mysecret")
     assert s.secret_key == "mysecret"
 

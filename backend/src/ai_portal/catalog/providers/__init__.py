@@ -6,7 +6,7 @@ from ai_portal.catalog.providers.langchain import LangChainChatProvider
 from ai_portal.catalog.providers.protocol import ChatProvider
 
 if TYPE_CHECKING:
-    from ai_portal.config import Settings
+    from ai_portal.core.config import Settings
 
 
 def get_chat_provider(settings: "Settings") -> ChatProvider:

@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from ai_portal.config import Settings
+from ai_portal.core.config import Settings
 
 logger = logging.getLogger(__name__)
 

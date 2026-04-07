@@ -7,7 +7,7 @@ from sqlalchemy import Boolean, DateTime, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from ai_portal.db.base import Base
+from ai_portal.core.db.base import Base
 
 
 class User(Base):

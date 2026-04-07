@@ -6,7 +6,7 @@ from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, fun
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from ai_portal.db.base import Base
+from ai_portal.core.db.base import Base
 
 CONNECTOR_KINDS: tuple[str, ...] = (
     "files",

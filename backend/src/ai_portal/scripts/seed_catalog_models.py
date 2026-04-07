@@ -42,15 +42,15 @@ from typing import Any
 from sqlalchemy import delete, inspect, select, update
 from sqlalchemy.orm import Session
 
-from ai_portal.catalog_model_definitions import (
+from ai_portal.catalog.definitions import (
     CATALOG_MODEL_DEFINITIONS,
     LEGACY_CATALOG_SLUGS_TO_DEACTIVATE,
     CatalogModelDefinition,
 )
-from ai_portal.catalog_specs import CONFIG_BY_SLUG
-from ai_portal.db.session import SessionLocal
+from ai_portal.catalog.specs import CONFIG_BY_SLUG
+from ai_portal.core.db.session import SessionLocal
 from ai_portal.models import CatalogModel
-from ai_portal.services.catalog_model_validate import validate_catalog_model_id
+from ai_portal.catalog.service import validate_catalog_model_id
 
 logger = logging.getLogger(__name__)
 

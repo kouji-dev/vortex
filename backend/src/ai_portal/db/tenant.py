@@ -6,7 +6,7 @@ from typing import Any, Generic, TypeVar
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ai_portal.db.base import Base
+from ai_portal.core.db.base import Base
 
 T = TypeVar("T", bound=Base)
 
