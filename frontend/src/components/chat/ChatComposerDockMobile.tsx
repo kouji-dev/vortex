@@ -1,5 +1,5 @@
 // frontend/src/components/chat/ChatComposerDockMobile.tsx
-import { ArrowUp, Lock, Paperclip, Settings2, Sparkles, Square, X } from 'lucide-react'
+import { ArrowUp, Check, Lock, Paperclip, Settings2, SlidersHorizontal, Square, X } from 'lucide-react'
 import * as React from 'react'
 
 import {
@@ -8,13 +8,6 @@ import {
   defaultTuningFromCatalog,
 } from '~/components/chat/ModelTuningModal'
 import { RequestAccessModal } from '~/components/chat/RequestAccessModal'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '~/components/ui/select'
 import type { CapabilityToggles, CatalogModelEntry } from '~/lib/chat-types'
 import {
   catalogModelByStoredModel,
@@ -50,7 +43,7 @@ function CapabilityTag({
         disabled={disabled}
         onClick={onRemove}
       >
-        <X className="h-3 w-3" strokeWidth={2.5} />
+        <X className="size-2.5" strokeWidth={2.5} />
       </button>
     </span>
   )
@@ -67,6 +60,7 @@ type ChatComposerDockMobileProps = {
   capabilities: CapabilityToggles
   onToggleCapability: (key: CapabilityKey) => void
   capabilityDisabled?: boolean
+  capabilityDescriptions?: Record<CapabilityKey, string>
   composeDraft: string
   setComposeDraft: (v: string) => void
   onSubmit: () => void
@@ -84,7 +78,6 @@ type ChatComposerDockMobileProps = {
   onRemoveLocalFile?: (index: number) => void
   onLocalFilesChosen?: (files: File[]) => void
   attachDisabled?: boolean
-  capabilityDescriptions?: Record<CapabilityKey, string>
 }
 
 export function ChatComposerDockMobile({
@@ -98,6 +91,7 @@ export function ChatComposerDockMobile({
   capabilities,
   onToggleCapability,
   capabilityDisabled,
+  capabilityDescriptions,
   composeDraft,
   setComposeDraft,
   onSubmit,
@@ -115,12 +109,10 @@ export function ChatComposerDockMobile({
   onRemoveLocalFile,
   onLocalFilesChosen,
   attachDisabled,
-  capabilityDescriptions,
 }: ChatComposerDockMobileProps) {
+  const [configOpen, setConfigOpen] = React.useState(false)
   const [tuningOpen, setTuningOpen] = React.useState(false)
-  const [capsOpen, setCapsOpen] = React.useState(false)
   const [requestAccessModel, setRequestAccessModel] = React.useState<CatalogModelEntry | null>(null)
-  const [modelSelectOpen, setModelSelectOpen] = React.useState(false)
   const composeTextareaRef = React.useRef<HTMLTextAreaElement>(null)
   const attachInputRef = React.useRef<HTMLInputElement>(null)
 
@@ -135,18 +127,15 @@ export function ChatComposerDockMobile({
   const storedCatalogRow =
     chatModel === '' ? null : catalogModelByStoredModel(models, chatModel)
   const defaultCatalogRow = React.useMemo(() => portalDefaultCatalogModel(models), [models])
-  const selectValue =
-    chatModel === ''
-      ? defaultCatalogRow != null
-        ? `${CATALOG_SELECT_PREFIX}${defaultCatalogRow.slug}`
-        : ''
-      : storedCatalogRow != null
-        ? `${CATALOG_SELECT_PREFIX}${storedCatalogRow.slug}`
-        : chatModel
   const modelLabel =
     chatModel === ''
       ? (defaultCatalogRow?.display_name ?? 'Model')
       : (storedCatalogRow?.display_name ?? chatModel)
+
+  const effectiveModelSlug =
+    chatModel === ''
+      ? (defaultCatalogRow?.slug ?? '')
+      : (storedCatalogRow?.slug ?? '')
 
   const maxInputChars = React.useMemo(() => {
     const cap = selectedCatalogModel?.model_settings.limits?.max_input_chars
@@ -177,10 +166,12 @@ export function ChatComposerDockMobile({
     el.style.overflowY = contentH > maxPx ? 'auto' : 'hidden'
   }, [composeDraft])
 
-  const handleModelSelectChange = (v: string) => {
-    const id = v.startsWith(CATALOG_SELECT_PREFIX) ? v.slice(CATALOG_SELECT_PREFIX.length) : v
+  const handleModelSelect = (slug: string, m: CatalogModelEntry) => {
+    if (!m.accessible) return
+    const id = `${CATALOG_SELECT_PREFIX}${slug}`
     onSelectChatModel(id)
     onCommitChatModel?.(id)
+    setConfigOpen(false)
   }
 
   const canSubmit = !composerDisabled && !streaming && composeDraft.trim().length > 0
@@ -201,22 +192,78 @@ export function ChatComposerDockMobile({
         onTuningChange={onTuningChange}
       />
 
-      {/* Capability sheet backdrop */}
+      {/* Config sheet backdrop */}
       <div
-        className={`fixed inset-0 z-40 bg-black/30 transition-opacity duration-200 ${capsOpen ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
-        onClick={() => setCapsOpen(false)}
+        className={`fixed inset-0 z-40 bg-black/30 transition-opacity duration-200 ${configOpen ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+        onClick={() => setConfigOpen(false)}
         aria-hidden
       />
 
-      {/* Capability sheet */}
+      {/* Config sheet */}
       <div
-        className={`fixed bottom-0 inset-x-0 z-50 rounded-t-2xl border-t border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950 transition-transform duration-200 ease-out ${capsOpen ? 'translate-y-0' : 'translate-y-full'}`}
-        aria-hidden={!capsOpen}
+        className={`fixed inset-x-0 bottom-0 z-50 rounded-t-2xl border-t border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950 transition-transform duration-200 ease-out ${configOpen ? 'translate-y-0' : 'translate-y-full'}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Composer options"
+        aria-hidden={!configOpen}
       >
-        <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-neutral-300 dark:bg-neutral-700" />
-        <p className="px-4 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
-          Capabilities
-        </p>
+        <div aria-hidden className="mx-auto mt-2 h-1 w-10 rounded-full bg-neutral-300 dark:bg-neutral-700" />
+
+        {/* ── Model picker ──────────────────────────────────── */}
+        <div className="px-4 pb-1 pt-3">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">Model</p>
+        </div>
+        {modelsPending && (
+          <p className="px-4 py-2 text-sm text-neutral-400">Loading…</p>
+        )}
+        {modelsError && (
+          <p className="px-4 py-2 text-xs text-amber-600 dark:text-amber-400">Failed to load models</p>
+        )}
+        <div className="max-h-48 overflow-y-auto">
+          {sorted.map((m) => {
+            const isSelected = m.slug === effectiveModelSlug
+            const actionable = m.can_request_access || Boolean(m.request_access_url)
+            return (
+              <button
+                key={m.id}
+                type="button"
+                disabled={!m.accessible && !actionable}
+                onClick={() => {
+                  if (!m.accessible) {
+                    if (m.request_access_url) {
+                      window.open(m.request_access_url, '_blank', 'noopener,noreferrer')
+                    } else if (m.can_request_access) {
+                      setRequestAccessModel(m)
+                      setConfigOpen(false)
+                    }
+                    return
+                  }
+                  handleModelSelect(m.slug, m)
+                }}
+                className="flex w-full items-center justify-between px-4 py-3 text-sm hover:bg-neutral-50 disabled:opacity-40 dark:hover:bg-neutral-900"
+              >
+                <span className={isSelected ? 'font-semibold text-neutral-900 dark:text-neutral-100' : 'text-neutral-800 dark:text-neutral-200'}>
+                  {m.display_name}
+                </span>
+                <span className="flex items-center gap-2">
+                  {!m.accessible && actionable && (
+                    <Lock className="size-3.5 text-neutral-400" strokeWidth={2} />
+                  )}
+                  {isSelected && (
+                    <Check className="size-4 text-neutral-900 dark:text-neutral-100" strokeWidth={2.5} />
+                  )}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="mx-4 my-1 border-t border-neutral-100 dark:border-neutral-800" />
+
+        {/* ── Capabilities ─────────────────────────────────── */}
+        <div className="px-4 pb-1 pt-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">Capabilities</p>
+        </div>
         {CAPABILITY_MENU.map(({ key, label }) => {
           const on = capabilities[key]
           const desc = capabilityDescriptions?.[key]
@@ -225,25 +272,76 @@ export function ChatComposerDockMobile({
               key={key}
               type="button"
               disabled={capabilityDisabled}
-              onClick={() => { onToggleCapability(key); setCapsOpen(false) }}
-              className="flex w-full items-center justify-between px-4 py-3.5 text-sm text-neutral-800 hover:bg-neutral-50 disabled:opacity-50 dark:text-neutral-200 dark:hover:bg-neutral-900"
+              onClick={() => onToggleCapability(key)}
+              className="flex w-full items-center justify-between px-4 py-3 text-sm text-neutral-800 hover:bg-neutral-50 disabled:opacity-50 dark:text-neutral-200 dark:hover:bg-neutral-900"
             >
               <span className="flex flex-col gap-0.5 text-left">
-                <span className={on ? 'font-semibold' : ''}>{label}</span>
+                <span className={on ? 'font-semibold text-neutral-900 dark:text-neutral-100' : ''}>{label}</span>
                 {desc && (
                   <span className="text-xs leading-snug text-neutral-500 dark:text-neutral-400">{desc}</span>
                 )}
               </span>
-              {on && (
-                <span className="ml-3 size-2 shrink-0 rounded-full bg-neutral-900 dark:bg-neutral-100" />
-              )}
+              {on && <Check className="size-4 shrink-0 text-neutral-900 dark:text-neutral-100" strokeWidth={2.5} />}
             </button>
           )
         })}
-        <div style={{ paddingBottom: 'env(safe-area-inset-bottom)' }} className="pb-2" />
+
+        <div className="mx-4 my-1 border-t border-neutral-100 dark:border-neutral-800" />
+
+        {/* ── Bottom actions row ────────────────────────────── */}
+        <div className="flex items-center gap-2 px-4 py-3">
+          {onLocalFilesChosen != null && (
+            <>
+              <input
+                ref={attachInputRef}
+                type="file"
+                multiple
+                className="sr-only"
+                accept=".txt,.md,text/plain,text/markdown"
+                disabled={Boolean(attachDisabled) || streaming}
+                onChange={(e) => {
+                  const files = Array.from(e.target.files ?? [])
+                  e.target.value = ''
+                  if (files.length) { onLocalFilesChosen(files); setConfigOpen(false) }
+                }}
+              />
+              <button
+                type="button"
+                className="flex h-10 items-center gap-2 rounded-xl border border-neutral-200 px-3 text-sm text-neutral-700 hover:bg-neutral-50 disabled:opacity-40 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-900"
+                aria-label="Attach files"
+                disabled={Boolean(attachDisabled) || streaming}
+                onClick={() => attachInputRef.current?.click()}
+              >
+                <Paperclip className="size-4" strokeWidth={2} />
+                Attach
+              </button>
+            </>
+          )}
+
+          {kbSlot != null && <div className="shrink-0">{kbSlot}</div>}
+
+          <div className="flex-1" />
+
+          <button
+            type="button"
+            className="flex h-10 items-center gap-2 rounded-xl border border-neutral-200 px-3 text-sm text-neutral-700 hover:bg-neutral-50 disabled:opacity-40 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-900"
+            aria-label="Model settings"
+            disabled={!selectedCatalogModel}
+            onClick={() => {
+              if (selectedCatalogModel) onTuningChange(defaultTuningFromCatalog(selectedCatalogModel))
+              setTuningOpen(true)
+              setConfigOpen(false)
+            }}
+          >
+            <Settings2 className="size-4" strokeWidth={2} />
+            Settings
+          </button>
+        </div>
+
+        <div aria-hidden className="shrink-0" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }} />
       </div>
 
-      {/* Composer */}
+      {/* ── Composer bar ───────────────────────────────────────── */}
       <div
         className="border-t border-neutral-200 bg-white px-3 pt-2 dark:border-neutral-800 dark:bg-neutral-950"
         style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
@@ -285,174 +383,53 @@ export function ChatComposerDockMobile({
           </div>
         )}
 
-        {/* Textarea pill */}
-        <div className={`flex items-end gap-2 rounded-2xl border px-3 py-2 ${inputThemed}`}>
-          <textarea
-            ref={composeTextareaRef}
-            className="min-h-0 flex-1 resize-none bg-transparent text-sm leading-snug outline-none placeholder:text-neutral-400"
-            value={composeDraft}
-            onChange={(e) => setComposeDraft(e.target.value)}
-            placeholder="Message…"
-            disabled={Boolean(composerDisabled) || streaming}
-            rows={1}
-            maxLength={maxInputChars}
-            aria-label="Message"
-          />
-          {streaming ? (
-            <button
-              type="button"
-              className="mb-0.5 flex size-8 shrink-0 items-center justify-center rounded-full border border-red-300 text-red-700 dark:border-red-800 dark:text-red-400"
-              aria-label="Stop generating"
-              onClick={onStop}
-            >
-              <Square className="size-3.5 fill-current" strokeWidth={2} />
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="mb-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-neutral-900 text-white shadow-sm disabled:opacity-40 dark:bg-neutral-100 dark:text-neutral-900"
-              disabled={!canSubmit}
-              aria-label="Send message"
-              onClick={onSubmit}
-            >
-              <ArrowUp className="size-4" strokeWidth={2.5} />
-            </button>
-          )}
-        </div>
+        {/* Input row: [config] [textarea + send] */}
+        <div className="flex items-end gap-2">
+          {/* Config button */}
+          <button
+            type="button"
+            onClick={() => setConfigOpen(true)}
+            className="mb-1 flex size-9 shrink-0 items-center justify-center rounded-full border border-neutral-200 text-neutral-600 hover:bg-neutral-50 disabled:opacity-40 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-900"
+            aria-label="Composer options"
+            disabled={Boolean(composerDisabled) && !streaming}
+          >
+            <SlidersHorizontal className="size-4" strokeWidth={2} />
+          </button>
 
-        {/* Icon tray */}
-        <div className="mt-2 flex items-center gap-2">
-          {onLocalFilesChosen != null && (
-            <>
-              <input
-                ref={attachInputRef}
-                type="file"
-                multiple
-                className="sr-only"
-                accept=".txt,.md,text/plain,text/markdown"
-                disabled={Boolean(attachDisabled) || streaming}
-                onChange={(e) => {
-                  const files = Array.from(e.target.files ?? [])
-                  e.target.value = ''
-                  if (files.length) onLocalFilesChosen(files)
-                }}
-              />
+          {/* Textarea pill */}
+          <div className={`flex flex-1 items-end rounded-2xl border px-3 py-2 ${inputThemed}`}>
+            <textarea
+              ref={composeTextareaRef}
+              className="min-h-0 flex-1 resize-none bg-transparent text-sm leading-snug outline-none placeholder:text-neutral-400"
+              value={composeDraft}
+              onChange={(e) => setComposeDraft(e.target.value)}
+              placeholder="Message…"
+              disabled={Boolean(composerDisabled) || streaming}
+              rows={1}
+              maxLength={maxInputChars}
+              aria-label="Message"
+            />
+            {streaming ? (
               <button
                 type="button"
-                className="flex h-11 w-11 items-center justify-center rounded-xl border border-neutral-200 text-neutral-600 hover:bg-neutral-50 disabled:opacity-40 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-900"
-                aria-label="Attach files"
-                disabled={Boolean(attachDisabled) || streaming}
-                onClick={() => attachInputRef.current?.click()}
+                className="mb-0.5 flex size-8 shrink-0 items-center justify-center rounded-full border border-red-300 text-red-700 dark:border-red-800 dark:text-red-400"
+                aria-label="Stop generating"
+                onClick={onStop}
               >
-                <Paperclip className="size-5" strokeWidth={2} />
+                <Square className="size-3.5 fill-current" strokeWidth={2} />
               </button>
-            </>
-          )}
-
-          <button
-            type="button"
-            className="flex h-11 w-11 items-center justify-center rounded-xl border border-neutral-200 text-neutral-600 hover:bg-neutral-50 disabled:opacity-40 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-900"
-            aria-label="Toggle capabilities"
-            disabled={capabilityDisabled}
-            onClick={() => setCapsOpen(true)}
-          >
-            <Sparkles className="size-5" strokeWidth={2} />
-          </button>
-
-          <div className="min-w-0 flex-1">
-            <label className="sr-only" htmlFor="chat-model-select-mobile">Model</label>
-            <Select
-              open={modelSelectOpen}
-              onOpenChange={setModelSelectOpen}
-              value={selectValue || undefined}
-              onValueChange={handleModelSelectChange}
-              disabled={modelSelectDisabled || modelsPending || sorted.length === 0}
-            >
-              <SelectTrigger
-                id="chat-model-select-mobile"
-                data-testid="chat-model-select"
-                title={modelLabel}
-                className="h-11 w-full border-neutral-200 px-3 text-xs dark:border-neutral-700 [&_svg]:size-3"
+            ) : (
+              <button
+                type="button"
+                className="mb-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-neutral-900 text-white shadow-sm disabled:opacity-40 dark:bg-neutral-100 dark:text-neutral-900"
+                disabled={!canSubmit}
+                aria-label="Send message"
+                onClick={onSubmit}
               >
-                <SelectValue placeholder={modelLabel} />
-              </SelectTrigger>
-              <SelectContent position="popper" side="top" sideOffset={6} align="start">
-                {!modelsPending &&
-                  sorted.map((m) => {
-                    const actionable =
-                      m.can_request_access || Boolean(m.request_access_url)
-                    if (m.accessible) {
-                      return (
-                        <SelectItem
-                          key={m.id}
-                          value={`${CATALOG_SELECT_PREFIX}${m.slug}`}
-                          textValue={m.display_name}
-                        >
-                          {m.display_name}
-                        </SelectItem>
-                      )
-                    }
-                    return (
-                      <SelectItem
-                        key={m.id}
-                        value={`${CATALOG_SELECT_PREFIX}${m.slug}`}
-                        disabled
-                        textValue={m.display_name}
-                        itemSuffix={
-                          actionable ? (
-                            <button
-                              type="button"
-                              className="inline-flex size-6 shrink-0 items-center justify-center rounded-sm text-neutral-600 hover:bg-neutral-200/80 dark:text-neutral-400 dark:hover:bg-neutral-800"
-                              aria-label={`Request access to ${m.display_name}`}
-                              onPointerDown={(e) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                              }}
-                              onClick={(e) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                setModelSelectOpen(false)
-                                if (m.request_access_url) {
-                                  window.open(
-                                    m.request_access_url,
-                                    '_blank',
-                                    'noopener,noreferrer',
-                                  )
-                                } else {
-                                  setRequestAccessModel(m)
-                                }
-                              }}
-                            >
-                              <Lock className="size-3" strokeWidth={2} />
-                            </button>
-                          ) : undefined
-                        }
-                      >
-                        {actionable ? m.display_name : `${m.display_name} (locked)`}
-                      </SelectItem>
-                    )
-                  })}
-              </SelectContent>
-            </Select>
-            {modelsError && (
-              <p className="mt-0.5 text-[10px] text-amber-600 dark:text-amber-400">Catalog failed</p>
+                <ArrowUp className="size-4" strokeWidth={2.5} />
+              </button>
             )}
           </div>
-
-          {kbSlot != null && <div className="shrink-0">{kbSlot}</div>}
-
-          <button
-            type="button"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-neutral-200 text-neutral-600 hover:bg-neutral-50 disabled:opacity-40 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-900"
-            aria-label="Model settings"
-            disabled={!selectedCatalogModel}
-            onClick={() => {
-              if (selectedCatalogModel) onTuningChange(defaultTuningFromCatalog(selectedCatalogModel))
-              setTuningOpen(true)
-            }}
-          >
-            <Settings2 className="size-5" strokeWidth={2} />
-          </button>
         </div>
       </div>
     </>

@@ -104,3 +104,22 @@
     padding-bottom: env(safe-area-inset-bottom);
   }
 }
+
+/* ─── Compact mode ─────────────────────────────────────────────────────────
+   Applied to <html> when useIsMobile() is true. Scales down the global
+   spacing multiplier and key font-size tokens so all Tailwind utilities
+   (p-*, gap-*, text-sm, etc.) are slightly smaller on small screens.
+   Values chosen to feel dense without sacrificing legibility.
+───────────────────────────────────────────────────────────────────────────── */
+@layer base {
+  .compact {
+    /* Spacing scale: 3.5px base instead of 4px (87.5%) */
+    --spacing: 0.21875rem;
+
+    /* Font sizes */
+    --text-xs: 0.6875rem;   /* 11px  (was 12px) */
+    --text-sm: 0.8125rem;   /* 13px  (was 14px) */
+    --text-base: 0.9375rem; /* 15px  (was 16px) */
+    --text-lg: 1.0625rem;   /* 17px  (was 18px) */
+  }
+}

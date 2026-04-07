@@ -6,7 +6,11 @@ export function useIsMobile(): boolean {
   const [isMobile, setIsMobile] = React.useState(false)
 
   React.useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
+    const check = () => {
+      const mobile = window.innerWidth < MOBILE_BREAKPOINT
+      setIsMobile(mobile)
+      document.documentElement.classList.toggle('compact', mobile)
+    }
     check()
     window.addEventListener('resize', check)
     return () => window.removeEventListener('resize', check)
