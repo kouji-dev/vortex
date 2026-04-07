@@ -115,7 +115,7 @@ def test_rerank_chunks_voyage_path():
     mock_rerank_result = MagicMock()
     mock_rerank_result.results = [mock_result_obj_a, mock_result_obj_b]
 
-    with patch("ai_portal.services.rag.voyageai") as mock_voyage:
+    with patch("ai_portal.rag.service.voyageai") as mock_voyage:
         mock_client = MagicMock()
         mock_voyage.Client.return_value = mock_client
         mock_client.rerank.return_value = mock_rerank_result
@@ -149,8 +149,8 @@ def test_search_knowledge_base_tool_returns_dict_shape():
     db = MagicMock()
     db.scalars.return_value = iter([])
 
-    with patch("ai_portal.services.rag.embedding_svc") as mock_emb, \
-         patch("ai_portal.services.rag.get_settings") as mock_gs:
+    with patch("ai_portal.rag.service.embedding_svc") as mock_emb, \
+         patch("ai_portal.rag.service.get_settings") as mock_gs:
         mock_emb.embed_texts.return_value = [[0.1] * 1024]
         s = MagicMock()
         s.rag_max_top_k = 30

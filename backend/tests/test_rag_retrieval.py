@@ -62,7 +62,7 @@ def test_returns_meta_per_kb():
     db = MagicMock()
     db.scalars.side_effect = scalars_side_effect
 
-    with patch("ai_portal.services.rag._cosine_score", return_value=0.91):
+    with patch("ai_portal.rag.service._cosine_score", return_value=0.91):
         context, meta = retrieve_context_with_meta(
             db, knowledge_base_ids=[1], query_embedding=[0.1] * 3
         )
