@@ -15,7 +15,7 @@ from ai_portal.catalog.providers.routing import (
     is_langchain_anthropic_model,
     normalize_model_id_for_langchain_chat,
 )
-from ai_portal.services.model_access import effective_chat_model
+from ai_portal.catalog.service import effective_chat_model
 
 logger = logging.getLogger(__name__)
 

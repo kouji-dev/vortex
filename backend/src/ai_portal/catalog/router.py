@@ -10,9 +10,7 @@ from ai_portal.api.deps import get_current_user, get_db
 from ai_portal.catalog.schemas import CatalogModelRead
 from ai_portal.models import CatalogModel, User
 from ai_portal.schemas.catalog_model_settings import model_settings_from_metadata
-from ai_portal.services.default_conversation_model import (
-    resolve_default_conversation_stored_model,
-)
+from ai_portal.catalog.service import resolve_default_conversation_stored_model
 
 router = APIRouter(prefix="/api", tags=["model-catalog"])
 
