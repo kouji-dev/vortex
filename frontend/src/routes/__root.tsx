@@ -13,6 +13,8 @@ import { EntraRoot } from '~/auth/EntraRoot'
 import { getAuthMode } from '~/auth/msalConfig'
 import { DefaultCatchBoundary } from '~/components/DefaultCatchBoundary'
 import { AppShell } from '~/components/layout/AppShell'
+import { MobileAppShell } from '~/components/layout/MobileAppShell'
+import { useIsMobile } from '~/hooks/useIsMobile'
 import { NotFound } from '~/components/NotFound'
 import appCss from '~/styles/app.css?url'
 import { seo } from '~/utils/seo'
@@ -75,8 +77,13 @@ export const Route = createRootRouteWithContext<{
 function RootComponent() {
   useAuthRedirect()
   useSetupRedirect()
+  const isMobile = useIsMobile()
 
-  const shell = (
+  const shell = isMobile ? (
+    <MobileAppShell>
+      <Outlet />
+    </MobileAppShell>
+  ) : (
     <AppShell>
       <Outlet />
     </AppShell>
