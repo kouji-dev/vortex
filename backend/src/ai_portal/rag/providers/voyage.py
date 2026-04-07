@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Literal
 
 from ai_portal.config import Settings, get_settings
-from ai_portal.services.llm_connect import normalize_openai_compatible_base
+from ai_portal.catalog.providers.routing import normalize_openai_compatible_base
 
 # Voyage allows many texts per request; batch for memory / timeouts on large docs.
 _VOYAGE_EMBED_BATCH = 128

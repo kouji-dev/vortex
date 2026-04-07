@@ -1,53 +1,6 @@
-"""Resolve default chat model for new conversations."""
-
-from __future__ import annotations
-
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
-from ai_portal.config import get_settings
-from ai_portal.models import CatalogModel
-from ai_portal.schemas.conversation_settings import (
-    CapabilityToggles,
-    ConversationSettings,
+# Re-export shim — real implementation moved to catalog/service.py
+from ai_portal.catalog.service import (  # noqa: F401
+    resolve_default_conversation_api_model,
+    resolve_default_conversation_stored_model,
+    default_conversation_settings,
 )
-
-# Matches seed slugs in ``seed_catalog_models`` (preferred default when present).
-_DEFAULT_CATALOG_SLUG_PRIORITY = (
-    "anthropic-claude-haiku-4-5",
-    "openai-o3-mini",
-)
-
-
-def resolve_default_conversation_api_model(db: Session) -> str:
-    """Vendor API model id for the preferred default catalog row."""
-    for slug in _DEFAULT_CATALOG_SLUG_PRIORITY:
-        row = db.scalars(
-            select(CatalogModel)
-            .where(CatalogModel.slug == slug)
-            .where(CatalogModel.is_active.is_(True))
-            .limit(1)
-        ).first()
-        if row is not None:
-            return row.api_model_id
-    return get_settings().chat_default_api_model
-
-
-def resolve_default_conversation_stored_model(db: Session) -> str:
-    """Value persisted on new conversations: catalog **slug** when possible, else settings id."""
-    for slug in _DEFAULT_CATALOG_SLUG_PRIORITY:
-        row = db.scalars(
-            select(CatalogModel)
-            .where(CatalogModel.slug == slug)
-            .where(CatalogModel.is_active.is_(True))
-            .limit(1)
-        ).first()
-        if row is not None:
-            return row.slug
-    return get_settings().chat_default_api_model
-
-
-def default_conversation_settings() -> ConversationSettings:
-    return ConversationSettings(
-        capabilities=CapabilityToggles(),
-    )
