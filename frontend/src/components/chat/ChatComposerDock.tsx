@@ -324,7 +324,7 @@ export function ChatComposerDock({
             aria-label="Message"
           />
           <p className="mt-1 text-right text-[10px] tabular-nums text-neutral-400 dark:text-neutral-500">
-            {composeDraft.length.toLocaleString()} / {maxInputChars.toLocaleString()}
+            {composeDraft.length.toLocaleString('en')} / {maxInputChars.toLocaleString('en')}
           </p>
         </div>
 

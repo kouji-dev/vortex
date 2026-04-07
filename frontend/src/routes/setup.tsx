@@ -49,7 +49,7 @@ function SetupPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950 px-4">
+    <div className="page-enter flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950 px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
           <span className="text-4xl">🤖</span>

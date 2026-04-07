@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import type { UseQueryResult } from '@tanstack/react-query'
 
 import { getApiBase } from '~/lib/api-base'
@@ -8,7 +9,8 @@ type SystemStatusCardProps = {
 }
 
 export function SystemStatusCard({ health }: SystemStatusCardProps) {
-  const apiBase = getApiBase()
+  const [apiBase, setApiBase] = useState('')
+  useEffect(() => { setApiBase(getApiBase()) }, [])
   return (
     <div className="rounded-xl border border-neutral-200 bg-neutral-50/80 p-5 dark:border-neutral-800 dark:bg-neutral-900/50">
       <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">API</h2>

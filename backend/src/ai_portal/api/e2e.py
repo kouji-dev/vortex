@@ -101,9 +101,15 @@ def e2e_seed_system_memory(
         existing.is_active = True
         existing.source = "auto"
     else:
+        if user.org_id is None:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail="User has no org; cannot seed system memory",
+            )
         db.add(
             UserMemory(
                 user_id=user.id,
+                org_id=user.org_id,
                 content=profile_text,
                 source="auto",
                 is_system=True,

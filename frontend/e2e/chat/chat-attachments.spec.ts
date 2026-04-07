@@ -1,20 +1,21 @@
 /**
  * Chat attachments — upload API, stream payload check, and LLM reads file content.
  *
- * Conversations use **Claude Haiku 4.5** via `createEmptyConversation` (needs
- * **ANTHROPIC_API_KEY** on the API). Requires migration `020_chat_conversation_uploads`.
- * Run `./scripts/e2e-up.sh` or `./scripts/e2e-db-sync.sh` before the API.
+ * Conversations are opened or created via the UI (`ensureConversationByTitle` + stable names).
+ * Requires migration `020_chat_conversation_uploads`. Run `./scripts/e2e-up.sh` or `./scripts/e2e-db-sync.sh`.
  *
  * @see docs/superpowers/specs/2026-04-04-chat-remaining-features-delivery.md
  */
 import { test, expect } from '@playwright/test'
-import { createEmptyConversation } from '../support/create-conversation'
+import { ensureConversationByTitle, parseConversationIdFromUrl } from '../support/conversation-ui'
+import { e2eStableResourceName } from '../support/resource-slug'
 
 const apiBase = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
 
 test.describe('Chat attachments API', () => {
-  test('POST uploads returns 201 for .txt', async ({ request }) => {
-    const convId = await createEmptyConversation(request, apiBase)
+  test('POST uploads returns 201 for .txt', async ({ page, request }) => {
+    await ensureConversationByTitle(page, e2eStableResourceName('conv', test.info().title))
+    const convId = parseConversationIdFromUrl(page)
     const res = await request.post(
       `${apiBase.replace(/\/$/, '')}/api/chat/conversations/${convId}/uploads`,
       {
@@ -37,12 +38,10 @@ test.describe('Chat attachments API', () => {
 })
 
 test.describe('Chat attachments — stream request', () => {
-  test('after attach, first messages/stream POST includes attachment_ids', async ({
-    page,
-    request,
-  }) => {
+  test('after attach, first messages/stream POST includes attachment_ids', async ({ page }) => {
     test.setTimeout(90_000)
-    const convId = await createEmptyConversation(request, apiBase)
+    await ensureConversationByTitle(page, e2eStableResourceName('conv', test.info().title))
+    const convId = parseConversationIdFromUrl(page)
 
     const streamWait = page.waitForRequest(
       (r) => r.url().includes('/messages/stream') && r.method() === 'POST',
@@ -75,12 +74,10 @@ test.describe('Chat attachments — stream request', () => {
 })
 
 test.describe('Chat attachments — assistant uses file (Claude Haiku)', () => {
-  test('assistant answer reflects unique text inside the attached file', async ({
-    page,
-    request,
-  }) => {
+  test('assistant answer reflects unique text inside the attached file', async ({ page }) => {
     test.setTimeout(120_000)
-    const convId = await createEmptyConversation(request, apiBase)
+    await ensureConversationByTitle(page, e2eStableResourceName('conv', test.info().title))
+    const convId = parseConversationIdFromUrl(page)
 
     const secret = `E2E_FILE_SECRET_${Date.now()}`
     const fileBody = `Confidential line for automated testing.\nThe secret codeword is exactly: ${secret}\nEnd of file.\n`
@@ -99,10 +96,10 @@ test.describe('Chat attachments — assistant uses file (Claude Haiku)', () => {
     )
     await page.getByRole('button', { name: /send message/i }).click()
 
-    await expect(page.getByTestId('chat-message-assistant').first()).toBeVisible({
+    await expect(page.getByTestId('chat-message-assistant').last()).toBeVisible({
       timeout: 90_000,
     })
-    await expect(page.getByTestId('chat-message-assistant').first()).toContainText(secret, {
+    await expect(page.getByTestId('chat-message-assistant').last()).toContainText(secret, {
       timeout: 15_000,
     })
   })

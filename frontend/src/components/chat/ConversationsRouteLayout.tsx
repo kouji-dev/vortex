@@ -28,7 +28,7 @@ export function ConversationsRouteLayout() {
 
   return (
     <ConversationsOutletProvider value={outletValue}>
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
+      <div className="page-enter flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
         <div className="hidden md:flex md:min-h-0 md:flex-col md:shrink-0">
           <ConversationsSidebarPanel
             conversations={convsQ.data}

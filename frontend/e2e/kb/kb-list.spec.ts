@@ -2,7 +2,9 @@
  * Knowledge Bases list page — table structure, Actions column, search, stats.
  */
 import { test, expect } from '@playwright/test'
-import { createKnowledgeBase } from '../support/knowledge-api'
+import { createKbThroughUi, escapeRegExp } from './helpers'
+import { e2eStableResourceName } from '../support/resource-slug'
+import { createOrFindKb } from '../support/ui-helpers'
 
 const apiBase = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
 
@@ -40,7 +42,8 @@ test.describe('Knowledge Bases list page', () => {
   // ──────────────────────────────────────────────────────────────
 
   test('table has Name, Size, Chunks, Created and Actions columns', async ({ page, request }) => {
-    const id = await createKnowledgeBase(request, apiBase, `E2E Col Check ${Date.now()}`)
+    const name = e2eStableResourceName('kb', test.info().title)
+    const id = await createOrFindKb(page, name)
     try {
       await page.goto('/knowledge-bases', { waitUntil: 'networkidle' })
       const headers = page.getByRole('columnheader')
@@ -59,19 +62,21 @@ test.describe('Knowledge Bases list page', () => {
   // ──────────────────────────────────────────────────────────────
 
   test('each KB row has a View icon button in the Actions column', async ({ page, request }) => {
-    const name = `E2E View Btn ${Date.now()}`
-    const id = await createKnowledgeBase(request, apiBase, name)
+    const name = e2eStableResourceName('kb', test.info().title)
+    const id = await createOrFindKb(page, name)
     try {
       await page.goto('/knowledge-bases', { waitUntil: 'networkidle' })
-      await expect(page.getByRole('link', { name: new RegExp(`view ${name}`, 'i') })).toBeVisible()
+      await expect(
+        page.getByRole('link', { name: new RegExp(`view ${escapeRegExp(name)}`, 'i') }),
+      ).toBeVisible()
     } finally {
       await deleteKbViaApi(request, id)
     }
   })
 
   test('View icon button has title "View knowledge base"', async ({ page, request }) => {
-    const name = `E2E View Title ${Date.now()}`
-    const id = await createKnowledgeBase(request, apiBase, name)
+    const name = e2eStableResourceName('kb', test.info().title)
+    const id = await createOrFindKb(page, name)
     try {
       await page.goto('/knowledge-bases', { waitUntil: 'networkidle' })
       await expect(page.getByTitle('View knowledge base').first()).toBeVisible()
@@ -81,11 +86,13 @@ test.describe('Knowledge Bases list page', () => {
   })
 
   test('clicking View icon navigates to the KB detail page', async ({ page, request }) => {
-    const name = `E2E View Nav ${Date.now()}`
-    const id = await createKnowledgeBase(request, apiBase, name)
+    const name = e2eStableResourceName('kb', test.info().title)
+    const id = await createOrFindKb(page, name)
     try {
       await page.goto('/knowledge-bases', { waitUntil: 'networkidle' })
-      await page.getByRole('link', { name: new RegExp(`view ${name}`, 'i') }).click()
+      await page
+        .getByRole('link', { name: new RegExp(`view ${escapeRegExp(name)}`, 'i') })
+        .click()
       await expect(page).toHaveURL(new RegExp(`/knowledge-bases/${id}`))
       await expect(page.getByRole('heading', { name, exact: true })).toBeVisible()
     } finally {
@@ -98,13 +105,13 @@ test.describe('Knowledge Bases list page', () => {
   // ──────────────────────────────────────────────────────────────
 
   test('typing in search filters the KB list', async ({ page, request }) => {
-    const unique = `uniquekbxyz${Date.now()}`
-    const name = `E2E Search ${unique}`
-    const id = await createKnowledgeBase(request, apiBase, name)
+    const unique = 'uniquekbxyz42'
+    const name = e2eStableResourceName('kb', `${test.info().title} ${unique}`)
+    const id = await createOrFindKb(page, name)
     try {
       await page.goto('/knowledge-bases', { waitUntil: 'networkidle' })
       await page.getByLabel('Search knowledge bases').fill(unique)
-      await expect(page.getByRole('row', { name: new RegExp(unique) })).toBeVisible()
+      await expect(page.getByRole('row', { name: new RegExp(escapeRegExp(unique)) })).toBeVisible()
     } finally {
       await deleteKbViaApi(request, id)
     }
@@ -132,21 +139,12 @@ test.describe('Knowledge Bases list page', () => {
     page,
     request,
   }) => {
-    const name = `E2E Create ${Date.now()}`
-    await page.goto('/knowledge-bases', { waitUntil: 'networkidle' })
-    await page.getByRole('button', { name: /add knowledge base/i }).click()
-    const dialog = page.getByRole('dialog')
-    await expect(dialog).toBeVisible({ timeout: 10_000 })
-    await dialog.getByRole('textbox').first().fill(name)
-    await dialog.getByRole('button', { name: /next/i }).click()
-    await dialog.getByRole('button', { name: /create/i }).click()
-    await expect(dialog).toBeHidden({ timeout: 15_000 })
-    await expect(page).toHaveURL(/\/knowledge-bases\/\d+/)
-    await expect(page.getByRole('heading', { name, exact: true })).toBeVisible({ timeout: 15_000 })
-    const url = page.url()
-    const idMatch = url.match(/\/knowledge-bases\/(\d+)/)
-    if (idMatch) {
-      await deleteKbViaApi(request, Number(idMatch[1]))
+    const name = e2eStableResourceName('kb', test.info().title)
+    const id = await createKbThroughUi(page, name)
+    try {
+      await expect(page.getByRole('heading', { name, exact: true })).toBeVisible({ timeout: 15_000 })
+    } finally {
+      await deleteKbViaApi(request, id)
     }
   })
 
@@ -158,12 +156,12 @@ test.describe('Knowledge Bases list page', () => {
   // ──────────────────────────────────────────────────────────────
 
   test('clicking the KB name cell navigates to the detail page', async ({ page, request }) => {
-    const name = `E2E Name Nav ${Date.now()}`
-    const id = await createKnowledgeBase(request, apiBase, name)
+    const name = e2eStableResourceName('kb', test.info().title)
+    const id = await createOrFindKb(page, name)
     try {
       await page.goto('/knowledge-bases', { waitUntil: 'networkidle' })
       // The name cell contains a link — click the text
-      await page.getByRole('link', { name: new RegExp(name) }).first().click()
+      await page.getByRole('link', { name: new RegExp(escapeRegExp(name)) }).first().click()
       await expect(page).toHaveURL(new RegExp(`/knowledge-bases/${id}`))
     } finally {
       await deleteKbViaApi(request, id)

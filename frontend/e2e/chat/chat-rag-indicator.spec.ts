@@ -1,23 +1,25 @@
 import { test, expect } from '@playwright/test'
 
-import { createEmptyConversation } from '../support/create-conversation'
+import { e2eStableResourceName } from '../support/resource-slug'
+import { seedRagAssistantForE2e } from '../support/knowledge-api'
 import {
-  attachKnowledgeBasesToConversation,
-  createKnowledgeBase,
-  seedRagAssistantForE2e,
-} from '../support/knowledge-api'
+  attachKbToConversationViaUi,
+  createOrFindConversation,
+  createOrFindKb,
+} from '../support/ui-helpers'
 
 test.describe('Chat RAG seeded messages', () => {
   test('seeded thread shows both assistant replies (with and without used_kbs)', async ({
     page,
     request,
   }) => {
-    test.setTimeout(90_000)
+    test.setTimeout(180_000)
     const apiBase = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
-    const kbName = `E2E RAG KB ${Date.now()}`
-    const kbId = await createKnowledgeBase(request, apiBase, kbName)
-    const convId = await createEmptyConversation(request, apiBase)
-    await attachKnowledgeBasesToConversation(request, apiBase, convId, [kbId])
+    const kbName = e2eStableResourceName('kb', test.info().title)
+    const kbId = await createOrFindKb(page, kbName)
+    const convId = await createOrFindConversation(page, 'E2E RAG Indicator Shared')
+    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
+    await attachKbToConversationViaUi(page, kbName)
 
     const seedStatus = await seedRagAssistantForE2e(request, apiBase, convId, kbId, kbName)
     expect(

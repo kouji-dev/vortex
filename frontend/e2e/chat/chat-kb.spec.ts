@@ -1,28 +1,25 @@
 import { test, expect } from '@playwright/test'
 
-import { createEmptyConversation } from '../support/create-conversation'
-import { createKbThroughUi } from '../kb/helpers'
+import { gotoChatComposerIndex } from '../support/conversation-ui'
+import { createOrFindKb } from '../support/ui-helpers'
 
-let kbName = ''
+const E2E_CHAT_KB_SHARED = 'E2E Chat KB Shared'
 
 test.describe.configure({ mode: 'serial' })
 
 test.describe('Chat knowledge bases', () => {
-  test('create KB for chat tests', async ({ page }) => {
-    kbName = `E2E Chat KB ${Date.now()}`
-    await createKbThroughUi(page, kbName)
+  test('ensure shared KB for chat tests', async ({ page }) => {
+    await createOrFindKb(page, E2E_CHAT_KB_SHARED)
   })
 
-  test('attach KB via anchored popover', async ({ page, request }) => {
-    const apiBase = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
-    const convId = await createEmptyConversation(request, apiBase)
-    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
+  test('attach KB via anchored popover', async ({ page }) => {
+    await gotoChatComposerIndex(page)
 
     await page.getByTestId('chat-kb-picker-trigger').click()
     await expect(page.getByTestId('kb-picker-popover')).toBeVisible()
     await expect(page.getByTestId('kb-picker-search')).toBeVisible()
 
-    await page.getByRole('option', { name: new RegExp(kbName) }).click()
+    await page.getByRole('option', { name: new RegExp(E2E_CHAT_KB_SHARED) }).click()
     await expect(page.getByText('Saving…')).toBeHidden({ timeout: 30_000 })
 
     await expect(
@@ -34,7 +31,7 @@ test.describe('Chat knowledge bases', () => {
 
     await page.reload({ waitUntil: 'networkidle' })
     await page.getByTestId('chat-kb-picker-trigger').click()
-    const opt = page.getByRole('option', { name: new RegExp(kbName) })
+    const opt = page.getByRole('option', { name: new RegExp(E2E_CHAT_KB_SHARED) })
     await expect(opt).toContainText('Active')
   })
 })

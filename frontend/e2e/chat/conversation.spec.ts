@@ -4,15 +4,20 @@
  * Covers: composer input, KB picker open/close/search/attach/detach,
  * keyboard navigation, sidebar navigation, and thread-header delete dialog.
  */
-import { randomUUID } from 'node:crypto'
 import { test, expect } from '@playwright/test'
-import { createEmptyConversation } from '../support/create-conversation'
+import { escapeRegExp } from '../kb/helpers'
+import { e2eStableResourceName } from '../support/resource-slug'
+import { gotoChatComposerIndex } from '../support/conversation-ui'
 import {
-  attachKnowledgeBasesToConversation,
-  createKnowledgeBase,
-} from '../support/knowledge-api'
+  attachKbToConversationViaUi,
+  createOrFindConversation,
+  createOrFindKb,
+} from '../support/ui-helpers'
 
 const apiBase = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
+
+const E2E_CONV_SHARED = 'E2E Conv Shared'
+const E2E_CONV_KB_DETACH = 'E2E Conv KB Detach'
 
 test.describe('Chat conversation', () => {
   // ──────────────────────────────────────────────────────────────
@@ -20,23 +25,22 @@ test.describe('Chat conversation', () => {
   // ──────────────────────────────────────────────────────────────
 
   test('composer index shows message input with correct placeholder', async ({ page }) => {
-    await page.goto('/chat/conversations', { waitUntil: 'networkidle' })
+    await gotoChatComposerIndex(page)
     await expect(
       page.getByPlaceholder('Message the assistant… (Shift+Enter for newline)'),
     ).toBeVisible()
   })
 
-  test('thread page shows composer with correct placeholder', async ({ page, request }) => {
-    const convId = await createEmptyConversation(request, apiBase)
-    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
+  test('thread page shows composer with correct placeholder', async ({ page }) => {
+    await createOrFindConversation(page, E2E_CONV_SHARED)
     await expect(
       page.getByPlaceholder('Message the assistant… (Shift+Enter for newline)'),
     ).toBeVisible()
   })
 
-  test('conversation metadata (Created …) is visible', async ({ page, request }) => {
-    const convId = await createEmptyConversation(request, apiBase)
-    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
+  test('conversation metadata (Created …) is visible', async ({ page }) => {
+    test.setTimeout(120_000)
+    await createOrFindConversation(page, E2E_CONV_SHARED)
     await expect(page.getByText(/created/i).first()).toBeVisible({ timeout: 15_000 })
   })
 
@@ -44,39 +48,34 @@ test.describe('Chat conversation', () => {
   // KB picker — open / close
   // ──────────────────────────────────────────────────────────────
 
-  test('KB picker trigger button is visible', async ({ page, request }) => {
-    const convId = await createEmptyConversation(request, apiBase)
-    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
+  test('KB picker trigger button is visible', async ({ page }) => {
+    await gotoChatComposerIndex(page)
     await expect(page.getByTestId('chat-kb-picker-trigger')).toBeVisible()
   })
 
-  test('clicking KB picker trigger opens the popover', async ({ page, request }) => {
-    const convId = await createEmptyConversation(request, apiBase)
-    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
+  test('clicking KB picker trigger opens the popover', async ({ page }) => {
+    await gotoChatComposerIndex(page)
     await page.getByTestId('chat-kb-picker-trigger').click()
     await expect(page.getByTestId('kb-picker-popover')).toBeVisible()
   })
 
-  test('KB picker popover contains search input', async ({ page, request }) => {
-    const convId = await createEmptyConversation(request, apiBase)
-    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
+  test('KB picker popover contains search input', async ({ page }) => {
+    await gotoChatComposerIndex(page)
     await page.getByTestId('chat-kb-picker-trigger').click()
     await expect(page.getByTestId('kb-picker-search')).toBeVisible()
     await expect(page.getByPlaceholder(/search knowledge bases/i)).toBeVisible()
   })
 
-  test('pressing Escape closes the KB picker popover', async ({ page, request }) => {
-    const convId = await createEmptyConversation(request, apiBase)
-    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
+  test('pressing Escape closes the KB picker popover', async ({ page }) => {
+    await gotoChatComposerIndex(page)
     await page.getByTestId('chat-kb-picker-trigger').click()
     await expect(page.getByTestId('kb-picker-popover')).toBeVisible()
     await page.keyboard.press('Escape')
     await expect(page.getByTestId('kb-picker-popover')).toBeHidden()
   })
 
-  test('clicking outside the KB picker popover closes it', async ({ page, request }) => {
-    const convId = await createEmptyConversation(request, apiBase)
-    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
+  test('clicking outside the KB picker popover closes it', async ({ page }) => {
+    await gotoChatComposerIndex(page)
     await page.getByTestId('chat-kb-picker-trigger').click()
     await expect(page.getByTestId('kb-picker-popover')).toBeVisible()
     // Click outside the popover
@@ -88,35 +87,35 @@ test.describe('Chat conversation', () => {
   // KB picker — attach / detach
   // ──────────────────────────────────────────────────────────────
 
-  test('KB appears as option in the picker after creation', async ({ page, request }) => {
-    const kbName = `E2E Conv KB ${Date.now()}`
-    await createKnowledgeBase(request, apiBase, kbName)
-    const convId = await createEmptyConversation(request, apiBase)
-    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
+  test('KB appears as option in the picker after creation', async ({ page }) => {
+    test.setTimeout(120_000)
+    const kbName = e2eStableResourceName('kb', test.info().title)
+    await createOrFindKb(page, kbName)
+    await gotoChatComposerIndex(page)
     await page.getByTestId('chat-kb-picker-trigger').click()
-    await expect(page.getByRole('option', { name: new RegExp(kbName) })).toBeVisible({
+    await expect(page.getByRole('option', { name: new RegExp(escapeRegExp(kbName)) })).toBeVisible({
       timeout: 5_000,
     })
   })
 
-  test('attaching a KB shows "Active" badge on the option', async ({ page, request }) => {
-    const kbName = `E2E Attach KB ${Date.now()}`
-    await createKnowledgeBase(request, apiBase, kbName)
-    const convId = await createEmptyConversation(request, apiBase)
-    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
+  test('attaching a KB shows "Active" badge on the option', async ({ page }) => {
+    test.setTimeout(120_000)
+    const kbName = e2eStableResourceName('kb', test.info().title)
+    await createOrFindKb(page, kbName)
+    await gotoChatComposerIndex(page)
     await page.getByTestId('chat-kb-picker-trigger').click()
-    const opt = page.getByRole('option', { name: new RegExp(kbName) })
+    const opt = page.getByRole('option', { name: new RegExp(escapeRegExp(kbName)) })
     await opt.click()
     await expect(opt).toContainText('Active', { timeout: 5_000 })
   })
 
-  test('trigger button updates text when KB is attached', async ({ page, request }) => {
-    const kbName = `E2E Trigger Text ${Date.now()}`
-    await createKnowledgeBase(request, apiBase, kbName)
-    const convId = await createEmptyConversation(request, apiBase)
-    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
+  test('trigger button updates text when KB is attached', async ({ page }) => {
+    test.setTimeout(120_000)
+    const kbName = e2eStableResourceName('kb', test.info().title)
+    await createOrFindKb(page, kbName)
+    await gotoChatComposerIndex(page)
     await page.getByTestId('chat-kb-picker-trigger').click()
-    await page.getByRole('option', { name: new RegExp(kbName) }).click()
+    await page.getByRole('option', { name: new RegExp(escapeRegExp(kbName)) }).click()
     await page.keyboard.press('Escape')
     // The trigger should now reflect the attached count
     await expect(page.getByTestId('chat-kb-picker-trigger')).toContainText(/active/i, {
@@ -124,17 +123,16 @@ test.describe('Chat conversation', () => {
     })
   })
 
-  test('detaching a KB removes "Active" badge', async ({ page, request }) => {
-    const kbName = `E2E Detach KB ${Date.now()}`
-    const kbId = await createKnowledgeBase(request, apiBase, kbName)
-    const convId = await createEmptyConversation(request, apiBase)
-    // Pre-attach via API
-    await attachKnowledgeBasesToConversation(request, apiBase, convId, [kbId])
+  test('detaching a KB removes "Active" badge', async ({ page }) => {
+    test.setTimeout(120_000)
+    const kbName = e2eStableResourceName('kb', test.info().title)
+    await createOrFindKb(page, kbName)
+    const convId = await createOrFindConversation(page, E2E_CONV_KB_DETACH)
     await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
+    await attachKbToConversationViaUi(page, kbName)
     await page.getByTestId('chat-kb-picker-trigger').click()
-    const opt = page.getByRole('option', { name: new RegExp(kbName) })
+    const opt = page.getByRole('option', { name: new RegExp(escapeRegExp(kbName)) })
     await expect(opt).toContainText('Active', { timeout: 5_000 })
-    // Click to detach
     await opt.click()
     await expect(opt).not.toContainText('Active', { timeout: 5_000 })
   })
@@ -143,23 +141,21 @@ test.describe('Chat conversation', () => {
   // KB picker — search / fuzzy filter
   // ──────────────────────────────────────────────────────────────
 
-  test('typing in KB picker search filters the list', async ({ page, request }) => {
-    const uniquePart = `uniquexyz${Date.now()}`
-    const kbName = `E2E Search ${uniquePart}`
-    await createKnowledgeBase(request, apiBase, kbName)
-    const convId = await createEmptyConversation(request, apiBase)
-    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
+  test('typing in KB picker search filters the list', async ({ page }) => {
+    test.setTimeout(120_000)
+    const uniquePart = 'uniquexyz42'
+    const kbName = e2eStableResourceName('kb', `${test.info().title} ${uniquePart}`)
+    await createOrFindKb(page, kbName)
+    await gotoChatComposerIndex(page)
     await page.getByTestId('chat-kb-picker-trigger').click()
     await page.getByTestId('kb-picker-search').fill(uniquePart)
-    await expect(page.getByRole('option', { name: new RegExp(kbName) })).toBeVisible()
+    await expect(
+      page.getByRole('option', { name: new RegExp(escapeRegExp(kbName)) }),
+    ).toBeVisible()
   })
 
-  test('searching a non-existent name shows "No knowledge bases found."', async ({
-    page,
-    request,
-  }) => {
-    const convId = await createEmptyConversation(request, apiBase)
-    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
+  test('searching a non-existent name shows "No knowledge bases found."', async ({ page }) => {
+    await gotoChatComposerIndex(page)
     await page.getByTestId('chat-kb-picker-trigger').click()
     await page.getByTestId('kb-picker-search').fill('__impossible_kb_name_xyz_8888__')
     await expect(page.getByText(/no knowledge bases found/i)).toBeVisible()
@@ -169,11 +165,11 @@ test.describe('Chat conversation', () => {
   // KB picker — keyboard navigation
   // ──────────────────────────────────────────────────────────────
 
-  test('ArrowDown key moves selection down the KB list', async ({ page, request }) => {
-    const kbName = `E2E ArrowDown ${Date.now()}`
-    await createKnowledgeBase(request, apiBase, kbName)
-    const convId = await createEmptyConversation(request, apiBase)
-    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
+  test('ArrowDown key moves selection down the KB list', async ({ page }) => {
+    test.setTimeout(120_000)
+    const kbName = e2eStableResourceName('kb', test.info().title)
+    await createOrFindKb(page, kbName)
+    await gotoChatComposerIndex(page)
     await page.getByTestId('chat-kb-picker-trigger').click()
     // Focus the search input and press ArrowDown
     await page.getByTestId('kb-picker-search').focus()
@@ -183,11 +179,11 @@ test.describe('Chat conversation', () => {
     await expect(page.getByTestId('kb-picker-popover')).toBeVisible()
   })
 
-  test('Enter key attaches the highlighted KB', async ({ page, request }) => {
-    const kbName = `E2E Enter attach ${randomUUID()}`
-    await createKnowledgeBase(request, apiBase, kbName)
-    const convId = await createEmptyConversation(request, apiBase)
-    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
+  test('Enter key attaches the highlighted KB', async ({ page }) => {
+    test.setTimeout(120_000)
+    const kbName = e2eStableResourceName('kb', test.info().title)
+    await createOrFindKb(page, kbName)
+    await gotoChatComposerIndex(page)
     await page.getByTestId('chat-kb-picker-trigger').click()
     await page.getByTestId('kb-picker-search').fill(kbName)
     await expect(page.getByRole('option', { name: kbName })).toBeVisible({ timeout: 20_000 })
@@ -206,7 +202,8 @@ test.describe('Chat conversation', () => {
     page,
     request,
   }) => {
-    const convId = await createEmptyConversation(request, apiBase)
+    test.setTimeout(120_000)
+    const convId = await createOrFindConversation(page, E2E_CONV_SHARED)
     try {
       await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
       page.once('dialog', (d) => {
@@ -226,7 +223,8 @@ test.describe('Chat conversation', () => {
   })
 
   test('thread delete dialog has Cancel and Delete buttons', async ({ page, request }) => {
-    const convId = await createEmptyConversation(request, apiBase)
+    test.setTimeout(120_000)
+    const convId = await createOrFindConversation(page, E2E_CONV_SHARED)
     try {
       await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
       await page.getByTestId('thread-header-delete-open').click()
@@ -244,7 +242,8 @@ test.describe('Chat conversation', () => {
   })
 
   test('Cancel in thread delete dialog leaves conversation intact', async ({ page, request }) => {
-    const convId = await createEmptyConversation(request, apiBase)
+    test.setTimeout(120_000)
+    const convId = await createOrFindConversation(page, E2E_CONV_SHARED)
     try {
       await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
       await page.getByTestId('thread-header-delete-open').click()
@@ -260,13 +259,10 @@ test.describe('Chat conversation', () => {
     }
   })
 
-  test('confirming thread delete navigates away from the conversation', async ({
-    page,
-    request,
-  }) => {
-    test.setTimeout(60_000)
-    const convId = await createEmptyConversation(request, apiBase)
-    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
+  test('confirming thread delete navigates away from the conversation', async ({ page }) => {
+    test.setTimeout(120_000)
+    const title = `E2E Del ${Date.now()}`
+    await createOrFindConversation(page, title)
     await page.getByTestId('thread-header-delete-open').click()
     const dialog = page.getByRole('dialog', { name: /delete conversation/i })
     await expect(dialog).toBeVisible()

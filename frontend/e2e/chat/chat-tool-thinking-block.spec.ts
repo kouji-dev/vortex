@@ -11,7 +11,7 @@ async function setupSseReplay(
   convId: number,
   sseText: string,
 ) {
-  await page.route(`**/api/chat/conversations/${convId}/messages`, async (route) => {
+  await page.route(`**/api/chat/conversations/${convId}/messages/stream`, async (route) => {
     await route.fulfill({
       status: 200,
       headers: {
@@ -141,7 +141,7 @@ test.describe('Thinking block UI', () => {
       'data: {"type":"delta","text":"Hello!"}\n\n' +
       'data: {"type":"done","message_id":999}\n\n'
 
-    await page.route(`**/api/chat/conversations/${convId}/messages`, async (route) => {
+    await page.route(`**/api/chat/conversations/${convId}/messages/stream`, async (route) => {
       await route.fulfill({
         status: 200,
         headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
@@ -153,9 +153,12 @@ test.describe('Thinking block UI', () => {
     await page.getByRole('textbox', { name: /message/i }).fill('Say hello')
     await page.getByRole('button', { name: /send message/i }).click()
 
-    await expect(page.getByText('Hello!')).toBeVisible({ timeout: 15_000 })
+    // Wait for stream to complete: Stop button appears then disappears
+    const stopBtn = page.getByRole('button', { name: /stop generating/i })
+    await expect(stopBtn).toBeVisible({ timeout: 5_000 }).catch(() => {})
+    await expect(stopBtn).toBeHidden({ timeout: 15_000 })
 
-    // Neither the block nor the pill should appear
+    // Neither the block nor the pill should appear for a plain-text reply
     await expect(page.getByTestId('chat-thinking-block')).toBeHidden()
     await expect(page.getByTestId('chat-thinking-pill')).toBeHidden()
   })

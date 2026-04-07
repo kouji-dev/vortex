@@ -7,19 +7,14 @@
  */
 import { test, expect } from '@playwright/test'
 import path from 'node:path'
-import { createKnowledgeBase } from '../support/knowledge-api'
+import { e2eStableResourceName } from '../support/resource-slug'
+import { createOrFindKb } from '../support/ui-helpers'
 import { E2E_FIXTURES_DIR } from '../support/fixtures-dir'
 
 const apiBase = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
 
-async function createKbAndNavigate(
-  page: import('@playwright/test').Page,
-  request: import('@playwright/test').APIRequestContext,
-  name: string,
-): Promise<number> {
-  const id = await createKnowledgeBase(request, apiBase, name)
-  await page.goto(`/knowledge-bases/${id}`, { waitUntil: 'networkidle' })
-  return id
+async function openKbDetailForTest(page: import('@playwright/test').Page, name: string): Promise<number> {
+  return createOrFindKb(page, name)
 }
 
 async function deleteKbViaApi(
@@ -37,8 +32,8 @@ test.describe('KB detail page', () => {
   // ──────────────────────────────────────────────────────────────
 
   test('shows KB name as page heading', async ({ page, request }) => {
-    const name = `E2E KB heading ${Date.now()}`
-    const id = await createKbAndNavigate(page, request, name)
+    const name = e2eStableResourceName('kb', test.info().title)
+    const id = await openKbDetailForTest(page, name)
     try {
       await expect(page.getByRole('heading', { name, exact: true })).toBeVisible()
     } finally {
@@ -50,8 +45,8 @@ test.describe('KB detail page', () => {
     page,
     request,
   }) => {
-    const name = `E2E KB back ${Date.now()}`
-    const id = await createKbAndNavigate(page, request, name)
+    const name = e2eStableResourceName('kb', test.info().title)
+    const id = await openKbDetailForTest(page, name)
     try {
       await page.getByRole('link', { name: /all knowledge bases/i }).click()
       await expect(page).toHaveURL('/knowledge-bases')
@@ -61,8 +56,8 @@ test.describe('KB detail page', () => {
   })
 
   test('shows "Details" section with Name and Description fields', async ({ page, request }) => {
-    const name = `E2E KB details ${Date.now()}`
-    const id = await createKbAndNavigate(page, request, name)
+    const name = e2eStableResourceName('kb', test.info().title)
+    const id = await openKbDetailForTest(page, name)
     try {
       await expect(page.getByRole('heading', { name: 'Details', exact: true })).toBeVisible()
       await expect(page.getByRole('textbox', { name: /name/i })).toBeVisible()
@@ -73,8 +68,8 @@ test.describe('KB detail page', () => {
   })
 
   test('name input is pre-filled with the KB name', async ({ page, request }) => {
-    const name = `E2E KB prefill ${Date.now()}`
-    const id = await createKbAndNavigate(page, request, name)
+    const name = e2eStableResourceName('kb', test.info().title)
+    const id = await openKbDetailForTest(page, name)
     try {
       await expect(page.getByRole('textbox', { name: /name/i })).toHaveValue(name)
     } finally {
@@ -87,8 +82,8 @@ test.describe('KB detail page', () => {
   // ──────────────────────────────────────────────────────────────
 
   test('"Save changes" button is disabled when form is clean', async ({ page, request }) => {
-    const name = `E2E KB save-clean ${Date.now()}`
-    const id = await createKbAndNavigate(page, request, name)
+    const name = e2eStableResourceName('kb', test.info().title)
+    const id = await openKbDetailForTest(page, name)
     try {
       await expect(page.getByRole('button', { name: /save changes/i })).toBeDisabled()
     } finally {
@@ -97,8 +92,8 @@ test.describe('KB detail page', () => {
   })
 
   test('"Save changes" button enables after editing name', async ({ page, request }) => {
-    const name = `E2E KB save-enable ${Date.now()}`
-    const id = await createKbAndNavigate(page, request, name)
+    const name = e2eStableResourceName('kb', test.info().title)
+    const id = await openKbDetailForTest(page, name)
     try {
       const nameInput = page.getByRole('textbox', { name: /name/i })
       await nameInput.fill(`${name} edited`)
@@ -109,8 +104,8 @@ test.describe('KB detail page', () => {
   })
 
   test('"Save changes" button enables after editing description', async ({ page, request }) => {
-    const name = `E2E KB save-desc ${Date.now()}`
-    const id = await createKbAndNavigate(page, request, name)
+    const name = e2eStableResourceName('kb', test.info().title)
+    const id = await openKbDetailForTest(page, name)
     try {
       await page.getByRole('textbox', { name: /description/i }).fill('A new description')
       await expect(page.getByRole('button', { name: /save changes/i })).toBeEnabled()
@@ -123,8 +118,8 @@ test.describe('KB detail page', () => {
     page,
     request,
   }) => {
-    const name = `E2E KB revert ${Date.now()}`
-    const id = await createKbAndNavigate(page, request, name)
+    const name = e2eStableResourceName('kb', test.info().title)
+    const id = await openKbDetailForTest(page, name)
     try {
       const nameInput = page.getByRole('textbox', { name: /name/i })
       await nameInput.fill(`${name} edited`)
@@ -137,9 +132,9 @@ test.describe('KB detail page', () => {
   })
 
   test('can save updated KB name', async ({ page, request }) => {
-    const name = `E2E KB save ${Date.now()}`
+    const name = e2eStableResourceName('kb', test.info().title)
     const updated = `${name} UPDATED`
-    const id = await createKbAndNavigate(page, request, name)
+    const id = await openKbDetailForTest(page, name)
     try {
       const nameInput = page.getByRole('textbox', { name: /name/i })
       await nameInput.fill(updated)
@@ -160,8 +155,8 @@ test.describe('KB detail page', () => {
   // ──────────────────────────────────────────────────────────────
 
   test('upload section heading and description are visible', async ({ page, request }) => {
-    const name = `E2E KB upload-section ${Date.now()}`
-    const id = await createKbAndNavigate(page, request, name)
+    const name = e2eStableResourceName('kb', test.info().title)
+    const id = await openKbDetailForTest(page, name)
     try {
       await expect(page.getByRole('heading', { name: /upload documents/i })).toBeVisible()
       await expect(page.getByText(/\.txt.*\.md.*\.pdf/i)).toBeVisible()
@@ -171,8 +166,8 @@ test.describe('KB detail page', () => {
   })
 
   test('file input has correct test-id', async ({ page, request }) => {
-    const name = `E2E KB file-input ${Date.now()}`
-    const id = await createKbAndNavigate(page, request, name)
+    const name = e2eStableResourceName('kb', test.info().title)
+    const id = await openKbDetailForTest(page, name)
     try {
       await expect(page.getByTestId('kb-upload-input')).toBeVisible()
     } finally {
@@ -182,8 +177,8 @@ test.describe('KB detail page', () => {
 
   test('uploading a file shows it in the documents table', async ({ page, request }) => {
     test.setTimeout(60_000)
-    const name = `E2E KB upload-doc ${Date.now()}`
-    const id = await createKbAndNavigate(page, request, name)
+    const name = e2eStableResourceName('kb', test.info().title)
+    const id = await openKbDetailForTest(page, name)
     try {
       const filePath = path.join(E2E_FIXTURES_DIR, 'sample-e2e.txt')
       await page.getByTestId('kb-upload-input').setInputFiles(filePath)
@@ -205,8 +200,8 @@ test.describe('KB detail page', () => {
 
   test('each document row has a delete (Trash2) button', async ({ page, request }) => {
     test.setTimeout(60_000)
-    const name = `E2E KB del-btn ${Date.now()}`
-    const id = await createKbAndNavigate(page, request, name)
+    const name = e2eStableResourceName('kb', test.info().title)
+    const id = await openKbDetailForTest(page, name)
     try {
       await page.getByTestId('kb-upload-input').setInputFiles(
         path.join(E2E_FIXTURES_DIR, 'sample-e2e.txt'),
@@ -221,8 +216,8 @@ test.describe('KB detail page', () => {
 
   test('cancelling document delete leaves the row intact', async ({ page, request }) => {
     test.setTimeout(60_000)
-    const name = `E2E KB del-cancel ${Date.now()}`
-    const id = await createKbAndNavigate(page, request, name)
+    const name = e2eStableResourceName('kb', test.info().title)
+    const id = await openKbDetailForTest(page, name)
     try {
       await page.getByTestId('kb-upload-input').setInputFiles(
         path.join(E2E_FIXTURES_DIR, 'sample-e2e.txt'),
@@ -239,8 +234,8 @@ test.describe('KB detail page', () => {
 
   test('confirming document delete removes row from table', async ({ page, request }) => {
     test.setTimeout(60_000)
-    const name = `E2E KB del-confirm ${Date.now()}`
-    const id = await createKbAndNavigate(page, request, name)
+    const name = e2eStableResourceName('kb', test.info().title)
+    const id = await openKbDetailForTest(page, name)
     try {
       await page.getByTestId('kb-upload-input').setInputFiles(
         path.join(E2E_FIXTURES_DIR, 'sample-e2e.txt'),
@@ -260,8 +255,8 @@ test.describe('KB detail page', () => {
   // ──────────────────────────────────────────────────────────────
 
   test('shows "No files yet" when no documents have been uploaded', async ({ page, request }) => {
-    const name = `E2E KB no-files ${Date.now()}`
-    const id = await createKbAndNavigate(page, request, name)
+    const name = e2eStableResourceName('kb', test.info().title)
+    const id = await openKbDetailForTest(page, name)
     try {
       await expect(page.getByText(/no files yet/i)).toBeVisible()
     } finally {

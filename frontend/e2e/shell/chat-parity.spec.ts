@@ -7,14 +7,14 @@
  * @see docs/superpowers/specs/2026-04-04-chat-remaining-features-delivery.md (Step 1)
  */
 import { test, expect } from '@playwright/test'
-import { createEmptyConversation } from '../support/create-conversation'
+import { gotoChatComposerIndex } from '../support/conversation-ui'
+import { createOrFindConversation } from '../support/ui-helpers'
 
 const apiBase = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
 
 test.describe('Chat — spec parity (no LLM)', () => {
-  test('empty thread documents composer behavior in empty state', async ({ page, request }) => {
-    const convId = await createEmptyConversation(request, apiBase)
-    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
+  test('empty thread documents composer behavior in empty state', async ({ page }) => {
+    await gotoChatComposerIndex(page)
     await expect(page.getByRole('heading', { name: /start the conversation/i })).toBeVisible()
     await expect(
       page.getByText(/nothing is sent until you press send/i),
@@ -23,33 +23,28 @@ test.describe('Chat — spec parity (no LLM)', () => {
 
   test('when starters API returns sections, suggested prompts panel is visible', async ({
     page,
-    request,
   }) => {
-    const convId = await createEmptyConversation(request, apiBase)
-    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
+    await gotoChatComposerIndex(page)
     const starters = page.getByTestId('chat-starters-suggested')
     await expect(starters).toBeVisible({ timeout: 15_000 })
     await expect(page.getByText(/suggested prompts/i)).toBeVisible()
   })
 
-  test('Add options opens capabilities menu with Reflection', async ({ page, request }) => {
-    const convId = await createEmptyConversation(request, apiBase)
-    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
+  test('Add options opens capabilities menu with Reflection', async ({ page }) => {
+    await gotoChatComposerIndex(page)
     await page.getByTestId('chat-add-options').click()
     await expect(page.getByRole('menuitem', { name: /reflection/i })).toBeVisible()
     await expect(page.getByRole('menuitem', { name: /research/i })).toBeVisible()
     await expect(page.getByRole('menuitem', { name: /web stance/i })).toBeVisible()
   })
 
-  test('model selector is visible on thread page', async ({ page, request }) => {
-    const convId = await createEmptyConversation(request, apiBase)
-    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
+  test('model selector is visible on thread page', async ({ page }) => {
+    await gotoChatComposerIndex(page)
     await expect(page.getByTestId('chat-model-select')).toBeVisible()
   })
 
-  test('short thread does not show load-older control', async ({ page, request }) => {
-    const convId = await createEmptyConversation(request, apiBase)
-    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
+  test('short thread does not show load-older control', async ({ page }) => {
+    await gotoChatComposerIndex(page)
     await expect(page.getByTestId('chat-load-older')).toHaveCount(0)
   })
 
@@ -57,7 +52,7 @@ test.describe('Chat — spec parity (no LLM)', () => {
     page,
     request,
   }) => {
-    const convId = await createEmptyConversation(request, apiBase)
+    const convId = await createOrFindConversation(page, `E2E Parity ${Date.now()}`)
     const seed = await request.post(
       `${apiBase}/api/chat/conversations/${convId}/e2e/seed-messages?pairs=52`,
       { headers: { Authorization: 'Bearer devtoken' } },
@@ -78,7 +73,7 @@ test.describe('Chat — spec parity (no LLM)', () => {
     page,
     request,
   }) => {
-    const convId = await createEmptyConversation(request, apiBase)
+    const convId = await createOrFindConversation(page, `E2E Parity ${Date.now()}`)
     const seed = await request.post(
       `${apiBase}/api/chat/conversations/${convId}/e2e/seed-messages?pairs=1`,
       { headers: { Authorization: 'Bearer devtoken' } },

@@ -199,18 +199,31 @@ async def _store_and_queue_kb_upload(
         status="pending",
     )
     db.add(doc)
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        try:
+            dest_path.unlink(missing_ok=True)
+        except OSError:
+            logger.warning(
+                "kb_upload_orphan_file_cleanup_failed",
+                extra={"path": str(dest_path)},
+            )
+        raise
     db.refresh(doc)
 
     if not embedding_svc.embeddings_configured(settings):
+        err = embedding_svc.embeddings_missing_key_message()
         doc.status = "failed"
+        doc.ingest_error = err
         db.commit()
         db.refresh(doc)
         return DocumentUploadResultRead(
             document_id=doc.id,
             status=doc.status,
             filename=safe_name,
-            ingest_error=embedding_svc.embeddings_missing_key_message(),
+            ingest_error=err,
         )
 
     _schedule_document_ingest(doc.id, background_tasks)

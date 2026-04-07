@@ -56,7 +56,7 @@ function RegisterPage() {
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4">
+    <div className="page-enter flex min-h-[calc(100vh-4rem)] items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <h1 className="mb-8 text-2xl font-bold text-gray-900 dark:text-white">
           {inviteToken ? 'Accept invite' : 'Create account'}

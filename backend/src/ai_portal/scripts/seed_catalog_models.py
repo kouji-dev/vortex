@@ -38,6 +38,7 @@ from __future__ import annotations
 import argparse
 import logging
 from typing import Any
+from uuid import UUID
 
 from sqlalchemy import delete, inspect, select, update
 from sqlalchemy.orm import Session
@@ -49,7 +50,7 @@ from ai_portal.catalog_model_definitions import (
 )
 from ai_portal.catalog_specs import CONFIG_BY_SLUG
 from ai_portal.db.session import SessionLocal
-from ai_portal.models import CatalogModel
+from ai_portal.models import CatalogModel, Org
 from ai_portal.services.catalog_model_validate import validate_catalog_model_id
 
 logger = logging.getLogger(__name__)
@@ -112,6 +113,34 @@ def _catalog_seed_rows() -> list[dict[str, Any]]:
 _CATALOG_SEED_ROWS: list[dict[str, Any]] = _catalog_seed_rows()
 
 
+def _ensure_default_org(db: Session) -> UUID:
+    """Resolve org for catalog rows: ``default`` slug, else first org, else insert default org.
+
+    Matches migration backfills that use ``orgs.slug = 'default'`` (see ``022_auth_overhaul`` /
+    ``023_multitenancy``). When the DB is empty (e.g. fresh self-hosted before setup), inserts
+    the same default org row as the initial migration.
+    """
+    org = db.scalars(select(Org).where(Org.slug == "default").limit(1)).first()
+    if org is not None:
+        return org.id
+    org = db.scalars(select(Org).order_by(Org.created_at.asc()).limit(1)).first()
+    if org is not None:
+        logger.info(
+            "catalog seed: no org with slug 'default'; using first org %s (%s)",
+            org.id,
+            org.slug,
+        )
+        return org.id
+    org = Org(slug="default", name="Default Org")
+    db.add(org)
+    db.flush()
+    logger.info(
+        "catalog seed: created default org %s (slug=default) for catalog_models",
+        org.id,
+    )
+    return org.id
+
+
 def _upsert_row(db: Session, row: dict[str, Any]) -> tuple[str, bool]:
     slug = row["slug"]
     existing = db.scalars(
@@ -149,13 +178,14 @@ def run_seed(
 ) -> None:
     db = SessionLocal()
     try:
+        org_id = _ensure_default_org(db)
         _delete_removed_stub_slug(db)
         added: list[str] = []
         updated: list[str] = []
         for row in _CATALOG_SEED_ROWS:
             if not skip_model_validation:
                 validate_catalog_model_id(row["api_model_id"])
-            slug, is_new = _upsert_row(db, row)
+            slug, is_new = _upsert_row(db, {**row, "org_id": org_id})
             if is_new:
                 added.append(slug)
             else:

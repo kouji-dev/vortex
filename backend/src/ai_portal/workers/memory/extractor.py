@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import logging
 from typing import Any
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -84,6 +85,7 @@ def _call_system_profile_llm(
 def extract_user_memories(
     user_id: int,
     *,
+    org_id: UUID,
     user_message: str,
     assistant_message: str,
     db: Session | None = None,
@@ -97,6 +99,7 @@ def extract_user_memories(
             select(UserMemory)
             .where(
                 UserMemory.user_id == user_id,
+                UserMemory.org_id == org_id,
                 UserMemory.is_system == True,  # noqa: E712
                 UserMemory.is_active == True,  # noqa: E712
             )
@@ -119,6 +122,7 @@ def extract_user_memories(
             db.add(
                 UserMemory(
                     user_id=user_id,
+                    org_id=org_id,
                     content=updated,
                     source="auto",
                     is_system=True,

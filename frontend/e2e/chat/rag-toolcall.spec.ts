@@ -1,10 +1,11 @@
 import { test, expect } from '@playwright/test'
-import { createEmptyConversation } from '../support/create-conversation'
+import { e2eStableResourceName } from '../support/resource-slug'
+import { seedRagToolCallForE2e } from '../support/knowledge-api'
 import {
-  attachKnowledgeBasesToConversation,
-  createKnowledgeBase,
-  seedRagToolCallForE2e,
-} from '../support/knowledge-api'
+  attachKbToConversationViaUi,
+  createOrFindConversation,
+  createOrFindKb,
+} from '../support/ui-helpers'
 
 test.describe.configure({ mode: 'serial' })
 
@@ -13,11 +14,13 @@ test.describe('RAG tool-call UI', () => {
     page,
     request,
   }) => {
+    test.setTimeout(180_000)
     const apiBase = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
-    const kbName = `E2E ToolCall KB ${Date.now()}`
-    const kbId = await createKnowledgeBase(request, apiBase, kbName)
-    const convId = await createEmptyConversation(request, apiBase)
-    await attachKnowledgeBasesToConversation(request, apiBase, convId, [kbId])
+    const kbName = e2eStableResourceName('kb', test.info().title)
+    const kbId = await createOrFindKb(page, kbName)
+    const convId = await createOrFindConversation(page, 'E2E RAG Toolcall Shared')
+    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
+    await attachKbToConversationViaUi(page, kbName)
 
     const seedStatus = await seedRagToolCallForE2e(request, apiBase, convId, kbId, kbName)
     expect(
@@ -39,18 +42,13 @@ test.describe('RAG tool-call UI', () => {
     await expect(popover.getByText(kbName, { exact: false })).toBeVisible()
   })
 
-  test('"Thinking block" indicator appears during tool-call stream', async ({
-    page,
-    request,
-  }) => {
-    test.setTimeout(120_000)
-    const apiBase = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
-    const kbName = `E2E Live Stream KB ${Date.now()}`
-    const kbId = await createKnowledgeBase(request, apiBase, kbName)
-    const convId = await createEmptyConversation(request, apiBase)
-    await attachKnowledgeBasesToConversation(request, apiBase, convId, [kbId])
-
+  test('"Thinking block" indicator appears during tool-call stream', async ({ page }) => {
+    test.setTimeout(180_000)
+    const kbName = e2eStableResourceName('kb', `${test.info().title} live`)
+    await createOrFindKb(page, kbName)
+    const convId = await createOrFindConversation(page, 'E2E RAG Toolcall Live Shared')
     await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
+    await attachKbToConversationViaUi(page, kbName)
 
     await page
       .getByRole('textbox', { name: /message/i })

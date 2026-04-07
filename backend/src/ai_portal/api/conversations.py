@@ -1006,6 +1006,7 @@ def stream_message(
                 target=extract_user_memories,
                 kwargs={
                     "user_id": user.id,
+                    "org_id": org_id,
                     "user_message": user_content,
                     "assistant_message": reply,
                 },
@@ -1032,6 +1033,30 @@ def _e2e_rag_seed_allowed() -> bool:
     """Local Playwright only: ``E2E_ENABLE_RAG_SEED=1`` plus dev auth."""
     settings = get_settings()
     return settings.auth_mode == "dev" and os.environ.get("E2E_ENABLE_RAG_SEED", "").strip() == "1"
+
+
+def _e2e_chat_messages_seed_allowed() -> bool:
+    settings = get_settings()
+    return settings.auth_mode == "dev" and os.environ.get("E2E_ENABLE_CHAT_MESSAGES_SEED", "").strip() == "1"
+
+
+@router.post("/conversations/{conversation_id}/e2e/seed-messages", status_code=status.HTTP_200_OK)
+def e2e_seed_messages(
+    conversation_id: int,
+    pairs: int = 10,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Insert N user+assistant message pairs for pagination/parity E2E tests."""
+    if not _e2e_chat_messages_seed_allowed():
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Not found")
+
+    conv = _get_owned_conversation(db, user, conversation_id)
+    for i in range(pairs):
+        db.add(ChatMessage(conversation_id=conv.id, role="user", content=f"E2E seed user {i}"))
+        db.add(ChatMessage(conversation_id=conv.id, role="assistant", content=f"E2E seed assistant {i}"))
+    db.commit()
+    return {"seeded": pairs}
 
 
 class E2eSeedRagAssistantBody(BaseModel):
