@@ -47,3 +47,4 @@ contracts/openapi.json
 .vscode/
 .DS_Store
 Thumbs.db
+.worktrees/
