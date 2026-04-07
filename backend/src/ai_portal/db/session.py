@@ -1,8 +1,3 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-
-from ai_portal.config import get_settings
-
-settings = get_settings()
-engine = create_engine(settings.database_url, pool_pre_ping=True)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# Re-export shim — real implementation moved to core/db/session.py
+from ai_portal.core.db.session import *  # noqa: F401, F403
+from ai_portal.core.db.session import SessionLocal, engine
