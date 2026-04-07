@@ -103,6 +103,7 @@ export function ConversationDrawer({
             conversationsPending={conversationsPending}
             conversationsError={conversationsError}
             onNewConversation={() => { onNewConversation(); onClose() }}
+            onSelectConversation={onClose}
             hideHeader
           />
         </div>

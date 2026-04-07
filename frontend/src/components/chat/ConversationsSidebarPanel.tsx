@@ -14,6 +14,7 @@ type ConversationsSidebarPanelProps = {
   conversationsError: Error | null
   onNewConversation: () => void
   hideHeader?: boolean
+  onSelectConversation?: () => void
 }
 
 export function ConversationsSidebarPanel({
@@ -22,6 +23,7 @@ export function ConversationsSidebarPanel({
   conversationsError,
   onNewConversation,
   hideHeader,
+  onSelectConversation,
 }: ConversationsSidebarPanelProps) {
   const apiBase = getApiBase()
   const qc = useQueryClient()
@@ -235,6 +237,7 @@ export function ConversationsSidebarPanel({
                   className:
                     'min-w-0 flex-1 truncate rounded px-2 py-1 text-left text-sm bg-neutral-200 dark:bg-neutral-800',
                 }}
+                onClick={onSelectConversation}
               >
                 <span
                   className={
