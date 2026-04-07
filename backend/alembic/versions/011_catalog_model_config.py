@@ -12,7 +12,7 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-from ai_portal.catalog_specs import CATALOG_CONFIG_BACKFILL_BY_SLUG
+from ai_portal.catalog.specs import CATALOG_CONFIG_BACKFILL_BY_SLUG
 
 revision: str = "011_catalog_model_config"
 down_revision: str | None = "010_catalog_models"
