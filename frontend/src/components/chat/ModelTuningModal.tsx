@@ -65,7 +65,7 @@ export function ModelTuningModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div
-          className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-neutral-300 dark:bg-neutral-700 md:hidden"
+          className="mx-auto mb-4 mt-2 h-1 w-10 shrink-0 rounded-full bg-neutral-300 dark:bg-neutral-700 md:hidden"
           aria-hidden
         />
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
