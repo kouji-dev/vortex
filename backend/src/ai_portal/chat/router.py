@@ -51,26 +51,15 @@ def get_capability_profile(
     return CapabilityProfileRead(
         reflection=CapabilityProfileEntryRead(
             description=(
-                "Note key assumptions and uncertainties before answering; adjust if you spot gaps."
+                "Deep thinking mode. The model challenges assumptions, gathers data via web search, "
+                "and synthesises a well-reasoned conclusion."
             )
         ),
         research=CapabilityProfileEntryRead(
             description=(
-                "Separate known facts from what would need verification; suggest concrete checks "
-                "or sources the user could use."
+                "Deep web research mode. Breaks the question into sub-questions, searches "
+                "systematically, and returns a comprehensive, well-cited synthesis."
             )
-        ),
-        web=CapabilityProfileEntryRead(
-            description=(
-                "No live web search is configured. If the answer depends on current events or "
-                "post-training facts, say so and suggest how the user can verify."
-            )
-        ),
-        web_search=CapabilityProfileEntryRead(
-            description="Search the web in real time to answer questions about current events or recent information."
-        ),
-        data_query=CapabilityProfileEntryRead(
-            description="Analyse CSV, JSON, or table data you share in the conversation."
         ),
     )
 
