@@ -9,8 +9,8 @@ from sqlalchemy.orm import Session
 
 from ai_portal.auth.strategies.jwt import create_access_token, create_refresh_token
 from ai_portal.auth.password import hash_password, verify_password
-from ai_portal.models.org import Org
-from ai_portal.models.user import User
+from ai_portal.auth.model import Org
+from ai_portal.auth.model import User
 
 
 class RegistrationError(ValueError):

@@ -4,7 +4,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ai_portal.models import CatalogModel
+from ai_portal.catalog.model import CatalogModel
 
 
 def get_active_catalog_model_by_slug(db: Session, slug: str) -> CatalogModel | None:

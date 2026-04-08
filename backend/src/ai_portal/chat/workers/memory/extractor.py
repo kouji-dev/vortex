@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from ai_portal.core.config import get_settings
 from ai_portal.core.db.session import SessionLocal
-from ai_portal.models.memory import UserMemory
+from ai_portal.chat.model import UserMemory
 
 logger = logging.getLogger(__name__)
 

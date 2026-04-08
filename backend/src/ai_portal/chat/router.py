@@ -31,10 +31,8 @@ from ai_portal.chat.schemas import (
     StreamMessageBody,
 )
 from ai_portal.core.config import get_settings
-from ai_portal.models import (
-    ChatMessage,
-    User,
-)
+from ai_portal.auth.model import User
+from ai_portal.chat.model import ChatMessage
 
 router = APIRouter(prefix="/api/chat", tags=["chat-conversations"])
 

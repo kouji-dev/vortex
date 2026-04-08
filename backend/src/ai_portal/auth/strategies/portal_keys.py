@@ -9,8 +9,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ai_portal.core.config import Settings
-from ai_portal.models import User
-from ai_portal.models.user_portal_api_key import UserPortalApiKey
+from ai_portal.auth.model import User
+from ai_portal.auth.model import UserPortalApiKey
 
 
 def hash_portal_api_key(raw_token: str, pepper: str) -> str:

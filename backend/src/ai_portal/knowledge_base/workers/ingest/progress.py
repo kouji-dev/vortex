@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from ai_portal.models.document import Document
+from ai_portal.knowledge_base.model import Document
 
 
 def set_chunks_total(db: Session, doc: Document, *, total: int) -> None:

@@ -6,12 +6,7 @@ from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ai_portal.models import (
-    ConnectorSyncJob,
-    Document,
-    KnowledgeBase,
-    KnowledgeBaseConnector,
-)
+from ai_portal.knowledge_base.model import ConnectorSyncJob, Document, KnowledgeBase, KnowledgeBaseConnector
 
 
 def get_kb_by_id(db: Session, kb_id: int) -> KnowledgeBase | None:

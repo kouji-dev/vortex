@@ -49,7 +49,7 @@ from ai_portal.catalog.definitions import (
 )
 from ai_portal.catalog.specs import CONFIG_BY_SLUG
 from ai_portal.core.db.session import SessionLocal
-from ai_portal.models import CatalogModel
+from ai_portal.catalog.model import CatalogModel
 from ai_portal.catalog.service import validate_catalog_model_id
 
 logger = logging.getLogger(__name__)

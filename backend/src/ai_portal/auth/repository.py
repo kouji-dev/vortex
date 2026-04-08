@@ -5,9 +5,9 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ai_portal.models.org import Org
-from ai_portal.models.org_invite import OrgInvite
-from ai_portal.models.user import User
+from ai_portal.auth.model import Org
+from ai_portal.auth.model import OrgInvite
+from ai_portal.auth.model import User
 
 
 def get_user_by_uuid(db: Session, user_uuid) -> User | None:

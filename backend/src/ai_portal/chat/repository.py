@@ -13,15 +13,10 @@ from sqlalchemy import delete, select
 from sqlalchemy import func as sa_func
 from sqlalchemy.orm import Session
 
-from ai_portal.models import (
-    Assistant,
-    ChatConversation,
-    ChatMessage,
-    ConversationKnowledgeBase,
-    KnowledgeBase,
-    User,
-)
-from ai_portal.models.memory import UserMemory as UserMemoryModel
+from ai_portal.assistant.model import Assistant
+from ai_portal.auth.model import User
+from ai_portal.chat.model import ChatConversation, ChatMessage, UserMemory as UserMemoryModel
+from ai_portal.knowledge_base.model import ConversationKnowledgeBase, KnowledgeBase
 
 
 # ---------------------------------------------------------------------------

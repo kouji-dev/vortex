@@ -26,13 +26,9 @@ from ai_portal.chat.schemas import (
 from ai_portal.chat.workers.memory.extractor import extract_user_memories
 from ai_portal.chat.workers.memory.summarizer import summarize_conversation
 from ai_portal.core.config import get_settings
-from ai_portal.models import (
-    Assistant,
-    ChatConversation,
-    ChatMessage,
-    User,
-)
-from ai_portal.models.memory import UserMemory as UserMemoryModel
+from ai_portal.assistant.model import Assistant
+from ai_portal.auth.model import User
+from ai_portal.chat.model import ChatConversation, ChatMessage, UserMemory as UserMemoryModel
 from ai_portal.catalog.providers import get_chat_provider
 from ai_portal.rag import service as rag_svc
 from ai_portal.catalog.service import (

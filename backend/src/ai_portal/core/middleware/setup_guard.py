@@ -6,7 +6,7 @@ from starlette.responses import JSONResponse
 
 from ai_portal.core.config import get_settings
 from ai_portal.core.db.session import SessionLocal
-from ai_portal.models.org import Org
+from ai_portal.auth.model import Org
 from sqlalchemy import select, func
 
 

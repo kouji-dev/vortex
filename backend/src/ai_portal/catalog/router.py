@@ -8,7 +8,8 @@ from sqlalchemy.orm import Session
 from ai_portal.auth.deps import get_current_user, get_db
 from ai_portal.catalog import repository as repo
 from ai_portal.catalog.schemas import CatalogModelRead
-from ai_portal.models import CatalogModel, User
+from ai_portal.catalog.model import CatalogModel
+from ai_portal.auth.model import User
 from ai_portal.schemas.catalog_model_settings import model_settings_from_metadata
 from ai_portal.catalog.service import resolve_default_conversation_stored_model
 

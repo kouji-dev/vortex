@@ -5,7 +5,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ai_portal.models import User
+from ai_portal.auth.model import User
 
 
 def _normalize_email(value: str) -> str:

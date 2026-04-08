@@ -8,7 +8,8 @@ from fastapi import BackgroundTasks, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from ai_portal.core.config import Settings, get_settings
-from ai_portal.models import KnowledgeBase, KnowledgeBaseConnector, User
+from ai_portal.auth.model import User
+from ai_portal.knowledge_base.model import KnowledgeBase, KnowledgeBaseConnector
 from ai_portal.rag.providers import voyage as embedding_svc
 from ai_portal.knowledge_base.workers.ingest.worker import ingest_document_worker
 from ai_portal.knowledge_base import repository as repo
