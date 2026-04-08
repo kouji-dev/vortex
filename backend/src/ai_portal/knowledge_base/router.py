@@ -22,6 +22,7 @@ from ai_portal.knowledge_base.model import CONNECTOR_KINDS
 from ai_portal.knowledge_base.workers.connector_jobs import run_connector_sync_job
 from ai_portal.knowledge_base import repository as repo
 from ai_portal.knowledge_base import service as svc
+from ai_portal.knowledge_base import ingest_service as ingest_svc
 from ai_portal.knowledge_base.schemas import (
     ConnectorSyncJobRead,
     DocumentRead,
@@ -284,7 +285,7 @@ async def upload_document(
     results = []
     for part in file:
         results.append(
-            await svc.store_and_queue_kb_upload(kb, part, db, settings, background_tasks)
+            await ingest_svc.store_and_queue_kb_upload(kb, part, db, settings, background_tasks)
         )
     return DocumentsUploadResponseRead(results=results)
 

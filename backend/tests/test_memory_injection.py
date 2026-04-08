@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 
-from ai_portal.chat.service import _build_memory_block
+from ai_portal.chat.streaming_service import _build_memory_block
 
 
 def _mem(content: str, *, is_system: bool = False, active: bool = True) -> MagicMock:

@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 import uuid as _uuid
 
 from ai_portal.auth.deps import get_current_org_id, get_current_user, get_db
-from ai_portal.chat.model import UserMemory
+from ai_portal.memory.model import UserMemory
 from ai_portal.auth.model import User
 
 router = APIRouter(prefix="/api/users/me/memories", tags=["memories"])

@@ -121,14 +121,3 @@ def patch_conversation_svc(
     return conversation_read(db, conv)
 
 
-# Re-export so existing callers (router + tests) don't need changes.
-from ai_portal.chat.streaming_service import stream_message_svc  # noqa: F401
-from ai_portal.chat.streaming_service import (  # noqa: F401
-    _build_memory_block,
-    _should_summarize,
-    _slice_window_messages,
-    _title_from_first_user_prompt,
-    _capability_instructions,
-    _sse,
-)
-from ai_portal.chat.tool_service import _dispatch_tool_call  # noqa: F401

@@ -53,10 +53,3 @@ def build_kb_rows(db: Session, kbs: list[KnowledgeBase]) -> list[KnowledgeBaseRe
     ]
 
 
-from ai_portal.knowledge_base.ingest_service import (  # noqa: F401
-    INGEST_JOB_FUNC,
-    INGEST_QUEUE_NAME,
-    enqueue_document_ingest,
-    ingest_uses_queue,
-    store_and_queue_kb_upload,
-)

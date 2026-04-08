@@ -15,7 +15,8 @@ from sqlalchemy.orm import Session
 
 from ai_portal.assistant.model import Assistant
 from ai_portal.auth.model import User
-from ai_portal.chat.model import ChatConversation, ChatMessage, UserMemory as UserMemoryModel
+from ai_portal.chat.model import ChatConversation, ChatMessage
+from ai_portal.memory.model import UserMemory as UserMemoryModel
 from ai_portal.knowledge_base.model import ConversationKnowledgeBase, KnowledgeBase
 
 

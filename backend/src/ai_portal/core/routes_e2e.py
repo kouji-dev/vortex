@@ -90,7 +90,7 @@ def e2e_seed_system_memory(
 ) -> dict[str, bool]:
     """Create or replace the dev user's single ``is_system`` profile row (E2E DB only)."""
     _require_e2e_database(db)
-    from ai_portal.chat.model import UserMemory
+    from ai_portal.memory.model import UserMemory
     existing = db.scalars(
         select(UserMemory)
         .where(

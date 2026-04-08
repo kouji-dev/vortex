@@ -71,7 +71,7 @@ def test_auth_imports():
 
 def test_knowledge_base_imports():
     from ai_portal.knowledge_base.router import router
-    from ai_portal.knowledge_base.service import (
+    from ai_portal.knowledge_base.ingest_service import (
         ingest_uses_queue, enqueue_document_ingest,
         INGEST_QUEUE_NAME, INGEST_JOB_FUNC,
     )
@@ -83,8 +83,8 @@ def test_knowledge_base_imports():
 def test_chat_imports():
     from ai_portal.chat.router import router
     from ai_portal.chat.schemas import ConversationSettings, CapabilityToggles
-    from ai_portal.chat.workers.memory.extractor import extract_user_memories
-    from ai_portal.chat.workers.memory.summarizer import summarize_conversation
+    from ai_portal.memory.workers.extractor import extract_user_memories
+    from ai_portal.memory.workers.summarizer import summarize_conversation
     assert ConversationSettings is not None
 
 

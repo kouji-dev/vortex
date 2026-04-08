@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock, patch
 
-from ai_portal.chat.workers.memory.extractor import extract_user_memories
+from ai_portal.memory.workers.extractor import extract_user_memories
 
 
 def _mock_system_mem(content: str) -> MagicMock:
@@ -15,7 +15,7 @@ def test_extract_creates_system_row_when_missing():
     db = MagicMock()
     db.scalars.return_value.first.return_value = None
     with patch(
-        "ai_portal.chat.workers.memory.extractor._call_system_profile_llm"
+        "ai_portal.memory.workers.extractor._call_system_profile_llm"
     ) as mock_llm:
         mock_llm.return_value = "Prefers Python for tooling."
         extract_user_memories(
@@ -34,7 +34,7 @@ def test_extract_updates_existing_system_row():
     db = MagicMock()
     db.scalars.return_value.first.return_value = existing
     with patch(
-        "ai_portal.chat.workers.memory.extractor._call_system_profile_llm"
+        "ai_portal.memory.workers.extractor._call_system_profile_llm"
     ) as mock_llm:
         mock_llm.return_value = "New profile text"
         extract_user_memories(user_id=1, user_message="...", assistant_message="...", db=db)
@@ -46,7 +46,7 @@ def test_extract_empty_update_skips_commit():
     db = MagicMock()
     db.scalars.return_value.first.return_value = None
     with patch(
-        "ai_portal.chat.workers.memory.extractor._call_system_profile_llm"
+        "ai_portal.memory.workers.extractor._call_system_profile_llm"
     ) as mock_llm:
         mock_llm.return_value = ""
         extract_user_memories(user_id=1, user_message="Hi", assistant_message="Hello", db=db)
@@ -59,7 +59,7 @@ def test_extract_same_text_skips_commit():
     db = MagicMock()
     db.scalars.return_value.first.return_value = existing
     with patch(
-        "ai_portal.chat.workers.memory.extractor._call_system_profile_llm"
+        "ai_portal.memory.workers.extractor._call_system_profile_llm"
     ) as mock_llm:
         mock_llm.return_value = "Unchanged"
         extract_user_memories(user_id=1, user_message="x", assistant_message="y", db=db)

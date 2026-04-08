@@ -5,7 +5,8 @@
 from ai_portal.core.db.base import Base  # noqa: F401
 from ai_portal.assistant.model import Assistant, AssistantAcl  # noqa: F401
 from ai_portal.catalog.model import CatalogModel  # noqa: F401
-from ai_portal.chat.model import ChatConversation, ChatMessage, UserMemory  # noqa: F401
+from ai_portal.chat.model import ChatConversation, ChatMessage  # noqa: F401
+from ai_portal.memory.model import UserMemory  # noqa: F401
 from ai_portal.knowledge_base.model import (  # noqa: F401
     ConnectorSyncJob,
     ConversationKnowledgeBase,

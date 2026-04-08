@@ -1,7 +1,7 @@
 import json
 from unittest.mock import MagicMock, patch
 
-from ai_portal.chat.service import _dispatch_tool_call
+from ai_portal.chat.tool_service import _dispatch_tool_call
 
 
 def test_tool_call_search_dispatches():

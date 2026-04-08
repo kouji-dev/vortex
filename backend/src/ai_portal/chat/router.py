@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from ai_portal.auth.deps import get_current_org_id, get_current_user, get_db
 from ai_portal.chat import repository as repo
 from ai_portal.chat import service as svc
+from ai_portal.chat import streaming_service as streaming_svc
 from ai_portal.chat.schemas import (
     CapabilityProfileEntryRead,
     CapabilityProfileRead,
@@ -240,7 +241,7 @@ def stream_message(
     user: User = Depends(get_current_user),
     org_id: _uuid.UUID = Depends(get_current_org_id),
 ) -> StreamingResponse:
-    return svc.stream_message_svc(db=db, user=user, conversation_id=conversation_id, body=body)
+    return streaming_svc.stream_message_svc(db=db, user=user, conversation_id=conversation_id, body=body)
 
 
 def _e2e_rag_seed_allowed() -> bool:

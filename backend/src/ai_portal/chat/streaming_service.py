@@ -25,11 +25,12 @@ from ai_portal.catalog.service import (
     resolve_stored_model_to_chat_model,
 )
 from ai_portal.chat import repository as repo
-from ai_portal.chat.model import ChatConversation, ChatMessage, UserMemory as UserMemoryModel
+from ai_portal.chat.model import ChatConversation, ChatMessage
 from ai_portal.chat.schemas import ConversationSettings, StreamMessageBody
 from ai_portal.chat.tool_service import _dispatch_tool_call
-from ai_portal.chat.workers.memory.extractor import extract_user_memories
-from ai_portal.chat.workers.memory.summarizer import summarize_conversation
+from ai_portal.memory.model import UserMemory as UserMemoryModel
+from ai_portal.memory.workers.extractor import extract_user_memories
+from ai_portal.memory.workers.summarizer import summarize_conversation
 from ai_portal.core.config import get_settings
 
 logger = logging.getLogger(__name__)
