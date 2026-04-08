@@ -9,10 +9,8 @@ const KB_NAME = 'E2E KB Search Fixture'
 function buildKbSearchSse(messageId: number, kbId: number): string {
   const e = (payload: object) => `data: ${JSON.stringify(payload)}\n\n`
   return (
-    e({ type: 'item_start', item: { kind: 'thinking' } }) +
-    e({ type: 'item_start', item: { kind: 'tool_call', tool: 'search_knowledge_base', params: { query: 'project summary', kb_ids: [kbId] } } }) +
-    e({ type: 'item_done', item: { kind: 'tool_call', tool: 'search_knowledge_base', status: 'done' } }) +
-    e({ type: 'item_done', item: { kind: 'thinking' } }) +
+    e({ type: 'item_start', item: { uid: 'uid-kb-1', kind: 'kb_search', query: 'project summary' } }) +
+    e({ type: 'item_done', item: { uid: 'uid-kb-1', kind: 'kb_search', query: 'project summary', sources: [{ kb_name: 'Test KB', chunks_used: 2 }], status: 'done' } }) +
     e({ type: 'delta', text: 'Based on your documents, the project summary is...' }) +
     e({ type: 'done', message_id: messageId })
   )
@@ -36,32 +34,46 @@ test.describe('kb_search tool', () => {
       })
     })
 
+    // Mock messages refetch so PersistedStreamItems shows chips after stream ends
+    await page.route(`**/api/chat/conversations/${convId}/messages*`, async (route) => {
+      if (route.request().method() === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify([
+            {
+              id: messageId,
+              conversation_id: convId,
+              role: 'assistant',
+              content: 'Based on your documents, the project summary is...',
+              created_at: new Date().toISOString(),
+              extra: {
+                stream_items: [
+                  { uid: 'uid-kb-1', kind: 'kb_search', query: 'project summary', sources: [{ kb_name: 'Test KB', chunks_used: 2 }], status: 'done' },
+                ],
+              },
+            },
+          ]),
+        })
+      } else {
+        await route.continue()
+      }
+    })
+
     const textarea = page.getByRole('textbox', { name: /message/i })
     await textarea.fill('Summarise the project')
     await page.getByRole('button', { name: /send message/i }).click()
 
-    // Thinking pill becomes visible once stream ends
-    const pill = page.getByTestId('chat-thinking-pill')
-    await expect(pill).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByRole('textbox', { name: /message/i })).toBeEnabled({ timeout: 15_000 })
 
-    // Expand to see tool cards
-    await pill.click()
-    const block = page.getByTestId('chat-thinking-block')
-    await expect(block).toBeVisible()
+    const kbChip = page.locator('[data-testid="thread-item-chip"][data-kind="kb_search"]')
+    await expect(kbChip).toBeVisible()
+    await expect(kbChip).toHaveAttribute('data-status', 'done')
 
-    // Tool card for search_knowledge_base
-    const toolCard = block.getByTestId('chat-tool-card').first()
-    await expect(toolCard).toBeVisible()
-    await expect(toolCard.getByTestId('chat-tool-card-name')).toHaveText('Knowledge Base')
-
-    // Param shows query
-    await expect(toolCard.getByTestId('chat-tool-card-param')).toHaveText('project summary')
-
-    // Status is done
-    await expect(toolCard.getByTestId('chat-tool-card-status')).toHaveText('done')
-
-    // Textarea re-enables
-    await expect(textarea).toBeEnabled({ timeout: 15_000 })
+    await kbChip.getByTestId('thread-item-chip-toggle').click()
+    const details = kbChip.locator('[data-testid="thread-item-details"]')
+    await expect(details).toBeVisible()
+    await expect(details).toContainText('project summary')
   })
 
   test('Test B — KB indicator on assistant message', async ({ page }) => {

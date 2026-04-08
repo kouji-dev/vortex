@@ -3,142 +3,117 @@ import { createEmptyConversation } from '../support/create-conversation'
 
 test.describe.configure({ mode: 'serial' })
 
-/** Pre-built SSE that mimics a tool-using stream (thinking + 2 tool calls + reply). */
 function buildToolStreamSse(messageId: number): string {
   const e = (payload: object) => `data: ${JSON.stringify(payload)}\n\n`
   return (
-    e({ type: 'item_start', item: { kind: 'thinking' } }) +
-    e({ type: 'item_start', item: { kind: 'memory', count: 1 } }) +
-    e({ type: 'item_done', item: { kind: 'memory', status: 'done' } }) +
-    e({ type: 'item_start', item: { kind: 'tool_call', tool: 'web_search', params: { query: 'latest news' } } }) +
-    e({ type: 'item_done', item: { kind: 'tool_call', tool: 'web_search', status: 'done' } }) +
-    e({ type: 'item_start', item: { kind: 'tool_call', tool: 'search_knowledge_base', params: { query: 'news' } } }) +
-    e({ type: 'item_done', item: { kind: 'tool_call', tool: 'search_knowledge_base', status: 'done' } }) +
-    e({ type: 'item_done', item: { kind: 'thinking' } }) +
+    e({ type: 'item_start', item: { uid: 'uid-mem-1', kind: 'memory', count: 1 } }) +
+    e({ type: 'item_done', item: { uid: 'uid-mem-1', kind: 'memory', count: 1, status: 'done' } }) +
+    e({ type: 'item_start', item: { uid: 'uid-ws-1', kind: 'web_search', query: 'latest news' } }) +
+    e({ type: 'item_done', item: { uid: 'uid-ws-1', kind: 'web_search', query: 'latest news', result_snippet: 'Top news results...', status: 'done' } }) +
+    e({ type: 'item_start', item: { uid: 'uid-kb-1', kind: 'kb_search', query: 'news' } }) +
+    e({ type: 'item_done', item: { uid: 'uid-kb-1', kind: 'kb_search', query: 'news', sources: [], status: 'done' } }) +
     e({ type: 'delta', text: 'Here is the latest news based on my web search.' }) +
     e({ type: 'done', message_id: messageId })
   )
 }
 
-async function setupSseReplay(
+const STREAM_ITEMS = [
+  { uid: 'uid-mem-1', kind: 'memory', count: 1, status: 'done' },
+  { uid: 'uid-ws-1', kind: 'web_search', query: 'latest news', result_snippet: 'Top news results...', status: 'done' },
+  { uid: 'uid-kb-1', kind: 'kb_search', query: 'news', sources: [], status: 'done' },
+]
+
+async function setupSseAndMessages(
   page: import('@playwright/test').Page,
   convId: number,
-  sseText: string,
+  messageId: number,
 ) {
   await page.route(`**/api/chat/conversations/${convId}/messages/stream`, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'text/event-stream',
-      body: sseText,
+      body: buildToolStreamSse(messageId),
     })
+  })
+
+  // Mock the messages refetch after stream ends so PersistedStreamItems shows chips
+  await page.route(`**/api/chat/conversations/${convId}/messages*`, async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+          {
+            id: messageId,
+            conversation_id: convId,
+            role: 'assistant',
+            content: 'Here is the latest news based on my web search.',
+            created_at: new Date().toISOString(),
+            extra: { stream_items: STREAM_ITEMS },
+          },
+        ]),
+      })
+    } else {
+      await route.continue()
+    }
   })
 }
 
-test.describe('Thinking block UI', () => {
-  test('thinking block collapses to pill after stream ends', async ({ page, request }) => {
+test.describe('Thread item chips UI', () => {
+  test('all three item chips are visible after stream ends', async ({ page, request }) => {
     const base = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
     const convId = await createEmptyConversation(request, base)
-    const sse = buildToolStreamSse(convId * 100)
-
-    await setupSseReplay(page, convId, sse)
+    const messageId = convId * 100
+    await setupSseAndMessages(page, convId, messageId)
     await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
 
     await page.getByRole('textbox', { name: /message/i }).fill('What is the latest news?')
     await page.getByRole('button', { name: /send message/i }).click()
 
-    const pill = page.getByTestId('chat-thinking-pill')
-    await expect(pill).toBeVisible({ timeout: 15_000 })
-    const toolCards = page.getByTestId('chat-tool-card')
-    await expect(toolCards.first()).toBeHidden()
+    await expect(page.getByRole('textbox', { name: /message/i })).toBeEnabled({ timeout: 15_000 })
+
+    const chips = page.getByTestId('thread-item-chip')
+    await expect(chips).toHaveCount(3)
   })
 
-  test('user can expand thinking block by clicking the pill', async ({ page, request }) => {
+  test('memory chip is non-expandable', async ({ page, request }) => {
     const base = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
     const convId = await createEmptyConversation(request, base)
-    const sse = buildToolStreamSse(convId * 100)
-
-    await setupSseReplay(page, convId, sse)
+    const messageId = convId * 100
+    await setupSseAndMessages(page, convId, messageId)
     await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
 
-    await page.getByRole('textbox', { name: /message/i }).fill('What is the latest news?')
+    await page.getByRole('textbox', { name: /message/i }).fill('test')
     await page.getByRole('button', { name: /send message/i }).click()
+    await expect(page.getByRole('textbox', { name: /message/i })).toBeEnabled({ timeout: 15_000 })
 
-    const pill = page.getByTestId('chat-thinking-pill')
-    await expect(pill).toBeVisible({ timeout: 15_000 })
-
-    await pill.click()
-    const block = page.getByTestId('chat-thinking-block')
-    await expect(block).toBeVisible()
-    await expect(block.getByTestId('chat-tool-card').first()).toBeVisible()
+    const memChip = page.locator('[data-testid="thread-item-chip"][data-kind="memory"]')
+    await expect(memChip).toBeVisible()
+    await expect(memChip).toHaveAttribute('data-status', 'done')
+    await expect(memChip.getByTestId('thread-item-chip-toggle')).toBeHidden()
   })
 
-  test('user can collapse thinking block by clicking pill again', async ({ page, request }) => {
+  test('web_search chip is expandable and shows query in details', async ({ page, request }) => {
     const base = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
     const convId = await createEmptyConversation(request, base)
-    const sse = buildToolStreamSse(convId * 100)
-
-    await setupSseReplay(page, convId, sse)
+    const messageId = convId * 100
+    await setupSseAndMessages(page, convId, messageId)
     await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
 
-    await page.getByRole('textbox', { name: /message/i }).fill('What is the latest news?')
+    await page.getByRole('textbox', { name: /message/i }).fill('test')
     await page.getByRole('button', { name: /send message/i }).click()
+    await expect(page.getByRole('textbox', { name: /message/i })).toBeEnabled({ timeout: 15_000 })
 
-    const pill = page.getByTestId('chat-thinking-pill')
-    await expect(pill).toBeVisible({ timeout: 15_000 })
-    await pill.click()
+    const wsChip = page.locator('[data-testid="thread-item-chip"][data-kind="web_search"]')
+    await expect(wsChip).toBeVisible()
+    await expect(wsChip).toHaveAttribute('data-status', 'done')
 
-    const block = page.getByTestId('chat-thinking-block')
-    await expect(block).toBeVisible()
-
-    await pill.click()
-    const toolCards = page.getByTestId('chat-tool-card')
-    await expect(toolCards.first()).toBeHidden()
+    await wsChip.getByTestId('thread-item-chip-toggle').click()
+    await expect(wsChip.locator('[data-testid="thread-item-details"]')).toBeVisible()
+    await expect(wsChip.locator('[data-testid="thread-item-details"]')).toContainText('latest news')
   })
 
-  test('tool cards show correct tool names after expanding', async ({ page, request }) => {
-    const base = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
-    const convId = await createEmptyConversation(request, base)
-    const sse = buildToolStreamSse(convId * 100)
-
-    await setupSseReplay(page, convId, sse)
-    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
-
-    await page.getByRole('textbox', { name: /message/i }).fill('What is the latest news?')
-    await page.getByRole('button', { name: /send message/i }).click()
-
-    const pill = page.getByTestId('chat-thinking-pill')
-    await expect(pill).toBeVisible({ timeout: 15_000 })
-    await pill.click()
-
-    const block = page.getByTestId('chat-thinking-block')
-    const names = block.getByTestId('chat-tool-card-name')
-    await expect(names.first()).toBeVisible()
-    const allNames = await names.allTextContents()
-    expect(allNames.some(n => n.includes('Web Search'))).toBe(true)
-  })
-
-  test('tool cards show "done" status after stream ends', async ({ page, request }) => {
-    const base = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
-    const convId = await createEmptyConversation(request, base)
-    const sse = buildToolStreamSse(convId * 100)
-
-    await setupSseReplay(page, convId, sse)
-    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
-
-    await page.getByRole('textbox', { name: /message/i }).fill('What is the latest news?')
-    await page.getByRole('button', { name: /send message/i }).click()
-
-    const pill = page.getByTestId('chat-thinking-pill')
-    await expect(pill).toBeVisible({ timeout: 15_000 })
-    await pill.click()
-
-    const block = page.getByTestId('chat-thinking-block')
-    const statuses = block.getByTestId('chat-tool-card-status')
-    const allStatuses = await statuses.allTextContents()
-    expect(allStatuses.every(s => s.includes('done'))).toBe(true)
-  })
-
-  test('no thinking block for plain text reply (no item_start events)', async ({ page, request }) => {
+  test('no item chips for plain text reply', async ({ page, request }) => {
     const base = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
     const convId = await createEmptyConversation(request, base)
 
@@ -158,9 +133,7 @@ test.describe('Thinking block UI', () => {
     await page.getByRole('textbox', { name: /message/i }).fill('Say hello')
     await page.getByRole('button', { name: /send message/i }).click()
 
-    // Wait for the stream to complete — the textarea becomes enabled again once streaming=false
     await expect(page.getByRole('textbox', { name: /message/i })).toBeEnabled({ timeout: 15_000 })
-    await expect(page.getByTestId('chat-thinking-block')).toBeHidden()
-    await expect(page.getByTestId('chat-thinking-pill')).toBeHidden()
+    await expect(page.getByTestId('thread-item-chip')).toHaveCount(0)
   })
 })

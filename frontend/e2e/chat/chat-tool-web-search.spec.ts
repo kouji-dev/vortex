@@ -8,10 +8,8 @@ const CONV_NAME = 'E2E Web Search Tool'
 function buildWebSearchSse(messageId: number): string {
   const e = (payload: object) => `data: ${JSON.stringify(payload)}\n\n`
   return (
-    e({ type: 'item_start', item: { kind: 'thinking' } }) +
-    e({ type: 'item_start', item: { kind: 'tool_call', tool: 'web_search', params: { query: 'current oil price' } } }) +
-    e({ type: 'item_done', item: { kind: 'tool_call', tool: 'web_search', status: 'done' } }) +
-    e({ type: 'item_done', item: { kind: 'thinking' } }) +
+    e({ type: 'item_start', item: { uid: 'uid-ws-1', kind: 'web_search', query: 'current oil price' } }) +
+    e({ type: 'item_done', item: { uid: 'uid-ws-1', kind: 'web_search', query: 'current oil price', result_snippet: 'Brent crude at $82.40/barrel', status: 'done' } }) +
     e({ type: 'delta', text: 'Based on web search, oil is $80/barrel.' }) +
     e({ type: 'done', message_id: messageId })
   )
@@ -31,33 +29,49 @@ test.describe('web_search tool', () => {
       })
     })
 
+    // Mock messages refetch so PersistedStreamItems shows chips after stream ends
+    await page.route(`**/api/chat/conversations/${convId}/messages*`, async (route) => {
+      if (route.request().method() === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify([
+            {
+              id: messageId,
+              conversation_id: convId,
+              role: 'assistant',
+              content: 'Based on web search, oil is $80/barrel.',
+              created_at: new Date().toISOString(),
+              extra: {
+                stream_items: [
+                  { uid: 'uid-ws-1', kind: 'web_search', query: 'current oil price', result_snippet: 'Brent crude at $82.40/barrel', status: 'done' },
+                ],
+              },
+            },
+          ]),
+        })
+      } else {
+        await route.continue()
+      }
+    })
+
     await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
     const textarea = page.getByRole('textbox', { name: /message/i })
     await textarea.fill('What is the current oil price?')
     await page.getByRole('button', { name: /send message/i }).click()
 
-    // Thinking pill becomes visible once stream ends
-    const pill = page.getByTestId('chat-thinking-pill')
-    await expect(pill).toBeVisible({ timeout: 15_000 })
+    // Wait for stream to complete
+    await expect(page.getByRole('textbox', { name: /message/i })).toBeEnabled({ timeout: 15_000 })
 
-    // Expand the thinking block to see tool cards
-    await pill.click()
-    const block = page.getByTestId('chat-thinking-block')
-    await expect(block).toBeVisible()
+    const wsChip = page.locator('[data-testid="thread-item-chip"][data-kind="web_search"]')
+    await expect(wsChip).toBeVisible()
+    await expect(wsChip).toHaveAttribute('data-status', 'done')
 
-    // Tool card for web_search is present with correct label
-    const toolCard = block.getByTestId('chat-tool-card').first()
-    await expect(toolCard).toBeVisible()
-    await expect(toolCard.getByTestId('chat-tool-card-name')).toHaveText('Web Search')
-
-    // Param span shows the query
-    await expect(toolCard.getByTestId('chat-tool-card-param')).toHaveText('current oil price')
-
-    // Status is done (not running)
-    await expect(toolCard.getByTestId('chat-tool-card-status')).toHaveText('done')
-
-    // Textarea re-enables after stream completes
-    await expect(textarea).toBeEnabled({ timeout: 15_000 })
+    // Click to expand and check query in details
+    await wsChip.getByTestId('thread-item-chip-toggle').click()
+    const details = wsChip.locator('[data-testid="thread-item-details"]')
+    await expect(details).toBeVisible()
+    await expect(details).toContainText('current oil price')
   })
 
   test('Test B — assistant message rendered after stream', async ({ page }) => {
