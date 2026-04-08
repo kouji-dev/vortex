@@ -1,7 +1,7 @@
 import uuid
 from unittest.mock import MagicMock, patch
 
-from ai_portal.db.tenant import TenantRepository
+from ai_portal.core.db.tenant import TenantRepository
 
 
 class FakeModel:

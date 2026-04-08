@@ -13,8 +13,12 @@ from sqlalchemy.orm import Session
 
 from ai_portal.auth.deps import get_current_user, get_db
 from ai_portal.core.db.base import Base
-from ai_portal.models import assistant, catalog_model, chat, connector, document, knowledge_base, memory, user, user_portal_api_key  # noqa: F401 — import all models so Base.metadata is fully populated
-from ai_portal.models.user import User
+from ai_portal.assistant import model as _assistant_models  # noqa: F401
+from ai_portal.catalog import model as _catalog_models  # noqa: F401
+from ai_portal.chat import model as _chat_models  # noqa: F401
+from ai_portal.knowledge_base import model as _kb_models  # noqa: F401
+from ai_portal.auth import model as _auth_models  # noqa: F401
+from ai_portal.auth.model import User
 
 router = APIRouter(prefix="/api/e2e", tags=["e2e"])
 
@@ -86,7 +90,7 @@ def e2e_seed_system_memory(
 ) -> dict[str, bool]:
     """Create or replace the dev user's single ``is_system`` profile row (E2E DB only)."""
     _require_e2e_database(db)
-    from ai_portal.models.memory import UserMemory
+    from ai_portal.chat.model import UserMemory
     existing = db.scalars(
         select(UserMemory)
         .where(
@@ -132,7 +136,7 @@ def e2e_seed_tool_stream(
     hitting a real LLM or external tools.
     """
     _require_e2e_database(db)
-    from ai_portal.models.chat import ChatMessage as ChatMessageModel
+    from ai_portal.chat.model import ChatMessage as ChatMessageModel
     import json as _json
 
     # Seed user message

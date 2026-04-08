@@ -4,7 +4,7 @@ from fastapi import Depends, HTTPException, Request, status
 
 from ai_portal.auth.deps import get_app_roles, get_current_user
 from ai_portal.core.config import get_settings
-from ai_portal.models import User
+from ai_portal.auth.model import User
 
 
 def require_app_roles(*allowed: str) -> Callable[..., None]:

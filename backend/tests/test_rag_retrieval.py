@@ -25,8 +25,7 @@ def test_returns_empty_when_no_kb_ids():
 
 def test_returns_meta_per_kb():
     """Meta list has one entry per KB that contributed chunks."""
-    from ai_portal.models import Document, DocumentChunk
-    from ai_portal.models.knowledge_base import KnowledgeBase
+    from ai_portal.knowledge_base.model import Document, DocumentChunk, KnowledgeBase
     from ai_portal.rag.service import retrieve_context_with_meta
 
     kb1 = MagicMock(spec=KnowledgeBase)

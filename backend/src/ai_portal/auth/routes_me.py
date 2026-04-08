@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from ai_portal.auth.deps import get_app_roles, get_current_user, get_db
 from ai_portal.auth.routes_rbac import require_app_roles
 from ai_portal.core.config import get_settings
-from ai_portal.models import User
+from ai_portal.auth.model import User
 import ai_portal.auth.strategies.portal_keys as portal_keys_svc
 
 router = APIRouter(prefix="/api", tags=["me"])

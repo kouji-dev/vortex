@@ -7,7 +7,8 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from ai_portal.auth.deps import get_current_org_id, get_current_user, get_db
-from ai_portal.models import Assistant, AssistantAcl, User
+from ai_portal.assistant.model import Assistant, AssistantAcl
+from ai_portal.auth.model import User
 
 router = APIRouter(prefix="/api/assistants", tags=["assistants"])
 

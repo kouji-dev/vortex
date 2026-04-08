@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from ai_portal.auth.deps import get_db
 from ai_portal.auth.strategies.dev import RegistrationError, UserManager
 from ai_portal.core.config import get_settings
-from ai_portal.models.org import Org
+from ai_portal.auth.model import Org
 
 router = APIRouter(tags=["setup"])
 
