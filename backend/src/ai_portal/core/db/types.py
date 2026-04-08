@@ -13,8 +13,8 @@ from sqlalchemy import JSON, TypeDecorator
 
 from ai_portal.chat.schemas import ConversationSettings
 
-# TenantRepository stays in db.tenant so existing patch-based tests keep working.
-from ai_portal.db.tenant import TenantRepository  # noqa: F401
+# TenantRepository canonical location is core.db.tenant; db.tenant re-exports for compat.
+from ai_portal.core.db.tenant import TenantRepository  # noqa: F401
 
 
 class ConversationSettingsJSON(TypeDecorator):

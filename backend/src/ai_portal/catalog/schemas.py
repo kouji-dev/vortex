@@ -6,7 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from ai_portal.schemas import catalog_model_settings
+from ai_portal.catalog import model_settings as catalog_model_settings
 
 
 class CatalogModelRead(BaseModel):

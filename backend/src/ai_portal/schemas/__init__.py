@@ -1,4 +1,4 @@
-from ai_portal.schemas.catalog_model_settings import (
+from ai_portal.catalog.model_settings import (  # noqa: F401
     FeatureFlagsPublic,
     LimitsPublic,
     ModelSettingsPublic,
@@ -6,7 +6,7 @@ from ai_portal.schemas.catalog_model_settings import (
     SamplingSettingsPublic,
     model_settings_from_metadata,
 )
-from ai_portal.chat.schemas import (
+from ai_portal.chat.schemas import (  # noqa: F401
     CapabilityToggles,
     ConversationSettings,
 )
