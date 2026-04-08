@@ -58,14 +58,36 @@ test.describe('Chat — spec parity (no LLM)', () => {
     request,
   }) => {
     const convId = await createEmptyConversation(request, apiBase)
-    const seed = await request.post(
-      `${apiBase}/api/chat/conversations/${convId}/e2e/seed-messages?pairs=52`,
-      { headers: { Authorization: 'Bearer devtoken' } },
-    )
-    expect(
-      seed.status(),
-      `${await seed.text()} — use ./scripts/e2e-up.sh (E2E_ENABLE_CHAT_MESSAGES_SEED=1).`,
-    ).toBe(200)
+
+    // Build 100 messages so canLoadOlder=true, plus an "older" batch with the earliest message
+    const tailMessages = Array.from({ length: 100 }, (_, i) => ({
+      id: i + 1,
+      conversation_id: convId,
+      role: i % 2 === 0 ? 'user' : 'assistant',
+      content: `E2E seed ${i % 2 === 0 ? 'user' : 'assistant'} ${i + 1}`,
+      created_at: new Date(Date.now() - (100 - i) * 60_000).toISOString(),
+      extra: null,
+    }))
+    const olderBatch = [
+      {
+        id: 0,
+        conversation_id: convId,
+        role: 'user',
+        content: 'E2E seed user 0',
+        created_at: new Date(Date.now() - 200 * 60_000).toISOString(),
+        extra: null,
+      },
+    ]
+
+    await page.route(`**/api/chat/conversations/${convId}/messages**`, async (route) => {
+      const url = new URL(route.request().url())
+      if (url.searchParams.has('before_id')) {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(olderBatch) })
+      } else {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(tailMessages) })
+      }
+    })
+
     await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
     await expect(page.getByTestId('chat-load-older')).toBeVisible({ timeout: 20_000 })
     await page.getByTestId('chat-load-older').click()
@@ -79,14 +101,22 @@ test.describe('Chat — spec parity (no LLM)', () => {
     request,
   }) => {
     const convId = await createEmptyConversation(request, apiBase)
-    const seed = await request.post(
-      `${apiBase}/api/chat/conversations/${convId}/e2e/seed-messages?pairs=1`,
-      { headers: { Authorization: 'Bearer devtoken' } },
-    )
-    expect(
-      seed.status(),
-      `${await seed.text()} — use ./scripts/e2e-up.sh (E2E_ENABLE_CHAT_MESSAGES_SEED=1).`,
-    ).toBe(200)
+
+    const messages = [
+      {
+        id: 1,
+        conversation_id: convId,
+        role: 'user',
+        content: 'Hello',
+        created_at: new Date().toISOString(),
+        extra: null,
+      },
+    ]
+
+    await page.route(`**/api/chat/conversations/${convId}/messages**`, async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(messages) })
+    })
+
     await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
     const details = page.getByTestId('chat-starters-collapsed')
     await expect(details).toBeVisible({ timeout: 15_000 })

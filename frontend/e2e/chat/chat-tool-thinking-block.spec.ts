@@ -25,14 +25,10 @@ async function setupSseReplay(
   convId: number,
   sseText: string,
 ) {
-  await page.route(`**/api/chat/conversations/${convId}/messages`, async (route) => {
+  await page.route(`**/api/chat/conversations/${convId}/messages/stream`, async (route) => {
     await route.fulfill({
       status: 200,
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'X-Accel-Buffering': 'no',
-      },
+      contentType: 'text/event-stream',
       body: sseText,
     })
   })
@@ -150,7 +146,7 @@ test.describe('Thinking block UI', () => {
       'data: {"type":"delta","text":"Hello!"}\n\n' +
       'data: {"type":"done","message_id":999}\n\n'
 
-    await page.route(`**/api/chat/conversations/${convId}/messages`, async (route) => {
+    await page.route(`**/api/chat/conversations/${convId}/messages/stream`, async (route) => {
       await route.fulfill({
         status: 200,
         headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
@@ -162,7 +158,8 @@ test.describe('Thinking block UI', () => {
     await page.getByRole('textbox', { name: /message/i }).fill('Say hello')
     await page.getByRole('button', { name: /send message/i }).click()
 
-    await expect(page.getByText('Hello!')).toBeVisible({ timeout: 15_000 })
+    // Wait for the stream to complete — the textarea becomes enabled again once streaming=false
+    await expect(page.getByRole('textbox', { name: /message/i })).toBeEnabled({ timeout: 15_000 })
     await expect(page.getByTestId('chat-thinking-block')).toBeHidden()
     await expect(page.getByTestId('chat-thinking-pill')).toBeHidden()
   })

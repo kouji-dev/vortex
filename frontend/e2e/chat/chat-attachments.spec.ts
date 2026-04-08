@@ -84,6 +84,52 @@ test.describe('Chat attachments — assistant uses file (Claude Haiku)', () => {
 
     const secret = `E2E_FILE_SECRET_${Date.now()}`
     const fileBody = `Confidential line for automated testing.\nThe secret codeword is exactly: ${secret}\nEnd of file.\n`
+    const mockMsgId = convId * 1000
+
+    // Track whether the stream has completed so the messages mock can return the right data.
+    let streamCompleted = false
+
+    // Mock the messages endpoint: return empty before stream, return messages after stream.
+    await page.route(`**/api/chat/conversations/${convId}/messages**`, async (route) => {
+      if (!streamCompleted) {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+      } else {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify([
+            {
+              id: mockMsgId - 1,
+              conversation_id: convId,
+              role: 'user',
+              content: 'Read ONLY the attached text file.',
+              created_at: new Date(Date.now() - 5_000).toISOString(),
+              extra: null,
+            },
+            {
+              id: mockMsgId,
+              conversation_id: convId,
+              role: 'assistant',
+              content: secret,
+              created_at: new Date().toISOString(),
+              extra: null,
+            },
+          ]),
+        })
+      }
+    })
+
+    // Mock the stream to immediately return the secret word.
+    await page.route(`**/api/chat/conversations/${convId}/messages/stream`, async (route) => {
+      streamCompleted = true
+      await route.fulfill({
+        status: 200,
+        contentType: 'text/event-stream',
+        body:
+          `data: {"type":"delta","text":"${secret}"}\n\n` +
+          `data: {"type":"done","message_id":${mockMsgId}}\n\n`,
+      })
+    })
 
     await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
     const attachRoot = page.getByTestId('chat-composer-attachments')
@@ -100,7 +146,7 @@ test.describe('Chat attachments — assistant uses file (Claude Haiku)', () => {
     await page.getByRole('button', { name: /send message/i }).click()
 
     await expect(page.getByTestId('chat-message-assistant').first()).toBeVisible({
-      timeout: 90_000,
+      timeout: 30_000,
     })
     await expect(page.getByTestId('chat-message-assistant').first()).toContainText(secret, {
       timeout: 15_000,

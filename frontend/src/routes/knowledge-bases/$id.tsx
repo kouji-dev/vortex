@@ -290,13 +290,21 @@ function KnowledgeBaseDetailPage() {
 
       try {
         const headers = await getAuthHeaders()
-        await postFormDataWithUploadProgress(url, fd, headers, (percent, lengthComputable) => {
+        const uploadResult = await postFormDataWithUploadProgress(url, fd, headers, (percent, lengthComputable) => {
           setActiveUploads((prev) =>
             prev.map((u) =>
               u.id === uploadId ? { ...u, percent, lengthComputable } : u,
             ),
           )
         })
+        const firstResult = uploadResult.results[0]
+        if (firstResult?.document_id == null && firstResult?.ingest_error) {
+          setActiveUploads((prev) =>
+            prev.map((u) => (u.id === uploadId ? { ...u, error: firstResult.ingest_error! } : u)),
+          )
+          dismissAfterMs(8000)
+          return
+        }
         setActiveUploads((prev) =>
           prev.map((u) =>
             u.id === uploadId ? { ...u, percent: 100, lengthComputable: true } : u,
