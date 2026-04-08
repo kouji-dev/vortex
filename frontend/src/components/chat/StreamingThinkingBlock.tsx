@@ -6,7 +6,6 @@ import {
   Globe,
   Library,
   Loader2,
-  Table2,
   Wrench,
 } from 'lucide-react'
 import type { StreamItem, ThinkingChildItem, ThinkingItem } from '~/lib/chat-types'
@@ -24,8 +23,6 @@ function getToolIcon(tool: string, isMemory: boolean) {
       return <Globe className="size-3.5 shrink-0" strokeWidth={2} />
     case 'search_knowledge_base':
       return <Library className="size-3.5 shrink-0" strokeWidth={2} />
-    case 'query_structured_data':
-      return <Table2 className="size-3.5 shrink-0" strokeWidth={2} />
     default:
       return <Wrench className="size-3.5 shrink-0" strokeWidth={2} />
   }
@@ -38,8 +35,6 @@ function getToolLabel(tool: string, isMemory: boolean): string {
       return 'Web Search'
     case 'search_knowledge_base':
       return 'Knowledge Base'
-    case 'query_structured_data':
-      return 'Data Analysis'
     default:
       return tool
   }
@@ -82,7 +77,10 @@ function ToolCard({ child }: { child: ThinkingChildItem }) {
           {label}
         </span>
         {param ? (
-          <span className="text-[11px] text-neutral-400 dark:text-neutral-500 truncate">
+          <span
+            data-testid="chat-tool-card-param"
+            className="text-[11px] text-neutral-400 dark:text-neutral-500 truncate"
+          >
             {param}
           </span>
         ) : null}
