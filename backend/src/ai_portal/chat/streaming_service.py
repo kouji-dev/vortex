@@ -145,12 +145,10 @@ def stream_message_svc(
             tools=tools,
             use_model=use_model,
             settings=settings,
-            manual_memories=manual_memories,
-            system_profile=system_profile,
             active_memory_count=active_memory_count,
             kb_ids=kb_ids,
             tail_message_id=_tail_message_id,
-            max_iter=max_iter,
+            max_iterations=max_iter,
         )
 
     return StreamingResponse(
@@ -311,16 +309,13 @@ def _stream_loop(
     tools: list[dict[str, Any]],
     use_model: Any,
     settings: Any,
-    manual_memories: list,
-    system_profile: Any,
     active_memory_count: int,
     kb_ids: list[int],
     tail_message_id: Any,
-    max_iter: int,
+    max_iterations: int,
 ) -> Any:
     used_kbs_meta: list[dict] = []
     messages = list(llm_messages)
-    max_iterations = max_iter
     iterations = 0
     thinking_started = False
 
