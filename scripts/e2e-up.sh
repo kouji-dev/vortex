@@ -113,6 +113,18 @@ else
   BACKEND_DIR="$REPO_ROOT/backend"
 fi
 
+# ── 3.5. Reset E2E database ───────────────────────────────────────────────────
+echo "▶ Resetting E2E database '${E2E_DB_NAME}' (drop + recreate for a clean run)..."
+# Terminate any existing connections so DROP can succeed
+docker exec "$E2E_CONTAINER" psql -U postgres -c \
+  "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${E2E_DB_NAME}' AND pid <> pg_backend_pid();" \
+  postgres > /dev/null 2>&1 || true
+docker exec "$E2E_CONTAINER" psql -U postgres \
+  -c "DROP DATABASE IF EXISTS \"${E2E_DB_NAME}\";" postgres
+docker exec "$E2E_CONTAINER" psql -U postgres \
+  -c "CREATE DATABASE \"${E2E_DB_NAME}\";" postgres
+echo "   Database reset."
+
 # ── 4. Run migrations ─────────────────────────────────────────────────────────
 echo "▶ Running alembic migrations..."
 (cd "$BACKEND_DIR" && DATABASE_URL="$E2E_DB_URL" "$PYTHON" -m alembic upgrade head)
