@@ -11,7 +11,6 @@ export type CapabilityProfileEntry = {
 export type ChatCapabilityProfilePayload = {
   reflection: CapabilityProfileEntry
   research: CapabilityProfileEntry
-  web: CapabilityProfileEntry
 }
 
 export function useChatCapabilityProfileQuery(enabled: boolean) {

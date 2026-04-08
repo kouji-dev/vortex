@@ -19,7 +19,6 @@ export interface UsedKbEntry {
 export type CapabilityToggles = {
   reflection: boolean
   research: boolean
-  web: boolean
 }
 
 export type ConversationSettings = {
@@ -66,7 +65,6 @@ export type AssistantSummary = {
 export const DEFAULT_CAPABILITIES: CapabilityToggles = {
   reflection: false,
   research: false,
-  web: false,
 }
 
 /** Parsed from ``catalog_metadata.config``; stable API surface for UI. */
