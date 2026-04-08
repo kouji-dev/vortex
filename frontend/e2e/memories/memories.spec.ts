@@ -3,8 +3,6 @@ import { test, expect } from '@playwright/test'
 import {
   createMemoryViaApi,
   deleteMemoryViaApi,
-  purgeE2eDatabase,
-  seedSystemMemoryForE2e,
 } from '../support/memories-api'
 
 test.describe.configure({ mode: 'serial' })
@@ -123,35 +121,6 @@ test.describe('Memories page', () => {
     }
   })
 
-  test('system profile row shows "profile" badge and no delete control', async ({
-    page,
-    request,
-  }) => {
-    const content = `E2E profile row ${Date.now()}`
-    const purgeStatus = await purgeE2eDatabase(request)
-    test.skip(
-      purgeStatus !== 200,
-      'E2E purge unavailable (use ai_portal_e2e DB + ./scripts/e2e-up.sh)',
-    )
-    try {
-      const seedStatus = await seedSystemMemoryForE2e(request, content)
-      test.skip(
-        seedStatus === 404,
-        'POST /api/e2e/seed-system-memory not found — restart E2E API with latest backend code.',
-      )
-      test.skip(
-        seedStatus === 403,
-        'E2E seed requires database ai_portal_e2e (./scripts/e2e-up.sh).',
-      )
-      expect(seedStatus).toBe(201)
-      await page.goto('/memories', { waitUntil: 'networkidle' })
-      const row = memoryRow(page, content)
-      await expect(row.getByRole('cell').nth(2).getByText('profile', { exact: true })).toBeVisible()
-      await expect(row.getByTitle('Delete memory')).toHaveCount(0)
-    } finally {
-      await purgeE2eDatabase(request)
-    }
-  })
 
   test('POST /api/users/me/memories returns is_system false for manual rows', async ({
     request,
@@ -385,12 +354,6 @@ test.describe('Memories page', () => {
   // Empty state
   // ──────────────────────────────────────────────────────────────
 
-  test('shows "No memories yet" message when list is empty', async ({ page, request }) => {
-    const purgeStatus = await purgeE2eDatabase(request)
-    test.skip(purgeStatus !== 200, 'E2E purge unavailable (use ai_portal_e2e DB + ./scripts/e2e-up.sh)')
-    await page.goto('/memories', { waitUntil: 'networkidle' })
-    await expect(page.getByText(/no memories yet/i)).toBeVisible({ timeout: 20_000 })
-  })
 
   test('memory created via API appears on the page', async ({ page, request }) => {
     const content = `E2E api-visible ${Date.now()}`

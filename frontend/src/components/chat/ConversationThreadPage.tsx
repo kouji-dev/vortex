@@ -198,6 +198,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
 
   const showEmptyHub =
     !streaming &&
+    streamItems.length === 0 &&
     visibleMessages.length === 0 &&
     (isComposerMode || (convQ.data != null && !tailQ.isPending))
 

@@ -2,9 +2,9 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from ai_portal.db.session import SessionLocal
+from ai_portal.core.db.session import SessionLocal
 from ai_portal.main import app
-from ai_portal.services.default_conversation_model import (
+from ai_portal.catalog.service import (
     resolve_default_conversation_stored_model,
 )
 from tests.conftest import requires_postgres
@@ -82,9 +82,9 @@ def test_conversations_crud_and_messages():
     assert r.status_code == 201, r.text
     body = r.json()
     cid = body["id"]
-    assert body["settings"] == {
-        "capabilities": {"reflection": False, "research": False, "web": True},
-    }
+    assert body["settings"]["capabilities"]["web"] is True
+    assert body["settings"]["capabilities"]["reflection"] is False
+    assert body["settings"]["capabilities"]["research"] is False
 
     r = client.get("/api/chat/conversations", headers=AUTH)
     assert r.status_code == 200
@@ -133,10 +133,10 @@ def test_conversations_settings_rejects_unknown_capability_key():
 
 
 @requires_postgres
-@patch("ai_portal.api.conversations.llm_svc.chat_completions_stream_deltas")
+@patch("ai_portal.catalog.providers.langchain.LangChainChatProvider.stream_deltas_with_tools")
 def test_first_stream_message_sets_title_from_prompt_truncated(mock_deltas, monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-    mock_deltas.return_value = iter(["x"])
+    mock_deltas.return_value = iter([{"type": "delta", "text": "x"}])
 
     r = client.post("/api/chat/conversations", headers=AUTH, json={})
     assert r.status_code == 201, r.text
@@ -156,7 +156,7 @@ def test_first_stream_message_sets_title_from_prompt_truncated(mock_deltas, monk
     assert gr.status_code == 200
     assert gr.json()["title"] == "a" * 125 + "..."
 
-    mock_deltas.return_value = iter(["y"])
+    mock_deltas.return_value = iter([{"type": "delta", "text": "y"}])
     sr2 = client.post(
         f"/api/chat/conversations/{cid}/messages/stream",
         headers=AUTH,
@@ -170,7 +170,7 @@ def test_first_stream_message_sets_title_from_prompt_truncated(mock_deltas, monk
 
 
 @requires_postgres
-@patch("ai_portal.api.conversations.llm_svc.chat_completions_stream_deltas")
+@patch("ai_portal.catalog.providers.langchain.LangChainChatProvider.stream_deltas_with_tools")
 def test_stream_llm_error_persists_user_and_error_assistant(mock_deltas, monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     mock_deltas.side_effect = ValueError("model unavailable")
@@ -204,10 +204,10 @@ def test_stream_llm_error_persists_user_and_error_assistant(mock_deltas, monkeyp
 
 
 @requires_postgres
-@patch("ai_portal.api.conversations.llm_svc.chat_completions_stream_deltas")
+@patch("ai_portal.catalog.providers.langchain.LangChainChatProvider.stream_deltas_with_tools")
 def test_messages_recent_tail_and_before_id(mock_deltas, monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-    mock_deltas.return_value = iter(["ok"])
+    mock_deltas.return_value = iter([{"type": "delta", "text": "ok"}])
 
     r = client.post("/api/chat/conversations", headers=AUTH, json={})
     assert r.status_code == 201, r.text
@@ -279,10 +279,10 @@ def test_patch_assistant_id_requires_visible_assistant():
 
 
 @requires_postgres
-@patch("ai_portal.api.conversations.llm_svc.chat_completions_stream_deltas")
+@patch("ai_portal.catalog.providers.langchain.LangChainChatProvider.stream_deltas_with_tools")
 def test_patch_delete_and_regenerate_message(mock_deltas, monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-    mock_deltas.return_value = iter(["x"])
+    mock_deltas.return_value = iter([{"type": "delta", "text": "x"}])
 
     r = client.post("/api/chat/conversations", headers=AUTH, json={})
     assert r.status_code == 201, r.text
@@ -324,7 +324,7 @@ def test_patch_delete_and_regenerate_message(mock_deltas, monkeypatch):
     assert len(msgs2) == 1
 
     # new assistant reply, then regenerate
-    mock_deltas.return_value = iter(["y"])
+    mock_deltas.return_value = iter([{"type": "delta", "text": "y"}])
     sr2 = client.post(
         f"/api/chat/conversations/{cid}/messages/stream",
         headers=AUTH,
@@ -337,7 +337,7 @@ def test_patch_delete_and_regenerate_message(mock_deltas, monkeypatch):
         headers=AUTH,
     ).json()
     aid2 = next(m["id"] for m in msgs3 if m["role"] == "assistant")
-    mock_deltas.return_value = iter(["z"])
+    mock_deltas.return_value = iter([{"type": "delta", "text": "z"}])
     sr3 = client.post(
         f"/api/chat/conversations/{cid}/messages/stream",
         headers=AUTH,
@@ -354,68 +354,3 @@ def test_patch_delete_and_regenerate_message(mock_deltas, monkeypatch):
     assert "z" in msgs4[-1]["content"]
 
 
-@requires_postgres
-def test_e2e_seed_rag_assistant_not_found_without_env_flag(monkeypatch):
-    monkeypatch.delenv("E2E_ENABLE_RAG_SEED", raising=False)
-    kb = client.post(
-        "/api/knowledge-bases",
-        headers=AUTH,
-        json={"name": "e2e-seed-off", "description": ""},
-    )
-    assert kb.status_code == 201, kb.text
-    kb_id = kb.json()["id"]
-    cr = client.post("/api/chat/conversations", headers=AUTH, json={})
-    cid = cr.json()["id"]
-    client.put(
-        f"/api/chat/conversations/{cid}/knowledge-bases",
-        headers=AUTH,
-        json={"knowledge_base_ids": [kb_id]},
-    )
-    r = client.post(
-        f"/api/chat/conversations/{cid}/e2e/seed-rag-assistant",
-        headers=AUTH,
-        json={"kb_id": kb_id, "kb_name": "X"},
-    )
-    assert r.status_code == 404
-
-
-@requires_postgres
-def test_e2e_seed_rag_assistant_inserts_messages_with_used_kbs(monkeypatch):
-    monkeypatch.setenv("E2E_ENABLE_RAG_SEED", "1")
-    kb = client.post(
-        "/api/knowledge-bases",
-        headers=AUTH,
-        json={"name": "e2e-seed-on", "description": ""},
-    )
-    assert kb.status_code == 201, kb.text
-    kb_id = kb.json()["id"]
-    cr = client.post("/api/chat/conversations", headers=AUTH, json={})
-    cid = cr.json()["id"]
-    client.put(
-        f"/api/chat/conversations/{cid}/knowledge-bases",
-        headers=AUTH,
-        json={"knowledge_base_ids": [kb_id]},
-    )
-    r = client.post(
-        f"/api/chat/conversations/{cid}/e2e/seed-rag-assistant",
-        headers=AUTH,
-        json={"kb_id": kb_id, "kb_name": "Seeded KB"},
-    )
-    assert r.status_code == 201, r.text
-    msgs = client.get(
-        f"/api/chat/conversations/{cid}/messages?recent=false",
-        headers=AUTH,
-    ).json()
-    assistants = [m for m in msgs if m["role"] == "assistant"]
-    assert len(assistants) == 2
-    assert assistants[0]["extra"] is None
-    assert assistants[1]["extra"] is not None
-    assert assistants[1]["extra"]["used_kbs"][0]["kb_name"] == "Seeded KB"
-
-
-@requires_postgres
-def test_e2e_purge_refused_when_not_e2e_database():
-    """Playwright teardown must not truncate the main dev DB (ai_portal)."""
-    r = client.post("/api/e2e/purge", headers=AUTH)
-    assert r.status_code == 403
-    assert "ai_portal_e2e" in r.json()["detail"]

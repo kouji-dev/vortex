@@ -48,7 +48,7 @@ def test_web_search_tool_called_and_reply_streamed():
         {"type": "delta", "text": "Python 3.13 was released in October 2024."},
     ]
 
-    with patch("ai_portal.api.conversations.llm_svc.chat_completions_stream_with_tools") as mock_stream, \
+    with patch("ai_portal.catalog.providers.langchain.LangChainChatProvider.stream_deltas_with_tools") as mock_stream, \
          patch("ai_portal.tools.registry.DuckDuckGoProvider") as MockDDG:
         mock_stream.return_value = iter(stream_pieces)
         instance = MagicMock()
@@ -92,7 +92,7 @@ def test_web_search_result_referenced_in_reply():
         else:
             yield {"type": "delta", "text": "Based on search results: OpenAI released GPT-5."}
 
-    with patch("ai_portal.api.conversations.llm_svc.chat_completions_stream_with_tools", side_effect=fake_stream), \
+    with patch("ai_portal.catalog.providers.langchain.LangChainChatProvider.stream_deltas_with_tools", side_effect=fake_stream), \
          patch("ai_portal.tools.registry.DuckDuckGoProvider") as MockDDG:
         instance = MagicMock()
         from ai_portal.tools.search.base import SearchResult
@@ -131,8 +131,8 @@ def test_data_query_tool_called():
         {"type": "delta", "text": "Alice has the highest score with 90."},
     ]
 
-    with patch("ai_portal.api.conversations.llm_svc.chat_completions_stream_with_tools") as mock_stream, \
-         patch("ai_portal.tools.data.query.llm_svc.chat_completions_stream_deltas") as mock_data_llm:
+    with patch("ai_portal.catalog.providers.langchain.LangChainChatProvider.stream_deltas_with_tools") as mock_stream, \
+         patch("ai_portal.catalog.providers.langchain.LangChainChatProvider.stream_deltas") as mock_data_llm:
         mock_stream.return_value = iter(stream_pieces)
         mock_data_llm.return_value = iter(["Alice has the highest score with 90."])
 
@@ -171,8 +171,8 @@ def test_data_query_result_in_reply():
         else:
             yield {"type": "delta", "text": "The sum of x is 4."}
 
-    with patch("ai_portal.api.conversations.llm_svc.chat_completions_stream_with_tools", side_effect=fake_stream), \
-         patch("ai_portal.tools.data.query.llm_svc.chat_completions_stream_deltas") as mock_data_llm:
+    with patch("ai_portal.catalog.providers.langchain.LangChainChatProvider.stream_deltas_with_tools", side_effect=fake_stream), \
+         patch("ai_portal.catalog.providers.langchain.LangChainChatProvider.stream_deltas") as mock_data_llm:
         mock_data_llm.return_value = iter(["The sum of x is 4."])
 
         resp = client.post(
@@ -200,7 +200,7 @@ def test_tools_off_by_default():
         captured_tools.append(tools)
         yield {"type": "delta", "text": "Hello!"}
 
-    with patch("ai_portal.api.conversations.llm_svc.chat_completions_stream_with_tools", side_effect=fake_stream):
+    with patch("ai_portal.catalog.providers.langchain.LangChainChatProvider.stream_deltas_with_tools", side_effect=fake_stream):
         resp = client.post(
             f"/api/chat/conversations/{cid}/messages/stream",
             headers=AUTH,
@@ -244,7 +244,7 @@ def test_item_start_done_protocol():
         else:
             yield {"type": "delta", "text": "Here is the answer."}
 
-    with patch("ai_portal.api.conversations.llm_svc.chat_completions_stream_with_tools", side_effect=fake_stream), \
+    with patch("ai_portal.catalog.providers.langchain.LangChainChatProvider.stream_deltas_with_tools", side_effect=fake_stream), \
          patch("ai_portal.tools.registry.DuckDuckGoProvider") as MockDDG:
         instance = MagicMock()
         from ai_portal.tools.search.base import SearchResult

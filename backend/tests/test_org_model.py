@@ -1,5 +1,4 @@
-from ai_portal.models.org import Org
-from ai_portal.models.user import User
+from ai_portal.auth.model import Org, User
 
 
 def test_org_model_has_expected_columns():

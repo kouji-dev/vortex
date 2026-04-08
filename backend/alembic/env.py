@@ -9,7 +9,7 @@ from sqlalchemy import create_engine, pool
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from ai_portal.config import get_settings  # noqa: E402
+from ai_portal.core.config import get_settings  # noqa: E402
 from ai_portal.models import Base  # noqa: E402
 
 config = context.config

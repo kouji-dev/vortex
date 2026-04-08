@@ -1,11 +1,9 @@
 import { test, expect } from '@playwright/test'
-import { e2eStableResourceName } from '../support/resource-slug'
-import { seedRagToolCallForE2e } from '../support/knowledge-api'
+import { createEmptyConversation } from '../support/create-conversation'
 import {
-  attachKbToConversationViaUi,
-  createOrFindConversation,
-  createOrFindKb,
-} from '../support/ui-helpers'
+  attachKnowledgeBasesToConversation,
+  createKnowledgeBase,
+} from '../support/knowledge-api'
 
 test.describe.configure({ mode: 'serial' })
 
@@ -14,19 +12,36 @@ test.describe('RAG tool-call UI', () => {
     page,
     request,
   }) => {
-    test.setTimeout(180_000)
     const apiBase = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
-    const kbName = e2eStableResourceName('kb', test.info().title)
-    const kbId = await createOrFindKb(page, kbName)
-    const convId = await createOrFindConversation(page, 'E2E RAG Toolcall Shared')
-    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
-    await attachKbToConversationViaUi(page, kbName)
+    const kbName = `E2E ToolCall KB ${Date.now()}`
+    const kbId = await createKnowledgeBase(request, apiBase, kbName)
+    const convId = await createEmptyConversation(request, apiBase)
+    await attachKnowledgeBasesToConversation(request, apiBase, convId, [kbId])
 
-    const seedStatus = await seedRagToolCallForE2e(request, apiBase, convId, kbId, kbName)
-    expect(
-      seedStatus,
-      'e2e/seed-rag-assistant must return 201 (./scripts/e2e-up.sh sets E2E_ENABLE_RAG_SEED=1).',
-    ).toBe(201)
+    // Mock the messages endpoint to return a pre-built RAG tool-call assistant message
+    const messages = [
+      {
+        id: 1,
+        conversation_id: convId,
+        role: 'user',
+        content: 'What is in this knowledge base?',
+        created_at: new Date(Date.now() - 10_000).toISOString(),
+        extra: null,
+      },
+      {
+        id: 2,
+        conversation_id: convId,
+        role: 'assistant',
+        content: 'This reply used the search_knowledge_base tool to look up information from the knowledge base.',
+        created_at: new Date().toISOString(),
+        extra: null,
+        used_kbs: [{ kb_id: kbId, kb_name: kbName, chunks_used: 2, top_score: 0.9 }],
+      },
+    ]
+
+    await page.route(`**/api/chat/conversations/${convId}/messages**`, async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(messages) })
+    })
 
     await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
 
@@ -42,13 +57,18 @@ test.describe('RAG tool-call UI', () => {
     await expect(popover.getByText(kbName, { exact: false })).toBeVisible()
   })
 
-  test('"Thinking block" indicator appears during tool-call stream', async ({ page }) => {
-    test.setTimeout(180_000)
-    const kbName = e2eStableResourceName('kb', `${test.info().title} live`)
-    await createOrFindKb(page, kbName)
-    const convId = await createOrFindConversation(page, 'E2E RAG Toolcall Live Shared')
+  test('"Thinking block" indicator appears during tool-call stream', async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(120_000)
+    const apiBase = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
+    const kbName = `E2E Live Stream KB ${Date.now()}`
+    const kbId = await createKnowledgeBase(request, apiBase, kbName)
+    const convId = await createEmptyConversation(request, apiBase)
+    await attachKnowledgeBasesToConversation(request, apiBase, convId, [kbId])
+
     await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
-    await attachKbToConversationViaUi(page, kbName)
 
     await page
       .getByRole('textbox', { name: /message/i })

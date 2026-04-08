@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-from ai_portal.services.rag import _rrf_merge
+from ai_portal.rag.service import _rrf_merge
 
 # ---------------------------------------------------------------------------
 # _rrf_merge
@@ -55,7 +55,7 @@ def test_rrf_merge_respects_k_parameter():
 # ---------------------------------------------------------------------------
 
 def test_rerank_chunks_cosine_fallback():
-    from ai_portal.services.rag import _rerank_chunks
+    from ai_portal.rag.service import _rerank_chunks
 
     chunk_a = MagicMock()
     chunk_a.embedding = [1.0, 0.0, 0.0]
@@ -75,7 +75,7 @@ def test_rerank_chunks_cosine_fallback():
 
 
 def test_rerank_chunks_respects_top_k():
-    from ai_portal.services.rag import _rerank_chunks
+    from ai_portal.rag.service import _rerank_chunks
 
     chunks = []
     for i in range(5):
@@ -93,7 +93,7 @@ def test_rerank_chunks_respects_top_k():
 
 def test_rerank_chunks_voyage_path():
     """When voyage_api_key is set, the Voyage client is invoked."""
-    from ai_portal.services.rag import _rerank_chunks
+    from ai_portal.rag.service import _rerank_chunks
 
     chunk_a = MagicMock()
     chunk_a.content = "alpha"
@@ -115,7 +115,7 @@ def test_rerank_chunks_voyage_path():
     mock_rerank_result = MagicMock()
     mock_rerank_result.results = [mock_result_obj_a, mock_result_obj_b]
 
-    with patch("ai_portal.services.rag.voyageai") as mock_voyage:
+    with patch("ai_portal.rag.service.voyageai") as mock_voyage:
         mock_client = MagicMock()
         mock_voyage.Client.return_value = mock_client
         mock_client.rerank.return_value = mock_rerank_result
@@ -133,7 +133,7 @@ def test_rerank_chunks_voyage_path():
 
 def test_search_knowledge_base_tool_empty_kbs():
     """No KB IDs → empty result."""
-    from ai_portal.services.rag import search_knowledge_base_tool
+    from ai_portal.rag.service import search_knowledge_base_tool
 
     db = MagicMock()
     result = search_knowledge_base_tool(db, query="hello", kb_ids=[])
@@ -144,13 +144,13 @@ def test_search_knowledge_base_tool_empty_kbs():
 
 def test_search_knowledge_base_tool_returns_dict_shape():
     """Return dict always has context, used_kbs, citations keys."""
-    from ai_portal.services.rag import search_knowledge_base_tool
+    from ai_portal.rag.service import search_knowledge_base_tool
 
     db = MagicMock()
     db.scalars.return_value = iter([])
 
-    with patch("ai_portal.services.rag.embedding_svc") as mock_emb, \
-         patch("ai_portal.services.rag.get_settings") as mock_gs:
+    with patch("ai_portal.rag.service.embedding_svc") as mock_emb, \
+         patch("ai_portal.rag.service.get_settings") as mock_gs:
         mock_emb.embed_texts.return_value = [[0.1] * 1024]
         s = MagicMock()
         s.rag_max_top_k = 30

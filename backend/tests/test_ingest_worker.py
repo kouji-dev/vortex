@@ -1,7 +1,7 @@
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from ai_portal.workers.ingest.worker import (
+from ai_portal.knowledge_base.workers.ingest.worker import (
     _mark_document_ready,
     _persist_document_failure,
     ingest_document_worker,
@@ -26,7 +26,7 @@ def test_successful_ingest_returns_none(tmp_path):
     db = MagicMock()
     db.get.return_value = doc
 
-    with patch("ai_portal.workers.ingest.worker.embedding_svc") as mock_emb:
+    with patch("ai_portal.knowledge_base.workers.ingest.worker.embedding_svc") as mock_emb:
         mock_emb.embed_texts.side_effect = lambda texts: [[0.1] * 1024 for _ in texts]
         result = ingest_document_worker(1, db=db)
 
@@ -95,7 +95,7 @@ def test_embed_runtime_error_marks_failed_with_ingest_error(tmp_path):
     db = MagicMock()
     db.get.return_value = doc
 
-    with patch("ai_portal.workers.ingest.worker.embedding_svc") as mock_emb:
+    with patch("ai_portal.knowledge_base.workers.ingest.worker.embedding_svc") as mock_emb:
         mock_emb.embed_texts.side_effect = RuntimeError("voyage rate limit")
         result = ingest_document_worker(1, db=db)
 
@@ -121,7 +121,7 @@ def test_embed_value_error_marks_failed(tmp_path):
     db = MagicMock()
     db.get.return_value = doc
 
-    with patch("ai_portal.workers.ingest.worker.embedding_svc") as mock_emb:
+    with patch("ai_portal.knowledge_base.workers.ingest.worker.embedding_svc") as mock_emb:
         mock_emb.embed_texts.side_effect = ValueError("No embedding credits")
         result = ingest_document_worker(1, db=db)
 

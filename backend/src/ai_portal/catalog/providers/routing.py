@@ -1,0 +1,141 @@
+"""Shared OpenAI-compatible API base URL normalization and chat model routing."""
+
+from __future__ import annotations
+
+import logging
+from typing import Any
+
+from ai_portal.core.config import Settings
+
+logger = logging.getLogger(__name__)
+
+
+def normalize_openai_compatible_base(base: str) -> str:
+    b = base.strip().rstrip("/")
+    if not b.endswith("/v1"):
+        b = f"{b}/v1"
+    return b
+
+
+# Retired Anthropic snapshot ids still stored on conversations / old catalog rows.
+_ANTHROPIC_DEPRECATED_MODEL_IDS: dict[str, str] = {
+    "claude-3-5-haiku-20241022": "claude-haiku-4-5",
+    "claude-3-5-sonnet-20241022": "claude-sonnet-4-5-20250929",
+    "claude-3-opus-20240229": "claude-opus-4-6",
+    "claude-3-7-sonnet-20250219": "claude-sonnet-4-6",
+    "claude-opus-4-6-20260205": "claude-opus-4-6",
+    "claude-opus-4-5": "claude-opus-4-5-20251101",
+}
+
+
+def remap_deprecated_chat_model(model: str) -> str:
+    """Map retired Anthropic ids to current API ids (no DB migration)."""
+    raw = (model or "").strip()
+    if not raw:
+        return raw
+    key = raw.lower()
+    if key.startswith("anthropic/"):
+        key = key.removeprefix("anthropic/")
+    replacement = _ANTHROPIC_DEPRECATED_MODEL_IDS.get(key)
+    if replacement is None:
+        return raw
+    logger.debug("chat_model_remap_deprecated", extra={"from": raw, "to": replacement})
+    return replacement
+
+
+def normalize_chat_model_id_for_tests(model: str) -> str:
+    """Map catalog ids to provider-prefixed strings (unit tests)."""
+    raw = (model or "").strip()
+    if not raw:
+        return raw
+    lower = raw.lower()
+    if lower.startswith("anthropic/"):
+        return raw
+    if lower.startswith("claude-") or lower.startswith("claude/"):
+        return f"anthropic/{raw}"
+    return raw
+
+
+def _is_anthropic_style_model(model: str) -> bool:
+    """True for vendor API ids and catalog slugs (e.g. ``anthropic-claude-haiku-4-5``)."""
+    m = (model or "").strip().lower()
+    return (
+        m.startswith("anthropic/")
+        or m.startswith("anthropic-claude-")
+        or m.startswith("claude-")
+        or m.startswith("claude/")
+    )
+
+
+def _is_gemini_model(model: str) -> bool:
+    """True for Google Gemini model ids and catalog slugs (e.g. ``gemini-2.5-flash``)."""
+    m = (model or "").strip().lower()
+    return m.startswith("gemini-") or m.startswith("google-gemini-") or m.startswith("google/gemini")
+
+
+def chat_provider_credential_kwargs(settings: Settings, model: str) -> dict[str, Any]:
+    """Credentials for chat: Anthropic, Gemini, or OpenAI-compatible."""
+    if _is_anthropic_style_model(model):
+        key = settings.anthropic_api_key.strip()
+        if not key:
+            raise ValueError(
+                "ANTHROPIC_API_KEY is not set — required for Claude / Anthropic chat models "
+                "(add to your repo root .env). OpenAI chat and OpenAI embeddings use "
+                "OPENAI_API_KEY; Voyage embeddings use VOYAGE_API_KEY.",
+            )
+        return {"api_key": key}
+    if _is_gemini_model(model):
+        key = settings.gemini_api_key.strip()
+        if not key:
+            raise ValueError(
+                "GEMINI_API_KEY is not set — required for Gemini models "
+                "(add to your repo root .env).",
+            )
+        return {"api_key": key}
+    if not settings.openai_api_key.strip():
+        raise ValueError(
+            "OPENAI_API_KEY is not set — required for OpenAI-compatible chat models "
+            "(add to your repo root .env). Anthropic chat uses ANTHROPIC_API_KEY.",
+        )
+    return {
+        "api_key": settings.openai_api_key,
+        "api_base": normalize_openai_compatible_base(settings.openai_api_base),
+    }
+
+
+def normalize_model_id_for_langchain_chat(model: str) -> str:
+    """Normalize catalog/stored id for ChatAnthropic or ChatOpenAI."""
+    m = remap_deprecated_chat_model((model or "").strip())
+    if not m:
+        return m
+    lower = m.lower()
+    if lower.startswith("anthropic/"):
+        return m.split("/", 1)[1]
+    # Catalog slug: "anthropic-claude-*" → LangChain expects "claude-*"
+    if lower.startswith("anthropic-claude-"):
+        return m[lower.index("claude-") :]
+    if lower.startswith("claude/"):
+        return m.removeprefix("claude/")
+    return m
+
+
+def is_langchain_anthropic_model(model_id: str) -> bool:
+    mid = normalize_model_id_for_langchain_chat(model_id)
+    lowered = mid.lower()
+    return lowered.startswith("claude-") or lowered.startswith("claude/")
+
+
+def is_langchain_gemini_model(model_id: str) -> bool:
+    """True if this model should use ChatGoogleGenerativeAI."""
+    return _is_gemini_model(model_id)
+
+
+def normalize_model_id_for_gemini(model_id: str) -> str:
+    """Strip any catalog prefix for the Gemini API (e.g. ``google-gemini-2.5-flash`` → ``gemini-2.5-flash``)."""
+    m = (model_id or "").strip()
+    lower = m.lower()
+    if lower.startswith("google-gemini-"):
+        return m[len("google-gemini-"):]
+    if lower.startswith("google/gemini-"):
+        return m[len("google/"):]
+    return m

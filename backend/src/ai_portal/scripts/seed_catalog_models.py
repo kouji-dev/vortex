@@ -43,15 +43,19 @@ from uuid import UUID
 from sqlalchemy import delete, inspect, select, update
 from sqlalchemy.orm import Session
 
-from ai_portal.catalog_model_definitions import (
+from ai_portal.catalog.definitions import (
     CATALOG_MODEL_DEFINITIONS,
     LEGACY_CATALOG_SLUGS_TO_DEACTIVATE,
     CatalogModelDefinition,
 )
-from ai_portal.catalog_specs import CONFIG_BY_SLUG
-from ai_portal.db.session import SessionLocal
-from ai_portal.models import CatalogModel, Org
-from ai_portal.services.catalog_model_validate import validate_catalog_model_id
+from ai_portal.catalog.specs import CONFIG_BY_SLUG
+from ai_portal.core.db.session import SessionLocal
+from ai_portal.catalog.model import CatalogModel
+from ai_portal.catalog.service import validate_catalog_model_id
+
+# Import all models so SQLAlchemy metadata has every table registered
+# (needed to resolve FK references like catalog_models.org_id → orgs.id)
+import ai_portal.models  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -84,11 +88,26 @@ def _openai_meta(api_model_id: str, slug: str) -> dict[str, Any]:
     }
 
 
+def _gemini_meta(api_model_id: str, slug: str) -> dict[str, Any]:
+    cfg = CONFIG_BY_SLUG.get(slug)
+    if cfg is None:
+        msg = f"Missing CONFIG_BY_SLUG[{slug!r}]"
+        raise KeyError(msg)
+    return {
+        "provider": "google",
+        "model_id": api_model_id,
+        "api_style": "langchain_google_genai",
+        "config": cfg,
+    }
+
+
 def _row_from_definition(d: CatalogModelDefinition) -> dict[str, Any]:
     if d.provider == "anthropic":
         meta = _anthropic_meta(d.api_model_id, d.config_slug)
     elif d.provider == "openai":
         meta = _openai_meta(d.api_model_id, d.config_slug)
+    elif d.provider == "google":
+        meta = _gemini_meta(d.api_model_id, d.config_slug)
     else:
         msg = f"Unsupported provider {d.provider!r} for {d.slug}"
         raise ValueError(msg)
@@ -171,6 +190,16 @@ def _deactivate_legacy_slugs(db: Session) -> None:
     )
 
 
+def _get_default_org_id(db: Session):
+    """Return the default org's UUID, or None if the orgs table doesn't exist yet."""
+    from ai_portal.auth.model import Org
+    try:
+        org = db.scalars(select(Org).where(Org.slug == "default").limit(1)).first()
+        return org.id if org else None
+    except Exception:
+        return None
+
+
 def run_seed(
     *,
     dry_run: bool = False,
@@ -180,12 +209,15 @@ def run_seed(
     try:
         org_id = _ensure_default_org(db)
         _delete_removed_stub_slug(db)
+        default_org_id = _get_default_org_id(db)
         added: list[str] = []
         updated: list[str] = []
         for row in _CATALOG_SEED_ROWS:
             if not skip_model_validation:
                 validate_catalog_model_id(row["api_model_id"])
-            slug, is_new = _upsert_row(db, {**row, "org_id": org_id})
+            # Inject org_id for new rows (existing rows already have it set)
+            row_with_org = {**row, "org_id": default_org_id} if default_org_id else row
+            slug, is_new = _upsert_row(db, row_with_org)
             if is_new:
                 added.append(slug)
             else:

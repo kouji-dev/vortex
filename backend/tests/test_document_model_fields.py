@@ -1,4 +1,4 @@
-from ai_portal.models.document import Document, DocumentChunk
+from ai_portal.knowledge_base.model import Document, DocumentChunk
 
 
 def test_document_has_progress_fields():

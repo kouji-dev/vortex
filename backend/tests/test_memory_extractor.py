@@ -1,7 +1,7 @@
 import uuid
 from unittest.mock import MagicMock, patch
 
-from ai_portal.workers.memory.extractor import extract_user_memories
+from ai_portal.memory.workers.extractor import extract_user_memories
 
 _ORG = uuid.uuid4()
 
@@ -18,7 +18,7 @@ def test_extract_creates_system_row_when_missing():
     db = MagicMock()
     db.scalars.return_value.first.return_value = None
     with patch(
-        "ai_portal.workers.memory.extractor._call_system_profile_llm"
+        "ai_portal.memory.workers.extractor._call_system_profile_llm"
     ) as mock_llm:
         mock_llm.return_value = "Prefers Python for tooling."
         extract_user_memories(
@@ -41,7 +41,7 @@ def test_extract_updates_existing_system_row():
     db = MagicMock()
     db.scalars.return_value.first.return_value = existing
     with patch(
-        "ai_portal.workers.memory.extractor._call_system_profile_llm"
+        "ai_portal.memory.workers.extractor._call_system_profile_llm"
     ) as mock_llm:
         mock_llm.return_value = "New profile text"
         extract_user_memories(
@@ -59,7 +59,7 @@ def test_extract_empty_update_skips_commit():
     db = MagicMock()
     db.scalars.return_value.first.return_value = None
     with patch(
-        "ai_portal.workers.memory.extractor._call_system_profile_llm"
+        "ai_portal.memory.workers.extractor._call_system_profile_llm"
     ) as mock_llm:
         mock_llm.return_value = ""
         extract_user_memories(
@@ -78,7 +78,7 @@ def test_extract_same_text_skips_commit():
     db = MagicMock()
     db.scalars.return_value.first.return_value = existing
     with patch(
-        "ai_portal.workers.memory.extractor._call_system_profile_llm"
+        "ai_portal.memory.workers.extractor._call_system_profile_llm"
     ) as mock_llm:
         mock_llm.return_value = "Unchanged"
         extract_user_memories(

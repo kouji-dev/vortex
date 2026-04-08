@@ -1,7 +1,7 @@
 import pytest
 
 from ai_portal.scripts.seed_catalog_models import _CATALOG_SEED_ROWS
-from ai_portal.services.catalog_model_validate import validate_catalog_model_id
+from ai_portal.catalog.service import validate_catalog_model_id
 
 
 @pytest.mark.parametrize(

@@ -1,7 +1,7 @@
 import json
 from unittest.mock import MagicMock, patch
 
-from ai_portal.api.conversations import _dispatch_tool_call
+from ai_portal.chat.tool_service import _dispatch_tool_call
 
 
 def test_tool_call_search_dispatches():
@@ -10,7 +10,7 @@ def test_tool_call_search_dispatches():
         "name": "search_knowledge_base",
         "arguments": json.dumps({"query": "auth", "kb_ids": [1]}),
     }
-    with patch("ai_portal.api.conversations.rag_svc.search_knowledge_base_tool") as m:
+    with patch("ai_portal.chat.tool_service.rag_svc.search_knowledge_base_tool") as m:
         m.return_value = {"context": "ctx", "used_kbs": [], "citations": []}
         result = _dispatch_tool_call(db, tool_call, kb_ids=[1])
     assert result["content"] == "ctx"
@@ -31,7 +31,7 @@ def test_tool_call_with_malformed_arguments():
         "name": "search_knowledge_base",
         "arguments": "not valid json",
     }
-    with patch("ai_portal.api.conversations.rag_svc.search_knowledge_base_tool") as m:
+    with patch("ai_portal.chat.tool_service.rag_svc.search_knowledge_base_tool") as m:
         m.return_value = {"context": "", "used_kbs": [], "citations": []}
         result = _dispatch_tool_call(db, tool_call, kb_ids=[1])
     assert result["role"] == "tool"
@@ -45,7 +45,7 @@ def test_tool_call_uses_kb_ids_fallback():
         "name": "search_knowledge_base",
         "arguments": json.dumps({"query": "test"}),
     }
-    with patch("ai_portal.api.conversations.rag_svc.search_knowledge_base_tool") as m:
+    with patch("ai_portal.chat.tool_service.rag_svc.search_knowledge_base_tool") as m:
         m.return_value = {"context": "found", "used_kbs": [], "citations": []}
         result = _dispatch_tool_call(db, tool_call, kb_ids=[2, 3])
     m.assert_called_once_with(db=db, query="test", kb_ids=[2, 3], top_k=None)

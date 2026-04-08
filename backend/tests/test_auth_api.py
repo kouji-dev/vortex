@@ -17,5 +17,5 @@ def test_setup_endpoint_returns_400_in_saas_mode(monkeypatch):
 
 
 def test_setup_guard_middleware_importable():
-    from ai_portal.middleware.setup_guard import SetupGuardMiddleware
+    from ai_portal.core.middleware.setup_guard import SetupGuardMiddleware
     assert SetupGuardMiddleware is not None

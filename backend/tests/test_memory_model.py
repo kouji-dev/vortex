@@ -1,6 +1,6 @@
 import uuid
 
-from ai_portal.models.memory import UserMemory
+from ai_portal.memory.model import UserMemory
 
 
 def test_user_memory_has_required_fields():

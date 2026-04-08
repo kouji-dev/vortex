@@ -9,9 +9,9 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi.testclient import TestClient
 
-from ai_portal.auth.entra import decode_entra_access_token, roles_from_claims
+from ai_portal.auth.strategies.entra import decode_entra_access_token, roles_from_claims
 from ai_portal.main import app
-from ai_portal.services.user_identity import (
+from ai_portal.auth.service import (
     profile_fields_from_claims,
     upsert_user_from_entra_claims,
 )
@@ -177,7 +177,7 @@ def test_upsert_user_from_entra_claims(tmp_path):
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
 
-    from ai_portal.db.base import Base
+    from ai_portal.core.db.base import Base
     from ai_portal.models import User
 
     db_path = tmp_path / "t.db"
@@ -264,7 +264,7 @@ def test_me_entra_returns_profile_from_token(monkeypatch):
     token = jwt.encode(claims, private_key, algorithm="RS256")
     fake = _fake_jwks_client(private_key)
     with patch(
-        "ai_portal.auth.entra._jwks_client",
+        "ai_portal.auth.strategies.entra._jwks_client",
         return_value=fake,
     ):
         r = client.get(
@@ -335,7 +335,7 @@ def test_admin_ping_entra_forbidden_without_role(monkeypatch):
     fake = _fake_jwks_client(private_key)
 
     with patch(
-        "ai_portal.auth.entra._jwks_client",
+        "ai_portal.auth.strategies.entra._jwks_client",
         return_value=fake,
     ):
         r = client.get(

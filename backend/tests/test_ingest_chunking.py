@@ -1,4 +1,4 @@
-from ai_portal.workers.ingest.chunking import semantic_chunks, file_type_for_suffix
+from ai_portal.knowledge_base.workers.ingest.chunking import semantic_chunks, file_type_for_suffix
 
 
 def test_prose_produces_chunks_with_metadata():

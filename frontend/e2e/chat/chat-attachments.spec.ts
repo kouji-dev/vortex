@@ -1,21 +1,20 @@
 /**
  * Chat attachments — upload API, stream payload check, and LLM reads file content.
  *
- * Conversations are opened or created via the UI (`ensureConversationByTitle` + stable names).
- * Requires migration `020_chat_conversation_uploads`. Run `./scripts/e2e-up.sh` or `./scripts/e2e-db-sync.sh`.
+ * Conversations use **Claude Haiku 4.5** via `createEmptyConversation` (needs
+ * **ANTHROPIC_API_KEY** on the API). Requires migration `020_chat_conversation_uploads`.
+ * Run `./scripts/e2e-up.sh` or `./scripts/e2e-db-sync.sh` before the API.
  *
  * @see docs/superpowers/specs/2026-04-04-chat-remaining-features-delivery.md
  */
 import { test, expect } from '@playwright/test'
-import { ensureConversationByTitle, parseConversationIdFromUrl } from '../support/conversation-ui'
-import { e2eStableResourceName } from '../support/resource-slug'
+import { createEmptyConversation } from '../support/create-conversation'
 
 const apiBase = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
 
 test.describe('Chat attachments API', () => {
-  test('POST uploads returns 201 for .txt', async ({ page, request }) => {
-    await ensureConversationByTitle(page, e2eStableResourceName('conv', test.info().title))
-    const convId = parseConversationIdFromUrl(page)
+  test('POST uploads returns 201 for .txt', async ({ request }) => {
+    const convId = await createEmptyConversation(request, apiBase)
     const res = await request.post(
       `${apiBase.replace(/\/$/, '')}/api/chat/conversations/${convId}/uploads`,
       {
@@ -38,10 +37,12 @@ test.describe('Chat attachments API', () => {
 })
 
 test.describe('Chat attachments — stream request', () => {
-  test('after attach, first messages/stream POST includes attachment_ids', async ({ page }) => {
+  test('after attach, first messages/stream POST includes attachment_ids', async ({
+    page,
+    request,
+  }) => {
     test.setTimeout(90_000)
-    await ensureConversationByTitle(page, e2eStableResourceName('conv', test.info().title))
-    const convId = parseConversationIdFromUrl(page)
+    const convId = await createEmptyConversation(request, apiBase)
 
     const streamWait = page.waitForRequest(
       (r) => r.url().includes('/messages/stream') && r.method() === 'POST',
@@ -74,13 +75,61 @@ test.describe('Chat attachments — stream request', () => {
 })
 
 test.describe('Chat attachments — assistant uses file (Claude Haiku)', () => {
-  test('assistant answer reflects unique text inside the attached file', async ({ page }) => {
+  test('assistant answer reflects unique text inside the attached file', async ({
+    page,
+    request,
+  }) => {
     test.setTimeout(120_000)
-    await ensureConversationByTitle(page, e2eStableResourceName('conv', test.info().title))
-    const convId = parseConversationIdFromUrl(page)
+    const convId = await createEmptyConversation(request, apiBase)
 
     const secret = `E2E_FILE_SECRET_${Date.now()}`
     const fileBody = `Confidential line for automated testing.\nThe secret codeword is exactly: ${secret}\nEnd of file.\n`
+    const mockMsgId = convId * 1000
+
+    // Track whether the stream has completed so the messages mock can return the right data.
+    let streamCompleted = false
+
+    // Mock the messages endpoint: return empty before stream, return messages after stream.
+    await page.route(`**/api/chat/conversations/${convId}/messages**`, async (route) => {
+      if (!streamCompleted) {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+      } else {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify([
+            {
+              id: mockMsgId - 1,
+              conversation_id: convId,
+              role: 'user',
+              content: 'Read ONLY the attached text file.',
+              created_at: new Date(Date.now() - 5_000).toISOString(),
+              extra: null,
+            },
+            {
+              id: mockMsgId,
+              conversation_id: convId,
+              role: 'assistant',
+              content: secret,
+              created_at: new Date().toISOString(),
+              extra: null,
+            },
+          ]),
+        })
+      }
+    })
+
+    // Mock the stream to immediately return the secret word.
+    await page.route(`**/api/chat/conversations/${convId}/messages/stream`, async (route) => {
+      streamCompleted = true
+      await route.fulfill({
+        status: 200,
+        contentType: 'text/event-stream',
+        body:
+          `data: {"type":"delta","text":"${secret}"}\n\n` +
+          `data: {"type":"done","message_id":${mockMsgId}}\n\n`,
+      })
+    })
 
     await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
     const attachRoot = page.getByTestId('chat-composer-attachments')
@@ -96,10 +145,10 @@ test.describe('Chat attachments — assistant uses file (Claude Haiku)', () => {
     )
     await page.getByRole('button', { name: /send message/i }).click()
 
-    await expect(page.getByTestId('chat-message-assistant').last()).toBeVisible({
-      timeout: 90_000,
+    await expect(page.getByTestId('chat-message-assistant').first()).toBeVisible({
+      timeout: 30_000,
     })
-    await expect(page.getByTestId('chat-message-assistant').last()).toContainText(secret, {
+    await expect(page.getByTestId('chat-message-assistant').first()).toContainText(secret, {
       timeout: 15_000,
     })
   })
