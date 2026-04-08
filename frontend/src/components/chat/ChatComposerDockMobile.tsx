@@ -1,5 +1,5 @@
 // frontend/src/components/chat/ChatComposerDockMobile.tsx
-import { ArrowUp, Check, Lock, Paperclip, Settings2, SlidersHorizontal, Square, X } from 'lucide-react'
+import { ArrowUp, BookOpen, Brain, Check, Lock, Paperclip, Settings2, SlidersHorizontal, Square, X, type LucideIcon } from 'lucide-react'
 import * as React from 'react'
 
 import {
@@ -18,23 +18,25 @@ import type { CapabilityKey } from '~/components/chat/ChatComposerDock'
 const CATALOG_SELECT_PREFIX = 'catalog:' as const
 const COMPOSER_TEXTAREA_MAX_LINES = 6
 
-const CAPABILITY_MENU: { key: CapabilityKey; label: string }[] = [
-  { key: 'reflection', label: 'Reflection' },
-  { key: 'research', label: 'Research' },
-  { key: 'web', label: 'Web stance' },
+const CAPABILITY_MENU: { key: CapabilityKey; label: string; Icon: LucideIcon }[] = [
+  { key: 'reflection', label: 'Reflection', Icon: Brain },
+  { key: 'research', label: 'Research', Icon: BookOpen },
 ]
 
 function CapabilityTag({
   label,
+  icon: Icon,
   onRemove,
   disabled,
 }: {
   label: string
+  icon: LucideIcon
   onRemove: () => void
   disabled?: boolean
 }) {
   return (
     <span className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-800 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200">
+      <Icon className="h-3 w-3 shrink-0" strokeWidth={2} />
       {label}
       <button
         type="button"
@@ -264,7 +266,7 @@ export function ChatComposerDockMobile({
         <div className="px-4 pb-1 pt-2">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">Capabilities</p>
         </div>
-        {CAPABILITY_MENU.map(({ key, label }) => {
+        {CAPABILITY_MENU.map(({ key, label, Icon }) => {
           const on = capabilities[key]
           const desc = capabilityDescriptions?.[key]
           return (
@@ -275,11 +277,14 @@ export function ChatComposerDockMobile({
               onClick={() => onToggleCapability(key)}
               className="flex w-full items-center justify-between px-4 py-3 text-sm text-neutral-800 hover:bg-neutral-50 disabled:opacity-50 dark:text-neutral-200 dark:hover:bg-neutral-900"
             >
-              <span className="flex flex-col gap-0.5 text-left">
-                <span className={on ? 'font-semibold text-neutral-900 dark:text-neutral-100' : ''}>{label}</span>
-                {desc && (
-                  <span className="text-xs leading-snug text-neutral-500 dark:text-neutral-400">{desc}</span>
-                )}
+              <span className="flex items-center gap-3">
+                <Icon className="size-4 shrink-0 text-neutral-500 dark:text-neutral-400" strokeWidth={2} />
+                <span className="flex flex-col gap-0.5 text-left">
+                  <span className={on ? 'font-semibold text-neutral-900 dark:text-neutral-100' : ''}>{label}</span>
+                  {desc && (
+                    <span className="text-xs leading-snug text-neutral-500 dark:text-neutral-400">{desc}</span>
+                  )}
+                </span>
               </span>
               {on && <Check className="size-4 shrink-0 text-neutral-900 dark:text-neutral-100" strokeWidth={2.5} />}
             </button>
@@ -351,15 +356,9 @@ export function ChatComposerDockMobile({
         {/* Active capability tags */}
         {hasActiveCaps && (
           <div className="mb-2 flex flex-wrap gap-1">
-            {capabilities.reflection && (
-              <CapabilityTag label="Reflection" disabled={capabilityDisabled} onRemove={() => onToggleCapability('reflection')} />
-            )}
-            {capabilities.research && (
-              <CapabilityTag label="Research" disabled={capabilityDisabled} onRemove={() => onToggleCapability('research')} />
-            )}
-            {capabilities.web && (
-              <CapabilityTag label="Web stance" disabled={capabilityDisabled} onRemove={() => onToggleCapability('web')} />
-            )}
+            {CAPABILITY_MENU.filter(({ key }) => capabilities[key]).map(({ key, label, Icon }) => (
+              <CapabilityTag key={key} label={label} icon={Icon} disabled={capabilityDisabled} onRemove={() => onToggleCapability(key)} />
+            ))}
           </div>
         )}
 
