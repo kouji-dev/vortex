@@ -12,8 +12,9 @@ from ai_portal.core.config import Settings, get_settings
 from ai_portal.chat.schemas import CapabilityToggles, ConversationSettings
 
 _DEFAULT_CATALOG_SLUG_PRIORITY = (
-    "anthropic-claude-haiku-4-5",
-    "openai-o3-mini",
+    "google-gemini-2-5-flash-lite",   # cheapest Gemini tier (preferred default)
+    "anthropic-claude-haiku-4-5",     # fallback if Gemini key not configured
+    "openai-o3-mini",                 # OpenAI fallback
 )
 
 

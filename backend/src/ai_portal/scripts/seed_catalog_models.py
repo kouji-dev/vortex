@@ -83,11 +83,26 @@ def _openai_meta(api_model_id: str, slug: str) -> dict[str, Any]:
     }
 
 
+def _gemini_meta(api_model_id: str, slug: str) -> dict[str, Any]:
+    cfg = CONFIG_BY_SLUG.get(slug)
+    if cfg is None:
+        msg = f"Missing CONFIG_BY_SLUG[{slug!r}]"
+        raise KeyError(msg)
+    return {
+        "provider": "google",
+        "model_id": api_model_id,
+        "api_style": "langchain_google_genai",
+        "config": cfg,
+    }
+
+
 def _row_from_definition(d: CatalogModelDefinition) -> dict[str, Any]:
     if d.provider == "anthropic":
         meta = _anthropic_meta(d.api_model_id, d.config_slug)
     elif d.provider == "openai":
         meta = _openai_meta(d.api_model_id, d.config_slug)
+    elif d.provider == "google":
+        meta = _gemini_meta(d.api_model_id, d.config_slug)
     else:
         msg = f"Unsupported provider {d.provider!r} for {d.slug}"
         raise ValueError(msg)

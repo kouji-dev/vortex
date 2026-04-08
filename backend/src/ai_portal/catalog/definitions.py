@@ -30,7 +30,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-Provider = Literal["openai", "anthropic", "azure_openai"]
+Provider = Literal["openai", "anthropic", "azure_openai", "google"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -300,6 +300,132 @@ CATALOG_MODEL_DEFINITIONS: tuple[CatalogModelDefinition, ...] = (
         request_access_url=_REQUEST_ACCESS,
         provider="openai",
         config_slug="openai-gpt-5-4-codex-low",
+        catalog_validation_optional=True,
+    ),
+    # --- Google Gemini (via LangChain ChatGoogleGenerativeAI) ---
+    CatalogModelDefinition(
+        slug="google-gemini-2-5-flash-lite",
+        display_name="Gemini 2.5 Flash Lite",
+        description=(
+            "Google Gemini 2.5 Flash Lite — cheapest Gemini tier; fast, high-throughput. "
+            "API id ``gemini-2.5-flash-lite``."
+        ),
+        api_model_id="gemini-2.5-flash-lite",
+        effort="low",
+        sort_order=200,
+        requires_entitlement=False,
+        request_access_url=None,
+        provider="google",
+        config_slug="google-gemini-2-5-flash-lite",
+    ),
+    CatalogModelDefinition(
+        slug="google-gemini-2-5-flash",
+        display_name="Gemini 2.5 Flash",
+        description=(
+            "Google Gemini 2.5 Flash — fast, cost-efficient multimodal model. "
+            "API id ``gemini-2.5-flash``."
+        ),
+        api_model_id="gemini-2.5-flash",
+        effort="low",
+        sort_order=210,
+        requires_entitlement=False,
+        request_access_url=None,
+        provider="google",
+        config_slug="google-gemini-2-5-flash",
+    ),
+    CatalogModelDefinition(
+        slug="google-gemini-2-5-pro",
+        display_name="Gemini 2.5 Pro",
+        description=(
+            "Google Gemini 2.5 Pro — advanced reasoning and coding. "
+            "API id ``gemini-2.5-pro``."
+        ),
+        api_model_id="gemini-2.5-pro",
+        effort="high",
+        sort_order=220,
+        requires_entitlement=False,
+        request_access_url=None,
+        provider="google",
+        config_slug="google-gemini-2-5-pro",
+    ),
+    CatalogModelDefinition(
+        slug="google-gemini-3-flash",
+        display_name="Gemini 3 Flash",
+        description=(
+            "Google Gemini 3 Flash — next-gen fast model. "
+            "API id ``gemini-3-flash``."
+        ),
+        api_model_id="gemini-3-flash",
+        effort="low",
+        sort_order=230,
+        requires_entitlement=False,
+        request_access_url=None,
+        provider="google",
+        config_slug="google-gemini-3-flash",
+        catalog_validation_optional=True,
+    ),
+    CatalogModelDefinition(
+        slug="google-gemini-3-1-flash-lite",
+        display_name="Gemini 3.1 Flash Lite",
+        description=(
+            "Google Gemini 3.1 Flash Lite — cheapest 3.x tier. "
+            "API id ``gemini-3.1-flash-lite``."
+        ),
+        api_model_id="gemini-3.1-flash-lite",
+        effort="low",
+        sort_order=240,
+        requires_entitlement=False,
+        request_access_url=None,
+        provider="google",
+        config_slug="google-gemini-3-1-flash-lite",
+        catalog_validation_optional=True,
+    ),
+    CatalogModelDefinition(
+        slug="google-gemini-3-1-flash-lite-preview",
+        display_name="Gemini 3.1 Flash Lite (preview)",
+        description=(
+            "Google Gemini 3.1 Flash Lite preview. "
+            "API id ``gemini-3.1-flash-lite-preview``."
+        ),
+        api_model_id="gemini-3.1-flash-lite-preview",
+        effort="low",
+        sort_order=250,
+        requires_entitlement=False,
+        request_access_url=None,
+        provider="google",
+        config_slug="google-gemini-3-1-flash-lite-preview",
+        catalog_validation_optional=True,
+    ),
+    CatalogModelDefinition(
+        slug="google-gemini-3-1-pro",
+        display_name="Gemini 3.1 Pro",
+        description=(
+            "Google Gemini 3.1 Pro — high-capability reasoning model. "
+            "API id ``gemini-3.1-pro``."
+        ),
+        api_model_id="gemini-3.1-pro",
+        effort="high",
+        sort_order=260,
+        requires_entitlement=False,
+        request_access_url=None,
+        provider="google",
+        config_slug="google-gemini-3-1-pro",
+        catalog_validation_optional=True,
+    ),
+    CatalogModelDefinition(
+        slug="google-gemini-3-1-pro-preview",
+        display_name="Gemini 3.1 Pro (preview)",
+        description=(
+            "Google Gemini 3.1 Pro preview. "
+            "API id ``gemini-3.1-pro-preview``."
+        ),
+        api_model_id="gemini-3.1-pro-preview",
+        effort="high",
+        sort_order=270,
+        requires_entitlement=False,
+        request_access_url=None,
+        provider="google",
+        config_slug="google-gemini-3-1-pro-preview",
         catalog_validation_optional=True,
     ),
 )

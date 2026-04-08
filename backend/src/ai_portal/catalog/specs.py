@@ -262,6 +262,27 @@ _CONFIG_GPT_CODEX_MINI: dict[str, Any] = {
 }
 
 
+# --- Google Gemini configs ---
+
+_CONFIG_GEMINI_FLASH_LITE: dict[str, Any] = {
+    "reasoning": {"supported": False, "efforts_available": [], "default_effort": None},
+    "sampling": {"temperature": _temp(), "max_output_tokens": _tokens(8192, 8192)},
+    "features": {"streaming": True, "vision": True, "tools": True, "json_mode": True},
+}
+
+_CONFIG_GEMINI_FLASH: dict[str, Any] = {
+    "reasoning": {"supported": False, "efforts_available": [], "default_effort": None},
+    "sampling": {"temperature": _temp(), "max_output_tokens": _tokens(8192, 65536)},
+    "features": {"streaming": True, "vision": True, "tools": True, "json_mode": True},
+}
+
+_CONFIG_GEMINI_PRO: dict[str, Any] = {
+    "reasoning": {"supported": False, "efforts_available": [], "default_effort": None},
+    "sampling": {"temperature": _temp(), "max_output_tokens": _tokens(8192, 65536)},
+    "features": {"streaming": True, "vision": True, "tools": True, "json_mode": True},
+}
+
+
 CONFIG_BY_SLUG: dict[str, dict[str, Any]] = {
     "anthropic-claude-haiku-4-5": _CONFIG_ANTHROPIC_HAIKU_45,
     "anthropic-claude-opus-4-5": _CONFIG_ANTHROPIC_OPUS_45,
@@ -279,6 +300,15 @@ CONFIG_BY_SLUG: dict[str, dict[str, Any]] = {
     "openai-gpt-5-4-codex": _CONFIG_GPT_CODEX_HEAVY,
     "openai-gpt-5-4-codex-fast": _CONFIG_GPT_CODEX_MED,
     "openai-gpt-5-4-codex-low": _CONFIG_GPT_CODEX_MINI,
+    # Google Gemini
+    "google-gemini-2-5-flash-lite": _CONFIG_GEMINI_FLASH_LITE,
+    "google-gemini-2-5-flash": _CONFIG_GEMINI_FLASH,
+    "google-gemini-2-5-pro": _CONFIG_GEMINI_PRO,
+    "google-gemini-3-flash": _CONFIG_GEMINI_FLASH,
+    "google-gemini-3-1-flash-lite": _CONFIG_GEMINI_FLASH_LITE,
+    "google-gemini-3-1-flash-lite-preview": _CONFIG_GEMINI_FLASH_LITE,
+    "google-gemini-3-1-pro": _CONFIG_GEMINI_PRO,
+    "google-gemini-3-1-pro-preview": _CONFIG_GEMINI_PRO,
 }
 
 # Alembic 011: merge ``config`` onto existing rows from migration 010.

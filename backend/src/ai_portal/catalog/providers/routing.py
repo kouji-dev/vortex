@@ -67,8 +67,14 @@ def _is_anthropic_style_model(model: str) -> bool:
     )
 
 
+def _is_gemini_model(model: str) -> bool:
+    """True for Google Gemini model ids and catalog slugs (e.g. ``gemini-2.5-flash``)."""
+    m = (model or "").strip().lower()
+    return m.startswith("gemini-") or m.startswith("google-gemini-") or m.startswith("google/gemini")
+
+
 def chat_provider_credential_kwargs(settings: Settings, model: str) -> dict[str, Any]:
-    """Credentials for chat: OpenAI-compatible (key+base) or Anthropic (key)."""
+    """Credentials for chat: Anthropic, Gemini, or OpenAI-compatible."""
     if _is_anthropic_style_model(model):
         key = settings.anthropic_api_key.strip()
         if not key:
@@ -76,6 +82,14 @@ def chat_provider_credential_kwargs(settings: Settings, model: str) -> dict[str,
                 "ANTHROPIC_API_KEY is not set — required for Claude / Anthropic chat models "
                 "(add to your repo root .env). OpenAI chat and OpenAI embeddings use "
                 "OPENAI_API_KEY; Voyage embeddings use VOYAGE_API_KEY.",
+            )
+        return {"api_key": key}
+    if _is_gemini_model(model):
+        key = settings.gemini_api_key.strip()
+        if not key:
+            raise ValueError(
+                "GEMINI_API_KEY is not set — required for Gemini models "
+                "(add to your repo root .env).",
             )
         return {"api_key": key}
     if not settings.openai_api_key.strip():
@@ -109,3 +123,19 @@ def is_langchain_anthropic_model(model_id: str) -> bool:
     mid = normalize_model_id_for_langchain_chat(model_id)
     lowered = mid.lower()
     return lowered.startswith("claude-") or lowered.startswith("claude/")
+
+
+def is_langchain_gemini_model(model_id: str) -> bool:
+    """True if this model should use ChatGoogleGenerativeAI."""
+    return _is_gemini_model(model_id)
+
+
+def normalize_model_id_for_gemini(model_id: str) -> str:
+    """Strip any catalog prefix for the Gemini API (e.g. ``google-gemini-2.5-flash`` → ``gemini-2.5-flash``)."""
+    m = (model_id or "").strip()
+    lower = m.lower()
+    if lower.startswith("google-gemini-"):
+        return m[len("google-gemini-"):]
+    if lower.startswith("google/gemini-"):
+        return m[len("google/"):]
+    return m

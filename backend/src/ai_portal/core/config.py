@@ -46,6 +46,7 @@ _YAML_KEY_MAP: dict[str, str] = {
     "llm.openai_api_base": "openai_api_base",
     "llm.openai_api_key": "openai_api_key",
     "llm.anthropic_api_key": "anthropic_api_key",
+    "llm.gemini_api_key": "gemini_api_key",
     "llm.chat_default_api_model": "chat_default_api_model",
     "llm.default_system_prompt": "default_system_prompt",
     "embedding.voyage_api_key": "voyage_api_key",
@@ -174,6 +175,12 @@ class Settings(BaseSettings):
     anthropic_api_key: str = Field(
         default="",
         validation_alias=AliasChoices("ANTHROPIC_API_KEY"),
+    )
+    # Google Gemini: set ``GEMINI_API_KEY``. Used for ``gemini-*`` models via
+    # LangChain ``ChatGoogleGenerativeAI``.
+    gemini_api_key: str = Field(
+        default="",
+        validation_alias=AliasChoices("GEMINI_API_KEY"),
     )
 
     # HMAC pepper for hashing portal API keys (``aip_…``). Empty = dev-only SHA-256.
@@ -307,6 +314,7 @@ def settings_log_snapshot(st: Settings) -> dict[str, Any]:
         "openai_api_base": st.openai_api_base,
         "openai_api_key_set": bool(st.openai_api_key.strip()),
         "anthropic_api_key_set": bool(st.anthropic_api_key.strip()),
+        "gemini_api_key_set": bool(st.gemini_api_key.strip()),
         "voyage_api_key_set": bool(st.voyage_api_key.strip()),
         "embedding_model": st.embedding_model or "(default)",
         "chat_default_api_model": st.chat_default_api_model,

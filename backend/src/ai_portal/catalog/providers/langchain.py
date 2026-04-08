@@ -13,7 +13,9 @@ from ai_portal.core.config import Settings
 from ai_portal.catalog.providers.routing import (
     chat_provider_credential_kwargs,
     is_langchain_anthropic_model,
+    is_langchain_gemini_model,
     normalize_model_id_for_langchain_chat,
+    normalize_model_id_for_gemini,
 )
 from ai_portal.catalog.service import effective_chat_model
 
@@ -101,6 +103,11 @@ class LangChainChatProvider:
         if is_langchain_anthropic_model(mid):
             kw = chat_provider_credential_kwargs(self._settings, f"anthropic/{mid}")
             return ChatAnthropic(model=mid, api_key=kw["api_key"])
+        if is_langchain_gemini_model(mid):
+            from langchain_google_genai import ChatGoogleGenerativeAI  # pylint: disable=import-error
+            gemini_mid = normalize_model_id_for_gemini(mid)
+            kw = chat_provider_credential_kwargs(self._settings, gemini_mid)
+            return ChatGoogleGenerativeAI(model=gemini_mid, google_api_key=kw["api_key"])
         kw = chat_provider_credential_kwargs(self._settings, mid)
         return ChatOpenAI(
             model=mid,
