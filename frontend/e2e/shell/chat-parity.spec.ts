@@ -38,7 +38,7 @@ test.describe('Chat — spec parity (no LLM)', () => {
     await page.getByTestId('chat-add-options').click()
     await expect(page.getByRole('menuitem', { name: /reflection/i })).toBeVisible()
     await expect(page.getByRole('menuitem', { name: /research/i })).toBeVisible()
-    await expect(page.getByRole('menuitem', { name: /web stance/i })).toBeVisible()
+    await expect(page.getByRole('menuitem', { name: /web stance/i })).toBeHidden()
   })
 
   test('model selector is visible on thread page', async ({ page, request }) => {
