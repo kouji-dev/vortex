@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import threading
+import uuid as _uuid_mod
 from datetime import UTC, datetime
 from typing import Any
 
@@ -226,7 +227,7 @@ def _setup_new_message(
     user: User,
 ) -> tuple[str, int, list]:
     user_content = body.content.strip()
-    msg_extra: dict | None = None
+    msg_extra: dict = {"uid": str(_uuid_mod.uuid4())}
 
     if body.attachment_ids:
         uploads = upload_svc.get_uploads_by_ids(db, body.attachment_ids, user.id)
@@ -240,11 +241,9 @@ def _setup_new_message(
         if attachment_parts:
             file_block = "\n\n".join(attachment_parts)
             user_content = f"{user_content}\n\n{file_block}" if user_content else file_block
-        msg_extra = {
-            "attachments": [
-                {"id": up.id, "filename": up.original_filename} for up in uploads
-            ]
-        }
+        msg_extra["attachments"] = [
+            {"id": up.id, "filename": up.original_filename} for up in uploads
+        ]
 
     user_msg = ChatMessage(
         conversation_id=conv.id,
@@ -284,6 +283,59 @@ def _build_system_prompt(
     return "\n\n".join(p for p in parts if p)
 
 
+_WEB_SNIPPET_MAX = 400
+
+
+def _make_tool_item_start(tool_name: str, params: dict, uid: str) -> dict:
+    if tool_name == "web_search":
+        return {"type": "item_start", "item": {"uid": uid, "kind": "web_search", "query": params.get("query", "")}}
+    if tool_name == "search_knowledge_base":
+        query = params.get("query") or params.get("question") or ""
+        return {"type": "item_start", "item": {"uid": uid, "kind": "kb_search", "query": query}}
+    return {"type": "item_start", "item": {"uid": uid, "kind": "tool_call", "tool": tool_name, "params": params}}
+
+
+def _make_tool_item_done(tool_name: str, tool_call_buffer: dict, tool_result: dict, uid: str) -> dict:
+    try:
+        params = json.loads(tool_call_buffer.get("arguments", "{}"))
+    except Exception:
+        params = {}
+    if tool_name == "web_search":
+        content = tool_result.get("content", "")
+        return {"type": "item_done", "item": {
+            "uid": uid, "kind": "web_search",
+            "query": params.get("query", ""),
+            "result_snippet": content[:_WEB_SNIPPET_MAX] if content else "",
+            "status": "done",
+        }}
+    if tool_name == "search_knowledge_base":
+        query = params.get("query") or params.get("question") or ""
+        sources = [{"kb_name": kb.get("kb_name", ""), "chunks_used": kb.get("chunks_used", 0)}
+                   for kb in tool_result.get("_used_kbs", [])]
+        return {"type": "item_done", "item": {
+            "uid": uid, "kind": "kb_search", "query": query, "sources": sources, "status": "done",
+        }}
+    return {"type": "item_done", "item": {"uid": uid, "kind": "tool_call", "tool": tool_name, "status": "done"}}
+
+
+def _tool_item_for_persistence(tool_name: str, tool_call_buffer: dict, tool_result: dict, uid: str) -> dict:
+    """Same shape as item_done.item, minus 'status'."""
+    try:
+        params = json.loads(tool_call_buffer.get("arguments", "{}"))
+    except Exception:
+        params = {}
+    if tool_name == "web_search":
+        content = tool_result.get("content", "")
+        return {"uid": uid, "kind": "web_search", "query": params.get("query", ""),
+                "result_snippet": content[:_WEB_SNIPPET_MAX] if content else ""}
+    if tool_name == "search_knowledge_base":
+        sources = [{"kb_name": kb.get("kb_name", ""), "chunks_used": kb.get("chunks_used", 0)}
+                   for kb in tool_result.get("_used_kbs", [])]
+        return {"uid": uid, "kind": "kb_search",
+                "query": params.get("query") or params.get("question") or "", "sources": sources}
+    return {"uid": uid, "kind": "tool_call", "tool": tool_name}
+
+
 def _count_active_memories(system_profile: Any, manual_memories: list) -> int:
     count = sum(
         1
@@ -315,17 +367,16 @@ def _stream_loop(
     max_iterations: int,
 ) -> Any:
     used_kbs_meta: list[dict] = []
+    stream_items: list[dict] = []
     messages = list(llm_messages)
     iterations = 0
-    thinking_started = False
 
-    # ── Thinking / memory pill ───────────────────────────────────────────────
-    if active_memory_count > 0 or bool(tools):
-        yield _sse({"type": "item_start", "item": {"kind": "thinking"}})
-        thinking_started = True
-        if active_memory_count > 0:
-            yield _sse({"type": "item_start", "item": {"kind": "memory", "count": active_memory_count}})
-            yield _sse({"type": "item_done", "item": {"kind": "memory", "status": "done"}})
+    # ── Memory pill (flat item, no thinking wrapper) ─────────────────────────
+    if active_memory_count > 0:
+        memory_uid = str(_uuid_mod.uuid4())
+        yield _sse({"type": "item_start", "item": {"uid": memory_uid, "kind": "memory", "count": active_memory_count}})
+        yield _sse({"type": "item_done", "item": {"uid": memory_uid, "kind": "memory", "count": active_memory_count, "status": "done"}})
+        stream_items.append({"uid": memory_uid, "kind": "memory", "count": active_memory_count})
 
     # ── Tool-call loop ───────────────────────────────────────────────────────
     while iterations <= max_iterations:
@@ -343,10 +394,9 @@ def _stream_loop(
                         _tool_params = json.loads(tool_call_buffer.get("arguments", "{}"))
                     except Exception:
                         _tool_params = {}
-                    yield _sse({
-                        "type": "item_start",
-                        "item": {"kind": "tool_call", "tool": _tool_name, "params": _tool_params},
-                    })
+                    _tool_uid = str(_uuid_mod.uuid4())
+                    tool_call_buffer["_uid"] = _tool_uid
+                    yield _sse(_make_tool_item_start(_tool_name, _tool_params, _tool_uid))
                 elif isinstance(piece, dict) and piece.get("type") == "delta":
                     text = piece.get("text", "")
                     full.append(text)
@@ -359,13 +409,14 @@ def _stream_loop(
             yield from _handle_stream_error(
                 db=db, conv=conv, exc=exc,
                 tool_call_buffer=tool_call_buffer,
-                thinking_started=thinking_started,
                 tail_message_id=tail_message_id,
             )
             return
 
         # ── Tool execution ───────────────────────────────────────────────────
         if tool_call_buffer and iterations < max_iterations:
+            _tool_name = tool_call_buffer.get("name", "")
+            _tool_uid = tool_call_buffer.pop("_uid", str(_uuid_mod.uuid4()))
             tool_result = _dispatch_tool_call(db, tool_call_buffer, kb_ids=kb_ids)
             used_kbs_meta.extend(tool_result.get("_used_kbs", []))
             messages.append({
@@ -379,27 +430,30 @@ def _stream_loop(
                 "name": tool_result["name"],
                 "content": tool_result["content"],
             })
-            yield _sse({
-                "type": "item_done",
-                "item": {"kind": "tool_call", "tool": tool_call_buffer.get("name", ""), "status": "done"},
-            })
+            yield _sse(_make_tool_item_done(_tool_name, tool_call_buffer, tool_result, _tool_uid))
+            stream_items.append(_tool_item_for_persistence(_tool_name, tool_call_buffer, tool_result, _tool_uid))
             iterations += 1
             continue
 
         # Iteration cap reached — close open tool item if any
         if tool_call_buffer:
-            yield _sse({
-                "type": "item_done",
-                "item": {"kind": "tool_call", "tool": tool_call_buffer.get("name", ""), "status": "done"},
-            })
+            _tool_name = tool_call_buffer.get("name", "")
+            _tool_uid = tool_call_buffer.pop("_uid", str(_uuid_mod.uuid4()))
+            yield _sse(_make_tool_item_done(_tool_name, tool_call_buffer, {}, _tool_uid))
+            stream_items.append(_tool_item_for_persistence(_tool_name, tool_call_buffer, {}, _tool_uid))
 
         # ── Persist final reply ──────────────────────────────────────────────
         reply = "".join(full)
+        extra: dict = {}
+        if used_kbs_meta:
+            extra["used_kbs"] = used_kbs_meta
+        if stream_items:
+            extra["stream_items"] = stream_items
         db.add(ChatMessage(
             conversation_id=conv.id,
             role="assistant",
             content=reply,
-            extra={"used_kbs": used_kbs_meta} if used_kbs_meta else None,
+            extra=extra or None,
         ))
         db.commit()
 
@@ -418,8 +472,6 @@ def _stream_loop(
             daemon=True,
         ).start()
 
-        if thinking_started:
-            yield _sse({"type": "item_done", "item": {"kind": "thinking"}})
         yield _sse({"type": "done", "message_id": tail_message_id()})
         return
 
@@ -430,7 +482,6 @@ def _handle_stream_error(
     conv: ChatConversation,
     exc: Exception,
     tool_call_buffer: dict | None,
-    thinking_started: bool,
     tail_message_id: Any,
 ) -> Any:
     if isinstance(exc, ValueError):
@@ -446,13 +497,10 @@ def _handle_stream_error(
     ))
     db.commit()
 
-    if thinking_started:
-        if tool_call_buffer:
-            yield _sse({
-                "type": "item_done",
-                "item": {"kind": "tool_call", "tool": tool_call_buffer.get("name", ""), "status": "done"},
-            })
-        yield _sse({"type": "item_done", "item": {"kind": "thinking"}})
+    if tool_call_buffer:
+        _tool_name = tool_call_buffer.get("name", "")
+        _tool_uid = tool_call_buffer.pop("_uid", str(_uuid_mod.uuid4()))
+        yield _sse(_make_tool_item_done(_tool_name, tool_call_buffer, {}, _tool_uid))
 
     yield _sse({"type": "error", "detail": detail})
     yield _sse({"type": "done", "message_id": tail_message_id()})
