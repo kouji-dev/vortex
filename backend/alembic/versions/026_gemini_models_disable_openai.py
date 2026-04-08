@@ -254,7 +254,7 @@ def upgrade() -> None:
                     VALUES
                         (:org_id, :slug, :display_name, :description, :api_model_id,
                          :effort, :sort_order, :is_active, :requires_entitlement,
-                         :request_access_url, :catalog_metadata::jsonb)
+                         :request_access_url, CAST(:catalog_metadata AS jsonb))
                     """
                 ),
                 {

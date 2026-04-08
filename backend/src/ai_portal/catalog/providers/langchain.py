@@ -107,7 +107,11 @@ class LangChainChatProvider:
             from langchain_google_genai import ChatGoogleGenerativeAI  # pylint: disable=import-error
             gemini_mid = normalize_model_id_for_gemini(mid)
             kw = chat_provider_credential_kwargs(self._settings, gemini_mid)
-            return ChatGoogleGenerativeAI(model=gemini_mid, google_api_key=kw["api_key"])
+            return ChatGoogleGenerativeAI(
+                model=gemini_mid,
+                google_api_key=kw["api_key"],
+                max_retries=0,  # disable SDK-level retries; let the app handle errors immediately
+            )
         kw = chat_provider_credential_kwargs(self._settings, mid)
         return ChatOpenAI(
             model=mid,

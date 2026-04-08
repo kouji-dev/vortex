@@ -17,6 +17,7 @@ frontend/playwright-report/
 .env.local
 *.pem
 backend/config.yaml
+backend/config.example.yaml
 
 # Python
 __pycache__/
