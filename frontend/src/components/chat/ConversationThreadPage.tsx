@@ -31,7 +31,6 @@ import {
   type ConversationSettings,
   type UsedKbEntry,
   type StreamThreadItem,
-  type GenericToolThreadItem,
 } from '~/lib/chat-types'
 import { isConversationNotFoundError } from '~/lib/conversation-not-found'
 import { getAuthHeaders } from '~/lib/authorizedFetch'
