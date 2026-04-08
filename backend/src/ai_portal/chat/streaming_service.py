@@ -296,26 +296,9 @@ def _make_tool_item_start(tool_name: str, params: dict, uid: str) -> dict:
 
 
 def _make_tool_item_done(tool_name: str, tool_call_buffer: dict, tool_result: dict, uid: str) -> dict:
-    try:
-        params = json.loads(tool_call_buffer.get("arguments", "{}"))
-    except Exception:
-        params = {}
-    if tool_name == "web_search":
-        content = tool_result.get("content", "")
-        return {"type": "item_done", "item": {
-            "uid": uid, "kind": "web_search",
-            "query": params.get("query", ""),
-            "result_snippet": content[:_WEB_SNIPPET_MAX] if content else "",
-            "status": "done",
-        }}
-    if tool_name == "search_knowledge_base":
-        query = params.get("query") or params.get("question") or ""
-        sources = [{"kb_name": kb.get("kb_name", ""), "chunks_used": kb.get("chunks_used", 0)}
-                   for kb in tool_result.get("_used_kbs", [])]
-        return {"type": "item_done", "item": {
-            "uid": uid, "kind": "kb_search", "query": query, "sources": sources, "status": "done",
-        }}
-    return {"type": "item_done", "item": {"uid": uid, "kind": "tool_call", "tool": tool_name, "status": "done"}}
+    """Build the item_done SSE payload by wrapping the persistence item with type+status."""
+    item = _tool_item_for_persistence(tool_name, tool_call_buffer, tool_result, uid)
+    return {"type": "item_done", "item": {**item, "status": "done"}}
 
 
 def _tool_item_for_persistence(tool_name: str, tool_call_buffer: dict, tool_result: dict, uid: str) -> dict:
