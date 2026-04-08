@@ -30,19 +30,30 @@ import {
   type Conversation,
   type ConversationSettings,
   type UsedKbEntry,
-  type StreamItem,
-  type ThinkingItem,
-  type ToolCallItem,
+  type StreamThreadItem,
+  type GenericToolThreadItem,
 } from '~/lib/chat-types'
 import { isConversationNotFoundError } from '~/lib/conversation-not-found'
 import { getAuthHeaders } from '~/lib/authorizedFetch'
 import { queryKeys } from '~/lib/queryKeys'
 import { parseSseBlocks } from '~/lib/sse-parse'
 import { useConversationsOutlet } from '~/contexts/ConversationsOutletContext'
-import { StreamingThinkingBlock } from '~/components/chat/StreamingThinkingBlock'
+import { ThreadItemChip } from '~/components/chat/ThreadItemChip'
 
 const MESSAGES_LIMIT = 100
 const MAX_ATTACHMENTS_PER_MESSAGE = 5
+
+function PersistedStreamItems({ message }: { message: ChatMessage }) {
+  const items = message.extra?.stream_items as StreamThreadItem[] | undefined
+  if (!items?.length) return null
+  return (
+    <div className="mb-2 flex flex-col gap-1.5">
+      {items.map((item, i) => (
+        <ThreadItemChip key={item.uid ?? i} item={{ ...item, status: 'done' }} />
+      ))}
+    </div>
+  )
+}
 
 /** Distance from scroll bottom (px) treated as "following" the thread — auto-scroll SSE only then. */
 const THREAD_BOTTOM_STICKY_PX = 80
@@ -70,8 +81,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
     useConversationsOutlet()
   const [streamingText, setStreamingText] = React.useState('')
   const [streaming, setStreaming] = React.useState(false)
-  const [streamItems, setStreamItems] = React.useState<StreamItem[]>([])
-  const [thinkingExpanded, setThinkingExpanded] = React.useState(false)
+  const [streamThreadItems, setStreamThreadItems] = React.useState<StreamThreadItem[]>([])
   const [sendError, setSendError] = React.useState<string | null>(null)
   const [modelDraft, setModelDraft] = React.useState('')
   const [olderMessages, setOlderMessages] = React.useState<ChatMessage[]>([])
@@ -154,8 +164,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
   React.useEffect(() => {
     setOlderMessages([])
     setCanLoadOlder(false)
-    setStreamItems([])
-    setThinkingExpanded(false)
+    setStreamThreadItems([])
   }, [conversationId])
 
   React.useEffect(() => {
@@ -197,7 +206,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
 
   const showEmptyHub =
     !streaming &&
-    streamItems.length === 0 &&
+    streamThreadItems.length === 0 &&
     visibleMessages.length === 0 &&
     (isComposerMode || (convQ.data != null && !tailQ.isPending))
 
@@ -351,8 +360,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
     setSendError(null)
     setStreaming(true)
     setStreamingText('')
-    setStreamItems([])
-    setThinkingExpanded(false)
+    setStreamThreadItems([])
     let streamReachedTerminal = false
     let assembled = ''
     try {
@@ -387,121 +395,49 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
             text?: string
             detail?: string
             item?: {
+              uid?: string
               kind?: string
+              query?: string
+              count?: number
               tool?: string
               params?: Record<string, string>
-              count?: number
+              result_snippet?: string
+              sources?: { kb_name: string; chunks_used: number }[]
               status?: string
             }
           }
 
           if (e.type === 'item_start') {
             const item = e.item ?? {}
-            if (item.kind === 'thinking') {
-              setStreamItems(prev => [...prev, { kind: 'thinking', status: 'running', children: [] }])
-              setThinkingExpanded(true)
-            } else if (item.kind === 'memory') {
-              setStreamItems((prev) => {
-                let thinkingIdx = -1
-                for (let j = prev.length - 1; j >= 0; j--) {
-                  const it = prev[j]
-                  if (it.kind === 'thinking' && it.status === 'running') {
-                    thinkingIdx = j
-                    break
-                  }
-                }
-                if (thinkingIdx === -1) return prev
-                return prev.map((si, j) => {
-                  if (j !== thinkingIdx || si.kind !== 'thinking') return si
-                  return {
-                    ...si,
-                    children: [
-                      ...si.children,
-                      {
-                        kind: 'memory' as const,
-                        count: item.count ?? 0,
-                        status: 'running' as const,
-                      },
-                    ],
-                  }
-                })
-              })
-            } else if (item.kind === 'tool_call') {
-              setStreamItems((prev) => {
-                const toolItem: ToolCallItem = {
-                  kind: 'tool_call',
-                  tool: item.tool ?? '',
-                  params: item.params ?? {},
-                  status: 'running',
-                }
-                let thinkingIdx = -1
-                for (let j = prev.length - 1; j >= 0; j--) {
-                  const it = prev[j]
-                  if (it.kind === 'thinking' && it.status === 'running') {
-                    thinkingIdx = j
-                    break
-                  }
-                }
-                if (thinkingIdx === -1) {
-                  return [...prev, toolItem]
-                }
-                return prev.map((si, j) => {
-                  if (j !== thinkingIdx || si.kind !== 'thinking') return si
-                  return {
-                    ...si,
-                    children: [...si.children, toolItem],
-                  }
-                })
-              })
-            }
+            const uid = (item.uid as string) ?? crypto.randomUUID()
+            setStreamThreadItems(prev => {
+              if (item.kind === 'memory') {
+                return [...prev, { uid, kind: 'memory', count: item.count ?? 0, status: 'running' }]
+              }
+              if (item.kind === 'web_search') {
+                return [...prev, { uid, kind: 'web_search', query: item.query ?? '', status: 'running' }]
+              }
+              if (item.kind === 'kb_search') {
+                return [...prev, { uid, kind: 'kb_search', query: item.query ?? '', status: 'running' }]
+              }
+              if (item.kind === 'tool_call') {
+                return [...prev, { uid, kind: 'tool_call', tool: item.tool ?? '', params: item.params ?? {}, status: 'running' }]
+              }
+              return prev
+            })
           }
 
           if (e.type === 'item_done') {
             const item = e.item ?? {}
-            if (item.kind === 'thinking') {
-              setStreamItems(prev =>
-                prev.map(i =>
-                  i.kind === 'thinking' && i.status === 'running' ? { ...i, status: 'done' } : i,
-                ),
-              )
-              setThinkingExpanded(false)
-            } else if (item.kind === 'memory') {
-              setStreamItems(prev => {
-                let fixed = false
-                return prev.map(si => {
-                  if (fixed || si.kind !== 'thinking') return si
-                  const lastRunningIdx = [...si.children].map((c, i) => [c, i] as const).reverse().find(
-                    ([c]) => c.kind === 'memory' && c.status === 'running',
-                  )?.[1]
-                  if (lastRunningIdx === undefined) return si
-                  fixed = true
-                  return {
-                    ...si,
-                    children: si.children.map((c, i) =>
-                      i === lastRunningIdx ? { ...c, status: 'done' as const } : c,
-                    ),
-                  }
-                })
+            setStreamThreadItems(prev => {
+              const idx = prev.findIndex(it => it.uid === item.uid)
+              if (idx === -1) return prev
+              return prev.map((it, i) => {
+                if (i !== idx) return it
+                const { status: _s, ...resultFields } = item as Record<string, unknown>
+                return { ...it, ...resultFields, status: 'done' as const }
               })
-            } else if (item.kind === 'tool_call') {
-              setStreamItems(prev => {
-                let fixed = false
-                return prev.map(si => {
-                  if (fixed || si.kind !== 'thinking') return si
-                  const lastRunningIdx = [...si.children].map((c, i) => [c, i] as const).reverse().find(
-                    ([c]) => c.kind === 'tool_call' && (c as ToolCallItem).tool === item.tool && c.status === 'running',
-                  )?.[1]
-                  if (lastRunningIdx === undefined) return si
-                  fixed = true
-                  return {
-                    ...si,
-                    children: si.children.map((c, i) =>
-                      i === lastRunningIdx ? { ...c, status: 'done' as const } : c,
-                    ),
-                  }
-                })
-              })
-            }
+            })
           }
 
           if (e.type === 'delta' && e.text) {
@@ -536,8 +472,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
       } else {
         setSendError(e instanceof Error ? e.message : 'Stream failed')
       }
-      setStreamItems([])
-      setThinkingExpanded(false)
+      setStreamThreadItems([])
     } finally {
       if (streamAbortRef.current === ac) streamAbortRef.current = null
       setStreaming(false)
@@ -961,6 +896,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
                         ))}
                       </ul>
                     )}
+                    {m.role === 'assistant' && <PersistedStreamItems message={m} />}
                     <MarkdownMessage
                       content={m.content}
                       className={
@@ -979,18 +915,6 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
             )
           })}
         </ul>
-        {!streaming &&
-          streamItems.some((i) => i.kind === 'thinking') && (
-            <div className="mt-1 w-full">
-              <div className="w-full max-w-none rounded-2xl bg-white/90 px-4 py-3 dark:bg-neutral-900/75">
-                <StreamingThinkingBlock
-                  items={streamItems}
-                  expanded={thinkingExpanded}
-                  onToggle={() => setThinkingExpanded((e) => !e)}
-                />
-              </div>
-            </div>
-          )}
         {streaming && (
           <div className="mt-1 w-full">
             <div
@@ -1014,18 +938,20 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
                   </button>
                 </div>
               </div>
-              <StreamingThinkingBlock
-                items={streamItems}
-                expanded={thinkingExpanded}
-                onToggle={() => setThinkingExpanded(e => !e)}
-              />
+              {streamThreadItems.length > 0 && (
+                <div className="mb-2 flex flex-col gap-1.5">
+                  {streamThreadItems.map((item) => (
+                    <ThreadItemChip key={item.uid} item={item} />
+                  ))}
+                </div>
+              )}
               {streamingText ? (
                 <MarkdownMessage
                   content={streamingText}
                   streaming
                   className="text-neutral-900 dark:text-neutral-100"
                 />
-              ) : streamItems.length === 0 ? (
+              ) : streamThreadItems.length === 0 ? (
                 <p className="flex items-center gap-2 text-sm text-neutral-400">
                   <span className="inline-block h-3.5 w-0.5 animate-pulse rounded-full bg-neutral-400 dark:bg-neutral-500" />
                   Waiting for tokens…
