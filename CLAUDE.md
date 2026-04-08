@@ -9,8 +9,26 @@ After implementing any feature or fix, the task is NOT done until:
 3. All tests pass: `pnpm test:e2e`
 4. If tests fail, keep iterating — do not mark the task complete until all tests are green
 
-**E2E tests always run against the E2E database** (never the dev database).
-Start the E2E backend first: `./scripts/e2e-up.sh` from the repo root.
+**E2E tests MUST ALWAYS run against the E2E database. NEVER the dev database.**
+
+### E2E DB Isolation (CRITICAL — Never Violate)
+
+- Dev backend: port **8000**, DB `ai_portal` on container `local-dev-ai-portal-db` (port 5434)
+- E2E backend: port **8001**, DB `ai_portal_e2e` on container `local-e2e-ai-portal-db` (port 5435)
+
+These MUST NEVER mix. Running E2E tests while the dev backend occupies port 8001 corrupts the dev DB.
+
+**Before running any E2E tests:**
+1. Ensure dev backend is on port 8000 (check `API_PORT=8000` in `.env`)
+2. Start E2E backend: `./scripts/e2e-up.sh` from the repo root (resets E2E DB, runs migrations)
+3. Verify: `curl http://localhost:8001/health` — must show `ai_portal_e2e` DB in startup logs
+
+**If multiple uvicorn processes are running on port 8001**, kill them all before running e2e-up.sh:
+```bash
+wmic process where "commandline like '%uvicorn%' and commandline like '%8001%'" call terminate
+```
+
+**After a worktree is deleted**, always delete `.worktree.env` from the repo root — stale worktree ports cause E2E tests to hit the wrong backend.
 
 ## E2E Scripts (frontend/)
 
