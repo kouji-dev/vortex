@@ -12,15 +12,12 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 # ---------------------------------------------------------------------------
 
 class CapabilityToggles(BaseModel):
-    """Feature toggles for a conversation (reflection / research / web / web_search / data_query)."""
+    """Feature toggles for a conversation (reflection / research)."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     reflection: bool = False
     research: bool = False
-    web: bool = False
-    web_search: bool = False
-    data_query: bool = False
 
 
 class ConversationSettings(BaseModel):
@@ -113,8 +110,5 @@ class CapabilityProfileEntryRead(BaseModel):
 class CapabilityProfileRead(BaseModel):
     reflection: CapabilityProfileEntryRead
     research: CapabilityProfileEntryRead
-    web: CapabilityProfileEntryRead
-    web_search: CapabilityProfileEntryRead
-    data_query: CapabilityProfileEntryRead
 
 
