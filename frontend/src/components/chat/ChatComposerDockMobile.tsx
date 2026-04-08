@@ -177,7 +177,7 @@ export function ChatComposerDockMobile({
   }
 
   const canSubmit = !composerDisabled && !streaming && composeDraft.trim().length > 0
-  const hasActiveCaps = capabilities.reflection || capabilities.research || capabilities.web
+  const hasActiveCaps = capabilities.reflection || capabilities.research
 
   return (
     <>

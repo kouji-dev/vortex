@@ -131,7 +131,6 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
         ? {
             reflection: capProfileQ.data.reflection.description,
             research: capProfileQ.data.research.description,
-            web: capProfileQ.data.web.description,
           }
         : undefined,
     [capProfileQ.data],
