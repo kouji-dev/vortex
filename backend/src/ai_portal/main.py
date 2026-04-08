@@ -12,14 +12,12 @@ from ai_portal.auth.router import router as auth_router
 from ai_portal.catalog.router import router as catalog_router
 from ai_portal.chat.router import router as chat_router
 from ai_portal.knowledge_base.router import router as knowledge_base_router
-from ai_portal.api import (
-    assistants,
-    e2e,
-    me,
-    memories,
-    orgs as orgs_api,
-    setup as setup_api,
-)
+from ai_portal.assistant.router import router as assistants_router
+from ai_portal.auth.routes_me import router as me_router
+from ai_portal.auth.routes_orgs import router as orgs_router
+from ai_portal.auth.routes_setup import router as setup_router
+from ai_portal.chat.routes_memories import router as memories_router
+from ai_portal.core.routes_e2e import router as e2e_router
 from ai_portal.core.config import get_settings, settings_log_snapshot
 from ai_portal.core.logging import configure_logging
 from ai_portal.core.middleware.setup_guard import SetupGuardMiddleware
@@ -80,13 +78,13 @@ def health() -> dict[str, Any]:
 
 app.include_router(auth_router)
 app.include_router(catalog_router)
-app.include_router(me.router)
-app.include_router(assistants.router)
+app.include_router(me_router)
+app.include_router(assistants_router)
 app.include_router(chat_router)
-app.include_router(memories.router)
+app.include_router(memories_router)
 app.include_router(knowledge_base_router)
-app.include_router(setup_api.router)
-app.include_router(orgs_api.router)
+app.include_router(setup_router)
+app.include_router(orgs_router)
 
 if settings.auth_mode == "dev":
-    app.include_router(e2e.router)
+    app.include_router(e2e_router)

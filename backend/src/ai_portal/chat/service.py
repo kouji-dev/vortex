@@ -10,7 +10,7 @@ from typing import Any
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from ai_portal.api.assistants import _can_access_assistant
+from ai_portal.assistant.router import _can_access_assistant
 from ai_portal.assistant.model import Assistant
 from ai_portal.auth.model import User
 from ai_portal.catalog.service import (
