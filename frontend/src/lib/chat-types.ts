@@ -127,25 +127,40 @@ export type CatalogModelEntry = {
   is_default?: boolean
 }
 
-export type ToolCallItem = {
+export type MemoryThreadItem = {
+  uid: string
+  kind: 'memory'
+  count: number
+  status: 'running' | 'done'
+}
+
+export type WebSearchThreadItem = {
+  uid: string
+  kind: 'web_search'
+  query: string
+  result_snippet?: string
+  status: 'running' | 'done'
+}
+
+export type KBSearchThreadItem = {
+  uid: string
+  kind: 'kb_search'
+  query: string
+  sources?: { kb_name: string; chunks_used: number }[]
+  status: 'running' | 'done'
+}
+
+export type GenericToolThreadItem = {
+  uid: string
   kind: 'tool_call'
   tool: string
   params: Record<string, string>
   status: 'running' | 'done'
 }
 
-export type MemoryItem = {
-  kind: 'memory'
-  count: number
-  status: 'running' | 'done'
-}
-
-export type ThinkingChildItem = ToolCallItem | MemoryItem
-
-export type ThinkingItem = {
-  kind: 'thinking'
-  status: 'running' | 'done'
-  children: ThinkingChildItem[]
-}
-
-export type StreamItem = ThinkingItem | ThinkingChildItem
+/** Union of all thread-level stream item types. */
+export type StreamThreadItem =
+  | MemoryThreadItem
+  | WebSearchThreadItem
+  | KBSearchThreadItem
+  | GenericToolThreadItem
