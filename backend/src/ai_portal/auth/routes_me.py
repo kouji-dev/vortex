@@ -83,6 +83,7 @@ def create_portal_api_key(
     row, raw = portal_keys_svc.create_portal_api_key(
         db,
         user_id=user.id,
+        org_id=user.org_id,
         label=body.label,
         pepper=settings.portal_api_key_pepper,
     )

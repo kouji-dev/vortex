@@ -88,12 +88,22 @@ class StreamMessageBody(BaseModel):
     regenerate_after_message_id: int | None = None
     model: str | None = Field(default=None, max_length=128)
     use_rag: bool = False
+    attachment_ids: list[int] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def content_or_regenerate(self) -> Self:
         if self.regenerate_after_message_id is None and not self.content.strip():
             raise ValueError("content is required unless regenerating a reply")
         return self
+
+
+class ChatUploadRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    original_filename: str
+    size_bytes: int
+    content_type: str | None = None
 
 
 class CapabilityProfileEntryRead(BaseModel):

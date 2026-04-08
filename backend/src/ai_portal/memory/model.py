@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import uuid as _uuid
 from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, func
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ai_portal.core.db.base import Base
@@ -12,6 +14,12 @@ class UserMemory(Base):
     __tablename__ = "user_memories"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    org_id: Mapped[_uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("orgs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), index=True
     )

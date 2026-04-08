@@ -202,7 +202,7 @@ class Settings(BaseSettings):
     # fallback when conversation has no model, and LangChain when no per-request model.
     # Env: ``CHAT_DEFAULT_API_MODEL`` (preferred), ``CHAT_DEFAULT_MODEL``, or legacy ``CHAT_MODEL``.
     chat_default_api_model: str = Field(
-        default="claude-haiku-4-5-20251001",
+        default="gemini-2.5-flash-lite",
         validation_alias=AliasChoices(
             "CHAT_DEFAULT_API_MODEL",
             "CHAT_DEFAULT_MODEL",
@@ -212,6 +212,12 @@ class Settings(BaseSettings):
     default_system_prompt: str = "You are a helpful assistant."
 
     upload_dir: str = "data/uploads"
+
+    # Queue / Redis (optional; if empty, background tasks run in-process)
+    redis_url: str = Field(
+        default="",
+        validation_alias=AliasChoices("REDIS_URL"),
+    )
 
     # Ingest worker
     kb_max_file_size_mb: int = Field(

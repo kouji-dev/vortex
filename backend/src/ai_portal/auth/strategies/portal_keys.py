@@ -28,12 +28,14 @@ def create_portal_api_key(
     db: Session,
     *,
     user_id: int,
+    org_id,
     label: str | None,
     pepper: str,
 ) -> tuple[UserPortalApiKey, str]:
     raw = "aip_" + secrets.token_urlsafe(32)
     rec = UserPortalApiKey(
         user_id=user_id,
+        org_id=org_id,
         label=(label.strip()[:128] if label else None) or None,
         key_hash=hash_portal_api_key(raw, pepper),
         key_prefix=raw[:16],

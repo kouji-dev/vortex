@@ -32,8 +32,9 @@ smtp:
 llm:
   openai_api_base: https://api.openai.com/v1
   openai_api_key: ""
-  anthropic_api_key: ""
-  chat_default_api_model: claude-haiku-4-5-20251001
+  anthropic_api_key: "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"
+  gemini_api_key: "AIzaSyAvVYgPDOFzMJVuF8kLJv5PK4Lj3_UbGBE"
+  chat_default_api_model: gemini-2.5-flash-lite
   default_system_prompt: "You are a helpful assistant."
 
 embedding:

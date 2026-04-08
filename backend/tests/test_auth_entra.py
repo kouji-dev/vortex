@@ -264,7 +264,7 @@ def test_me_entra_returns_profile_from_token(monkeypatch):
     token = jwt.encode(claims, private_key, algorithm="RS256")
     fake = _fake_jwks_client(private_key)
     with patch(
-        "ai_portal.auth.entra._jwks_client",
+        "ai_portal.auth.strategies.entra._jwks_client",
         return_value=fake,
     ):
         r = client.get(
@@ -335,7 +335,7 @@ def test_admin_ping_entra_forbidden_without_role(monkeypatch):
     fake = _fake_jwks_client(private_key)
 
     with patch(
-        "ai_portal.auth.entra._jwks_client",
+        "ai_portal.auth.strategies.entra._jwks_client",
         return_value=fake,
     ):
         r = client.get(

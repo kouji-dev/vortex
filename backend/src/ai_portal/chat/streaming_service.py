@@ -17,7 +17,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from ai_portal.assistant.router import _can_access_assistant
-from ai_portal.assistant.model import Assistant
+from ai_portal.assistant.model import Assistant  # kept for type annotation
 from ai_portal.auth.model import User
 from ai_portal.catalog.providers import get_chat_provider
 from ai_portal.catalog.service import (
@@ -25,6 +25,7 @@ from ai_portal.catalog.service import (
     resolve_stored_model_to_chat_model,
 )
 from ai_portal.chat import repository as repo
+from ai_portal.chat import upload_service as upload_svc
 from ai_portal.chat.model import ChatConversation, ChatMessage
 from ai_portal.chat.schemas import ConversationSettings, StreamMessageBody
 from ai_portal.chat.tool_service import _dispatch_tool_call
@@ -153,9 +154,7 @@ def stream_message_svc(
 
     assistant: Assistant | None = None
     if conv.assistant_id is not None:
-        assistant = db.get(Assistant, conv.assistant_id)
-        if assistant is None or not _can_access_assistant(db, user, assistant):
-            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Assistant not found")
+        assistant = _can_access_assistant(conv.assistant_id, user, conv.org_id, db)
 
     if body.regenerate_after_message_id is not None:
         asst_msg = db.get(ChatMessage, body.regenerate_after_message_id)
@@ -189,8 +188,32 @@ def stream_message_svc(
         prior_rows = repo.get_messages_before(db, conv.id, anchor_id)
     else:
         user_content = body.content.strip()
+        msg_extra: dict | None = None
+
+        # Append file attachment contents to user message
+        if body.attachment_ids:
+            uploads = upload_svc.get_uploads_by_ids(db, body.attachment_ids, user.id)
+            attachment_parts: list[str] = []
+            for up in uploads:
+                text = upload_svc.load_upload_text(up)
+                if text is not None:
+                    attachment_parts.append(
+                        f"[Attached file: {up.original_filename}]\n{text}"
+                    )
+            if attachment_parts:
+                file_block = "\n\n".join(attachment_parts)
+                user_content = f"{user_content}\n\n{file_block}" if user_content else file_block
+            msg_extra = {
+                "attachments": [
+                    {"id": up.id, "filename": up.original_filename} for up in uploads
+                ]
+            }
+
         user_msg = ChatMessage(
-            conversation_id=conv.id, role="user", content=user_content
+            conversation_id=conv.id,
+            role="user",
+            content=user_content,
+            extra=msg_extra,
         )
         db.add(user_msg)
         conv.last_message_at = datetime.now(tz=UTC)

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import uuid as _uuid
 from datetime import datetime
 
 from sqlalchemy import DateTime, ForeignKey, String, Text, UniqueConstraint, func
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ai_portal.core.db.base import Base
@@ -12,6 +14,12 @@ class Assistant(Base):
     __tablename__ = "assistants"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    org_id: Mapped[_uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("orgs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     name: Mapped[str] = mapped_column(String(255))
     description: Mapped[str] = mapped_column(Text, default="")
     system_prompt: Mapped[str] = mapped_column(Text, default="")

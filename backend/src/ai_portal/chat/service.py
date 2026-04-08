@@ -11,7 +11,6 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from ai_portal.assistant.router import _can_access_assistant
-from ai_portal.assistant.model import Assistant
 from ai_portal.auth.model import User
 from ai_portal.catalog.service import (
     default_conversation_settings,
@@ -64,9 +63,7 @@ def create_conversation_svc(
     knowledge_base_ids: list[int],
 ) -> ConversationRead:
     if assistant_id is not None:
-        a = db.get(Assistant, assistant_id)
-        if a is None or not _can_access_assistant(db, user, a):
-            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Assistant not found")
+        _can_access_assistant(assistant_id, user, org_id, db)
     model_raw = (model or "").strip() or None
     model_val = model_raw or resolve_default_conversation_stored_model(db)
     settings_val = (
@@ -108,11 +105,7 @@ def patch_conversation_svc(
         conv.model = model
     if "assistant_id" in fields_set:
         if assistant_id is not None:
-            a = db.get(Assistant, assistant_id)
-            if a is None or not _can_access_assistant(db, user, a):
-                raise HTTPException(
-                    status.HTTP_404_NOT_FOUND, detail="Assistant not found"
-                )
+            _can_access_assistant(assistant_id, user, conv.org_id, db)
         conv.assistant_id = assistant_id
     if "settings" in fields_set:
         conv.settings = settings

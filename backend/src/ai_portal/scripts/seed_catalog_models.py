@@ -52,6 +52,10 @@ from ai_portal.core.db.session import SessionLocal
 from ai_portal.catalog.model import CatalogModel
 from ai_portal.catalog.service import validate_catalog_model_id
 
+# Import all models so SQLAlchemy metadata has every table registered
+# (needed to resolve FK references like catalog_models.org_id → orgs.id)
+import ai_portal.models  # noqa: F401
+
 logger = logging.getLogger(__name__)
 
 _REMOVED_STUB_SLUG = "example-locked-premium"
@@ -157,6 +161,16 @@ def _deactivate_legacy_slugs(db: Session) -> None:
     )
 
 
+def _get_default_org_id(db: Session):
+    """Return the default org's UUID, or None if the orgs table doesn't exist yet."""
+    from ai_portal.auth.model import Org
+    try:
+        org = db.scalars(select(Org).where(Org.slug == "default").limit(1)).first()
+        return org.id if org else None
+    except Exception:
+        return None
+
+
 def run_seed(
     *,
     dry_run: bool = False,
@@ -165,12 +179,15 @@ def run_seed(
     db = SessionLocal()
     try:
         _delete_removed_stub_slug(db)
+        default_org_id = _get_default_org_id(db)
         added: list[str] = []
         updated: list[str] = []
         for row in _CATALOG_SEED_ROWS:
             if not skip_model_validation:
                 validate_catalog_model_id(row["api_model_id"])
-            slug, is_new = _upsert_row(db, row)
+            # Inject org_id for new rows (existing rows already have it set)
+            row_with_org = {**row, "org_id": default_org_id} if default_org_id else row
+            slug, is_new = _upsert_row(db, row_with_org)
             if is_new:
                 added.append(slug)
             else:

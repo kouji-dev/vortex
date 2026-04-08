@@ -10,7 +10,7 @@ from typing import Annotated, Any
 
 import uuid as _uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -21,6 +21,7 @@ from ai_portal.chat import streaming_service as streaming_svc
 from ai_portal.chat.schemas import (
     CapabilityProfileEntryRead,
     CapabilityProfileRead,
+    ChatUploadRead,
     ConversationCreate,
     ConversationKnowledgeBasesPut,
     ConversationPatch,
@@ -32,6 +33,7 @@ from ai_portal.chat.schemas import (
 from ai_portal.core.config import get_settings
 from ai_portal.auth.model import User
 from ai_portal.chat.model import ChatMessage
+from ai_portal.chat import upload_service as upload_svc
 
 router = APIRouter(prefix="/api/chat", tags=["chat-conversations"])
 
@@ -229,6 +231,31 @@ def delete_message(
 ) -> None:
     msg = repo.get_owned_message(db, user, conversation_id, message_id)
     repo.delete_message(db, msg)
+
+
+@router.post(
+    "/conversations/{conversation_id}/uploads",
+    response_model=ChatUploadRead,
+    status_code=status.HTTP_201_CREATED,
+)
+async def upload_attachment(
+    conversation_id: int,
+    file: UploadFile,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
+) -> ChatUploadRead:
+    """Upload a file attachment to a conversation. Returns a record the client can reference by id."""
+    settings = get_settings()
+    repo.get_owned_conversation(db, user, conversation_id)
+    return await upload_svc.create_upload(
+        db=db,
+        user=user,
+        org_id=org_id,
+        conversation_id=conversation_id,
+        file=file,
+        upload_dir=settings.upload_dir,
+    )
 
 
 @router.post("/conversations/{conversation_id}/messages/stream")

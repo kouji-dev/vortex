@@ -121,6 +121,7 @@ def test_connectors_crud_and_sync_job_runs():
 @requires_postgres
 def test_upload_document_returns_200_when_ingest_fails():
     """Stored file + document row always return 200; ingest errors surface as status failed + ingest_error."""
+    from unittest.mock import patch as _patch
     kb = client.post(
         "/api/knowledge-bases",
         headers=AUTH,
@@ -129,11 +130,15 @@ def test_upload_document_returns_200_when_ingest_fails():
     assert kb.status_code == 201, kb.text
     kb_id = kb.json()["id"]
 
-    up = client.post(
-        f"/api/knowledge-bases/{kb_id}/documents",
-        headers=AUTH,
-        files={"file": ("e2e.txt", b"hello from pytest upload", "text/plain")},
-    )
+    with _patch(
+        "ai_portal.knowledge_base.ingest_service.embedding_svc.embeddings_configured",
+        return_value=True,
+    ):
+        up = client.post(
+            f"/api/knowledge-bases/{kb_id}/documents",
+            headers=AUTH,
+            files={"file": ("e2e.txt", b"hello from pytest upload", "text/plain")},
+        )
     assert up.status_code == 200, up.text
     body = up.json()
     assert body["results"]
@@ -179,6 +184,7 @@ def test_upload_document_returns_200_with_ingest_error_when_llm_key_missing(monk
 
 @requires_postgres
 def test_upload_multiple_documents_one_request():
+    from unittest.mock import patch as _patch
     kb = client.post(
         "/api/knowledge-bases",
         headers=AUTH,
@@ -187,14 +193,18 @@ def test_upload_multiple_documents_one_request():
     assert kb.status_code == 201, kb.text
     kb_id = kb.json()["id"]
 
-    up = client.post(
-        f"/api/knowledge-bases/{kb_id}/documents",
-        headers=AUTH,
-        files=[
-            ("file", ("one.txt", b"first file body", "text/plain")),
-            ("file", ("two.txt", b"second file body", "text/plain")),
-        ],
-    )
+    with _patch(
+        "ai_portal.knowledge_base.ingest_service.embedding_svc.embeddings_configured",
+        return_value=True,
+    ):
+        up = client.post(
+            f"/api/knowledge-bases/{kb_id}/documents",
+            headers=AUTH,
+            files=[
+                ("file", ("one.txt", b"first file body", "text/plain")),
+                ("file", ("two.txt", b"second file body", "text/plain")),
+            ],
+        )
     assert up.status_code == 200, up.text
     body = up.json()
     assert len(body["results"]) == 2
@@ -264,33 +274,49 @@ def test_stream_stores_used_kbs_in_extra():
     )
     assert attach_res.status_code == 200
 
-    fake_meta = [
-        {
-            "kb_id": kb_id,
-            "kb_name": "Test KB",
-            "chunks_used": 1,
-            "top_score": 0.9,
-            "sections": [],
-        }
-    ]
+    fake_search_result = {
+        "context": "some context about test",
+        "used_kbs": [
+            {
+                "kb_id": kb_id,
+                "kb_name": "Test KB",
+                "chunks_used": 1,
+                "top_score": 0.9,
+                "sections": [],
+            }
+        ],
+        "citations": [],
+    }
+
+    call_count = 0
+
+    def fake_stream(messages, model=None, tools=None):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            yield {
+                "type": "tool_call",
+                "tool_call": {
+                    "name": "search_knowledge_base",
+                    "arguments": f'{{"query": "hello", "kb_ids": [{kb_id}]}}',
+                },
+            }
+        else:
+            yield {"type": "delta", "text": "Hello based on your documents."}
 
     with (
         patch(
-            "ai_portal.api.conversations.embedding_svc.embed_texts",
-            return_value=[[0.1, 0.2]],
+            "ai_portal.catalog.providers.langchain.LangChainChatProvider.stream_deltas_with_tools",
+            side_effect=fake_stream,
         ),
         patch(
-            "ai_portal.api.conversations.rag_svc.retrieve_context_with_meta",
-            return_value=("some context", fake_meta),
-        ),
-        patch(
-            "ai_portal.api.conversations.llm_svc.chat_completions_stream_deltas",
-            return_value=iter(["Hello"]),
+            "ai_portal.chat.tool_service.rag_svc.search_knowledge_base_tool",
+            return_value=fake_search_result,
         ),
     ):
         stream_res = client.post(
             f"/api/chat/conversations/{conv_id}/messages/stream",
-            json={"content": "hello", "use_rag": True},
+            json={"content": "hello"},
             headers=AUTH,
         )
         assert stream_res.status_code == 200
