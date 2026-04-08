@@ -120,54 +120,6 @@ def delete_message(db: Session, msg: ChatMessage) -> None:
     db.commit()
 
 
-def seed_rag_conversation(
-    db: Session,
-    *,
-    conversation_id: int,
-    user: User,
-    kb_id: int,
-    kb_name: str,
-    assistant_content: str,
-) -> tuple[KnowledgeBase, ChatMessage, ChatMessage, ChatMessage]:
-    kb = db.get(KnowledgeBase, kb_id)
-    if kb is None or kb.owner_user_id != user.id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Knowledge base not found")
-
-    used_kbs_meta: list[dict] = [
-        {
-            "kb_id": kb_id,
-            "kb_name": kb_name,
-            "chunks_used": 2,
-            "top_score": 0.88,
-            "sections": ["E2E section"],
-        }
-    ]
-
-    msg1 = ChatMessage(
-        conversation_id=conversation_id,
-        role="user",
-        content="E2E: what does the knowledge base say?",
-    )
-    msg2 = ChatMessage(
-        conversation_id=conversation_id,
-        role="assistant",
-        content="A short reply without retrieval metadata.",
-        extra=None,
-    )
-    msg3 = ChatMessage(
-        conversation_id=conversation_id,
-        role="assistant",
-        content=assistant_content,
-        extra={"used_kbs": used_kbs_meta},
-    )
-    db.add(msg1)
-    db.add(msg2)
-    db.add(msg3)
-    db.commit()
-    db.refresh(msg1)
-    db.refresh(msg2)
-    db.refresh(msg3)
-    return kb, msg1, msg2, msg3
 
 
 def get_messages_before(

@@ -24,12 +24,13 @@ Playwright config: **8 workers minimum, 0 retries**.
 
 ## E2E Test Principles
 
-- **Never call backend APIs directly** from test bodies — all interactions must go through the browser UI
+- **All E2E interactions must go through the browser UI** — no direct backend API calls in tests, ever
+- No E2E seed endpoints exist on the backend — do not create them; do not call them
 - Use `createOrFindConversation(page, name)` and `createOrFindKb(page, name)` helpers from `e2e/support/ui-helpers.ts`
 - Tests that need isolation use unique names: `` `E2E Isolated ${Date.now()}` ``
 - Tests that can share state use a stable name: `"E2E Shared Conversation"`
-- Cleanup (delete in `finally` blocks) may use API calls — teardown is acceptable
-- E2E seed endpoints (`/api/e2e/seed-*`) are test infrastructure — acceptable to call via `request`
+- To mock streaming/SSE responses use `page.route()` — intercept at the browser level, never seed via API
+- Teardown cleanup (e.g. deleting a created resource) may use API calls in `finally` blocks — only the regular app API, never seed-specific endpoints
 
 ## Worktree Isolation
 

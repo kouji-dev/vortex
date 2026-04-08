@@ -1,10 +1,24 @@
 import { test, expect } from '@playwright/test'
 import { createEmptyConversation } from '../support/create-conversation'
-import { seedToolStream } from '../support/tool-stream-api'
 
 test.describe.configure({ mode: 'serial' })
 
-const apiBase = () => process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
+/** Pre-built SSE that mimics a tool-using stream (thinking + 2 tool calls + reply). */
+function buildToolStreamSse(messageId: number): string {
+  const e = (payload: object) => `data: ${JSON.stringify(payload)}\n\n`
+  return (
+    e({ type: 'item_start', item: { kind: 'thinking' } }) +
+    e({ type: 'item_start', item: { kind: 'memory', count: 1 } }) +
+    e({ type: 'item_done', item: { kind: 'memory', status: 'done' } }) +
+    e({ type: 'item_start', item: { kind: 'tool_call', tool: 'web_search', params: { query: 'latest news' } } }) +
+    e({ type: 'item_done', item: { kind: 'tool_call', tool: 'web_search', status: 'done' } }) +
+    e({ type: 'item_start', item: { kind: 'tool_call', tool: 'search_knowledge_base', params: { query: 'news' } } }) +
+    e({ type: 'item_done', item: { kind: 'tool_call', tool: 'search_knowledge_base', status: 'done' } }) +
+    e({ type: 'item_done', item: { kind: 'thinking' } }) +
+    e({ type: 'delta', text: 'Here is the latest news based on my web search.' }) +
+    e({ type: 'done', message_id: messageId })
+  )
+}
 
 async function setupSseReplay(
   page: import('@playwright/test').Page,
@@ -26,9 +40,9 @@ async function setupSseReplay(
 
 test.describe('Thinking block UI', () => {
   test('thinking block collapses to pill after stream ends', async ({ page, request }) => {
-    const base = apiBase()
+    const base = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
     const convId = await createEmptyConversation(request, base)
-    const { sse } = await seedToolStream(request, base, convId)
+    const sse = buildToolStreamSse(convId * 100)
 
     await setupSseReplay(page, convId, sse)
     await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
@@ -36,18 +50,16 @@ test.describe('Thinking block UI', () => {
     await page.getByRole('textbox', { name: /message/i }).fill('What is the latest news?')
     await page.getByRole('button', { name: /send message/i }).click()
 
-    // After stream resolves: pill visible, tool cards hidden (collapsed)
     const pill = page.getByTestId('chat-thinking-pill')
     await expect(pill).toBeVisible({ timeout: 15_000 })
-    // Block container is present but tool cards are not visible when collapsed
     const toolCards = page.getByTestId('chat-tool-card')
     await expect(toolCards.first()).toBeHidden()
   })
 
   test('user can expand thinking block by clicking the pill', async ({ page, request }) => {
-    const base = apiBase()
+    const base = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
     const convId = await createEmptyConversation(request, base)
-    const { sse } = await seedToolStream(request, base, convId)
+    const sse = buildToolStreamSse(convId * 100)
 
     await setupSseReplay(page, convId, sse)
     await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
@@ -65,9 +77,9 @@ test.describe('Thinking block UI', () => {
   })
 
   test('user can collapse thinking block by clicking pill again', async ({ page, request }) => {
-    const base = apiBase()
+    const base = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
     const convId = await createEmptyConversation(request, base)
-    const { sse } = await seedToolStream(request, base, convId)
+    const sse = buildToolStreamSse(convId * 100)
 
     await setupSseReplay(page, convId, sse)
     await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
@@ -82,17 +94,15 @@ test.describe('Thinking block UI', () => {
     const block = page.getByTestId('chat-thinking-block')
     await expect(block).toBeVisible()
 
-    // Click pill again (it's still visible in expanded state)
     await pill.click()
-    // After collapse, tool cards should not be visible
     const toolCards = page.getByTestId('chat-tool-card')
     await expect(toolCards.first()).toBeHidden()
   })
 
   test('tool cards show correct tool names after expanding', async ({ page, request }) => {
-    const base = apiBase()
+    const base = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
     const convId = await createEmptyConversation(request, base)
-    const { sse } = await seedToolStream(request, base, convId)
+    const sse = buildToolStreamSse(convId * 100)
 
     await setupSseReplay(page, convId, sse)
     await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
@@ -108,14 +118,13 @@ test.describe('Thinking block UI', () => {
     const names = block.getByTestId('chat-tool-card-name')
     await expect(names.first()).toBeVisible()
     const allNames = await names.allTextContents()
-    // Seed has web_search → "Web Search" and search_knowledge_base → "Knowledge Base"
     expect(allNames.some(n => n.includes('Web Search'))).toBe(true)
   })
 
   test('tool cards show "done" status after stream ends', async ({ page, request }) => {
-    const base = apiBase()
+    const base = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
     const convId = await createEmptyConversation(request, base)
-    const { sse } = await seedToolStream(request, base, convId)
+    const sse = buildToolStreamSse(convId * 100)
 
     await setupSseReplay(page, convId, sse)
     await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
@@ -134,7 +143,7 @@ test.describe('Thinking block UI', () => {
   })
 
   test('no thinking block for plain text reply (no item_start events)', async ({ page, request }) => {
-    const base = apiBase()
+    const base = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
     const convId = await createEmptyConversation(request, base)
 
     const plainSse =
@@ -154,8 +163,6 @@ test.describe('Thinking block UI', () => {
     await page.getByRole('button', { name: /send message/i }).click()
 
     await expect(page.getByText('Hello!')).toBeVisible({ timeout: 15_000 })
-
-    // Neither the block nor the pill should appear
     await expect(page.getByTestId('chat-thinking-block')).toBeHidden()
     await expect(page.getByTestId('chat-thinking-pill')).toBeHidden()
   })

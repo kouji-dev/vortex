@@ -108,10 +108,3 @@ class CapabilityProfileRead(BaseModel):
     data_query: CapabilityProfileEntryRead
 
 
-class E2eSeedRagAssistantBody(BaseModel):
-    kb_id: int
-    kb_name: str = "Knowledge base"
-    assistant_content: str = Field(
-        default="This reply is grounded in your attached knowledge base (E2E seed).",
-        max_length=500_000,
-    )

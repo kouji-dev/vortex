@@ -6,7 +6,6 @@ No direct DB queries, no business logic.
 
 from __future__ import annotations
 
-import os
 from typing import Annotated, Any
 
 import uuid as _uuid
@@ -26,7 +25,6 @@ from ai_portal.chat.schemas import (
     ConversationKnowledgeBasesPut,
     ConversationPatch,
     ConversationRead,
-    E2eSeedRagAssistantBody,
     MessagePatch,
     MessageRead,
     StreamMessageBody,
@@ -244,41 +242,3 @@ def stream_message(
     return streaming_svc.stream_message_svc(db=db, user=user, conversation_id=conversation_id, body=body)
 
 
-def _e2e_rag_seed_allowed() -> bool:
-    """Local Playwright only: ``E2E_ENABLE_RAG_SEED=1`` plus dev auth."""
-    settings = get_settings()
-    return settings.auth_mode == "dev" and os.environ.get("E2E_ENABLE_RAG_SEED", "").strip() == "1"
-
-
-@router.post(
-    "/conversations/{conversation_id}/e2e/seed-rag-assistant",
-    status_code=status.HTTP_201_CREATED,
-)
-def e2e_seed_rag_assistant(
-    conversation_id: int,
-    body: E2eSeedRagAssistantBody,
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
-    org_id: _uuid.UUID = Depends(get_current_org_id),
-) -> dict[str, Any]:
-    """Insert user + two assistant rows: one without ``used_kbs``, one with (for KB indicator E2E)."""
-    if not _e2e_rag_seed_allowed():
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Not found")
-
-    conv = repo.get_owned_conversation(db, user, conversation_id)
-    kb_ids = repo.get_conversation_kb_ids(db, conv.id)
-    if body.kb_id not in kb_ids:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            detail="kb_id must be attached to this conversation",
-        )
-
-    _kb, _msg1, _msg2, msg3 = repo.seed_rag_conversation(
-        db,
-        conversation_id=conv.id,
-        user=user,
-        kb_id=body.kb_id,
-        kb_name=body.kb_name,
-        assistant_content=body.assistant_content,
-    )
-    return {"ok": True, "assistant_message_id": msg3.id}
