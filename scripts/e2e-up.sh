@@ -106,9 +106,16 @@ for i in $(seq 1 30); do
   sleep 1
 done
 
+# ── Resolve backend directory (worktree vs main) ─────────────────────────────
+if [ -n "$WORKTREE_NAME" ] && [ -d "$REPO_ROOT/.worktrees/${WORKTREE_NAME}/backend" ]; then
+  BACKEND_DIR="$REPO_ROOT/.worktrees/${WORKTREE_NAME}/backend"
+else
+  BACKEND_DIR="$REPO_ROOT/backend"
+fi
+
 # ── 4. Run migrations ─────────────────────────────────────────────────────────
 echo "▶ Running alembic migrations..."
-(cd "$REPO_ROOT/backend" && DATABASE_URL="$E2E_DB_URL" "$PYTHON" -m alembic upgrade head)
+(cd "$BACKEND_DIR" && DATABASE_URL="$E2E_DB_URL" "$PYTHON" -m alembic upgrade head)
 
 # ── 5. Seed catalog models ────────────────────────────────────────────────────
 echo "▶ Seeding catalog models..."
@@ -118,14 +125,14 @@ if [ -f "$REPO_ROOT/.env" ]; then
   source "$REPO_ROOT/.env"
   set +o allexport
 fi
-(cd "$REPO_ROOT/backend" && DATABASE_URL="$E2E_DB_URL" \
+(cd "$BACKEND_DIR" && DATABASE_URL="$E2E_DB_URL" \
   "$PYTHON" -m ai_portal.scripts.seed_catalog_models --skip-model-validation)
 
 # ── 6. Start the API ──────────────────────────────────────────────────────────
 echo "▶ Starting API on http://127.0.0.1:${E2E_API_PORT} (E2E database)..."
 echo "   Press Ctrl-C to stop."
 (
-  cd "$REPO_ROOT/backend"
+  cd "$BACKEND_DIR"
   if [ -f "$REPO_ROOT/.env" ]; then
     set -o allexport
     # shellcheck disable=SC1091

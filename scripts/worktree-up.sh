@@ -210,20 +210,27 @@ fi
 DEV_DB_URL="postgresql+psycopg://postgres:postgres@127.0.0.1:${DB_PORT}/${DB_NAME}"
 E2E_DB_URL="postgresql+psycopg://postgres:postgres@127.0.0.1:${E2E_DB_PORT}/${E2E_DB_NAME}"
 
+# Use worktree backend if it exists, otherwise fall back to repo root backend
+if [ -d "$REPO_ROOT/.worktrees/${NAME}/backend" ]; then
+  BACKEND_DIR="$REPO_ROOT/.worktrees/${NAME}/backend"
+else
+  BACKEND_DIR="$REPO_ROOT/backend"
+fi
+
 # ── 2. Run migrations ─────────────────────────────────────────────────────────
 echo "▶ Running alembic migrations (dev DB)..."
-(cd "$REPO_ROOT/backend" && DATABASE_URL="$DEV_DB_URL" "$PYTHON" -m alembic upgrade head)
+(cd "$BACKEND_DIR" && DATABASE_URL="$DEV_DB_URL" "$PYTHON" -m alembic upgrade head)
 
 echo "▶ Running alembic migrations (E2E DB)..."
-(cd "$REPO_ROOT/backend" && DATABASE_URL="$E2E_DB_URL" "$PYTHON" -m alembic upgrade head)
+(cd "$BACKEND_DIR" && DATABASE_URL="$E2E_DB_URL" "$PYTHON" -m alembic upgrade head)
 
 # ── 3. Seed catalog models ────────────────────────────────────────────────────
 echo "▶ Seeding catalog models (dev DB)..."
-(cd "$REPO_ROOT/backend" && DATABASE_URL="$DEV_DB_URL" \
+(cd "$BACKEND_DIR" && DATABASE_URL="$DEV_DB_URL" \
   "$PYTHON" -m ai_portal.scripts.seed_catalog_models --skip-model-validation)
 
 echo "▶ Seeding catalog models (E2E DB)..."
-(cd "$REPO_ROOT/backend" && DATABASE_URL="$E2E_DB_URL" \
+(cd "$BACKEND_DIR" && DATABASE_URL="$E2E_DB_URL" \
   "$PYTHON" -m ai_portal.scripts.seed_catalog_models --skip-model-validation)
 
 # ── Done ──────────────────────────────────────────────────────────────────────

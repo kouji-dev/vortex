@@ -45,15 +45,6 @@ export function HomePage() {
 
   return (
     <div className="page-enter mx-auto min-h-0 w-full max-w-4xl flex-1 space-y-8 overflow-y-auto overscroll-contain p-4 md:p-6">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">
-          Home
-        </h1>
-        <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-          Pick a feature or review connection and account status.
-        </p>
-      </header>
-
       <section>
         <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-neutral-500">
           Features

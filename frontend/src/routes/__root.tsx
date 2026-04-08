@@ -77,7 +77,7 @@ export const Route = createRootRouteWithContext<{
 function RootComponent() {
   useAuthRedirect()
   useSetupRedirect()
-  const isMobile = useIsMobile()
+  const { isMobile } = useIsMobile()
 
   const shell = isMobile ? (
     <MobileAppShell>

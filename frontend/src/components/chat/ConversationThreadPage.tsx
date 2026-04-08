@@ -83,7 +83,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
   const stickToBottomRef = React.useRef(true)
   const streamAbortRef = React.useRef<AbortController | null>(null)
   const isComposerMode = conversationId == null
-  const isMobile = useIsMobile()
+  const { isMobile } = useIsMobile()
   const [draftModel, setDraftModel] = React.useState('')
   const [confirmDeleteOpen, setConfirmDeleteOpen] = React.useState(false)
   const [draftCaps, setDraftCaps] = React.useState<CapabilityToggles>({

@@ -200,7 +200,7 @@ function KnowledgeBasesIndexPage() {
         )}
         {filteredRows.length > 0 && (
           <>
-            <div className="flex flex-col gap-2 md:hidden">
+            <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto md:hidden">
               {filteredRows.map((kb) => (
                 <Link
                   key={kb.id}

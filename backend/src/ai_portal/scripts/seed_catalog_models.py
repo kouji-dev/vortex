@@ -52,6 +52,7 @@ from ai_portal.catalog.specs import CONFIG_BY_SLUG
 from ai_portal.core.db.session import SessionLocal
 from ai_portal.catalog.model import CatalogModel
 from ai_portal.catalog.service import validate_catalog_model_id
+from ai_portal.auth.model import Org
 
 # Import all models so SQLAlchemy metadata has every table registered
 # (needed to resolve FK references like catalog_models.org_id → orgs.id)

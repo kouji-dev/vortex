@@ -16,7 +16,7 @@ type AppSidebarProps = {
 export function AppSidebar({ compact, onToggleCompact }: AppSidebarProps) {
   return (
     <aside
-      className={`flex h-full min-h-0 shrink-0 flex-col overflow-hidden border-r border-neutral-200 bg-neutral-50 transition-[width] duration-200 ease-out dark:border-neutral-800 dark:bg-neutral-950 ${
+      className={`hidden md:flex h-full min-h-0 shrink-0 flex-col overflow-hidden border-r border-neutral-200 bg-neutral-50 transition-[width] duration-200 ease-out dark:border-neutral-800 dark:bg-neutral-950 ${
         compact ? 'w-14' : 'w-56'
       }`}
       aria-label="Main navigation"
