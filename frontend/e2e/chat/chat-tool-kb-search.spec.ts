@@ -3,8 +3,9 @@ import { createOrFindConversation, createOrFindKb, attachKbToConversationViaUi }
 
 test.describe.configure({ mode: 'serial' })
 
-const CONV_NAME = 'E2E KB Search Tool'
-const KB_NAME = 'E2E KB Search Fixture'
+const RUN_ID = Date.now()
+const CONV_NAME = `E2E KB Search Tool ${RUN_ID}`
+const KB_NAME = `E2E KB Search Fixture ${RUN_ID}`
 
 function buildKbSearchSse(messageId: number, kbId: number): string {
   const e = (payload: object) => `data: ${JSON.stringify(payload)}\n\n`
