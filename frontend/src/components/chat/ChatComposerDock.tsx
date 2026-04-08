@@ -1,4 +1,4 @@
-import { Lock, Paperclip, Plus, Send, Settings2, Square, X } from 'lucide-react'
+import { BookOpen, Brain, Lock, Paperclip, Plus, Send, Settings2, Square, X, type LucideIcon } from 'lucide-react'
 import * as React from 'react'
 
 import {
@@ -24,12 +24,11 @@ const CATALOG_SELECT_PREFIX = 'catalog:' as const
 
 const COMPOSER_TEXTAREA_MAX_LINES = 4
 
-export type CapabilityKey = 'reflection' | 'research' | 'web'
+export type CapabilityKey = 'reflection' | 'research'
 
-const CAPABILITY_MENU: { key: CapabilityKey; label: string }[] = [
-  { key: 'reflection', label: 'Reflection' },
-  { key: 'research', label: 'Research' },
-  { key: 'web', label: 'Web stance' },
+const CAPABILITY_MENU: { key: CapabilityKey; label: string; Icon: LucideIcon }[] = [
+  { key: 'reflection', label: 'Reflection', Icon: Brain },
+  { key: 'research', label: 'Research', Icon: BookOpen },
 ]
 
 type ChatComposerDockProps = {
@@ -66,15 +65,18 @@ type ChatComposerDockProps = {
 
 function CapabilityTag({
   label,
+  icon: Icon,
   onRemove,
   disabled,
 }: {
   label: string
+  icon: LucideIcon
   onRemove: () => void
   disabled?: boolean
 }) {
   return (
     <span className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-800 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200">
+      <Icon className="h-3 w-3 shrink-0" strokeWidth={2} />
       {label}
       <button
         type="button"
@@ -350,7 +352,7 @@ export function ChatComposerDock({
                 <p className="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
                   Capabilities
                 </p>
-                {CAPABILITY_MENU.map(({ key, label }) => {
+                {CAPABILITY_MENU.map(({ key, label, Icon }) => {
                   const on = capabilities[key]
                   const desc = capabilityDescriptions?.[key]
                   return (
@@ -366,6 +368,7 @@ export function ChatComposerDock({
                       }}
                     >
                       <span className="flex w-full items-center gap-2">
+                        <Icon className="size-3.5 shrink-0 text-neutral-500 dark:text-neutral-400" strokeWidth={2} />
                         <span
                           className={
                             on ? 'font-medium text-neutral-900 dark:text-neutral-100' : ''
@@ -492,30 +495,17 @@ export function ChatComposerDock({
             </div>
 
             {(capabilities.reflection ||
-              capabilities.research ||
-              capabilities.web) && (
+              capabilities.research) && (
               <div className="flex min-w-0 flex-wrap items-center gap-1">
-                {capabilities.reflection && (
+                {CAPABILITY_MENU.filter(({ key }) => capabilities[key]).map(({ key, label, Icon }) => (
                   <CapabilityTag
-                    label="Reflection"
+                    key={key}
+                    label={label}
+                    icon={Icon}
                     disabled={capabilityDisabled}
-                    onRemove={() => onToggleCapability('reflection')}
+                    onRemove={() => onToggleCapability(key)}
                   />
-                )}
-                {capabilities.research && (
-                  <CapabilityTag
-                    label="Research"
-                    disabled={capabilityDisabled}
-                    onRemove={() => onToggleCapability('research')}
-                  />
-                )}
-                {capabilities.web && (
-                  <CapabilityTag
-                    label="Web stance"
-                    disabled={capabilityDisabled}
-                    onRemove={() => onToggleCapability('web')}
-                  />
-                )}
+                ))}
               </div>
             )}
           </div>
@@ -560,20 +550,3 @@ export function resolveSelectedCatalogModel(
   return portalDefaultCatalogModel(models)
 }
 
-/** @deprecated Use individual capability toggles; kept for any external use. */
-export type CapabilityMode = 'none' | 'reflection' | 'research' | 'web'
-
-export function capabilityModeFromToggles(c: CapabilityToggles): CapabilityMode {
-  if (c.reflection) return 'reflection'
-  if (c.research) return 'research'
-  if (c.web) return 'web'
-  return 'none'
-}
-
-export function togglesFromCapabilityMode(m: CapabilityMode): CapabilityToggles {
-  return {
-    reflection: m === 'reflection',
-    research: m === 'research',
-    web: m === 'web',
-  }
-}
