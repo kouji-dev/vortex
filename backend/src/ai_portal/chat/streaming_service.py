@@ -10,6 +10,7 @@ import json
 import logging
 import threading
 from datetime import UTC, datetime
+from uuid import uuid4
 from typing import Any
 
 from fastapi import HTTPException, status
@@ -323,19 +324,19 @@ def _stream_loop(
     max_iterations: int,
 ) -> Any:
     used_kbs_meta: list[dict] = []
+    stream_items: list[dict] = []
     messages = list(llm_messages)
     iterations = 0
-    thinking_started = False
 
     logger.info("stream_loop: start conv=%d model=%r tools=%d max_iter=%d", conv.id, use_model, len(tools), max_iterations)
 
-    # ── Memory pill (only open thinking container if there are actual memories) ──
+    # ── Memory pill ──────────────────────────────────────────────────────────────
     if active_memory_count > 0:
-        yield _sse({"type": "item_start", "item": {"kind": "thinking"}})
-        thinking_started = True
-        logger.debug("stream_loop: thinking opened for memories=%d", active_memory_count)
-        yield _sse({"type": "item_start", "item": {"kind": "memory", "count": active_memory_count}})
-        yield _sse({"type": "item_done", "item": {"kind": "memory", "status": "done"}})
+        _memory_uid = str(uuid4())
+        stream_items.append({"uid": _memory_uid, "kind": "memory", "count": active_memory_count})
+        logger.debug("stream_loop: emitting memory item uid=%s count=%d", _memory_uid, active_memory_count)
+        yield _sse({"type": "item_start", "item": {"uid": _memory_uid, "kind": "memory", "count": active_memory_count}})
+        yield _sse({"type": "item_done", "item": {"uid": _memory_uid, "kind": "memory", "count": active_memory_count, "status": "done"}})
 
     # ── Tool-call loop ───────────────────────────────────────────────────────
     while iterations <= max_iterations:
@@ -357,10 +358,6 @@ def _stream_loop(
                     except Exception:
                         _tool_params = {}
                     logger.info("stream_loop: tool_call name=%r params=%r", _tool_name, _tool_params)
-                    # Open thinking container lazily on the first tool call
-                    if not thinking_started:
-                        yield _sse({"type": "item_start", "item": {"kind": "thinking"}})
-                        thinking_started = True
                     yield _sse({
                         "type": "item_start",
                         "item": {"kind": "tool_call", "tool": _tool_name, "params": _tool_params},
@@ -378,7 +375,8 @@ def _stream_loop(
             yield from _handle_stream_error(
                 db=db, conv=conv, exc=exc,
                 tool_call_buffer=tool_call_buffer,
-                thinking_started=thinking_started,
+                tool_item_uid=None,
+                tool_item_kind=None,
                 tail_message_id=tail_message_id,
             )
             return
@@ -444,8 +442,6 @@ def _stream_loop(
             daemon=True,
         ).start()
 
-        if thinking_started:
-            yield _sse({"type": "item_done", "item": {"kind": "thinking"}})
         msg_id = tail_message_id()
         logger.info("stream_loop: done conv=%d message_id=%d", conv.id, msg_id)
         yield _sse({"type": "done", "message_id": msg_id})
@@ -491,7 +487,8 @@ def _handle_stream_error(
     conv: ChatConversation,
     exc: Exception,
     tool_call_buffer: dict | None,
-    thinking_started: bool,
+    tool_item_uid: str | None,
+    tool_item_kind: str | None,
     tail_message_id: Any,
 ) -> Any:
     if isinstance(exc, ValueError):
@@ -507,13 +504,11 @@ def _handle_stream_error(
     ))
     db.commit()
 
-    if thinking_started:
-        if tool_call_buffer:
-            yield _sse({
-                "type": "item_done",
-                "item": {"kind": "tool_call", "tool": tool_call_buffer.get("name", ""), "status": "done"},
-            })
-        yield _sse({"type": "item_done", "item": {"kind": "thinking"}})
+    if tool_call_buffer and tool_item_uid and tool_item_kind:
+        yield _sse({
+            "type": "item_done",
+            "item": {"uid": tool_item_uid, "kind": tool_item_kind, "tool": tool_call_buffer.get("name", ""), "status": "done"},
+        })
 
     yield _sse({"type": "error", "detail": detail})
     yield _sse({"type": "done", "message_id": tail_message_id()})
