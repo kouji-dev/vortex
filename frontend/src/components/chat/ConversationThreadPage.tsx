@@ -360,6 +360,23 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
     setStreaming(true)
     setStreamingText('')
     setStreamThreadItems([])
+    const _optUserContent = (body.content as string | undefined)?.trim() ?? ''
+    if (_optUserContent && body.regenerate_after_message_id == null && conversationId != null) {
+      qc.setQueryData(
+        queryKeys.conversationMessagesTail(conversationId),
+        (old: ChatMessage[] | undefined): ChatMessage[] => [
+          ...(old ?? []).filter(m => m.id !== -1),
+          {
+            id: -1,
+            conversation_id: conversationId,
+            role: 'user',
+            content: _optUserContent,
+            created_at: new Date().toISOString(),
+            extra: null,
+          },
+        ],
+      )
+    }
     let streamReachedTerminal = false
     let assembled = ''
     try {
