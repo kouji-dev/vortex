@@ -108,6 +108,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
   const [pendingComposerFiles, setPendingComposerFiles] = React.useState<File[]>([])
   const lastStreamBodyRef = React.useRef<Record<string, unknown> | null>(null)
   const streamHadSseErrorRef = React.useRef(false)
+  const streamEndedRef = React.useRef(false)
   const composerRef = React.useRef<HTMLDivElement>(null)
 
   React.useEffect(() => {
@@ -197,6 +198,15 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
       setCanLoadOlder(tailQ.data.length >= MESSAGES_LIMIT)
     }
   }, [tailQ.data, conversationId, olderMessages.length])
+
+  React.useEffect(() => {
+    if (streamEndedRef.current && tailQ.data) {
+      streamEndedRef.current = false
+      setStreamThreadItems([])
+      // Optimistic user message (id: -1) was already replaced in tailQ.data
+      // by the setQueryData in finally (Task 6) — no extra cleanup needed here.
+    }
+  }, [tailQ.data])
 
   const visibleMessages = React.useMemo(
     () => [...olderMessages, ...(tailQ.data ?? [])],
@@ -492,6 +502,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
     } finally {
       if (streamAbortRef.current === ac) streamAbortRef.current = null
       setStreaming(false)
+      streamEndedRef.current = true
       setStreamingText('')
       setOlderMessages([])
       void qc.invalidateQueries({
@@ -931,14 +942,15 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
             )
           })}
         </ul>
-        {streaming && (
+        {(streaming || streamThreadItems.length > 0) && (
           <div className="mt-1 w-full">
             <div
               className="stream-surface-breathe w-full max-w-none rounded-2xl bg-white/90 px-4 py-3 dark:bg-neutral-900/75"
               aria-live="polite"
-              aria-busy="true"
-              aria-label="Assistant is responding"
+              aria-busy={streaming}
+              aria-label={streaming ? 'Assistant is responding' : 'Assistant response items'}
             >
+              {streaming && (
               <div className="mb-1.5 flex items-center justify-between gap-2">
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
                   assistant
@@ -954,6 +966,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
                   </button>
                 </div>
               </div>
+              )}
               {streamThreadItems.length > 0 && (
                 <div className="mb-2 flex flex-col gap-1.5">
                   {streamThreadItems.map((item) => (
@@ -967,7 +980,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
                   streaming
                   className="text-neutral-900 dark:text-neutral-100"
                 />
-              ) : streamThreadItems.length === 0 ? (
+              ) : streaming && streamThreadItems.length === 0 ? (
                 <p className="flex items-center gap-2 text-sm text-neutral-400">
                   <span className="inline-block h-3.5 w-0.5 animate-pulse rounded-full bg-neutral-400 dark:bg-neutral-500" />
                   Waiting for tokens…
