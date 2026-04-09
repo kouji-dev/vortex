@@ -374,6 +374,11 @@ def _stream_loop(
                     if _query:
                         item_start_payload["query"] = _query
                     yield _sse({"type": "item_start", "item": item_start_payload})
+                    # Accumulate for persistence (no status field)
+                    stream_item_entry: dict = {"uid": _tool_item_uid, "kind": _tool_item_kind}
+                    if _query:
+                        stream_item_entry["query"] = _query
+                    stream_items.append(stream_item_entry)
                 elif isinstance(piece, dict) and piece.get("type") == "delta":
                     text = piece.get("text", "")
                     full.append(text)
@@ -413,6 +418,12 @@ def _stream_loop(
                 "content": tool_result["content"],
             })
             _result_snippet = (tool_result.get("content") or "")[:500]
+            # Update stream_items entry with result fields (no status field in persisted copy)
+            for _si in stream_items:
+                if _si.get("uid") == _tool_item_uid:
+                    if _result_snippet:
+                        _si["result_snippet"] = _result_snippet
+                    break
             item_done_payload: dict = {
                 "uid": _tool_item_uid,
                 "kind": _tool_item_kind,
@@ -436,11 +447,16 @@ def _stream_loop(
         # ── Persist final reply ──────────────────────────────────────────────
         reply = "".join(full)
         logger.info("stream_loop: persisting reply conv=%d reply_len=%d used_kbs=%d", conv.id, len(reply), len(used_kbs_meta))
+        extra: dict = {}
+        if used_kbs_meta:
+            extra["used_kbs"] = used_kbs_meta
+        if stream_items:
+            extra["stream_items"] = stream_items
         db.add(ChatMessage(
             conversation_id=conv.id,
             role="assistant",
             content=reply,
-            extra={"used_kbs": used_kbs_meta} if used_kbs_meta else None,
+            extra=extra or None,
         ))
         db.commit()
 
