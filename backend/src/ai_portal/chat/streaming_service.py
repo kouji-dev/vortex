@@ -342,6 +342,9 @@ def _stream_loop(
     while iterations <= max_iterations:
         full: list[str] = []
         tool_call_buffer: dict | None = None
+        _tool_item_uid: str | None = None
+        _tool_item_kind: str | None = None
+        _tool_name: str = ""
 
         logger.info("stream_loop: LLM call iteration=%d messages=%d", iterations, len(messages))
         try:
@@ -357,11 +360,20 @@ def _stream_loop(
                         _tool_params = json.loads(tool_call_buffer.get("arguments", "{}"))
                     except Exception:
                         _tool_params = {}
-                    logger.info("stream_loop: tool_call name=%r params=%r", _tool_name, _tool_params)
-                    yield _sse({
-                        "type": "item_start",
-                        "item": {"kind": "tool_call", "tool": _tool_name, "params": _tool_params},
-                    })
+                    # Map tool name to SSE kind
+                    if _tool_name == "web_search":
+                        _tool_item_kind = "web_search"
+                    elif _tool_name == "kb_search":
+                        _tool_item_kind = "kb_search"
+                    else:
+                        _tool_item_kind = "tool_call"
+                    _tool_item_uid = str(uuid4())
+                    logger.info("stream_loop: tool_call name=%r kind=%r params=%r", _tool_name, _tool_item_kind, _tool_params)
+                    _query = _tool_params.get("query", "")
+                    item_start_payload: dict = {"uid": _tool_item_uid, "kind": _tool_item_kind, "tool": _tool_name, "params": _tool_params}
+                    if _query:
+                        item_start_payload["query"] = _query
+                    yield _sse({"type": "item_start", "item": item_start_payload})
                 elif isinstance(piece, dict) and piece.get("type") == "delta":
                     text = piece.get("text", "")
                     full.append(text)
@@ -375,8 +387,8 @@ def _stream_loop(
             yield from _handle_stream_error(
                 db=db, conv=conv, exc=exc,
                 tool_call_buffer=tool_call_buffer,
-                tool_item_uid=None,
-                tool_item_kind=None,
+                tool_item_uid=_tool_item_uid if tool_call_buffer else None,
+                tool_item_kind=_tool_item_kind if tool_call_buffer else None,
                 tail_message_id=tail_message_id,
             )
             return
@@ -400,19 +412,25 @@ def _stream_loop(
                 "name": tool_result["name"],
                 "content": tool_result["content"],
             })
-            yield _sse({
-                "type": "item_done",
-                "item": {"kind": "tool_call", "tool": tool_call_buffer.get("name", ""), "status": "done"},
-            })
+            _result_snippet = (tool_result.get("content") or "")[:500]
+            item_done_payload: dict = {
+                "uid": _tool_item_uid,
+                "kind": _tool_item_kind,
+                "tool": _tool_name,
+                "status": "done",
+            }
+            if _result_snippet:
+                item_done_payload["result_snippet"] = _result_snippet
+            yield _sse({"type": "item_done", "item": item_done_payload})
             iterations += 1
             continue
 
         # Iteration cap reached — close open tool item if any
         if tool_call_buffer:
-            logger.warning("stream_loop: max_iterations=%d reached, closing tool=%r", max_iterations, tool_call_buffer.get("name"))
+            logger.warning("stream_loop: max_iterations=%d reached, closing tool=%r", max_iterations, _tool_name)
             yield _sse({
                 "type": "item_done",
-                "item": {"kind": "tool_call", "tool": tool_call_buffer.get("name", ""), "status": "done"},
+                "item": {"uid": _tool_item_uid, "kind": _tool_item_kind, "tool": _tool_name, "status": "done"},
             })
 
         # ── Persist final reply ──────────────────────────────────────────────
