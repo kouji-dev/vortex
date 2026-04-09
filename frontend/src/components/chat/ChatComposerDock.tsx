@@ -235,8 +235,7 @@ export function ChatComposerDock({
 
       <div className="rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-950">
         <div className="p-2 pb-1.5">
-          {(onLocalFilesChosen != null ||
-            (pendingServerAttachments != null && pendingServerAttachments.length > 0) ||
+          {((pendingServerAttachments != null && pendingServerAttachments.length > 0) ||
             (pendingLocalFileNames != null && pendingLocalFileNames.length > 0)) && (
             <div
               data-testid="chat-composer-attachments"
@@ -280,32 +279,6 @@ export function ChatComposerDock({
                   </button>
                 </span>
               ))}
-              {onLocalFilesChosen != null && (
-                <>
-                  <input
-                    ref={attachInputRef}
-                    type="file"
-                    multiple
-                    className="sr-only"
-                    accept=".txt,.md,text/plain,text/markdown"
-                    disabled={Boolean(attachDisabled) || streaming}
-                    onChange={(e) => {
-                      const files = Array.from(e.target.files ?? [])
-                      e.target.value = ''
-                      if (files.length) onLocalFilesChosen(files)
-                    }}
-                  />
-                  <button
-                    type="button"
-                    className="inline-flex size-7 items-center justify-center rounded-lg border border-neutral-200 text-neutral-600 hover:bg-neutral-50 disabled:opacity-40 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-900"
-                    aria-label="Attach files"
-                    disabled={Boolean(attachDisabled) || streaming}
-                    onClick={() => attachInputRef.current?.click()}
-                  >
-                    <Paperclip className="size-3.5" strokeWidth={2} />
-                  </button>
-                </>
-              )}
             </div>
           )}
           <textarea
@@ -401,6 +374,34 @@ export function ChatComposerDock({
               </div>
             )}
             </div>
+
+            {onLocalFilesChosen != null && (
+              <>
+                <input
+                  ref={attachInputRef}
+                  data-testid="chat-attach-file-input"
+                  type="file"
+                  multiple
+                  className="sr-only"
+                  accept=".txt,.md,text/plain,text/markdown"
+                  disabled={Boolean(attachDisabled) || streaming}
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files ?? [])
+                    e.target.value = ''
+                    if (files.length) onLocalFilesChosen(files)
+                  }}
+                />
+                <button
+                  type="button"
+                  className="inline-flex size-8 items-center justify-center rounded-lg border border-neutral-200 text-neutral-600 hover:bg-neutral-50 disabled:opacity-40 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-900"
+                  aria-label="Attach files"
+                  disabled={Boolean(attachDisabled) || streaming}
+                  onClick={() => attachInputRef.current?.click()}
+                >
+                  <Paperclip className="size-3.5" strokeWidth={2} />
+                </button>
+              </>
+            )}
 
             <div className="min-w-0">
             <label className="sr-only" htmlFor="chat-model-select">
