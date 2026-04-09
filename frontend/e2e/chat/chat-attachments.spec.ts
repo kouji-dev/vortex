@@ -50,12 +50,12 @@ test.describe('Chat attachments — stream request', () => {
     )
 
     await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
-    const attachRoot = page.getByTestId('chat-composer-attachments')
-    await attachRoot.locator('input[type="file"]').setInputFiles({
+    await page.getByTestId('chat-attach-file-input').setInputFiles({
       name: 'stream-payload.txt',
       mimeType: 'text/plain',
       buffer: Buffer.from('Stream payload check: file is attached to this turn.'),
     })
+    const attachRoot = page.getByTestId('chat-composer-attachments')
     await expect(attachRoot).toContainText('stream-payload.txt', { timeout: 20_000 })
 
     await page
@@ -132,12 +132,12 @@ test.describe('Chat attachments — assistant uses file (Claude Haiku)', () => {
     })
 
     await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
-    const attachRoot = page.getByTestId('chat-composer-attachments')
-    await attachRoot.locator('input[type="file"]').setInputFiles({
+    await page.getByTestId('chat-attach-file-input').setInputFiles({
       name: 'secret-e2e.txt',
       mimeType: 'text/plain',
       buffer: Buffer.from(fileBody),
     })
+    const attachRoot = page.getByTestId('chat-composer-attachments')
     await expect(attachRoot).toContainText('secret-e2e.txt', { timeout: 20_000 })
 
     await page.getByRole('textbox', { name: /message/i }).fill(
