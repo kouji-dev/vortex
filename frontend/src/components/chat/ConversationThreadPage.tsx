@@ -389,6 +389,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
     }
     let streamReachedTerminal = false
     let assembled = ''
+    let doneMessageId: number | null = null
     try {
       const res = await fetch(
         `${apiBase}/api/chat/conversations/${conversationId}/messages/stream`,
@@ -420,6 +421,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
             type?: string
             text?: string
             detail?: string
+            message_id?: number
             item?: {
               uid?: string
               kind?: string
@@ -480,6 +482,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
           }
           if (e.type === 'done') {
             streamReachedTerminal = true
+            doneMessageId = typeof e.message_id === 'number' ? e.message_id : null
           }
         }
       }
@@ -505,9 +508,43 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
       streamEndedRef.current = true
       setStreamingText('')
       setOlderMessages([])
-      void qc.invalidateQueries({
-        queryKey: queryKeys.conversationMessagesTail(conversationId),
-      })
+      if (doneMessageId != null && conversationId != null) {
+        const updates: ChatMessage[] = []
+        const userContent = (body.content as string | undefined)?.trim() ?? ''
+        if (userContent && body.regenerate_after_message_id == null) {
+          // Optimistically add the user message so the cache is complete when
+          // streamEndedRef clears the sentinel entry.
+          updates.push({
+            id: doneMessageId - 1,  // user message precedes assistant; exact id replaced on next real fetch
+            conversation_id: conversationId,
+            role: 'user',
+            content: userContent,
+            created_at: new Date(Date.now() - 1000).toISOString(),
+            extra: null,
+          })
+        }
+        if (assembled) {
+          updates.push({
+            id: doneMessageId,
+            conversation_id: conversationId,
+            role: 'assistant',
+            content: assembled,
+            created_at: new Date().toISOString(),
+            extra: null,
+          })
+        }
+        qc.setQueryData(
+          queryKeys.conversationMessagesTail(conversationId),
+          (old: ChatMessage[] | undefined): ChatMessage[] => [
+            // Remove the sentinel optimistic entry (id: -1) added at stream start
+            ...(old ?? []).filter(m => m.id !== -1),
+            ...updates,
+          ],
+        )
+      } else if (conversationId != null) {
+        // Fallback: couldn't build optimistic state — real fetch replaces sentinel too
+        void qc.invalidateQueries({ queryKey: queryKeys.conversationMessagesTail(conversationId) })
+      }
       void qc.invalidateQueries({ queryKey: queryKeys.conversations() })
       void qc.invalidateQueries({ queryKey: queryKeys.conversation(conversationId) })
     }
