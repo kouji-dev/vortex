@@ -34,6 +34,7 @@ from ai_portal.chat.tool_service import _dispatch_tool_call
 from ai_portal.memory.workers.extractor import extract_user_memories
 from ai_portal.memory.workers.summarizer import summarize_conversation
 from ai_portal.core.config import get_settings
+from ai_portal.tools.gemini_quirks import tool_choice_for_iteration
 
 logger = logging.getLogger(__name__)
 
@@ -347,11 +348,14 @@ def _stream_loop(
         _tool_name: str = ""
 
         logger.info("stream_loop: LLM call iteration=%d messages=%d", iterations, len(messages))
+        _tool_choice = tool_choice_for_iteration(str(use_model), iterations, bool(tools))
+        if _tool_choice:
+            logger.info("stream_loop: forcing tool_choice=%r for model=%r", _tool_choice, use_model)
         try:
             provider = get_chat_provider(settings)
             logger.debug("stream_loop: provider=%s", type(provider).__name__)
             for piece in provider.stream_deltas_with_tools(
-                messages, model=use_model, tools=tools if tools else None
+                messages, model=use_model, tools=tools if tools else None, tool_choice=_tool_choice
             ):
                 if isinstance(piece, dict) and piece.get("type") == "tool_call":
                     tool_call_buffer = piece.get("tool_call")
@@ -363,6 +367,8 @@ def _stream_loop(
                     # Map tool name to SSE kind
                     if _tool_name == "web_search":
                         _tool_item_kind = "web_search"
+                    elif _tool_name == "fetch_webpage":
+                        _tool_item_kind = "fetch_webpage"
                     elif _tool_name == "kb_search":
                         _tool_item_kind = "kb_search"
                     else:
@@ -370,14 +376,19 @@ def _stream_loop(
                     _tool_item_uid = str(uuid4())
                     logger.info("stream_loop: tool_call name=%r kind=%r params=%r", _tool_name, _tool_item_kind, _tool_params)
                     _query = _tool_params.get("query", "")
+                    _url = _tool_params.get("url", "")
                     item_start_payload: dict = {"uid": _tool_item_uid, "kind": _tool_item_kind, "tool": _tool_name, "params": _tool_params}
                     if _query:
                         item_start_payload["query"] = _query
+                    if _url:
+                        item_start_payload["url"] = _url
                     yield _sse({"type": "item_start", "item": item_start_payload})
                     # Accumulate for persistence (no status field)
                     stream_item_entry: dict = {"uid": _tool_item_uid, "kind": _tool_item_kind}
                     if _query:
                         stream_item_entry["query"] = _query
+                    if _url:
+                        stream_item_entry["url"] = _url
                     stream_items.append(stream_item_entry)
                 elif isinstance(piece, dict) and piece.get("type") == "delta":
                     text = piece.get("text", "")
@@ -406,14 +417,15 @@ def _stream_loop(
             tool_result = _dispatch_tool_call(db, tool_call_buffer, kb_ids=kb_ids)
             used_kbs_meta.extend(tool_result.get("_used_kbs", []))
             logger.info("stream_loop: tool result name=%r content_len=%d used_kbs=%d", tool_result.get("name"), len(tool_result.get("content", "")), len(tool_result.get("_used_kbs", [])))
+            _tc_id = f"tc_{iterations}"
             messages.append({
                 "role": "assistant",
                 "content": None,
-                "tool_calls": [{"id": "tc_0", "type": "function", "function": tool_call_buffer}],
+                "tool_calls": [{"id": _tc_id, "type": "function", "function": tool_call_buffer}],
             })
             messages.append({
                 "role": "tool",
-                "tool_call_id": "tc_0",
+                "tool_call_id": _tc_id,
                 "name": tool_result["name"],
                 "content": tool_result["content"],
             })
@@ -430,10 +442,52 @@ def _stream_loop(
                 "tool": _tool_name,
                 "status": "done",
             }
+            if _url:
+                item_done_payload["url"] = _url
             if _result_snippet:
                 item_done_payload["result_snippet"] = _result_snippet
             yield _sse({"type": "item_done", "item": item_done_payload})
             iterations += 1
+
+            # ── Auto-fetch: if web_search returned thin/no results, fetch top URL ──
+            if (
+                _tool_name == "web_search"
+                and tool_result.get("_thin")
+                and tool_result.get("_top_urls")
+                and iterations < max_iterations
+            ):
+                fetch_url = tool_result["_top_urls"][0]
+                logger.info("stream_loop: auto_fetch url=%r (thin web_search results)", fetch_url)
+                _fetch_uid = str(uuid4())
+                yield _sse({"type": "item_start", "item": {"uid": _fetch_uid, "kind": "fetch_webpage", "tool": "fetch_webpage", "url": fetch_url, "params": {"url": fetch_url}}})
+                stream_items.append({"uid": _fetch_uid, "kind": "fetch_webpage", "url": fetch_url})
+                from ai_portal.tools import fetch_webpage as fetch_webpage_tool
+                fetch_result = fetch_webpage_tool.execute(fetch_url)
+                fetch_snippet = (fetch_result.get("content") or "")[:500]
+                for _si in stream_items:
+                    if _si.get("uid") == _fetch_uid:
+                        if fetch_snippet:
+                            _si["result_snippet"] = fetch_snippet
+                        break
+                _af_tc_id = f"tc_{iterations}_af"
+                messages.append({
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [{"id": _af_tc_id, "type": "function", "function": {"name": "fetch_webpage", "arguments": f'{{"url": "{fetch_url}"}}'}}],
+                })
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": _af_tc_id,
+                    "name": "fetch_webpage",
+                    "content": fetch_result["content"],
+                })
+                fetch_done_payload: dict = {"uid": _fetch_uid, "kind": "fetch_webpage", "tool": "fetch_webpage", "url": fetch_url, "status": "done"}
+                if fetch_snippet:
+                    fetch_done_payload["result_snippet"] = fetch_snippet
+                yield _sse({"type": "item_done", "item": fetch_done_payload})
+                # Note: auto-fetch does NOT increment iterations — it's backend-enforced,
+                # not an LLM tool decision. The next LLM call stays within the budget.
+
             continue
 
         # Iteration cap reached — close open tool item if any
@@ -444,8 +498,29 @@ def _stream_loop(
                 "item": {"uid": _tool_item_uid, "kind": _tool_item_kind, "tool": _tool_name, "status": "done"},
             })
 
-        # ── Persist final reply ──────────────────────────────────────────────
+        # ── Force response if LLM went silent after tool calls ──────────────
         reply = "".join(full)
+        if not reply and stream_items:
+            logger.warning("stream_loop: empty reply after tool calls — forcing final response")
+            messages.append({
+                "role": "user",
+                "content": "Based on the information gathered above, provide a complete answer to the original question.",
+            })
+            try:
+                provider = get_chat_provider(settings)
+                for piece in provider.stream_deltas_with_tools(
+                    messages, model=use_model, tools=None
+                ):
+                    text = piece.get("text", "") if isinstance(piece, dict) else str(piece)
+                    if text:
+                        reply += text
+                        yield _sse({"type": "delta", "text": text})
+            except Exception as exc:
+                logger.error("stream_loop: forced final response failed: %s", exc)
+                friendly = _friendly_api_error(exc)
+                yield _sse({"type": "error", "message": friendly})
+
+        # ── Persist final reply ──────────────────────────────────────────────
         logger.info("stream_loop: persisting reply conv=%d reply_len=%d used_kbs=%d", conv.id, len(reply), len(used_kbs_meta))
         extra: dict = {}
         if used_kbs_meta:

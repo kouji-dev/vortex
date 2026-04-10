@@ -150,6 +150,14 @@ export type KBSearchThreadItem = {
   status: 'running' | 'done'
 }
 
+export type FetchWebpageThreadItem = {
+  uid: string
+  kind: 'fetch_webpage'
+  url: string
+  result_snippet?: string
+  status: 'running' | 'done'
+}
+
 export type GenericToolThreadItem = {
   uid: string
   kind: 'tool_call'
@@ -162,5 +170,6 @@ export type GenericToolThreadItem = {
 export type StreamThreadItem =
   | MemoryThreadItem
   | WebSearchThreadItem
+  | FetchWebpageThreadItem
   | KBSearchThreadItem
   | GenericToolThreadItem

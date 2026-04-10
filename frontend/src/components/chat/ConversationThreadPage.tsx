@@ -4,6 +4,14 @@ import { Copy } from 'lucide-react'
 import * as React from 'react'
 import { flushSync } from 'react-dom'
 
+const randomUUID = (): string =>
+  typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        const r = (Math.random() * 16) | 0
+        return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16)
+      })
+
 import {
   ChatComposerDock,
   resolveSelectedCatalogModel,
@@ -109,6 +117,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
   const lastStreamBodyRef = React.useRef<Record<string, unknown> | null>(null)
   const streamHadSseErrorRef = React.useRef(false)
   const streamEndedRef = React.useRef(false)
+  const localStreamItemsRef = React.useRef<StreamThreadItem[]>([])
   const composerRef = React.useRef<HTMLDivElement>(null)
 
   React.useEffect(() => {
@@ -370,6 +379,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
     setStreaming(true)
     setStreamingText('')
     setStreamThreadItems([])
+    localStreamItemsRef.current = []
     const _optUserContent = (body.content as string | undefined)?.trim() ?? ''
     if (_optUserContent && body.regenerate_after_message_id == null && conversationId != null) {
       qc.setQueryData(
@@ -437,21 +447,22 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
 
           if (e.type === 'item_start') {
             const item = e.item ?? {}
-            const uid = (item.uid as string) ?? crypto.randomUUID()
+            const uid = (item.uid as string) ?? randomUUID()
             setStreamThreadItems(prev => {
+              let next = prev
               if (item.kind === 'memory') {
-                return [...prev, { uid, kind: 'memory', count: item.count ?? 0, status: 'running' }]
+                next = [...prev, { uid, kind: 'memory', count: item.count ?? 0, status: 'running' }]
+              } else if (item.kind === 'web_search') {
+                next = [...prev, { uid, kind: 'web_search', query: item.query ?? '', status: 'running' }]
+              } else if (item.kind === 'fetch_webpage') {
+                next = [...prev, { uid, kind: 'fetch_webpage', url: (item.params as Record<string, string>)?.url ?? '', status: 'running' }]
+              } else if (item.kind === 'kb_search') {
+                next = [...prev, { uid, kind: 'kb_search', query: item.query ?? '', status: 'running' }]
+              } else if (item.kind === 'tool_call') {
+                next = [...prev, { uid, kind: 'tool_call', tool: item.tool ?? '', params: item.params ?? {}, status: 'running' }]
               }
-              if (item.kind === 'web_search') {
-                return [...prev, { uid, kind: 'web_search', query: item.query ?? '', status: 'running' }]
-              }
-              if (item.kind === 'kb_search') {
-                return [...prev, { uid, kind: 'kb_search', query: item.query ?? '', status: 'running' }]
-              }
-              if (item.kind === 'tool_call') {
-                return [...prev, { uid, kind: 'tool_call', tool: item.tool ?? '', params: item.params ?? {}, status: 'running' }]
-              }
-              return prev
+              localStreamItemsRef.current = next
+              return next
             })
           }
 
@@ -460,11 +471,13 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
             setStreamThreadItems(prev => {
               const idx = prev.findIndex(it => it.uid === item.uid)
               if (idx === -1) return prev
-              return prev.map((it, i) => {
+              const next = prev.map((it, i) => {
                 if (i !== idx) return it
                 const { status: _s, ...resultFields } = item as Record<string, unknown>
                 return { ...it, ...resultFields, status: 'done' as const }
               })
+              localStreamItemsRef.current = next
+              return next
             })
           }
 
@@ -523,14 +536,15 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
             extra: null,
           })
         }
-        if (assembled) {
+        {
+          const finalStreamItems = localStreamItemsRef.current
           updates.push({
             id: doneMessageId,
             conversation_id: conversationId,
             role: 'assistant',
             content: assembled,
             created_at: new Date().toISOString(),
-            extra: null,
+            extra: finalStreamItems.length > 0 ? { stream_items: finalStreamItems } : null,
           })
         }
         qc.setQueryData(
@@ -615,6 +629,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
       (!isComposerMode && pendingAttachments.length > 0) ||
       (isComposerMode && pendingComposerFiles.length > 0)
     if (!canSend) return
+    setComposeDraft('')
 
     if (isComposerMode) {
       setSendError(null)
@@ -659,7 +674,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
         setPendingComposerFiles([])
         void qc.invalidateQueries({ queryKey: queryKeys.conversations() })
         const modelParam = draftModel.trim() || undefined
-        const bootstrapId = crypto.randomUUID()
+        const bootstrapId = randomUUID()
         const streamContent =
           trimmed || (attachment_ids.length > 0 ? '(Attached files)' : '')
         setComposeDraft('')
@@ -978,6 +993,47 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
               </li>
             )
           })}
+          {sendError && !streaming && (
+            <li
+              data-testid="chat-message-assistant"
+              className="flex w-full justify-start text-sm"
+            >
+              <div className="w-full max-w-none rounded-2xl bg-red-50/90 px-4 py-3 dark:bg-red-950/35">
+                <div className="mb-1.5 flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-red-600 dark:text-red-400">
+                    error
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      className="rounded p-1 text-neutral-500 transition-colors hover:bg-neutral-200/70 disabled:opacity-40 dark:text-neutral-400 dark:hover:bg-neutral-700/60"
+                      aria-label="Copy message"
+                      onClick={() => void copyToClipboard(sendError)}
+                    >
+                      <Copy className="size-3.5" strokeWidth={2} />
+                    </button>
+                    {lastStreamBodyRef.current && (
+                      <button
+                        type="button"
+                        data-testid="chat-stream-retry"
+                        className="rounded px-1.5 py-0.5 text-[10px] font-medium text-neutral-600 underline decoration-dotted decoration-neutral-400/80 underline-offset-2 hover:text-neutral-900 disabled:opacity-40 dark:text-neutral-400 dark:decoration-neutral-500 dark:hover:text-neutral-200"
+                        onClick={() => {
+                          const b = lastStreamBodyRef.current
+                          if (b) void runStream(b)
+                        }}
+                      >
+                        Retry
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <MarkdownMessage
+                  content={`**Error:** ${sendError}`}
+                  className="text-red-800 dark:text-red-200"
+                />
+              </div>
+            </li>
+          )}
         </ul>
         {(streaming || streamThreadItems.length > 0) && (
           <div className="mt-1 w-full">
@@ -1029,29 +1085,6 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
           </>
         )}
       </div>
-
-      {sendError && (
-        <div
-          className="shrink-0 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/50 dark:text-red-200"
-          role="alert"
-        >
-          <p>{sendError}</p>
-          {lastStreamBodyRef.current && (
-            <button
-              type="button"
-              data-testid="chat-stream-retry"
-              className="mt-2 text-xs font-medium text-blue-700 underline decoration-dotted underline-offset-2 dark:text-blue-400"
-              disabled={streaming}
-              onClick={() => {
-                const b = lastStreamBodyRef.current
-                if (b) void runStream(b)
-              }}
-            >
-              Retry
-            </button>
-          )}
-        </div>
-      )}
 
       <div ref={composerRef} className="w-full shrink-0">
         {isMobile ? (

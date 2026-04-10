@@ -165,11 +165,12 @@ class LangChainChatProvider:
         *,
         model: str | None = None,
         tools: list[dict[str, Any]] | None = None,
+        tool_choice: str | None = None,
     ) -> Iterator[dict[str, Any]]:
         mid = self._resolved_model_id(model)
         chat = self._chat_model(mid)
         if tools:
-            chat = chat.bind_tools(tools)
+            chat = chat.bind_tools(tools, **{"tool_choice": tool_choice} if tool_choice else {})
         lc_messages = _map_dict_messages_to_lc(messages)
 
         tc_name: str | None = None

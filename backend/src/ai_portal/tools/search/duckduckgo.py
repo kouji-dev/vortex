@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import logging
 
-from duckduckgo_search import DDGS
+try:
+    from ddgs import DDGS
+except ImportError:
+    from duckduckgo_search import DDGS
 
 from ai_portal.tools.search.base import BaseSearchProvider, SearchResult
 

@@ -10,6 +10,7 @@ import logging
 
 from sqlalchemy.orm import Session
 
+from ai_portal.tools import fetch_webpage as fetch_webpage_tool
 from ai_portal.tools import kb_search as kb_search_tool
 from ai_portal.tools import web_search as web_search_tool
 
@@ -17,16 +18,16 @@ logger = logging.getLogger(__name__)
 
 
 def get_system_prompts(kb_ids: list[int]) -> list[str]:
-    """Always includes web_search prompt; adds kb_search prompt when KBs are present."""
-    prompts = [web_search_tool.system_prompt()]
+    """Always includes web_search + fetch_webpage prompts; adds kb_search when KBs are present."""
+    prompts = [web_search_tool.system_prompt(), fetch_webpage_tool.system_prompt()]
     if kb_ids:
         prompts.append(kb_search_tool.system_prompt())
     return prompts
 
 
 def get_tool_definitions(kb_ids: list[int]) -> list[dict]:
-    """Always includes web_search schema; adds kb_search schema when KBs are present."""
-    tools = [web_search_tool.schema()]
+    """Always includes web_search + fetch_webpage; adds kb_search when KBs are present."""
+    tools = [web_search_tool.schema(), fetch_webpage_tool.schema()]
     if kb_ids:
         tools.append(kb_search_tool.schema(kb_ids))
     return tools
@@ -44,6 +45,10 @@ def dispatch(
         query = args.get("query", "")
         num_results = int(args.get("num_results", 5))
         return web_search_tool.execute(query, num_results)
+
+    if tool_name == "fetch_webpage":
+        url = args.get("url", "")
+        return fetch_webpage_tool.execute(url)
 
     if tool_name == "search_knowledge_base":
         query = args.get("query", "")
