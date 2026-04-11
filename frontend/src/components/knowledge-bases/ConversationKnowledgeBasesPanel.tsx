@@ -96,12 +96,7 @@ export function ConversationKnowledgeBasesPanel({
           </Link>
           .
         </p>
-        {listQ.isPending && (
-          <p className="flex items-center gap-1.5 text-xs text-neutral-400">
-            <PrismLogo state="loading" size={14} />
-            Loading your bases…
-          </p>
-        )}
+        {listQ.isPending && <PrismLogo state="loading" size={16} className="my-2" />}
         {listQ.isError && (
           <p className="text-xs text-red-600">{(listQ.error as Error).message}</p>
         )}

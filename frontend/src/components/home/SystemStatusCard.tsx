@@ -18,12 +18,7 @@ export function SystemStatusCard({ health }: SystemStatusCardProps) {
       <p className="mt-1 text-xs text-neutral-500">
         <code className="rounded bg-neutral-200/80 px-1 dark:bg-neutral-800">{apiBase}/health</code>
       </p>
-      {health.isPending && (
-        <p className="mt-3 flex items-center gap-2 text-sm text-neutral-500">
-          <PrismLogo state="loading" size={16} />
-          Checking…
-        </p>
-      )}
+      {health.isPending && <PrismLogo state="loading" size={16} className="mt-3" />}
       {health.isError && (
         <p className="mt-3 text-sm text-red-600">{(health.error as Error).message}</p>
       )}

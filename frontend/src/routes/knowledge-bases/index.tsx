@@ -185,12 +185,7 @@ function KnowledgeBasesIndexPage() {
             aria-label="Search knowledge bases"
           />
         </div>
-        {listQ.isPending && (
-          <p className="flex items-center gap-2 text-sm text-neutral-500">
-            <PrismLogo state="loading" size={16} />
-            Loading…
-          </p>
-        )}
+        {listQ.isPending && <PrismLogo state="loading" size={20} className="my-4 mx-auto" />}
         {listQ.isError && (
           <p className="text-sm text-red-600" role="alert">
             {(listQ.error as Error).message}

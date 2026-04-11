@@ -112,20 +112,14 @@ function KnowledgeBaseDocumentTableRow({
               </div>
             </>
           ) : (
-            <span className="flex items-center gap-1.5 text-neutral-500 dark:text-neutral-400">
-              <PrismLogo state="loading" size={14} />
-              Indexing…
-            </span>
+            <PrismLogo state="loading" size={14} />
           )}
         </div>
       )
     }
     if (live.showQueued) {
       return (
-        <p className="flex items-center gap-1.5 text-neutral-500 dark:text-neutral-400">
-          <PrismLogo state="loading" size={14} />
-          Queued for indexing…
-        </p>
+        <PrismLogo state="loading" size={14} />
       )
     }
     if (doc.status === 'failed' || live.displayStatus === 'failed') {
@@ -149,10 +143,7 @@ function KnowledgeBaseDocumentTableRow({
     }
     if (live.poll && live.isPending && !live.data) {
       return (
-        <span className="flex items-center gap-1.5 text-neutral-500 dark:text-neutral-400">
-          <PrismLogo state="loading" size={14} />
-          Loading…
-        </span>
+        <PrismLogo state="loading" size={14} />
       )
     }
     return <span className="text-neutral-400 dark:text-neutral-600">—</span>
@@ -389,12 +380,7 @@ function KnowledgeBaseDetailPage() {
         </div>
       )}
 
-      {kbQ.isPending && (
-        <p className="flex items-center gap-2 text-sm text-neutral-500">
-          <PrismLogo state="loading" size={16} />
-          Loading…
-        </p>
-      )}
+      {kbQ.isPending && <PrismLogo state="loading" size={20} className="my-4" />}
       {kbQ.isError && (
         <p className="text-sm text-red-600" role="alert">
           {(kbQ.error as Error).message}
@@ -521,10 +507,7 @@ function KnowledgeBaseDetailPage() {
                           {u.percent}%
                         </span>
                       ) : (
-                        <span className="flex items-center gap-1.5 text-neutral-500 dark:text-neutral-400">
-                          <PrismLogo state="loading" size={14} />
-                          Uploading…
-                        </span>
+                        <PrismLogo state="loading" size={14} />
                       )}
                     </div>
                     {!u.error && u.lengthComputable && (
@@ -550,12 +533,7 @@ function KnowledgeBaseDetailPage() {
             <h2 id="kb-docs-heading" className="mb-2 text-sm font-medium text-neutral-900 dark:text-neutral-100">
               Documents
             </h2>
-            {docsQ.isPending && (
-              <p className="flex items-center gap-2 text-sm text-neutral-500">
-                <PrismLogo state="loading" size={16} />
-                Loading…
-              </p>
-            )}
+            {docsQ.isPending && <PrismLogo state="loading" size={20} className="my-4" />}
             {docsQ.isError && (
               <p className="text-sm text-red-600">{(docsQ.error as Error).message}</p>
             )}

@@ -205,12 +205,7 @@ export function ConversationsSidebarPanel({
           </div>
         </div>
       )}
-      {conversationsPending && (
-        <p className="flex items-center gap-2 text-sm text-neutral-500">
-          <PrismLogo state="loading" size={16} />
-          Loading…
-        </p>
-      )}
+      {conversationsPending && <PrismLogo state="loading" size={16} className="mx-auto my-3" />}
       {conversationsError && (
         <p className="text-sm text-red-600">{conversationsError.message}</p>
       )}

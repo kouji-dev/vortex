@@ -52,35 +52,35 @@ const ANIMATED_RAYS = new Set<PrismState>(['streaming', 'thinking'])
 
 const KEYFRAMES = `
   /* ── Idle: slow gentle sway ── */
-  .prism-idle { animation: prismIdleSway 4s ease-in-out infinite; transform-origin: 40px 40px; }
+  .prism-idle { animation: prismIdleSway 6s ease-in-out infinite; transform-origin: 40px 40px; }
   @keyframes prismIdleSway {
-    0%,100% { transform: rotate(-5deg); }
-    50%     { transform: rotate(5deg); }
+    0%,100% { transform: rotate(-4deg); }
+    50%     { transform: rotate(4deg); }
   }
 
-  /* ── Loading: fast spin ── */
-  .prism-load        { animation: prismSpin 1.2s linear infinite; transform-origin: 40px 40px; }
-  .prism-load-trail1 { animation: prismSpin 1.2s linear infinite; transform-origin: 40px 40px; animation-delay: -0.1s; opacity: 0.25; }
-  .prism-load-trail2 { animation: prismSpin 1.2s linear infinite; transform-origin: 40px 40px; animation-delay: -0.2s; opacity: 0.10; }
+  /* ── Loading: smooth spin ── */
+  .prism-load        { animation: prismSpin 2.4s linear infinite; transform-origin: 40px 40px; }
+  .prism-load-trail1 { animation: prismSpin 2.4s linear infinite; transform-origin: 40px 40px; animation-delay: -0.2s; opacity: 0.25; }
+  .prism-load-trail2 { animation: prismSpin 2.4s linear infinite; transform-origin: 40px 40px; animation-delay: -0.4s; opacity: 0.10; }
   @keyframes prismSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
-  /* ── Streaming: pendulum 1.8s ── */
-  .prism-stream        { animation: prismPendulum 1.8s ease-in-out infinite; transform-origin: 40px 40px; }
-  .prism-stream-trail1 { animation: prismPendulum 1.8s ease-in-out infinite; transform-origin: 40px 40px; animation-delay: -0.1s; opacity: 0.20; }
-  .prism-stream-trail2 { animation: prismPendulum 1.8s ease-in-out infinite; transform-origin: 40px 40px; animation-delay: -0.2s; opacity: 0.08; }
+  /* ── Streaming: pendulum 2.8s ── */
+  .prism-stream        { animation: prismPendulum 2.8s ease-in-out infinite; transform-origin: 40px 40px; }
+  .prism-stream-trail1 { animation: prismPendulum 2.8s ease-in-out infinite; transform-origin: 40px 40px; animation-delay: -0.15s; opacity: 0.20; }
+  .prism-stream-trail2 { animation: prismPendulum 2.8s ease-in-out infinite; transform-origin: 40px 40px; animation-delay: -0.30s; opacity: 0.08; }
   @keyframes prismPendulum {
     0%   { transform: rotate(-18deg); }
     50%  { transform: rotate(18deg); }
     100% { transform: rotate(-18deg); }
   }
 
-  /* ── Thinking: slow pendulum 3.5s ── */
-  .prism-think        { animation: prismPendulum 3.5s ease-in-out infinite; transform-origin: 40px 40px; }
-  .prism-think-trail1 { animation: prismPendulum 3.5s ease-in-out infinite; transform-origin: 40px 40px; animation-delay: -0.2s; opacity: 0.20; }
-  .prism-think-trail2 { animation: prismPendulum 3.5s ease-in-out infinite; transform-origin: 40px 40px; animation-delay: -0.4s; opacity: 0.08; }
+  /* ── Thinking: slow pendulum 5s ── */
+  .prism-think        { animation: prismPendulum 5s ease-in-out infinite; transform-origin: 40px 40px; }
+  .prism-think-trail1 { animation: prismPendulum 5s ease-in-out infinite; transform-origin: 40px 40px; animation-delay: -0.3s; opacity: 0.20; }
+  .prism-think-trail2 { animation: prismPendulum 5s ease-in-out infinite; transform-origin: 40px 40px; animation-delay: -0.6s; opacity: 0.08; }
 
   /* ── Error: shake ── */
-  .prism-error { animation: prismShake 0.5s ease-in-out infinite; transform-origin: 40px 40px; }
+  .prism-error { animation: prismShake 0.7s ease-in-out infinite; transform-origin: 40px 40px; }
   @keyframes prismShake {
     0%,100% { transform: translateX(0) rotate(0deg); }
     15%     { transform: translateX(-4px) rotate(-3deg); }
@@ -91,22 +91,22 @@ const KEYFRAMES = `
   }
 
   /* ── Animated rays (streaming + thinking) ── */
-  .prism-ray-sweep   { stroke-dasharray: 70; animation: prismRaySweep var(--ray-dur, 1.8s) ease-in-out infinite; }
-  .prism-ray-sweep-2 { animation-delay: 0.3s; }
-  .prism-ray-sweep-3 { animation-delay: 0.6s; }
+  .prism-ray-sweep   { stroke-dasharray: 70; animation: prismRaySweep var(--ray-dur, 2.8s) ease-in-out infinite; }
+  .prism-ray-sweep-2 { animation-delay: 0.5s; }
+  .prism-ray-sweep-3 { animation-delay: 1s; }
   @keyframes prismRaySweep {
     0%,100% { stroke-dashoffset: 70; opacity: 0; }
-    40%,60% { stroke-dashoffset: 0; opacity: 0.9; }
+    40%,60% { stroke-dashoffset: 0; opacity: 0.85; }
   }
 
   /* ── Core pulses ── */
-  .prism-core-stream { animation: prismCoreStream 1.8s ease-in-out infinite; }
+  .prism-core-stream { animation: prismCoreStream 2.8s ease-in-out infinite; }
   @keyframes prismCoreStream { 0%,100% { r: 5px; } 50% { r: 7px; filter: drop-shadow(0 0 6px #a78bfa); } }
 
-  .prism-core-think { animation: prismCoreThink 3.5s ease-in-out infinite; }
+  .prism-core-think { animation: prismCoreThink 5s ease-in-out infinite; }
   @keyframes prismCoreThink { 0%,100% { r: 5px; } 50% { r: 6px; filter: drop-shadow(0 0 10px #fbbf24); } }
 
-  .prism-core-idle { animation: prismCoreIdle 4s ease-in-out infinite; }
+  .prism-core-idle { animation: prismCoreIdle 6s ease-in-out infinite; }
   @keyframes prismCoreIdle { 0%,100% { r: 4px; } 50% { r: 5.5px; } }
 `
 
@@ -117,7 +117,7 @@ export function PrismLogo({ state = 'idle', size = 64, className }: PrismLogoPro
   const rayOpacity = RAY_OPACITY[state]
   const strokeWidth = size <= 16 ? 3 : 2
   const coreR = size <= 16 ? 7 : state === 'streaming' || state === 'thinking' ? 5 : 4
-  const rayDur = state === 'thinking' ? '3.5s' : '1.8s'
+  const rayDur = state === 'thinking' ? '5s' : '2.8s'
 
   return (
     <svg
@@ -127,6 +127,7 @@ export function PrismLogo({ state = 'idle', size = 64, className }: PrismLogoPro
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={className}
+      style={{ display: 'block' }}
       aria-hidden="true"
     >
       <defs>

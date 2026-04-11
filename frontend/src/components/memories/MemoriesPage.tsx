@@ -167,12 +167,7 @@ export function MemoriesPage() {
           />
         </div>
 
-        {memoriesQ.isPending && (
-          <p className="flex items-center gap-2 text-sm text-neutral-500">
-            <PrismLogo state="loading" size={16} />
-            Loading…
-          </p>
-        )}
+        {memoriesQ.isPending && <PrismLogo state="loading" size={20} className="my-4 mx-auto" />}
         {memoriesQ.isError && (
           <p className="text-sm text-red-600">{(memoriesQ.error as Error).message}</p>
         )}

@@ -176,10 +176,7 @@ export function KbPickerPanel({
           className="min-w-0 flex-1 bg-transparent text-sm text-neutral-900 placeholder-neutral-400 outline-none dark:text-neutral-100"
         />
         {conversationId != null && saveMut.isPending && (
-          <span className="inline-flex items-center gap-1 text-xs text-neutral-400">
-            <PrismLogo state="loading" size={12} />
-            Saving...
-          </span>
+          <PrismLogo state="loading" size={12} />
         )}
       </div>
 
@@ -189,10 +186,7 @@ export function KbPickerPanel({
         aria-label="Knowledge bases"
       >
         {listQ.isPending && (
-          <li className="flex items-center gap-2 px-3 py-3 text-sm text-neutral-400">
-            <PrismLogo state="loading" size={14} />
-            Loading…
-          </li>
+          <li className="px-3 py-3"><PrismLogo state="loading" size={16} /></li>
         )}
         {listQ.isError && (
           <li className="px-3 py-3 text-sm text-red-500">

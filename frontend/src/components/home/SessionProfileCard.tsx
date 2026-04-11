@@ -14,12 +14,7 @@ export function SessionProfileCard({ me }: SessionProfileCardProps) {
       <p className="mt-1 text-xs text-neutral-500">
         <code className="rounded bg-neutral-200/80 px-1 dark:bg-neutral-800">GET /api/me</code>
       </p>
-      {me.isPending && (
-        <p className="mt-3 flex items-center gap-2 text-sm text-neutral-500">
-          <PrismLogo state="loading" size={16} />
-          Loading profile…
-        </p>
-      )}
+      {me.isPending && <PrismLogo state="loading" size={16} className="mt-3" />}
       {me.isError && (
         <p className="mt-3 text-sm text-amber-700 dark:text-amber-400">
           {(me.error as Error).message}

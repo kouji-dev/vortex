@@ -28,12 +28,7 @@ export function EmptyConversationState({
           </p>
         </header>
 
-        {!startersFetched && (
-          <p className="flex items-center justify-center gap-1.5 text-center text-xs text-neutral-500 dark:text-neutral-500">
-            <PrismLogo state="loading" size={14} />
-            Loading suggestions…
-          </p>
-        )}
+        {!startersFetched && <PrismLogo state="loading" size={16} className="mx-auto" />}
 
         {startersFetched && starters?.sections && starters.sections.length > 0 && (
           <div

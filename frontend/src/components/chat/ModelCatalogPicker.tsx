@@ -126,12 +126,7 @@ export function ModelCatalogPicker({
         />
       )}
 
-      {q.isPending && (
-        <p className="flex items-center gap-1.5 text-xs text-neutral-500">
-          <PrismLogo state="loading" size={14} />
-          Loading model catalog…
-        </p>
-      )}
+      {q.isPending && <PrismLogo state="loading" size={16} />}
 
       {lockedWithLink != null && lockedWithLink.length > 0 && (
         <ul className="space-y-1 text-xs text-neutral-500">

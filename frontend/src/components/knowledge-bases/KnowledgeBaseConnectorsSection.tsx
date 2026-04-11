@@ -265,12 +265,7 @@ export function KnowledgeBaseConnectorsSection({
           </button>
         </form>
 
-        {connectorsQ.isPending && (
-          <p className="flex items-center gap-2 text-sm text-neutral-500">
-            <PrismLogo state="loading" size={16} />
-            Loading connectors…
-          </p>
-        )}
+        {connectorsQ.isPending && <PrismLogo state="loading" size={20} className="my-2" />}
         {connectorsQ.isError ? (
           <p className="text-sm text-red-600">{(connectorsQ.error as Error).message}</p>
         ) : null}
@@ -361,12 +356,7 @@ export function KnowledgeBaseConnectorsSection({
         <p className="mb-2 text-xs text-neutral-500 dark:text-neutral-400">
           Recent connector sync runs (queued → running → finished).
         </p>
-        {jobsQ.isPending && (
-          <p className="flex items-center gap-2 text-sm text-neutral-500">
-            <PrismLogo state="loading" size={16} />
-            Loading jobs…
-          </p>
-        )}
+        {jobsQ.isPending && <PrismLogo state="loading" size={20} className="my-2" />}
         {jobsQ.isError ? (
           <p className="text-sm text-red-600">{(jobsQ.error as Error).message}</p>
         ) : null}

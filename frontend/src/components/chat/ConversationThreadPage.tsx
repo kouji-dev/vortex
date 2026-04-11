@@ -848,9 +848,8 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
           </div>
         )}
         {threadMessagesLoading ? (
-          <div className="flex min-h-[min(50dvh,22rem)] w-full flex-col items-center justify-center gap-3 px-4">
+          <div className="flex min-h-[min(50dvh,22rem)] w-full items-center justify-center px-4">
             <PrismLogo state="loading" size={40} />
-            <p className="text-sm text-neutral-500 dark:text-neutral-400">Loading messages…</p>
           </div>
         ) : showEmptyHub ? (
           <EmptyConversationState
@@ -1047,15 +1046,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
             >
               {streaming && (
                 <div className="mb-2 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <PrismLogo
-                      state={sendError ? 'error' : 'streaming'}
-                      size={20}
-                    />
-                    <span className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">
-                      {sendError ? 'Error' : 'Responding…'}
-                    </span>
-                  </div>
+                  <PrismLogo state={sendError ? 'error' : 'streaming'} size={20} />
                   <button
                     type="button"
                     className="rounded px-1.5 py-0.5 text-[10px] font-medium text-red-600 underline decoration-dotted dark:text-red-400"
@@ -1079,10 +1070,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
                   className="text-neutral-900 dark:text-neutral-100"
                 />
               ) : streaming && streamThreadItems.length === 0 ? (
-                <div className="flex items-center gap-3">
-                  <PrismLogo state="loading" size={32} />
-                  <span className="text-sm text-neutral-400">Waiting for response…</span>
-                </div>
+                <PrismLogo state="loading" size={32} className="mx-auto my-2" />
               ) : null}
             </div>
           </div>

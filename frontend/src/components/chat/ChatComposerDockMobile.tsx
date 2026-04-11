@@ -216,12 +216,7 @@ export function ChatComposerDockMobile({
         <div className="px-4 pb-1 pt-3">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">Model</p>
         </div>
-        {modelsPending && (
-          <p className="flex items-center gap-2 px-4 py-2 text-sm text-neutral-400">
-            <PrismLogo state="loading" size={16} />
-            Loading…
-          </p>
-        )}
+        {modelsPending && <PrismLogo state="loading" size={16} className="mx-4 my-2" />}
         {modelsError && (
           <p className="px-4 py-2 text-xs text-amber-600 dark:text-amber-400">Failed to load models</p>
         )}
