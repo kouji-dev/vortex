@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { Brain, ChevronsLeft, ChevronsRight, LayoutDashboard, Library, MessageSquare } from 'lucide-react'
+import { PrismLogo, VortexWordmark } from '~/components/brand'
 
 const linkBase =
   'flex items-center gap-3 rounded-md text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800'
@@ -27,15 +28,15 @@ export function AppSidebar({ compact, onToggleCompact }: AppSidebarProps) {
         }`}
       >
         {!compact && (
-          <div className="min-w-0 flex-1 pr-1">
-            <Link
-              to="/"
-              className="block truncate text-lg font-semibold tracking-tight text-neutral-900 dark:text-neutral-100"
-            >
-              AI Portal
-            </Link>
-            <p className="truncate text-xs text-neutral-500">Signed-in workspace</p>
-          </div>
+          <Link to="/" className="flex min-w-0 flex-1 items-center gap-2 pr-1">
+            <PrismLogo state="mono-white" size={22} />
+            <VortexWordmark variant="white" size={17} />
+          </Link>
+        )}
+        {compact && (
+          <Link to="/" aria-label="Vortex home">
+            <PrismLogo state="mono-white" size={22} />
+          </Link>
         )}
         <button
           type="button"

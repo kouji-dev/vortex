@@ -2,6 +2,7 @@
 import { Link, useLocation } from '@tanstack/react-router'
 import { Menu, SquarePen } from 'lucide-react'
 import * as React from 'react'
+import { PrismLogo, VortexWordmark } from '~/components/brand'
 
 type MobileHeaderProps = {
   conversationTitle?: string
@@ -45,11 +46,9 @@ export function MobileHeader({
 
   return (
     <header className="flex h-12 shrink-0 items-center border-b border-neutral-200 bg-white px-4 dark:border-neutral-800 dark:bg-neutral-950">
-      <Link
-        to="/"
-        className="text-base font-semibold tracking-tight text-neutral-900 dark:text-neutral-100"
-      >
-        AI Portal
+      <Link to="/" className="flex items-center gap-2">
+        <PrismLogo state="mono-white" size={20} />
+        <VortexWordmark variant="white" size={18} />
       </Link>
     </header>
   )
