@@ -70,3 +70,58 @@ def test_stream_deltas_emits_server_tool_use_for_anthropic_native_search():
     assert len(server_tool_pieces) == 1
     assert server_tool_pieces[0]["name"] == "web_search"
     assert server_tool_pieces[0]["input"]["query"] == "LoL EUW rank 1"
+
+
+def test_streaming_service_emits_chip_for_server_tool_use():
+    """server_tool_use events from langchain become item_start chips in the SSE stream."""
+    import json
+    import pytest
+    pytest.importorskip("psycopg")
+
+    from unittest.mock import patch
+    from fastapi.testclient import TestClient
+    from ai_portal.main import app
+
+    tc = TestClient(app)
+    AUTH = {"Authorization": "Bearer devtoken"}
+
+    r = tc.post("/api/chat/conversations", headers=AUTH, json={})
+    assert r.status_code == 201
+    cid = r.json()["id"]
+
+    stream_pieces = [
+        {"type": "server_tool_use", "name": "web_search", "input": {"query": "LoL EUW rank 1"}, "id": "srv1"},
+        {"type": "delta", "text": "The rank 1 player is Faker."},
+    ]
+
+    with patch(
+        "ai_portal.catalog.providers.langchain.LangChainChatProvider.stream_deltas_with_tools",
+        return_value=iter(stream_pieces),
+    ):
+        resp = tc.post(
+            f"/api/chat/conversations/{cid}/messages/stream",
+            headers=AUTH,
+            json={"content": "who is rank 1 EUW?", "model": "claude-sonnet-4-6"},
+        )
+
+    assert resp.status_code == 200
+    events = []
+    for line in resp.text.strip().splitlines():
+        if line.startswith("data: "):
+            try:
+                events.append(json.loads(line[6:]))
+            except json.JSONDecodeError:
+                pass
+
+    item_start_events = [
+        e for e in events
+        if e.get("type") == "item_start" and e.get("item", {}).get("kind") == "web_search"
+    ]
+    assert len(item_start_events) >= 1
+    assert item_start_events[0]["item"]["query"] == "LoL EUW rank 1"
+
+    item_done_events = [
+        e for e in events
+        if e.get("type") == "item_done" and e.get("item", {}).get("kind") == "web_search"
+    ]
+    assert len(item_done_events) >= 1

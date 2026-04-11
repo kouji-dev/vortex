@@ -477,6 +477,49 @@ def _stream_loop(
                     if _url:
                         stream_item_entry["url"] = _url
                     stream_items.append(stream_item_entry)
+                elif isinstance(piece, dict) and piece.get("type") == "server_tool_use":
+                    # Native provider tool (Anthropic web_search_20260209, Gemini grounding).
+                    # The provider executes this — we just surface a chip for the UI.
+                    _srv_name = piece.get("name", "web_search")
+                    _srv_input = piece.get("input", {})
+                    _srv_uid = str(uuid4())
+                    _srv_query = _srv_input.get("query", "")
+                    _srv_url = _srv_input.get("url", "")
+                    _srv_kind = (
+                        "web_search" if _srv_name == "web_search"
+                        else "fetch_webpage" if _srv_name == "web_fetch"
+                        else "tool_call"
+                    )
+                    logger.info(
+                        "stream_loop: server_tool_use name=%r query=%r",
+                        _srv_name,
+                        _srv_query,
+                    )
+                    srv_start: dict = {
+                        "uid": _srv_uid,
+                        "kind": _srv_kind,
+                        "tool": _srv_name,
+                        "params": _srv_input,
+                    }
+                    if _srv_query:
+                        srv_start["query"] = _srv_query
+                    if _srv_url:
+                        srv_start["url"] = _srv_url
+                    yield _sse({"type": "item_start", "item": srv_start})
+                    srv_done: dict = {
+                        "uid": _srv_uid,
+                        "kind": _srv_kind,
+                        "tool": _srv_name,
+                        "status": "done",
+                    }
+                    if _srv_query:
+                        srv_done["query"] = _srv_query
+                    srv_item: dict = {"uid": _srv_uid, "kind": _srv_kind}
+                    if _srv_query:
+                        srv_item["query"] = _srv_query
+                    stream_items.append(srv_item)
+                    yield _sse({"type": "item_done", "item": srv_done})
+                    # Do NOT set tool_call_buffer — server tools are not dispatched by us
                 elif isinstance(piece, dict) and piece.get("type") == "delta":
                     text = piece.get("text", "")
                     full.append(text)
