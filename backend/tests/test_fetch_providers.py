@@ -105,3 +105,57 @@ def test_crawl4ai_provider_returns_none_on_exception():
         result = Crawl4AiFetchProvider().fetch("https://example.com")
 
     assert result is None
+
+
+def test_fetch_chain_returns_first_successful_result():
+    from ai_portal.tools.fetch.base import BaseFetchProvider
+    from ai_portal.tools.fetch.chain import FetchChain
+
+    class AlwaysNone(BaseFetchProvider):
+        def fetch(self, url):
+            return None
+
+    class ReturnsHello(BaseFetchProvider):
+        def fetch(self, url):
+            return "hello content"
+
+    chain = FetchChain([AlwaysNone(), ReturnsHello()])
+    result = chain.fetch("https://example.com")
+    assert result == "hello content"
+
+
+def test_fetch_chain_returns_failure_message_when_all_fail():
+    from ai_portal.tools.fetch.base import BaseFetchProvider
+    from ai_portal.tools.fetch.chain import FetchChain
+
+    class AlwaysNone(BaseFetchProvider):
+        def fetch(self, url):
+            return None
+
+    chain = FetchChain([AlwaysNone(), AlwaysNone()])
+    result = chain.fetch("https://example.com")
+    assert "Could not retrieve" in result
+    assert "https://example.com" in result
+
+
+def test_fetch_chain_truncates_long_content():
+    from ai_portal.tools.fetch.base import BaseFetchProvider
+    from ai_portal.tools.fetch.chain import FetchChain, _MAX_CHARS
+
+    class LongContent(BaseFetchProvider):
+        def fetch(self, url):
+            return "x" * (_MAX_CHARS + 1000)
+
+    chain = FetchChain([LongContent()])
+    result = chain.fetch("https://example.com")
+    assert len(result) <= _MAX_CHARS + 50  # allow for truncation marker
+    assert "truncated" in result
+
+
+def test_fetch_factory_builds_chain():
+    from ai_portal.tools.fetch.factory import build_fetch_chain
+    from ai_portal.tools.fetch.chain import FetchChain
+
+    chain = build_fetch_chain()
+    assert isinstance(chain, FetchChain)
+    assert len(chain.providers) >= 1
