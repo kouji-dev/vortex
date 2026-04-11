@@ -1,4 +1,4 @@
-# Web Scraping Providers — Design Spec
+# Web Search & Fetch Rework — Design Spec
 
 **Date:** 2026-04-11
 
@@ -6,158 +6,163 @@
 
 ## Goal
 
-Replace the single-provider, ad-hoc web search and fetch implementations with clean multi-provider abstractions. Each abstraction has pluggable implementations selected via config, with automatic fallback when API keys are absent.
-
-## Architecture
-
-Two parallel provider hierarchies: one for **search**, one for **fetch**. Both are config-driven and fall back gracefully.
+Stop maintaining a custom web search stack. Delegate search entirely to each LLM provider's native tool. Own only the fetch/scrape layer, powered by Crawl4AI for JS rendering and Cloudflare bypass.
 
 ---
 
-## Search Providers
+## Core Principle
 
-### Interface
-
-`BaseSearchProvider` already exists in `search/base.py`. Update the abstract method signature to include `region`:
-
-```python
-@abstractmethod
-def search(self, query: str, num_results: int = 5, region: str = "uk-en") -> list[SearchResult]:
-    ...
-```
-
-`SearchResult` dataclass stays unchanged: `title: str`, `url: str`, `snippet: str`.
-
-### Implementations
-
-#### `DuckDuckGoProvider` (`search/duckduckgo.py`) — existing, updated
-- Uses `ddgs` / `duckduckgo_search` library
-- Passes `region` to `ddgs.text()`
-- Free, no API key, unreliable locale — used only as last-resort fallback
-
-#### `BraveSearchProvider` (`search/brave.py`) — new
-- Calls `https://api.search.brave.com/res/v1/web/search`
-- Auth: `X-Subscription-Token: {BRAVE_SEARCH_API_KEY}` header
-- Params: `q`, `count` (max 20), `country` derived from region (`uk-en` → `GB`, `us-en` → `US`, `wt-wt` → omitted)
-- Maps response `web.results[].title/url/description` → `SearchResult`
-- Free tier: 2,000 requests/month
-
-#### `TavilyProvider` (`search/tavily.py`) — implement existing stub
-- Calls `https://api.tavily.com/search` (POST)
-- Auth: `api_key` in request body
-- Params: `query`, `max_results`, `search_depth="advanced"`, `include_answer=False`
-- Maps response `results[].title/url/content` → `SearchResult`
-- Free tier: 1,000 requests/month
-
-### Factory (`search/factory.py`)
-
-```python
-def get_search_provider() -> BaseSearchProvider:
-    ...
-```
-
-Reads `settings.search_provider` (`SEARCH_PROVIDER` env var, default `"duckduckgo"`).
-
-| Config value | Key required | Falls back to |
+| Concern | Owner | Rationale |
 |---|---|---|
-| `brave` | `BRAVE_SEARCH_API_KEY` | `duckduckgo` if key absent |
-| `tavily` | `TAVILY_API_KEY` | `duckduckgo` if key absent |
-| `duckduckgo` | — | — |
-
-Logs a warning when falling back.
+| Web search | LLM provider (native tool) | Anthropic, Gemini, OpenAI all have high-quality built-in search — no point duplicating |
+| Webpage fetch / scrape | Our backend (Crawl4AI) | Native fetch tools don't handle JS-rendered pages; we need Crawl4AI for sites like op.gg |
 
 ---
 
-## Fetch Providers
+## Part 1 — Native Search Per Provider
 
-### Interface (`fetch/base.py`) — new
+### Claude (Anthropic)
+
+Add `web_search_20260209` as a server-side tool. Anthropic executes it — our backend dispatches nothing.
+
+```python
+{
+    "type": "web_search_20260209",
+    "name": "web_search",
+    "max_uses": 5,
+    "user_location": {
+        "type": "approximate",
+        "country": "FR",        # European results by default
+        "timezone": "Europe/Paris"
+    }
+}
+```
+
+- **Cost**: $10 / 1,000 searches + token costs
+- **Quality**: Anthropic-managed, citations always included
+- **Localization**: `user_location.country = "FR"` gives European results natively — solves the EUW issue
+
+### Gemini (Google)
+
+Enable Google Search grounding via `google_search_retrieval` tool. Google executes it.
+
+```python
+{"google_search_retrieval": {"dynamic_retrieval_config": {"mode": "MODE_DYNAMIC"}}}
+```
+
+- **Cost**: included in Gemini API pricing
+- **Quality**: actual Google results
+
+### OpenAI
+
+Add the built-in web search tool via the Responses API. OpenAI executes it.
+
+```python
+{"type": "web_search_preview"}
+```
+
+- **Cost**: additional per-search fee on top of tokens
+
+### Streaming — `server_tool_use` blocks (Claude)
+
+Claude's native tools return `server_tool_use` content blocks in the SSE stream, not `tool_use`. Our streaming parser must:
+1. Recognize `server_tool_use` blocks and surface them as tool chips in the UI (showing the query)
+2. Recognize `web_search_tool_result` blocks and pass them back in conversation history
+3. **Not** attempt to dispatch them — Anthropic handles execution
+
+This is the main backend streaming change required.
+
+---
+
+## Part 2 — Fetch Provider Chain
+
+We own this. The LLM calls our `fetch_webpage` tool when it needs to go deeper than search snippets, or when fetching JS-heavy pages.
+
+### Interface (`tools/fetch/base.py`) — new
 
 ```python
 class BaseFetchProvider(ABC):
     @abstractmethod
     def fetch(self, url: str) -> str | None:
-        """Return page text/markdown, or None if the provider cannot retrieve it."""
+        """Return page text/markdown, or None to fall through to next provider."""
         ...
 ```
 
-`None` means "try the next provider". A non-empty string is a success.
-
 ### Implementations
 
-#### `Crawl4AiFetchProvider` (`fetch/crawl4ai.py`) — new, primary
-- Uses `crawl4ai.AsyncWebCrawler` with:
-  - `BrowserConfig(headless=True, enable_stealth=True, user_agent_mode="random")`
-  - `CrawlerRunConfig(remove_overlay_elements=True, word_count_threshold=10)`
-- Returns `result.markdown.fit_markdown` (clean, LLM-optimised markdown)
-- Runs async crawl inside `asyncio.run()` for sync compatibility
-- Timeout: 20s
+#### `Crawl4AiFetchProvider` (`tools/fetch/crawl4ai.py`) — new, primary
+
+```python
+BrowserConfig(headless=True, enable_stealth=True, user_agent_mode="random")
+CrawlerRunConfig(remove_overlay_elements=True, word_count_threshold=10)
+```
+
+- Returns `result.markdown.fit_markdown` — clean markdown optimised for LLMs
 - Handles JS rendering, Cloudflare bypass, cookie banners
+- Runs `asyncio.run()` for sync compatibility with the existing tool dispatch
+- Timeout: 20s
 
-#### `RequestsFetchProvider` (`fetch/requests_fetch.py`) — extracted from existing code, last-resort fallback
-- `requests` + `BeautifulSoup`
-- 10s timeout
-- Detects Cloudflare challenge pages (`"Just a moment"`, `"cf-browser-verification"`) → returns `None`
-- Removes `script/style/nav/footer/header/aside` tags
-- Used only when Crawl4AI is unavailable or fails
+#### `RequestsFetchProvider` (`tools/fetch/requests_fetch.py`) — fallback
 
-### Chain (`fetch/chain.py`) — new
+- `requests` + BeautifulSoup, 10s timeout
+- Detects Cloudflare challenge pages → returns `None`
+- Used only when Crawl4AI is unavailable
+
+### Chain (`tools/fetch/chain.py`) — new
 
 ```python
 class FetchChain:
-    def __init__(self, providers: list[BaseFetchProvider]):
-        self.providers = providers
-
     def fetch(self, url: str) -> str:
         for provider in self.providers:
             result = provider.fetch(url)
             if result:
-                return _truncate(result)
-        return f"Could not retrieve content from {url} after all strategies failed. Use search snippets and training data to answer."
+                return _truncate(result)  # 8,000 char cap
+        return (
+            f"Could not retrieve content from {url}. "
+            "Use search snippets and training data to answer."
+        )
 ```
 
-Default chain order: `[Crawl4AiFetchProvider, RequestsFetchProvider]`
+Default chain: `[Crawl4AiFetchProvider, RequestsFetchProvider]`
 
-A `fetch/factory.py` constructs the chain, skipping `Crawl4AiFetchProvider` if `crawl4ai` is not installed (logs a warning).
+`fetch/factory.py` builds the chain, gracefully skipping `Crawl4AiFetchProvider` if `crawl4ai` is not installed.
+
+### `fetch_webpage.py` update
+
+Replace the current layered `_fetch_requests` / `_fetch_amp_cache` / `_fetch_browser` logic with a single call to `FetchChain.fetch(url)`.
 
 ---
 
-## Config Changes
+## Part 3 — Registry / Chat Service Changes
 
-New fields in `core/config.py` (sourced from env vars):
+### `registry.py`
 
-```python
-search_provider: str = "duckduckgo"   # brave | tavily | duckduckgo
-brave_search_api_key: str = ""
-tavily_api_key: str = ""
+- Remove `web_search` tool from `get_tool_definitions()` and `get_system_prompts()`
+- Keep `fetch_webpage` tool (our Crawl4AI chain)
+- Native search tools are injected by the provider-specific chat adapter, not the registry
+
+### Provider-level tool injection
+
+Each LLM provider adapter (Anthropic, Gemini, OpenAI) injects the correct native search tool alongside `fetch_webpage`:
+
 ```
+Anthropic request  →  tools: [web_search_20260209, fetch_webpage (ours)]
+Gemini request     →  tools: [google_search_retrieval, fetch_webpage (ours)]
+OpenAI request     →  tools: [web_search_preview, fetch_webpage (ours)]
+```
+
+Location to implement: wherever the LLM call is assembled per provider (likely `chat/streaming_service.py` or similar).
 
 ---
 
-## Integration Points
+## What is NOT deleted yet
 
-### `web_search.py`
-- `execute()` calls `get_search_provider()` instead of directly instantiating `DuckDuckGoProvider`
-- Language filtering (`_is_english_result`) stays in place — applied after any provider returns results
-- Region parameter flows through unchanged
+The following files stay in place until the new implementation is tested and confirmed working:
 
-### `fetch_webpage.py`
-- `execute()` calls `FetchChain.fetch(url)` (constructed via `fetch/factory.py`)
-- All three strategy functions (`_fetch_requests`, `_fetch_amp_cache`, `_fetch_browser`) are replaced by the provider chain
-- Google AMP cache strategy is dropped (Crawl4AI + Jina cover its use cases more reliably)
+- `tools/web_search.py` (our custom DuckDuckGo search tool)
+- `tools/search/` directory (DuckDuckGo, Tavily stubs, base)
 
----
-
-## Dependencies
-
-Add to `backend/pyproject.toml`:
-
-```toml
-"crawl4ai>=0.4",
-"tavily-python>=0.5",
-```
-
-`requests` and `beautifulsoup4` already added in the previous session.
-`brave` uses plain `requests` — no extra package needed.
+They are kept as dead code during the transition and removed in a follow-up PR after end-to-end verification.
 
 ---
 
@@ -165,17 +170,28 @@ Add to `backend/pyproject.toml`:
 
 | Action | File |
 |---|---|
-| Modify | `tools/search/base.py` — add `region` to abstract method |
-| Modify | `tools/search/duckduckgo.py` — signature already correct |
-| **Create** | `tools/search/brave.py` |
-| **Create** | `tools/search/factory.py` |
-| Modify | `tools/search/tavily.py` — implement stub |
 | **Create** | `tools/fetch/base.py` |
 | **Create** | `tools/fetch/crawl4ai.py` |
 | **Create** | `tools/fetch/requests_fetch.py` |
 | **Create** | `tools/fetch/chain.py` |
 | **Create** | `tools/fetch/factory.py` |
-| Modify | `tools/web_search.py` — use `get_search_provider()` |
+| **Create** | `tools/fetch/__init__.py` |
 | Modify | `tools/fetch_webpage.py` — use `FetchChain` |
-| Modify | `core/config.py` — add `search_provider`, `brave_search_api_key`, `tavily_api_key` |
-| Modify | `pyproject.toml` — add `crawl4ai`, `tavily-python` |
+| Modify | `tools/registry.py` — remove web_search, keep fetch_webpage |
+| Modify | `chat/streaming_service.py` (or equivalent) — inject native search tool per provider |
+| Modify | SSE streaming parser — handle `server_tool_use` + `web_search_tool_result` blocks |
+| Modify | `core/config.py` — add `user_search_country` (default `"FR"`) |
+| Modify | `pyproject.toml` — add `crawl4ai>=0.4` |
+| **Keep (for now)** | `tools/web_search.py` |
+| **Keep (for now)** | `tools/search/` directory |
+
+---
+
+## Dependencies
+
+Add to `backend/pyproject.toml`:
+```toml
+"crawl4ai>=0.4",
+```
+
+`requests` and `beautifulsoup4` already present.
