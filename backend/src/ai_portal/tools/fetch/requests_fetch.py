@@ -4,7 +4,6 @@ import logging
 import re
 
 import requests
-from bs4 import BeautifulSoup
 
 from ai_portal.tools.fetch.base import BaseFetchProvider
 
@@ -32,7 +31,10 @@ class RequestsFetchProvider(BaseFetchProvider):
             if any(sig in resp.text for sig in _CLOUDFLARE_SIGNALS):
                 logger.debug("requests_fetch_cloudflare url=%s", url)
                 return None
-            from bs4 import BeautifulSoup
+            try:
+                from bs4 import BeautifulSoup
+            except ImportError:
+                return None
             soup = BeautifulSoup(resp.text, "html.parser")
             for tag in soup(["script", "style", "nav", "footer", "header", "aside"]):
                 tag.decompose()
