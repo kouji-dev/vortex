@@ -403,7 +403,7 @@ export function ChatComposerDockMobile({
             className="mx-2 min-h-0 flex-1 resize-none bg-transparent text-sm leading-snug outline-none placeholder:text-neutral-400"
             value={composeDraft}
             onChange={(e) => setComposeDraft(e.target.value)}
-            placeholder="Message…"
+            placeholder="Message Vortex…"
             disabled={Boolean(composerDisabled) || streaming}
             rows={1}
             maxLength={maxInputChars}

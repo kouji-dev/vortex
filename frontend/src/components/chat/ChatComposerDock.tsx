@@ -292,7 +292,7 @@ export function ChatComposerDock({
                 if (!streaming && !composerDisabled && composeDraft.trim()) onSubmit()
               }
             }}
-            placeholder="Message the assistant… (Shift+Enter for newline)"
+            placeholder="Message Vortex… (Shift+Enter for newline)"
             disabled={Boolean(composerDisabled) || streaming}
             rows={1}
             maxLength={maxInputChars}

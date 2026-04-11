@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from '@tanstack/react-router'
 import { Copy } from 'lucide-react'
 import * as React from 'react'
 import { flushSync } from 'react-dom'
+import { PrismLogo } from '~/components/brand'
 
 const randomUUID = (): string =>
   typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
@@ -1044,12 +1045,16 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
               aria-label={streaming ? 'Assistant is responding' : 'Assistant response items'}
             >
               {streaming && (
-              <div className="mb-1.5 flex items-center justify-between gap-2">
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-                  assistant
-                </span>
-                <div className="flex items-center gap-1">
-                  <span className="text-[10px] text-neutral-400">streaming…</span>
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <PrismLogo
+                      state={sendError ? 'error' : 'streaming'}
+                      size={20}
+                    />
+                    <span className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">
+                      {sendError ? 'Error' : 'Responding…'}
+                    </span>
+                  </div>
                   <button
                     type="button"
                     className="rounded px-1.5 py-0.5 text-[10px] font-medium text-red-600 underline decoration-dotted dark:text-red-400"
@@ -1058,7 +1063,6 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
                     Stop
                   </button>
                 </div>
-              </div>
               )}
               {streamThreadItems.length > 0 && (
                 <div className="mb-2 flex flex-col gap-1.5">
@@ -1074,10 +1078,10 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
                   className="text-neutral-900 dark:text-neutral-100"
                 />
               ) : streaming && streamThreadItems.length === 0 ? (
-                <p className="flex items-center gap-2 text-sm text-neutral-400">
-                  <span className="inline-block h-3.5 w-0.5 animate-pulse rounded-full bg-neutral-400 dark:bg-neutral-500" />
-                  Waiting for tokens…
-                </p>
+                <div className="flex items-center gap-3">
+                  <PrismLogo state="loading" size={32} />
+                  <span className="text-sm text-neutral-400">Waiting for response…</span>
+                </div>
               ) : null}
             </div>
           </div>
