@@ -740,7 +740,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
     scrollThreadRafRef.current = requestAnimationFrame(() => {
       scrollThreadRafRef.current = null
       if (!stickToBottomRef.current) return
-      scrollThreadToBottom('auto')
+      scrollThreadToBottom('smooth')
     })
     return () => {
       if (scrollThreadRafRef.current != null) cancelAnimationFrame(scrollThreadRafRef.current)
@@ -832,7 +832,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
       <div
         ref={messagesScrollRef}
         onScroll={syncStickToBottomFromScroll}
-        className={`min-h-0 w-full min-w-0 flex-1 overflow-y-auto overflow-x-hidden scroll-pb-4 overscroll-contain rounded-xl border p-4 sm:p-5 ${surfaceThemed}`}
+        className={`min-h-0 w-full min-w-0 flex-1 overflow-y-auto overflow-x-hidden scroll-pb-4 scroll-smooth overscroll-contain rounded-xl border p-4 sm:p-5 ${surfaceThemed}`}
       >
         {canLoadOlder && visibleMessages.length > 0 && (
           <div className="mb-3 flex justify-center">
