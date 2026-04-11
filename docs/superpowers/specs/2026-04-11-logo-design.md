@@ -182,9 +182,67 @@ idle ──[send]──→ loading ──[first token]──→ streaming ──
 
 ---
 
-## Name (TBD)
+## Name: Vortex
 
-Naming brainstorm pending. Candidates to explore:
-- Something referencing light/spectrum/refraction
-- Something referencing the multi-provider nature
-- Developer-focused, short, memorable
+Chosen from cluster "Portal & Gateway". Evokes a single entry point that draws everything in — one interface for all models.
+
+---
+
+## Wordmark
+
+**Typeface:** System sans-serif stack — `-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`  
+**Weight:** 700 (bold)  
+**Letter-spacing:** `-0.03em`  
+**Case:** Title case — "Vortex"
+
+Two variants, same typeface:
+
+### Style A — Gradient text (hero/splash/large)
+```css
+background: linear-gradient(90deg, #f472b6, #a78bfa, #60a5fa);
+-webkit-background-clip: text;
+-webkit-text-fill-color: transparent;
+```
+Use when: splash screen, onboarding, large marketing contexts (≥ 28px).
+
+### Style B — White text (nav/headers/small)
+```css
+color: #e0d7ff;
+```
+Use when: sidebar header, mobile top nav, any size < 28px where gradient text loses legibility.
+
+### Light mode
+- Style A on light bg: use saturated gradient `#db2777 → #7c3aed → #2563eb`
+- Style B on light bg: `color: #1a1a2e`
+
+---
+
+## Lockup Rules
+
+| Context | Mark size | Style | Font size |
+|---|---|---|---|
+| Splash / onboarding | 56px | A (gradient) | 42px |
+| Desktop sidebar header | 22px | B (white) | 17px |
+| Mobile top nav | 20px | B (white) | 18px |
+| Favicon | 16px | Mark only | — |
+| Loading indicator in chat | 64px | Mark only (animated) | — |
+
+Placeholder copy: **"Message Vortex…"** for chat input.
+
+---
+
+## Files to Create (implementation)
+
+- `frontend/src/components/brand/PrismLogo.tsx` — React component, accepts `state` + `size` props
+- `frontend/src/components/brand/VortexWordmark.tsx` — wordmark component, accepts `variant: 'gradient' | 'white' | 'dark'` + `size` props
+- `frontend/src/components/brand/index.ts` — barrel export
+- CSS animations inlined as Tailwind keyframes or a dedicated `prism-logo.css`
+
+Props for `PrismLogo`:
+```ts
+type PrismState = 'idle' | 'loading' | 'streaming' | 'thinking' | 'error' | 'mono-white' | 'mono-dark'
+interface PrismLogoProps {
+  state?: PrismState   // default: 'idle'
+  size?: number        // default: 64
+}
+```
