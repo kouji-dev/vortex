@@ -389,7 +389,12 @@ function KnowledgeBaseDetailPage() {
         </div>
       )}
 
-      {kbQ.isPending && <p className="text-sm text-neutral-500">Loading…</p>}
+      {kbQ.isPending && (
+        <p className="flex items-center gap-2 text-sm text-neutral-500">
+          <PrismLogo state="loading" size={16} />
+          Loading…
+        </p>
+      )}
       {kbQ.isError && (
         <p className="text-sm text-red-600" role="alert">
           {(kbQ.error as Error).message}
@@ -545,7 +550,12 @@ function KnowledgeBaseDetailPage() {
             <h2 id="kb-docs-heading" className="mb-2 text-sm font-medium text-neutral-900 dark:text-neutral-100">
               Documents
             </h2>
-            {docsQ.isPending && <p className="text-sm text-neutral-500">Loading…</p>}
+            {docsQ.isPending && (
+              <p className="flex items-center gap-2 text-sm text-neutral-500">
+                <PrismLogo state="loading" size={16} />
+                Loading…
+              </p>
+            )}
             {docsQ.isError && (
               <p className="text-sm text-red-600">{(docsQ.error as Error).message}</p>
             )}

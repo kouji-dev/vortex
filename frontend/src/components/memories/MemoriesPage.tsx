@@ -1,5 +1,6 @@
 import { Plus, Search, Trash2 } from 'lucide-react'
 import * as React from 'react'
+import { PrismLogo } from '~/components/brand'
 
 import { TableShell } from '~/components/ui/TableShell'
 import {
@@ -166,7 +167,12 @@ export function MemoriesPage() {
           />
         </div>
 
-        {memoriesQ.isPending && <p className="text-sm text-neutral-500">Loading…</p>}
+        {memoriesQ.isPending && (
+          <p className="flex items-center gap-2 text-sm text-neutral-500">
+            <PrismLogo state="loading" size={16} />
+            Loading…
+          </p>
+        )}
         {memoriesQ.isError && (
           <p className="text-sm text-red-600">{(memoriesQ.error as Error).message}</p>
         )}

@@ -189,7 +189,10 @@ export function KbPickerPanel({
         aria-label="Knowledge bases"
       >
         {listQ.isPending && (
-          <li className="px-3 py-3 text-sm text-neutral-400">Loading...</li>
+          <li className="flex items-center gap-2 px-3 py-3 text-sm text-neutral-400">
+            <PrismLogo state="loading" size={14} />
+            Loading…
+          </li>
         )}
         {listQ.isError && (
           <li className="px-3 py-3 text-sm text-red-500">

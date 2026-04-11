@@ -2,6 +2,7 @@ import { useInfiniteQuery } from '@tanstack/react-query'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { Eye, Library, Plus, Search } from 'lucide-react'
 import * as React from 'react'
+import { PrismLogo } from '~/components/brand'
 
 import { CreateKnowledgeBaseDialog } from '~/components/knowledge-bases/CreateKnowledgeBaseDialog'
 import { TableShell } from '~/components/ui/TableShell'
@@ -184,7 +185,12 @@ function KnowledgeBasesIndexPage() {
             aria-label="Search knowledge bases"
           />
         </div>
-        {listQ.isPending && <p className="text-sm text-neutral-500">Loading…</p>}
+        {listQ.isPending && (
+          <p className="flex items-center gap-2 text-sm text-neutral-500">
+            <PrismLogo state="loading" size={16} />
+            Loading…
+          </p>
+        )}
         {listQ.isError && (
           <p className="text-sm text-red-600" role="alert">
             {(listQ.error as Error).message}

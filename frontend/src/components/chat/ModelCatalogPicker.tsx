@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { PrismLogo } from '~/components/brand'
 
 import { getApiBase } from '~/lib/api-base'
 import type { CatalogModelEntry } from '~/lib/chat-types'
@@ -126,7 +127,10 @@ export function ModelCatalogPicker({
       )}
 
       {q.isPending && (
-        <p className="text-xs text-neutral-500">Loading model catalog…</p>
+        <p className="flex items-center gap-1.5 text-xs text-neutral-500">
+          <PrismLogo state="loading" size={14} />
+          Loading model catalog…
+        </p>
       )}
 
       {lockedWithLink != null && lockedWithLink.length > 0 && (

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import * as React from 'react'
+import { PrismLogo } from '~/components/brand'
 
 import { getApiBase } from '~/lib/api-base'
 import { getAuthHeaders } from '~/lib/authorizedFetch'
@@ -95,7 +96,12 @@ export function ConversationKnowledgeBasesPanel({
           </Link>
           .
         </p>
-        {listQ.isPending && <p className="text-xs">Loading your bases…</p>}
+        {listQ.isPending && (
+          <p className="flex items-center gap-1.5 text-xs text-neutral-400">
+            <PrismLogo state="loading" size={14} />
+            Loading your bases…
+          </p>
+        )}
         {listQ.isError && (
           <p className="text-xs text-red-600">{(listQ.error as Error).message}</p>
         )}
