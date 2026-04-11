@@ -1044,9 +1044,26 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
               aria-busy={streaming}
               aria-label={streaming ? 'Assistant is responding' : 'Assistant response items'}
             >
+              {streamThreadItems.length > 0 && (
+                <div className="mb-2 flex flex-col gap-1.5">
+                  {streamThreadItems.map((item) => (
+                    <ThreadItemChip key={item.uid} item={item} />
+                  ))}
+                </div>
+              )}
+              {streamingText && (
+                <MarkdownMessage
+                  content={streamingText}
+                  streaming
+                  className="text-neutral-900 dark:text-neutral-100"
+                />
+              )}
               {streaming && (
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <PrismLogo state={sendError ? 'error' : 'streaming'} size={20} />
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <PrismLogo
+                    state={sendError ? 'error' : streamingText || streamThreadItems.length > 0 ? 'streaming' : 'loading'}
+                    size={20}
+                  />
                   <button
                     type="button"
                     className="rounded px-1.5 py-0.5 text-[10px] font-medium text-red-600 underline decoration-dotted dark:text-red-400"
@@ -1056,22 +1073,6 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
                   </button>
                 </div>
               )}
-              {streamThreadItems.length > 0 && (
-                <div className="mb-2 flex flex-col gap-1.5">
-                  {streamThreadItems.map((item) => (
-                    <ThreadItemChip key={item.uid} item={item} />
-                  ))}
-                </div>
-              )}
-              {streamingText ? (
-                <MarkdownMessage
-                  content={streamingText}
-                  streaming
-                  className="text-neutral-900 dark:text-neutral-100"
-                />
-              ) : streaming && streamThreadItems.length === 0 ? (
-                <PrismLogo state="loading" size={32} className="mx-auto my-2" />
-              ) : null}
             </div>
           </div>
         )}
