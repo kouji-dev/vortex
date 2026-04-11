@@ -31,6 +31,9 @@ dependencies = [
   "passlib[bcrypt]>=1.7",
   "chonkie[semantic,code]>=1.0",
   "duckduckgo-search>=6.0",
+  "requests>=2.32",
+  "beautifulsoup4>=4.12",
+  "crawl4ai>=0.4",
   "pandas>=2.0",
 ]
 
