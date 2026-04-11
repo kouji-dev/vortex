@@ -23,8 +23,10 @@ export function AppSidebar({ compact, onToggleCompact }: AppSidebarProps) {
       aria-label="Main navigation"
     >
       <div
-        className={`flex items-center border-b border-neutral-200 dark:border-neutral-800 ${
-          compact ? 'justify-center py-2' : 'justify-end gap-2 px-3 py-2'
+        className={`flex border-b border-neutral-200 dark:border-neutral-800 ${
+          compact
+            ? 'flex-col items-center gap-1 py-2'
+            : 'flex-row items-center justify-end gap-2 px-3 py-2'
         }`}
       >
         {!compact && (
@@ -41,13 +43,13 @@ export function AppSidebar({ compact, onToggleCompact }: AppSidebarProps) {
         <button
           type="button"
           onClick={onToggleCompact}
-          className="rounded-md p-2 text-neutral-600 hover:bg-neutral-200 dark:text-neutral-400 dark:hover:bg-neutral-800"
+          className="rounded-md p-1.5 text-neutral-600 hover:bg-neutral-200 dark:text-neutral-400 dark:hover:bg-neutral-800"
           title={compact ? 'Expand sidebar' : 'Compact sidebar'}
           aria-label={compact ? 'Expand sidebar' : 'Compact sidebar'}
           aria-expanded={!compact}
         >
           {compact ? (
-            <ChevronsRight className="size-5 shrink-0" aria-hidden />
+            <ChevronsRight className="size-4 shrink-0" aria-hidden />
           ) : (
             <ChevronsLeft className="size-5 shrink-0" aria-hidden />
           )}
