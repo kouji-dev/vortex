@@ -1,5 +1,5 @@
 """Unit tests for fetch provider abstractions."""
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -54,5 +54,54 @@ def test_requests_provider_returns_none_on_exception():
     with patch("ai_portal.tools.fetch.requests_fetch.requests") as mock_requests:
         mock_requests.get.side_effect = Exception("connection error")
         result = RequestsFetchProvider().fetch("https://example.com")
+
+    assert result is None
+
+
+def _make_crawl4ai_mock(fit_markdown: str):
+    """Build an async-compatible AsyncWebCrawler mock."""
+    mock_result = MagicMock()
+    mock_result.markdown = MagicMock()
+    mock_result.markdown.fit_markdown = fit_markdown
+
+    mock_crawler = AsyncMock()
+    mock_crawler.__aenter__ = AsyncMock(return_value=mock_crawler)
+    mock_crawler.__aexit__ = AsyncMock(return_value=False)
+    mock_crawler.arun = AsyncMock(return_value=mock_result)
+    return mock_crawler
+
+
+def test_crawl4ai_provider_returns_markdown_on_success():
+    from ai_portal.tools.fetch.crawl4ai_provider import Crawl4AiFetchProvider
+
+    mock_crawler = _make_crawl4ai_mock("# Page Title\n\nSome useful content here. " + "x" * 200)
+
+    with patch("ai_portal.tools.fetch.crawl4ai_provider.AsyncWebCrawler", return_value=mock_crawler), \
+         patch("ai_portal.tools.fetch.crawl4ai_provider.BrowserConfig"), \
+         patch("ai_portal.tools.fetch.crawl4ai_provider.CrawlerRunConfig"):
+        result = Crawl4AiFetchProvider().fetch("https://example.com")
+
+    assert result is not None
+    assert "Page Title" in result
+
+
+def test_crawl4ai_provider_returns_none_on_empty_markdown():
+    from ai_portal.tools.fetch.crawl4ai_provider import Crawl4AiFetchProvider
+
+    mock_crawler = _make_crawl4ai_mock("")
+
+    with patch("ai_portal.tools.fetch.crawl4ai_provider.AsyncWebCrawler", return_value=mock_crawler), \
+         patch("ai_portal.tools.fetch.crawl4ai_provider.BrowserConfig"), \
+         patch("ai_portal.tools.fetch.crawl4ai_provider.CrawlerRunConfig"):
+        result = Crawl4AiFetchProvider().fetch("https://example.com")
+
+    assert result is None
+
+
+def test_crawl4ai_provider_returns_none_on_exception():
+    from ai_portal.tools.fetch.crawl4ai_provider import Crawl4AiFetchProvider
+
+    with patch("ai_portal.tools.fetch.crawl4ai_provider.AsyncWebCrawler", side_effect=Exception("browser error")):
+        result = Crawl4AiFetchProvider().fetch("https://example.com")
 
     assert result is None
