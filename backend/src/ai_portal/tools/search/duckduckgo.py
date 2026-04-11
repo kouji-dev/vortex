@@ -18,7 +18,7 @@ class DuckDuckGoProvider(BaseSearchProvider):
     def search(self, query: str, num_results: int = 5) -> list[SearchResult]:
         try:
             with DDGS(timeout=_TIMEOUT) as ddgs:
-                raw = ddgs.text(query, max_results=min(num_results, 10))
+                raw = ddgs.text(query, max_results=min(num_results, 10), region="wt-wt")
             return [
                 SearchResult(
                     title=r.get("title", ""),
