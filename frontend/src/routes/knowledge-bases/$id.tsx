@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link, useLocation, useNavigate } from '@tanstack/react-router'
 import { ArrowLeft, Trash2 } from 'lucide-react'
 import * as React from 'react'
+import { PrismLogo } from '~/components/brand'
 
 import { KnowledgeBaseConnectorsSection } from '~/components/knowledge-bases/KnowledgeBaseConnectorsSection'
 import { useDocumentProgressQuery } from '~/hooks/useDocumentProgressQuery'
@@ -111,7 +112,8 @@ function KnowledgeBaseDocumentTableRow({
               </div>
             </>
           ) : (
-            <span className="animate-pulse text-neutral-500 dark:text-neutral-400">
+            <span className="flex items-center gap-1.5 text-neutral-500 dark:text-neutral-400">
+              <PrismLogo state="loading" size={14} />
               Indexing…
             </span>
           )}
@@ -120,7 +122,8 @@ function KnowledgeBaseDocumentTableRow({
     }
     if (live.showQueued) {
       return (
-        <p className="animate-pulse text-neutral-500 dark:text-neutral-400">
+        <p className="flex items-center gap-1.5 text-neutral-500 dark:text-neutral-400">
+          <PrismLogo state="loading" size={14} />
           Queued for indexing…
         </p>
       )
@@ -146,7 +149,10 @@ function KnowledgeBaseDocumentTableRow({
     }
     if (live.poll && live.isPending && !live.data) {
       return (
-        <span className="animate-pulse text-neutral-500 dark:text-neutral-400">Loading…</span>
+        <span className="flex items-center gap-1.5 text-neutral-500 dark:text-neutral-400">
+          <PrismLogo state="loading" size={14} />
+          Loading…
+        </span>
       )
     }
     return <span className="text-neutral-400 dark:text-neutral-600">—</span>
@@ -510,7 +516,8 @@ function KnowledgeBaseDetailPage() {
                           {u.percent}%
                         </span>
                       ) : (
-                        <span className="animate-pulse text-neutral-500 dark:text-neutral-400">
+                        <span className="flex items-center gap-1.5 text-neutral-500 dark:text-neutral-400">
+                          <PrismLogo state="loading" size={14} />
                           Uploading…
                         </span>
                       )}

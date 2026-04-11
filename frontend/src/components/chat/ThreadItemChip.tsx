@@ -1,5 +1,6 @@
-import { Brain, Check, ChevronDown, ChevronRight, Globe, Library, Link, Loader2, Wrench } from 'lucide-react'
+import { Brain, Check, ChevronDown, ChevronRight, Globe, Library, Link, Wrench } from 'lucide-react'
 import * as React from 'react'
+import { PrismLogo } from '~/components/brand'
 import type { StreamThreadItem } from '~/lib/chat-types'
 
 interface Props {
@@ -165,7 +166,7 @@ export function ThreadItemChip({ item }: Props) {
         <div className={chipClass}>
           <span className={theme.iconColor}>{getIcon(item.kind)}</span>
           <span>{getRunningLabel(item)}</span>
-          <Loader2 className="size-3 animate-spin shrink-0 text-current opacity-60" strokeWidth={2} />
+          <PrismLogo state="loading" size={12} />
         </div>
       </div>
     )

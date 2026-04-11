@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as React from 'react'
-import { CheckCircle2, FileText, Loader2, Search } from 'lucide-react'
+import { CheckCircle2, FileText, Search } from 'lucide-react'
+import { PrismLogo } from '~/components/brand'
 
 import { getApiBase } from '~/lib/api-base'
 import { getAuthHeaders } from '~/lib/authorizedFetch'
@@ -176,7 +177,7 @@ export function KbPickerPanel({
         />
         {conversationId != null && saveMut.isPending && (
           <span className="inline-flex items-center gap-1 text-xs text-neutral-400">
-            <Loader2 className="size-3 animate-spin" aria-hidden />
+            <PrismLogo state="loading" size={12} />
             Saving...
           </span>
         )}
