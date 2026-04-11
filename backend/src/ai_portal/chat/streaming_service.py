@@ -10,30 +10,30 @@ import json
 import logging
 import threading
 from datetime import UTC, datetime
-from uuid import uuid4
 from typing import Any
+from uuid import uuid4
 
 from fastapi import HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from ai_portal.assistant.router import _can_access_assistant
+import ai_portal.chat.capabilities.registry as capability_registry
+import ai_portal.tools.registry as tool_registry
 from ai_portal.assistant.model import Assistant  # kept for type annotation
+from ai_portal.assistant.router import _can_access_assistant
 from ai_portal.auth.model import User
 from ai_portal.catalog.providers import get_chat_provider
 from ai_portal.catalog.service import resolve_stored_model_to_chat_model
 from ai_portal.chat import repository as repo
 from ai_portal.chat import upload_service as upload_svc
-import ai_portal.chat.capabilities.registry as capability_registry
-import ai_portal.tools.registry as tool_registry
 from ai_portal.chat.context_window import should_summarize, slice_window_messages
 from ai_portal.chat.memory_context import build_memory_block
 from ai_portal.chat.model import ChatConversation, ChatMessage
 from ai_portal.chat.schemas import StreamMessageBody
 from ai_portal.chat.tool_service import _dispatch_tool_call
+from ai_portal.core.config import get_settings
 from ai_portal.memory.workers.extractor import extract_user_memories
 from ai_portal.memory.workers.summarizer import summarize_conversation
-from ai_portal.core.config import get_settings
 from ai_portal.tools.gemini_quirks import tool_choice_for_iteration
 
 logger = logging.getLogger(__name__)
@@ -45,6 +45,7 @@ _TITLE_ELLIPSIS = "..."
 # ---------------------------------------------------------------------------
 # SSE helpers
 # ---------------------------------------------------------------------------
+
 
 def _sse(obj: dict[str, Any]) -> str:
     return f"data: {json.dumps(obj)}\n\n"
@@ -64,6 +65,7 @@ def _title_from_first_user_prompt(content: str) -> str:
 # Main streaming entry point
 # ---------------------------------------------------------------------------
 
+
 def stream_message_svc(
     db: Session,
     user: User,
@@ -82,7 +84,12 @@ def stream_message_svc(
 
     # ── Resolve user message + prior history ────────────────────────────────
     user_content, anchor_id, prior_rows = _setup_user_message(db, conv, body, user)
-    logger.info("stream: user_message anchor=%d content_len=%d prior_msgs=%d", anchor_id, len(user_content), len(prior_rows))
+    logger.info(
+        "stream: user_message anchor=%d content_len=%d prior_msgs=%d",
+        anchor_id,
+        len(user_content),
+        len(prior_rows),
+    )
 
     # ── Context window ───────────────────────────────────────────────────────
     prior: list[dict[str, str]] = [
@@ -94,7 +101,11 @@ def stream_message_svc(
         summary_interval=settings.conversation_summary_interval,
         has_summary=bool(conv.summary),
     )
-    logger.debug("stream: context_window sliced to %d messages (base_window=%d)", len(prior), settings.conversation_base_window_size)
+    logger.debug(
+        "stream: context_window sliced to %d messages (base_window=%d)",
+        len(prior),
+        settings.conversation_base_window_size,
+    )
 
     # ── Memories ─────────────────────────────────────────────────────────────
     system_profile, manual_memories = repo.get_user_memories(db, user.id)
@@ -102,21 +113,29 @@ def stream_message_svc(
         system_profile=system_profile,
         manual_memories=manual_memories,
     )
-    logger.debug("stream: memory_block len=%d active_memories=%d", len(memory_block), len(manual_memories))
+    logger.debug(
+        "stream: memory_block len=%d active_memories=%d",
+        len(memory_block),
+        len(manual_memories),
+    )
 
     # ── Tool definitions ─────────────────────────────────────────────────────
     kb_ids = repo.get_conversation_kb_ids(db, conv.id)
-    tools = tool_registry.get_tool_definitions(kb_ids)
+    _stored_model_for_tools = (
+        body.model or conv.model or settings.chat_default_api_model or ""
+    ).strip()
+    tools = tool_registry.get_tool_definitions(kb_ids, model_id=_stored_model_for_tools or None)
     max_iter = capability_registry.get_max_iterations(
         conv.settings, base=settings.rag_max_tool_iterations
     )
-    logger.info("stream: kb_ids=%s tools=%d max_iterations=%d", kb_ids, len(tools), max_iter)
+    logger.info(
+        "stream: kb_ids=%s tools=%d max_iterations=%d", kb_ids, len(tools), max_iter
+    )
 
     # ── System prompt ────────────────────────────────────────────────────────
-    extra_prompts = (
-        tool_registry.get_system_prompts(kb_ids)
-        + capability_registry.get_system_prompts(conv.settings)
-    )
+    extra_prompts = tool_registry.get_system_prompts(
+        kb_ids
+    ) + capability_registry.get_system_prompts(conv.settings)
     system_content = _build_system_prompt(
         assistant=assistant,
         conv=conv,
@@ -124,7 +143,11 @@ def stream_message_svc(
         extra_prompts=extra_prompts,
         settings=settings,
     )
-    logger.debug("stream: system_prompt len=%d extra_prompts=%d", len(system_content), len(extra_prompts))
+    logger.debug(
+        "stream: system_prompt len=%d extra_prompts=%d",
+        len(system_content),
+        len(extra_prompts),
+    )
 
     # ── LLM messages ────────────────────────────────────────────────────────
     llm_messages: list[dict[str, Any]] = [{"role": "system", "content": system_content}]
@@ -135,7 +158,9 @@ def stream_message_svc(
     stored_model = (
         body.model or conv.model or settings.chat_default_api_model or ""
     ).strip()
-    use_model = resolve_stored_model_to_chat_model(db, stored_model) if stored_model else None
+    use_model = (
+        resolve_stored_model_to_chat_model(db, stored_model) if stored_model else None
+    )
     logger.info("stream: stored_model=%r resolved=%r", stored_model, use_model)
 
     # ── Streaming generator ──────────────────────────────────────────────────
@@ -175,6 +200,7 @@ def stream_message_svc(
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 def _setup_user_message(
     db: Session,
@@ -249,7 +275,9 @@ def _setup_new_message(
                 )
         if attachment_parts:
             file_block = "\n\n".join(attachment_parts)
-            user_content = f"{user_content}\n\n{file_block}" if user_content else file_block
+            user_content = (
+                f"{user_content}\n\n{file_block}" if user_content else file_block
+            )
         msg_extra = {
             "attachments": [
                 {"id": up.id, "filename": up.original_filename} for up in uploads
@@ -284,7 +312,9 @@ def _build_system_prompt(
     """Assemble the system prompt from base + memory + tool/capability instructions."""
     parts: list[str] = []
     parts.append(
-        assistant.system_prompt.strip() if assistant else settings.default_system_prompt.strip()
+        assistant.system_prompt.strip()
+        if assistant
+        else settings.default_system_prompt.strip()
     )
     if conv.summary:
         parts.append(f"Earlier in this conversation:\n{conv.summary}")
@@ -329,15 +359,46 @@ def _stream_loop(
     messages = list(llm_messages)
     iterations = 0
 
-    logger.info("stream_loop: start conv=%d model=%r tools=%d max_iter=%d", conv.id, use_model, len(tools), max_iterations)
+    logger.info(
+        "stream_loop: start conv=%d model=%r tools=%d max_iter=%d",
+        conv.id,
+        use_model,
+        len(tools),
+        max_iterations,
+    )
 
     # ── Memory pill ──────────────────────────────────────────────────────────────
     if active_memory_count > 0:
         _memory_uid = str(uuid4())
-        stream_items.append({"uid": _memory_uid, "kind": "memory", "count": active_memory_count})
-        logger.debug("stream_loop: emitting memory item uid=%s count=%d", _memory_uid, active_memory_count)
-        yield _sse({"type": "item_start", "item": {"uid": _memory_uid, "kind": "memory", "count": active_memory_count}})
-        yield _sse({"type": "item_done", "item": {"uid": _memory_uid, "kind": "memory", "count": active_memory_count, "status": "done"}})
+        stream_items.append(
+            {"uid": _memory_uid, "kind": "memory", "count": active_memory_count}
+        )
+        logger.debug(
+            "stream_loop: emitting memory item uid=%s count=%d",
+            _memory_uid,
+            active_memory_count,
+        )
+        yield _sse(
+            {
+                "type": "item_start",
+                "item": {
+                    "uid": _memory_uid,
+                    "kind": "memory",
+                    "count": active_memory_count,
+                },
+            }
+        )
+        yield _sse(
+            {
+                "type": "item_done",
+                "item": {
+                    "uid": _memory_uid,
+                    "kind": "memory",
+                    "count": active_memory_count,
+                    "status": "done",
+                },
+            }
+        )
 
     # ── Tool-call loop ───────────────────────────────────────────────────────
     while iterations <= max_iterations:
@@ -347,21 +408,34 @@ def _stream_loop(
         _tool_item_kind: str | None = None
         _tool_name: str = ""
 
-        logger.info("stream_loop: LLM call iteration=%d messages=%d", iterations, len(messages))
-        _tool_choice = tool_choice_for_iteration(str(use_model), iterations, bool(tools))
+        logger.info(
+            "stream_loop: LLM call iteration=%d messages=%d", iterations, len(messages)
+        )
+        _tool_choice = tool_choice_for_iteration(
+            str(use_model), iterations, bool(tools)
+        )
         if _tool_choice:
-            logger.info("stream_loop: forcing tool_choice=%r for model=%r", _tool_choice, use_model)
+            logger.info(
+                "stream_loop: forcing tool_choice=%r for model=%r",
+                _tool_choice,
+                use_model,
+            )
         try:
             provider = get_chat_provider(settings)
             logger.debug("stream_loop: provider=%s", type(provider).__name__)
             for piece in provider.stream_deltas_with_tools(
-                messages, model=use_model, tools=tools if tools else None, tool_choice=_tool_choice
+                messages,
+                model=use_model,
+                tools=tools if tools else None,
+                tool_choice=_tool_choice,
             ):
                 if isinstance(piece, dict) and piece.get("type") == "tool_call":
                     tool_call_buffer = piece.get("tool_call")
                     _tool_name = tool_call_buffer.get("name", "")
                     try:
-                        _tool_params = json.loads(tool_call_buffer.get("arguments", "{}"))
+                        _tool_params = json.loads(
+                            tool_call_buffer.get("arguments", "{}")
+                        )
                     except Exception:
                         _tool_params = {}
                     # Map tool name to SSE kind
@@ -374,17 +448,30 @@ def _stream_loop(
                     else:
                         _tool_item_kind = "tool_call"
                     _tool_item_uid = str(uuid4())
-                    logger.info("stream_loop: tool_call name=%r kind=%r params=%r", _tool_name, _tool_item_kind, _tool_params)
+                    logger.info(
+                        "stream_loop: tool_call name=%r kind=%r params=%r",
+                        _tool_name,
+                        _tool_item_kind,
+                        _tool_params,
+                    )
                     _query = _tool_params.get("query", "")
                     _url = _tool_params.get("url", "")
-                    item_start_payload: dict = {"uid": _tool_item_uid, "kind": _tool_item_kind, "tool": _tool_name, "params": _tool_params}
+                    item_start_payload: dict = {
+                        "uid": _tool_item_uid,
+                        "kind": _tool_item_kind,
+                        "tool": _tool_name,
+                        "params": _tool_params,
+                    }
                     if _query:
                         item_start_payload["query"] = _query
                     if _url:
                         item_start_payload["url"] = _url
                     yield _sse({"type": "item_start", "item": item_start_payload})
                     # Accumulate for persistence (no status field)
-                    stream_item_entry: dict = {"uid": _tool_item_uid, "kind": _tool_item_kind}
+                    stream_item_entry: dict = {
+                        "uid": _tool_item_uid,
+                        "kind": _tool_item_kind,
+                    }
                     if _query:
                         stream_item_entry["query"] = _query
                     if _url:
@@ -399,9 +486,17 @@ def _stream_loop(
                     yield _sse({"type": "delta", "text": str(piece)})
 
         except (ValueError, Exception) as exc:
-            logger.error("stream_loop: error at iteration=%d exc_type=%s exc=%s", iterations, type(exc).__name__, exc, exc_info=True)
+            logger.error(
+                "stream_loop: error at iteration=%d exc_type=%s exc=%s",
+                iterations,
+                type(exc).__name__,
+                exc,
+                exc_info=True,
+            )
             yield from _handle_stream_error(
-                db=db, conv=conv, exc=exc,
+                db=db,
+                conv=conv,
+                exc=exc,
                 tool_call_buffer=tool_call_buffer,
                 tool_item_uid=_tool_item_uid if tool_call_buffer else None,
                 tool_item_kind=_tool_item_kind if tool_call_buffer else None,
@@ -409,26 +504,44 @@ def _stream_loop(
             )
             return
 
-        logger.debug("stream_loop: iteration=%d delta_chars=%d tool_call=%r", iterations, sum(len(t) for t in full), tool_call_buffer.get("name") if tool_call_buffer else None)
+        logger.debug(
+            "stream_loop: iteration=%d delta_chars=%d tool_call=%r",
+            iterations,
+            sum(len(t) for t in full),
+            tool_call_buffer.get("name") if tool_call_buffer else None,
+        )
 
         # ── Tool execution ───────────────────────────────────────────────────
         if tool_call_buffer and iterations < max_iterations:
-            logger.info("stream_loop: dispatching tool=%r", tool_call_buffer.get("name"))
+            logger.info(
+                "stream_loop: dispatching tool=%r", tool_call_buffer.get("name")
+            )
             tool_result = _dispatch_tool_call(db, tool_call_buffer, kb_ids=kb_ids)
             used_kbs_meta.extend(tool_result.get("_used_kbs", []))
-            logger.info("stream_loop: tool result name=%r content_len=%d used_kbs=%d", tool_result.get("name"), len(tool_result.get("content", "")), len(tool_result.get("_used_kbs", [])))
+            logger.info(
+                "stream_loop: tool result name=%r content_len=%d used_kbs=%d",
+                tool_result.get("name"),
+                len(tool_result.get("content", "")),
+                len(tool_result.get("_used_kbs", [])),
+            )
             _tc_id = f"tc_{iterations}"
-            messages.append({
-                "role": "assistant",
-                "content": None,
-                "tool_calls": [{"id": _tc_id, "type": "function", "function": tool_call_buffer}],
-            })
-            messages.append({
-                "role": "tool",
-                "tool_call_id": _tc_id,
-                "name": tool_result["name"],
-                "content": tool_result["content"],
-            })
+            messages.append(
+                {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [
+                        {"id": _tc_id, "type": "function", "function": tool_call_buffer}
+                    ],
+                }
+            )
+            messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": _tc_id,
+                    "name": tool_result["name"],
+                    "content": tool_result["content"],
+                }
+            )
             _result_snippet = (tool_result.get("content") or "")[:500]
             # Update stream_items entry with result fields (no status field in persisted copy)
             for _si in stream_items:
@@ -457,11 +570,28 @@ def _stream_loop(
                 and iterations < max_iterations
             ):
                 fetch_url = tool_result["_top_urls"][0]
-                logger.info("stream_loop: auto_fetch url=%r (thin web_search results)", fetch_url)
+                logger.info(
+                    "stream_loop: auto_fetch url=%r (thin web_search results)",
+                    fetch_url,
+                )
                 _fetch_uid = str(uuid4())
-                yield _sse({"type": "item_start", "item": {"uid": _fetch_uid, "kind": "fetch_webpage", "tool": "fetch_webpage", "url": fetch_url, "params": {"url": fetch_url}}})
-                stream_items.append({"uid": _fetch_uid, "kind": "fetch_webpage", "url": fetch_url})
+                yield _sse(
+                    {
+                        "type": "item_start",
+                        "item": {
+                            "uid": _fetch_uid,
+                            "kind": "fetch_webpage",
+                            "tool": "fetch_webpage",
+                            "url": fetch_url,
+                            "params": {"url": fetch_url},
+                        },
+                    }
+                )
+                stream_items.append(
+                    {"uid": _fetch_uid, "kind": "fetch_webpage", "url": fetch_url}
+                )
                 from ai_portal.tools import fetch_webpage as fetch_webpage_tool
+
                 fetch_result = fetch_webpage_tool.execute(fetch_url)
                 fetch_snippet = (fetch_result.get("content") or "")[:500]
                 for _si in stream_items:
@@ -470,18 +600,37 @@ def _stream_loop(
                             _si["result_snippet"] = fetch_snippet
                         break
                 _af_tc_id = f"tc_{iterations}_af"
-                messages.append({
-                    "role": "assistant",
-                    "content": None,
-                    "tool_calls": [{"id": _af_tc_id, "type": "function", "function": {"name": "fetch_webpage", "arguments": f'{{"url": "{fetch_url}"}}'}}],
-                })
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": _af_tc_id,
-                    "name": "fetch_webpage",
-                    "content": fetch_result["content"],
-                })
-                fetch_done_payload: dict = {"uid": _fetch_uid, "kind": "fetch_webpage", "tool": "fetch_webpage", "url": fetch_url, "status": "done"}
+                messages.append(
+                    {
+                        "role": "assistant",
+                        "content": None,
+                        "tool_calls": [
+                            {
+                                "id": _af_tc_id,
+                                "type": "function",
+                                "function": {
+                                    "name": "fetch_webpage",
+                                    "arguments": f'{{"url": "{fetch_url}"}}',
+                                },
+                            }
+                        ],
+                    }
+                )
+                messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": _af_tc_id,
+                        "name": "fetch_webpage",
+                        "content": fetch_result["content"],
+                    }
+                )
+                fetch_done_payload: dict = {
+                    "uid": _fetch_uid,
+                    "kind": "fetch_webpage",
+                    "tool": "fetch_webpage",
+                    "url": fetch_url,
+                    "status": "done",
+                }
                 if fetch_snippet:
                     fetch_done_payload["result_snippet"] = fetch_snippet
                 yield _sse({"type": "item_done", "item": fetch_done_payload})
@@ -492,26 +641,43 @@ def _stream_loop(
 
         # Iteration cap reached — close open tool item if any
         if tool_call_buffer:
-            logger.warning("stream_loop: max_iterations=%d reached, closing tool=%r", max_iterations, _tool_name)
-            yield _sse({
-                "type": "item_done",
-                "item": {"uid": _tool_item_uid, "kind": _tool_item_kind, "tool": _tool_name, "status": "done"},
-            })
+            logger.warning(
+                "stream_loop: max_iterations=%d reached, closing tool=%r",
+                max_iterations,
+                _tool_name,
+            )
+            yield _sse(
+                {
+                    "type": "item_done",
+                    "item": {
+                        "uid": _tool_item_uid,
+                        "kind": _tool_item_kind,
+                        "tool": _tool_name,
+                        "status": "done",
+                    },
+                }
+            )
 
         # ── Force response if LLM went silent after tool calls ──────────────
         reply = "".join(full)
         if not reply and stream_items:
-            logger.warning("stream_loop: empty reply after tool calls — forcing final response")
-            messages.append({
-                "role": "user",
-                "content": "Based on the information gathered above, provide a complete answer to the original question.",
-            })
+            logger.warning(
+                "stream_loop: empty reply after tool calls — forcing final response"
+            )
+            messages.append(
+                {
+                    "role": "user",
+                    "content": "Based on the information gathered above, provide a complete answer to the original question.",
+                }
+            )
             try:
                 provider = get_chat_provider(settings)
                 for piece in provider.stream_deltas_with_tools(
                     messages, model=use_model, tools=None
                 ):
-                    text = piece.get("text", "") if isinstance(piece, dict) else str(piece)
+                    text = (
+                        piece.get("text", "") if isinstance(piece, dict) else str(piece)
+                    )
                     if text:
                         reply += text
                         yield _sse({"type": "delta", "text": text})
@@ -521,18 +687,25 @@ def _stream_loop(
                 yield _sse({"type": "error", "message": friendly})
 
         # ── Persist final reply ──────────────────────────────────────────────
-        logger.info("stream_loop: persisting reply conv=%d reply_len=%d used_kbs=%d", conv.id, len(reply), len(used_kbs_meta))
+        logger.info(
+            "stream_loop: persisting reply conv=%d reply_len=%d used_kbs=%d",
+            conv.id,
+            len(reply),
+            len(used_kbs_meta),
+        )
         extra: dict = {}
         if used_kbs_meta:
             extra["used_kbs"] = used_kbs_meta
         if stream_items:
             extra["stream_items"] = stream_items
-        db.add(ChatMessage(
-            conversation_id=conv.id,
-            role="assistant",
-            content=reply,
-            extra=extra or None,
-        ))
+        db.add(
+            ChatMessage(
+                conversation_id=conv.id,
+                role="assistant",
+                content=reply,
+                extra=extra or None,
+            )
+        )
         db.commit()
 
         # ── Background tasks ─────────────────────────────────────────────────
@@ -542,12 +715,22 @@ def _stream_loop(
             base_window=settings.conversation_base_window_size,
             summary_interval=settings.conversation_summary_interval,
         ):
-            logger.info("stream_loop: spawning summarizer for conv=%d (total_msgs=%d)", conv.id, total_msgs)
-            threading.Thread(target=summarize_conversation, args=(conv.id,), daemon=True).start()
+            logger.info(
+                "stream_loop: spawning summarizer for conv=%d (total_msgs=%d)",
+                conv.id,
+                total_msgs,
+            )
+            threading.Thread(
+                target=summarize_conversation, args=(conv.id,), daemon=True
+            ).start()
 
         threading.Thread(
             target=extract_user_memories,
-            kwargs={"user_id": user.id, "user_message": user_content, "assistant_message": reply},
+            kwargs={
+                "user_id": user.id,
+                "user_message": user_content,
+                "assistant_message": reply,
+            },
             daemon=True,
         ).start()
 
@@ -565,16 +748,27 @@ def _friendly_api_error(exc: Exception) -> str:
     # Rate limit / quota exhausted
     if "429" in msg or "RESOURCE_EXHAUSTED" in msg or "quota" in msg.lower():
         import re
+
         retry_match = re.search(r"retry.*?(\d+(?:\.\d+)?s)", msg, re.IGNORECASE)
         retry_hint = f" Retry in {retry_match.group(1)}." if retry_match else ""
         return f"Rate limit exceeded for this model.{retry_hint} Try a different model or wait before retrying."
 
     # Auth / API key errors
-    if "401" in msg or "403" in msg or "UNAUTHENTICATED" in msg or "API_KEY" in msg.upper():
+    if (
+        "401" in msg
+        or "403" in msg
+        or "UNAUTHENTICATED" in msg
+        or "API_KEY" in msg.upper()
+    ):
         return "Invalid or missing API key. Check your API key configuration."
 
     # Model not found
-    if "404" in msg or "NOT_FOUND" in msg or "model" in msg.lower() and "not found" in msg.lower():
+    if (
+        "404" in msg
+        or "NOT_FOUND" in msg
+        or "model" in msg.lower()
+        and "not found" in msg.lower()
+    ):
         return f"Model not found or unavailable. ({exc_type})"
 
     # Network / timeout
@@ -606,18 +800,27 @@ def _handle_stream_error(
         logger.exception("chat_stream_failed exc_type=%s", type(exc).__name__)
         detail = _friendly_api_error(exc)
 
-    db.add(ChatMessage(
-        conversation_id=conv.id,
-        role="assistant",
-        content=f"**Error:** {detail}",
-    ))
+    db.add(
+        ChatMessage(
+            conversation_id=conv.id,
+            role="assistant",
+            content=f"**Error:** {detail}",
+        )
+    )
     db.commit()
 
     if tool_call_buffer and tool_item_uid and tool_item_kind:
-        yield _sse({
-            "type": "item_done",
-            "item": {"uid": tool_item_uid, "kind": tool_item_kind, "tool": tool_call_buffer.get("name", ""), "status": "done"},
-        })
+        yield _sse(
+            {
+                "type": "item_done",
+                "item": {
+                    "uid": tool_item_uid,
+                    "kind": tool_item_kind,
+                    "tool": tool_call_buffer.get("name", ""),
+                    "status": "done",
+                },
+            }
+        )
 
     yield _sse({"type": "error", "detail": detail})
     yield _sse({"type": "done", "message_id": tail_message_id()})
