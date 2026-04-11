@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { PrismLogo } from '~/components/brand'
 
 import { StartersPanel } from '~/components/chat/StartersPanel'
 import type { ChatStartersPayload } from '~/hooks/useChatStartersQuery'
@@ -28,7 +29,8 @@ export function EmptyConversationState({
         </header>
 
         {!startersFetched && (
-          <p className="text-center text-xs text-neutral-500 dark:text-neutral-500">
+          <p className="flex items-center justify-center gap-1.5 text-center text-xs text-neutral-500 dark:text-neutral-500">
+            <PrismLogo state="loading" size={14} />
             Loading suggestions…
           </p>
         )}

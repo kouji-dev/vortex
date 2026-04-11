@@ -848,7 +848,8 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
           </div>
         )}
         {threadMessagesLoading ? (
-          <div className="flex min-h-[min(50dvh,22rem)] w-full flex-col items-center justify-center px-4">
+          <div className="flex min-h-[min(50dvh,22rem)] w-full flex-col items-center justify-center gap-3 px-4">
+            <PrismLogo state="loading" size={40} />
             <p className="text-sm text-neutral-500 dark:text-neutral-400">Loading messages…</p>
           </div>
         ) : showEmptyHub ? (

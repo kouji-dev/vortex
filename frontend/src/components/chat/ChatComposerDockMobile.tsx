@@ -1,6 +1,7 @@
 // frontend/src/components/chat/ChatComposerDockMobile.tsx
 import { ArrowUp, BookOpen, Brain, Check, Lock, Paperclip, Settings2, SlidersHorizontal, Square, X, type LucideIcon } from 'lucide-react'
 import * as React from 'react'
+import { PrismLogo } from '~/components/brand'
 
 import {
   ModelTuningModal,
@@ -216,7 +217,10 @@ export function ChatComposerDockMobile({
           <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">Model</p>
         </div>
         {modelsPending && (
-          <p className="px-4 py-2 text-sm text-neutral-400">Loading…</p>
+          <p className="flex items-center gap-2 px-4 py-2 text-sm text-neutral-400">
+            <PrismLogo state="loading" size={16} />
+            Loading…
+          </p>
         )}
         {modelsError && (
           <p className="px-4 py-2 text-xs text-amber-600 dark:text-amber-400">Failed to load models</p>

@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { MoreHorizontal, Plus, Trash2 } from 'lucide-react'
 import * as React from 'react'
+import { PrismLogo } from '~/components/brand'
 
 import { getApiBase } from '~/lib/api-base'
 import { getAuthHeaders } from '~/lib/authorizedFetch'
@@ -204,7 +205,12 @@ export function ConversationsSidebarPanel({
           </div>
         </div>
       )}
-      {conversationsPending && <p className="text-sm text-neutral-500">Loading…</p>}
+      {conversationsPending && (
+        <p className="flex items-center gap-2 text-sm text-neutral-500">
+          <PrismLogo state="loading" size={16} />
+          Loading…
+        </p>
+      )}
       {conversationsError && (
         <p className="text-sm text-red-600">{conversationsError.message}</p>
       )}
