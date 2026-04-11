@@ -64,6 +64,7 @@ _YAML_KEY_MAP: dict[str, str] = {
     "observability.langfuse_public_key": "langfuse_public_key",
     "observability.langfuse_secret_key": "langfuse_secret_key",
     "observability.langfuse_host": "langfuse_host",
+    "llm.user_search_country": "user_search_country",
 }
 
 
@@ -268,6 +269,13 @@ class Settings(BaseSettings):
     langfuse_public_key: str = ""
     langfuse_secret_key: str = ""
     langfuse_host: str = "https://cloud.langfuse.com"
+
+    # Web search localisation — passed as user_location.country to Anthropic native search
+    # and as Google Search region for Gemini. Default "FR" = Europe.
+    user_search_country: str = Field(
+        default="FR",
+        validation_alias=AliasChoices("USER_SEARCH_COUNTRY"),
+    )
 
     @property
     def cors_origin_list(self) -> list[str]:

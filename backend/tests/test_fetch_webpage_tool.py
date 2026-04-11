@@ -22,3 +22,9 @@ def test_fetch_webpage_execute_returns_failure_message():
         result = fetch_webpage.execute("https://example.com")
 
     assert "Could not retrieve" in result["content"]
+
+
+def test_settings_has_user_search_country_default():
+    from ai_portal.core.config import Settings
+    s = Settings()
+    assert s.user_search_country == "FR"
