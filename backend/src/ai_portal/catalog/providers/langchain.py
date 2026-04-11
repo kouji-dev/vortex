@@ -169,15 +169,50 @@ class LangChainChatProvider:
     ) -> Iterator[dict[str, Any]]:
         mid = self._resolved_model_id(model)
         chat = self._chat_model(mid)
-        if tools:
-            chat = chat.bind_tools(tools, **{"tool_choice": tool_choice} if tool_choice else {})
-        lc_messages = _map_dict_messages_to_lc(messages)
 
+        if tools:
+            # Separate native provider tools (non-function type) from standard function tools.
+            # Native tools (e.g. web_search_20260209, google_search_retrieval) are forwarded
+            # to the provider as-is; standard function tools are bound via LangChain's bind_tools.
+            function_tools = [
+                t for t in tools
+                if t.get("type") == "function" or "function" in t
+            ]
+            native_tools = [
+                t for t in tools
+                if t.get("type") != "function" and "function" not in t
+            ]
+
+            if function_tools:
+                chat = chat.bind_tools(
+                    function_tools,
+                    **{"tool_choice": tool_choice} if tool_choice else {},
+                )
+
+            if native_tools and is_langchain_anthropic_model(mid):
+                # Pass Anthropic server tools via bind() so they appear in the API request
+                # alongside any already-bound function tools.
+                existing = getattr(chat, "kwargs", {}).get("tools", [])
+                chat = chat.bind(tools=list(existing) + native_tools)
+
+        lc_messages = _map_dict_messages_to_lc(messages)
         tc_name: str | None = None
         tc_args_parts: list[str] = []
 
         for chunk in chat.stream(lc_messages):
-            # Accumulate tool-call chunks
+            # Detect Anthropic server_tool_use (native search/fetch executed by Anthropic)
+            ak = getattr(chunk, "additional_kwargs", {}) or {}
+            srv = ak.get("server_tool_use")
+            if srv and isinstance(srv, dict):
+                yield {
+                    "type": "server_tool_use",
+                    "name": srv.get("name", ""),
+                    "input": srv.get("input", {}),
+                    "id": srv.get("id", ""),
+                }
+                continue
+
+            # Standard client-side tool call chunks
             tc_chunks = getattr(chunk, "tool_call_chunks", None)
             if tc_chunks:
                 for tcc in tc_chunks:
