@@ -171,46 +171,47 @@ class LangChainChatProvider:
         chat = self._chat_model(mid)
 
         if tools:
-            # Separate native provider tools (non-function type) from standard function tools.
-            # Native tools (e.g. web_search_20260209, google_search_retrieval) are forwarded
-            # to the provider as-is; standard function tools are bound via LangChain's bind_tools.
-            function_tools = [
-                t for t in tools
-                if t.get("type") == "function" or "function" in t
-            ]
-            native_tools = [
-                t for t in tools
-                if t.get("type") != "function" and "function" not in t
-            ]
-
-            if function_tools:
+            if is_langchain_anthropic_model(mid):
+                # For Anthropic: bind_tools handles both native (web_search_20260209)
+                # and standard function tools — _is_builtin_tool passes native dicts through as-is.
                 chat = chat.bind_tools(
-                    function_tools,
+                    tools,
                     **{"tool_choice": tool_choice} if tool_choice else {},
                 )
-
-            if native_tools and is_langchain_anthropic_model(mid):
-                # Pass Anthropic server tools via bind() so they appear in the API request
-                # alongside any already-bound function tools.
-                existing = getattr(chat, "kwargs", {}).get("tools", [])
-                chat = chat.bind(tools=list(existing) + native_tools)
+            else:
+                # Other providers: only pass standard function-typed tools.
+                function_tools = [
+                    t for t in tools
+                    if t.get("type") == "function" or "function" in t
+                ]
+                if function_tools:
+                    chat = chat.bind_tools(
+                        function_tools,
+                        **{"tool_choice": tool_choice} if tool_choice else {},
+                    )
 
         lc_messages = _map_dict_messages_to_lc(messages)
         tc_name: str | None = None
         tc_args_parts: list[str] = []
 
         for chunk in chat.stream(lc_messages):
-            # Detect Anthropic server_tool_use (native search/fetch executed by Anthropic)
-            ak = getattr(chunk, "additional_kwargs", {}) or {}
-            srv = ak.get("server_tool_use")
-            if srv and isinstance(srv, dict):
-                yield {
-                    "type": "server_tool_use",
-                    "name": srv.get("name", ""),
-                    "input": srv.get("input", {}),
-                    "id": srv.get("id", ""),
-                }
-                continue
+            # Detect Anthropic server_tool_use blocks.
+            # langchain-anthropic puts them in chunk.content as list items
+            # (type == "server_tool_use") — not in additional_kwargs.
+            content = getattr(chunk, "content", None)
+            if isinstance(content, list):
+                for block in content:
+                    if isinstance(block, dict) and block.get("type") == "server_tool_use":
+                        srv_input = block.get("input") or {}
+                        # input may arrive as partial_json in delta events — skip empty ones
+                        if block.get("name") and (srv_input or block.get("id")):
+                            yield {
+                                "type": "server_tool_use",
+                                "name": block.get("name", ""),
+                                "input": srv_input,
+                                "id": block.get("id", ""),
+                            }
+                        continue
 
             # Standard client-side tool call chunks
             tc_chunks = getattr(chunk, "tool_call_chunks", None)

@@ -2,12 +2,13 @@
 from unittest.mock import MagicMock, patch
 
 
-def _make_chunk(text=None, tool_call_chunks=None, additional_kwargs=None):
+def _make_chunk(text=None, tool_call_chunks=None, content=None):
     chunk = MagicMock()
     chunk.text = text or ""
-    chunk.content = text or ""
+    # content is a list of blocks (Anthropic style) or a string (OpenAI style)
+    chunk.content = content if content is not None else (text or "")
     chunk.tool_call_chunks = tool_call_chunks or []
-    chunk.additional_kwargs = additional_kwargs or {}
+    chunk.additional_kwargs = {}
     return chunk
 
 
@@ -39,24 +40,19 @@ def test_stream_deltas_emits_server_tool_use_for_anthropic_native_search():
 
     provider = LangChainChatProvider(Settings())
 
-    # Simulate Anthropic streaming: first chunk has server_tool_use in additional_kwargs
-    chunk_tool = _make_chunk(
-        additional_kwargs={
-            "server_tool_use": {
-                "type": "server_tool_use",
-                "name": "web_search",
-                "id": "srvtoolu_abc",
-                "input": {"query": "LoL EUW rank 1"},
-            }
-        }
-    )
+    # Simulate Anthropic streaming: chunk has server_tool_use as a content list block
+    chunk_tool = _make_chunk(content=[{
+        "type": "server_tool_use",
+        "name": "web_search",
+        "id": "srvtoolu_abc",
+        "input": {"query": "LoL EUW rank 1"},
+        "index": 0,
+    }])
     chunk_text = _make_chunk(text="The rank 1 player is...")
 
     with patch.object(provider, "_chat_model") as mock_cm:
         mock_model = MagicMock()
         mock_model.bind_tools.return_value = mock_model
-        mock_model.bind.return_value = mock_model
-        mock_model.kwargs = {}
         mock_model.stream.return_value = iter([chunk_tool, chunk_text])
         mock_cm.return_value = mock_model
 
