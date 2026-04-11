@@ -84,7 +84,7 @@ class BaseFetchProvider(ABC):
 
 ### Implementations
 
-#### `Crawl4AiFetchProvider` (`fetch/crawl4ai.py`) — new
+#### `Crawl4AiFetchProvider` (`fetch/crawl4ai.py`) — new, primary
 - Uses `crawl4ai.AsyncWebCrawler` with:
   - `BrowserConfig(headless=True, enable_stealth=True, user_agent_mode="random")`
   - `CrawlerRunConfig(remove_overlay_elements=True, word_count_threshold=10)`
@@ -93,18 +93,12 @@ class BaseFetchProvider(ABC):
 - Timeout: 20s
 - Handles JS rendering, Cloudflare bypass, cookie banners
 
-#### `JinaFetchProvider` (`fetch/jina.py`) — new
-- `GET https://r.jina.ai/{url}` with header `Accept: text/plain`
-- Uses `requests` with 15s timeout
-- Free, no API key, returns clean markdown
-- Handles many Cloudflare-protected sites without a browser
-
-#### `RequestsFetchProvider` (`fetch/requests_fetch.py`) — extracted from existing code
+#### `RequestsFetchProvider` (`fetch/requests_fetch.py`) — extracted from existing code, last-resort fallback
 - `requests` + `BeautifulSoup`
 - 10s timeout
 - Detects Cloudflare challenge pages (`"Just a moment"`, `"cf-browser-verification"`) → returns `None`
 - Removes `script/style/nav/footer/header/aside` tags
-- Lightest fallback for simple public pages
+- Used only when Crawl4AI is unavailable or fails
 
 ### Chain (`fetch/chain.py`) — new
 
@@ -121,9 +115,9 @@ class FetchChain:
         return f"Could not retrieve content from {url} after all strategies failed. Use search snippets and training data to answer."
 ```
 
-Default chain order: `[Crawl4AiFetchProvider, JinaFetchProvider, RequestsFetchProvider]`
+Default chain order: `[Crawl4AiFetchProvider, RequestsFetchProvider]`
 
-A `fetch/factory.py` constructs the chain, skipping providers whose dependencies are not installed (e.g. `crawl4ai` not installed → skip silently, log warning).
+A `fetch/factory.py` constructs the chain, skipping `Crawl4AiFetchProvider` if `crawl4ai` is not installed (logs a warning).
 
 ---
 
@@ -178,7 +172,6 @@ Add to `backend/pyproject.toml`:
 | Modify | `tools/search/tavily.py` — implement stub |
 | **Create** | `tools/fetch/base.py` |
 | **Create** | `tools/fetch/crawl4ai.py` |
-| **Create** | `tools/fetch/jina.py` |
 | **Create** | `tools/fetch/requests_fetch.py` |
 | **Create** | `tools/fetch/chain.py` |
 | **Create** | `tools/fetch/factory.py` |
