@@ -41,18 +41,20 @@ function addEl(thread: HTMLElement, html: string): HTMLElement {
   return el
 }
 
-async function typeInComposer(composer: HTMLTextAreaElement, charCount: HTMLElement, text: string): Promise<void> {
+async function typeInComposer(composer: HTMLTextAreaElement, charCount: HTMLElement, text: string, stopped: { value: boolean }): Promise<void> {
   composer.value = ''
   for (let i = 0; i <= text.length; i++) {
+    if (stopped.value) return
     composer.value = text.slice(0, i)
     charCount.textContent = `${i} / 2000`
     await sleep(26 + Math.random() * 18)
   }
 }
 
-async function streamText(el: HTMLElement, thread: HTMLElement, text: string): Promise<void> {
+async function streamText(el: HTMLElement, thread: HTMLElement, text: string, stopped: { value: boolean }): Promise<void> {
   let built = ''
   for (const ch of text) {
+    if (stopped.value) return
     built += ch
     el.innerHTML = built.replace(/\*\*(.*?)\*\*/g, '<strong style="color:#e8e4ff">$1</strong>') + '<span class="cursor"></span>'
     thread.scrollTop = thread.scrollHeight
@@ -68,12 +70,13 @@ async function runOnce(refs: HeroDemoRefs, stopped: { value: boolean }): Promise
   await sleep(1000)
   if (stopped.value) return
 
-  await typeInComposer(composer, charCount, USER_MSG)
+  await typeInComposer(composer, charCount, USER_MSG, stopped)
   await sleep(450)
   if (stopped.value) return
 
   sendBtn.style.transform = 'scale(0.9)'
   await sleep(100)
+  if (stopped.value) return
   sendBtn.style.transform = ''
   composer.value = ''
   charCount.textContent = '0 / 2000'
@@ -119,7 +122,7 @@ async function runOnce(refs: HeroDemoRefs, stopped: { value: boolean }): Promise
   const aiMsg = addEl(thread, `<div class="msg-ai"><div class="msg-ai-avatar">${AI_AVATAR}</div><div class="msg-ai-body"><div class="msg-ai-name">Vortex · claude-sonnet-4-6</div><div class="msg-ai-text"></div></div></div>`)
   const aiText = aiMsg.querySelector('.msg-ai-text') as HTMLElement
   if (stopped.value) return
-  await streamText(aiText, thread, AI_RESPONSE)
+  await streamText(aiText, thread, AI_RESPONSE, stopped)
 
   await sleep(380)
   if (stopped.value) return
