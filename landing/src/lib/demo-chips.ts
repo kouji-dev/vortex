@@ -18,11 +18,9 @@ export interface ChipDemoRefs {
 
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((res, rej) => {
-    const t = setTimeout(res, ms)
-    signal?.addEventListener('abort', () => {
-      clearTimeout(t)
-      rej(new DOMException('Aborted', 'AbortError'))
-    })
+    const t = setTimeout(() => { signal?.removeEventListener('abort', onAbort); res() }, ms)
+    function onAbort() { clearTimeout(t); rej(new DOMException('Aborted', 'AbortError')) }
+    signal?.addEventListener('abort', onAbort, { once: true })
   })
 }
 
