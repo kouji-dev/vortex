@@ -11,10 +11,7 @@ const config: DocsThemeConfig = {
   },
   docsRepositoryBase: 'https://github.com/your-org/vortex/tree/main/docs',
   footer: {
-    text: '© 2026 Vortex',
-  },
-  useNextSeoProps() {
-    return { titleTemplate: '%s – Vortex Docs' }
+    content: '© 2026 Vortex',
   },
   head: (
     <>
@@ -22,8 +19,6 @@ const config: DocsThemeConfig = {
       <meta name="description" content="Vortex self-hosting documentation" />
     </>
   ),
-  primaryHue: 265,
-  primarySaturation: 89,
   darkMode: true,
 }
 
