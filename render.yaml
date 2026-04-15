@@ -59,3 +59,15 @@ services:
         sync: false          # e.g. https://ai-portal-app.onrender.com
       - key: NODE_VERSION
         value: "20"
+
+  # ── Docs ──────────────────────────────────────────────────────────────────
+  - type: web
+    name: ai-portal-docs
+    runtime: node
+    rootDir: docs
+    buildCommand: npm install -g pnpm && pnpm install && pnpm run build
+    startCommand: pnpm run start
+    plan: starter
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
