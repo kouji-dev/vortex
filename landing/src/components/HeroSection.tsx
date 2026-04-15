@@ -1,10 +1,12 @@
 // landing/src/components/HeroSection.tsx
 import * as React from 'react'
 
+const DEMO_MODEL = '{DEMO_MODEL}'
+
 const PRISM_SVG_SMALL = (
   <svg width="18" height="18" viewBox="0 0 80 80" fill="none">
-    <defs><linearGradient id="sg" x1="12" y1="8" x2="68" y2="72" gradientUnits="userSpaceOnUse"><stop offset="0%" stopColor="#f472b6"/><stop offset="50%" stopColor="#a78bfa"/><stop offset="100%" stopColor="#60a5fa"/></linearGradient></defs>
-    <polygon points="40,8 68,40 40,72 12,40" fill="none" stroke="url(#sg)" strokeWidth="3"/>
+    <defs><linearGradient id="hero-sidebar-prism-grad" x1="12" y1="8" x2="68" y2="72" gradientUnits="userSpaceOnUse"><stop offset="0%" stopColor="#f472b6"/><stop offset="50%" stopColor="#a78bfa"/><stop offset="100%" stopColor="#60a5fa"/></linearGradient></defs>
+    <polygon points="40,8 68,40 40,72 12,40" fill="none" stroke="url(#hero-sidebar-prism-grad)" strokeWidth="3"/>
     <circle cx="40" cy="40" r="4" fill="#a78bfa"/>
   </svg>
 )
@@ -16,13 +18,13 @@ const SEND_ICON = (
   </svg>
 )
 
-const CHAT_ICON = (w = 14) => (
+const chatIcon = (w = 14) => (
   <svg style={{ width: w, height: w, opacity: .6 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
   </svg>
 )
 
-const KB_ICON = (w = 14) => (
+const kbIcon = (w = 14) => (
   <svg style={{ width: w, height: w, opacity: .6 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
     <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
@@ -37,8 +39,10 @@ export function HeroSection() {
 
   React.useEffect(() => {
     let cleanup: (() => void) | undefined
+    let aborted = false
     // Lazy-import to avoid SSR issues
     import('~/lib/demo-hero').then(({ startHeroDemo }) => {
+      if (aborted) return
       if (!threadRef.current || !composerRef.current || !charCountRef.current || !sendBtnRef.current) return
       cleanup = startHeroDemo({
         thread:    threadRef.current,
@@ -47,7 +51,10 @@ export function HeroSection() {
         sendBtn:   sendBtnRef.current,
       })
     })
-    return () => cleanup?.()
+    return () => {
+      aborted = true
+      cleanup?.()
+    }
   }, [])
 
   return (
@@ -116,9 +123,9 @@ export function HeroSection() {
                     { label: 'Finance Docs', isKb: true },
                     { label: 'Product Specs', isKb: true },
                   ].map((item, i) => item.isSection
-                    ? <div key={i} style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#1e1e35', padding: '6px 14px 4px', marginTop: i > 0 ? 8 : 0 }}>{item.label}</div>
-                    : <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 14px', fontSize: 12, color: item.active ? '#c4b5fd' : '#374151', background: item.active ? 'rgba(167,139,250,.08)' : 'transparent' }}>
-                        {item.isKb ? KB_ICON() : CHAT_ICON()}
+                    ? <div key={item.label} style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#1e1e35', padding: '6px 14px 4px', marginTop: i > 0 ? 8 : 0 }}>{item.label}</div>
+                    : <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 14px', fontSize: 12, color: item.active ? '#c4b5fd' : '#374151', background: item.active ? 'rgba(167,139,250,.08)' : 'transparent' }}>
+                        {item.isKb ? kbIcon() : chatIcon()}
                         {item.label}
                       </div>
                   )}
@@ -131,7 +138,7 @@ export function HeroSection() {
                   <span style={{ fontSize: 13, fontWeight: 600, color: '#6b7280' }}>Q3 Risk Analysis</span>
                   <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px', background: 'rgba(167,139,250,.06)', border: '1px solid rgba(167,139,250,.12)', borderRadius: 5, fontSize: 10, color: '#a78bfa', fontFamily: 'monospace' }}>
                     <svg viewBox="0 0 80 80" fill="none" width="10" height="10"><polygon points="40,8 68,40 40,72 12,40" fill="none" stroke="#a78bfa" strokeWidth="4"/></svg>
-                    claude-sonnet-4-6
+                    {DEMO_MODEL}
                   </div>
                 </div>
 
@@ -149,14 +156,14 @@ export function HeroSection() {
                       Research
                     </span>
                     <span className="kb-tag">
-                      {KB_ICON(10)}
+                      {kbIcon(10)}
                       Finance Docs
                     </span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
                     <textarea ref={composerRef} className="composer-textarea" placeholder="Message Vortex…" rows={1} readOnly/>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
-                      <div style={{ fontSize: 10, color: '#374151', fontFamily: 'monospace', border: '1px solid var(--border)', background: '#0a0a18', borderRadius: 5, padding: '3px 6px' }}>claude-sonnet-4-6 ▾</div>
+                      <div style={{ fontSize: 10, color: '#374151', fontFamily: 'monospace', border: '1px solid var(--border)', background: '#0a0a18', borderRadius: 5, padding: '3px 6px' }}>{DEMO_MODEL} ▾</div>
                       <button ref={sendBtnRef} style={{ width: 32, height: 32, borderRadius: 8, border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg,var(--pink),var(--violet))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         {SEND_ICON}
                       </button>
