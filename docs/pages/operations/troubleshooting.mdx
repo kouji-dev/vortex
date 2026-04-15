@@ -1,1 +1,108 @@
 # Troubleshooting
+
+Common issues and how to fix them.
+
+import { Callout } from 'nextra/components'
+
+## `503 Setup Required` on all routes
+
+**Cause:** `DEPLOYMENT_MODE=selfhosted` and no organization has been created yet.
+
+**Fix:** Navigate to `https://your-app-url/setup` to run the setup wizard and create the first org and admin account.
+
+The following routes are always accessible even in the uninitialized state: `/health`, `/setup`, `/auth/login`.
+
+---
+
+## Chat returns no response / empty stream
+
+**Cause:** No LLM API key is configured, or `CHAT_DEFAULT_API_MODEL` points to a model whose provider key is missing.
+
+**Fix:**
+1. Check that at least one LLM key is set: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or `GEMINI_API_KEY`
+2. Check that `CHAT_DEFAULT_API_MODEL` matches a provider you have a key for. E.g. `claude-sonnet-4-6` requires `ANTHROPIC_API_KEY`.
+3. Check API logs: `docker compose logs api | tail -50`
+
+---
+
+## Knowledge base upload fails
+
+**Cause:** No embedding provider is configured.
+
+**Fix:** Set either `VOYAGE_API_KEY` (recommended) or `OPENAI_API_KEY`. An Anthropic API key alone does not provide embeddings.
+
+Look for this in the logs:
+```
+Set VOYAGE_API_KEY for Voyage embeddings (recommended), or OPENAI_API_KEY for OpenAI-compatible embeddings
+```
+
+---
+
+## CORS errors in the browser
+
+**Cause:** `CORS_ORIGINS` does not include the frontend URL.
+
+**Fix:** Set `CORS_ORIGINS` to include all frontend origins, comma-separated:
+```yaml
+server:
+  cors_origins: https://app.yourdomain.com,https://www.yourdomain.com
+```
+
+---
+
+## Migration errors on startup
+
+**Symptoms:** API fails to start with an Alembic or psycopg error.
+
+**Possible causes:**
+
+1. **Database not reachable** — check `DATABASE_URL` and that Postgres is running:
+   ```bash
+   docker compose ps
+   ```
+
+2. **pgvector extension not installed** — the first migration (`001_vector_extension`) creates the extension. If it fails, ensure your Postgres instance has `pgvector` available. Use the `pgvector/pgvector:pg17` Docker image.
+
+3. **Migration revision conflict** — if upgrading from an old clone, check for column name mismatches:
+   ```bash
+   docker compose exec db psql -U postgres ai_portal -c "\d catalog_models"
+   ```
+   The `api_model_id` column must exist. Run `alembic upgrade head` from inside the backend.
+
+---
+
+## `SECRET_KEY must be set` error
+
+**Cause:** `DEPLOYMENT_MODE` is `selfhosted` or `saas` but `SECRET_KEY` is empty.
+
+**Fix:** Generate and set a secret key:
+```bash
+python -c "import secrets; print(secrets.token_hex(32))"
+```
+Add the output as `auth.secret_key` in `config.yaml` or as the `SECRET_KEY` env var.
+
+---
+
+## Search falls back to DuckDuckGo unexpectedly
+
+**Cause:** `SEARCH_PROVIDER` is set to `tavily`/`serper`/`exa` but the corresponding API key is missing.
+
+**Fix:** Set the API key, or explicitly set `SEARCH_PROVIDER=duckduckgo` if you don't need a paid provider.
+
+Check logs for:
+```
+search_factory: tavily selected but TAVILY_API_KEY not set — falling back to DuckDuckGo
+```
+
+---
+
+## Checking logs
+
+```bash
+# Docker Compose
+docker compose logs api --tail=100 -f
+docker compose logs web --tail=50
+
+# Manual / systemd
+journalctl -u vortex-api -n 100 -f
+```
