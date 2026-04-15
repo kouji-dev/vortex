@@ -1,1 +1,124 @@
 # How Configuration Works
+
+Vortex can be configured in two equivalent ways. **Environment variables take precedence** over `config.yaml`.
+
+import { Callout } from 'nextra/components'
+
+## Option 1: `config.yaml` (recommended for self-hosters)
+
+A structured YAML file with named sections. Default location: `backend/config.yaml`.
+
+Override the path with the `AI_PORTAL_CONFIG` environment variable:
+```bash
+AI_PORTAL_CONFIG=/etc/vortex/config.yaml uvicorn ai_portal.main:app ...
+```
+
+## Option 2: Environment variables
+
+Every setting has a flat `UPPER_CASE` env var alias. Useful for Docker, systemd, or `.env` files.
+
+## Priority order
+
+```
+Environment variables  →  config.yaml  →  built-in defaults
+       (highest)                              (lowest)
+```
+
+## Full `config.yaml` skeleton
+
+Copy this as a starting point and fill in the required values:
+
+```yaml
+server:
+  host: 0.0.0.0
+  port: 8000
+  cors_origins: http://localhost:3000    # comma-separated list for multiple origins
+  upload_dir: data/uploads
+  deployment_mode: selfhosted            # dev | selfhosted | saas
+
+database:
+  url: postgresql+psycopg://user:pass@host:5432/dbname
+
+auth:
+  mode: dev                              # dev | entra (legacy — use deployment_mode instead)
+  secret_key: ""                         # required for selfhosted/saas
+  dev_bearer_token: devtoken             # dev mode only
+  dev_seed_user_email: dev@localhost     # dev mode only
+  portal_api_key_pepper: ""             # required when auth.mode=entra
+  entra_tenant_id: ""                    # Entra only
+  entra_api_audience: ""                 # Entra only
+
+smtp:
+  host: ""
+  port: 587
+  user: ""
+  password: ""
+  email_from: noreply@example.com
+
+llm:
+  openai_api_key: ""
+  openai_api_base: https://api.openai.com/v1
+  anthropic_api_key: ""
+  gemini_api_key: ""
+  chat_default_api_model: gemini-2.5-flash-lite
+  default_system_prompt: "You are a helpful assistant."
+  user_search_country: FR
+
+embedding:
+  voyage_api_key: ""
+  model: ""    # empty = auto (voyage-4-lite with Voyage, text-embedding-3-small with OpenAI)
+
+ingest:
+  max_file_size_mb: 500
+  commit_batch_size: 100
+  embed_batch_size: 128
+
+rag:
+  max_top_k: 30
+  min_top_k: 8
+  similarity_threshold: 0.3
+  max_tool_iterations: 1
+
+conversation:
+  base_window_size: 30
+  summary_interval: 10
+  inactivity_summary_hours: 1
+
+observability:
+  langfuse_public_key: ""
+  langfuse_secret_key: ""
+  langfuse_host: https://cloud.langfuse.com
+
+search:
+  provider: duckduckgo    # duckduckgo | tavily | serper | exa
+  tavily_api_key: ""
+  serper_api_key: ""
+  exa_api_key: ""
+
+fetch:
+  firecrawl_api_key: ""
+  jina_api_key: ""
+```
+
+<Callout type="info">
+Keys with empty string defaults (`""`) are optional unless marked required in the [Full Reference →](/configuration/reference).
+</Callout>
+
+## Sections quick-reference
+
+| Section | Purpose |
+|---|---|
+| `server` | Bind address, port, CORS, upload dir, deployment mode |
+| `database` | PostgreSQL connection string |
+| `auth` | Auth mode, JWT secret, dev tokens, Entra config |
+| `smtp` | Outbound email for verification and password reset |
+| `llm` | API keys for Anthropic, OpenAI, Gemini; default model |
+| `embedding` | Voyage AI or OpenAI embeddings for knowledge bases |
+| `ingest` | File size limits and batching for document ingest |
+| `rag` | Retrieval parameters (top-k, similarity threshold) |
+| `conversation` | Context window size and summarization thresholds |
+| `observability` | Langfuse tracing (optional) |
+| `search` | Web search provider for the `web_search` tool |
+| `fetch` | Fetch providers for the `fetch_webpage` tool |
+
+See the [Full Reference →](/configuration/reference) for all options with defaults and descriptions.
