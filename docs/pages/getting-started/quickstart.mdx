@@ -1,1 +1,94 @@
 # Quickstart
+
+The fastest path to a running Vortex instance using Docker Compose.
+
+import { Callout, Steps } from 'nextra/components'
+
+<Steps>
+
+### Clone the repository
+
+```bash
+git clone https://github.com/your-org/vortex.git
+cd vortex
+```
+
+### Create `config.yaml`
+
+Place `config.yaml` at the **repo root** (same directory as `docker-compose.yml`):
+
+```yaml
+server:
+  deployment_mode: selfhosted   # or: dev (no auth), saas (open signup)
+  cors_origins: http://localhost:3000
+
+database:
+  url: postgresql+psycopg://postgres:postgres@127.0.0.1:5434/ai_portal
+
+auth:
+  secret_key: "replace-with-a-long-random-secret"   # generate: python -c "import secrets; print(secrets.token_hex(32))"
+
+smtp:
+  host: smtp.example.com
+  user: you@example.com
+  password: "your-smtp-password"
+  email_from: noreply@example.com
+
+llm:
+  anthropic_api_key: "sk-ant-..."   # or openai_api_key / gemini_api_key
+
+embedding:
+  voyage_api_key: "pa-..."   # recommended; omit to use OpenAI embeddings
+```
+
+<Callout type="warning">
+`auth.secret_key` is required when `deployment_mode` is `selfhosted` or `saas`. Generate one with:
+```bash
+python -c "import secrets; print(secrets.token_hex(32))"
+```
+</Callout>
+
+### Start the database and Redis
+
+```bash
+docker compose up -d
+```
+
+### Start the API and frontend
+
+```bash
+docker compose --profile full up -d api web
+```
+
+Migrations run automatically on startup (`alembic upgrade head`).
+
+### Seed the model catalog
+
+```bash
+docker compose --profile full run --rm api seed-catalog-models
+```
+
+This populates the `catalog_models` table with known Anthropic, OpenAI, and Gemini model entries. Required for chat to work.
+
+### Run the setup wizard
+
+Open `http://localhost:3000/setup` and create your organization and admin account.
+
+After completing setup, log in and start chatting.
+
+</Steps>
+
+## What's running
+
+| Service | URL | Notes |
+|---|---|---|
+| Frontend | `http://localhost:3000` | React + TanStack Start |
+| API | `http://localhost:8000` | FastAPI, OpenAPI at `/docs` |
+| Postgres | `localhost:5434` | pgvector/pg17 |
+| Redis | `localhost:6380` | Optional, not used by default |
+
+## Next steps
+
+- [Full Docker Compose installation →](/installation/docker-compose)
+- [Manual / bare-metal install →](/installation/manual)
+- [Configuration reference →](/configuration/reference)
