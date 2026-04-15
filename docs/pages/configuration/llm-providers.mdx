@@ -1,1 +1,89 @@
 # LLM Providers
+
+Vortex supports three LLM providers. At least one API key must be set for chat to work. Multiple providers can be active simultaneously — the model catalog determines which provider handles each model.
+
+import { Callout } from 'nextra/components'
+
+## Anthropic (Claude)
+
+Set `llm.anthropic_api_key` or `ANTHROPIC_API_KEY`.
+
+```yaml
+llm:
+  anthropic_api_key: "sk-ant-api03-..."
+```
+
+Supported model IDs (set as `chat_default_api_model` or in the model catalog):
+- `claude-sonnet-4-6`
+- `claude-opus-4-6`
+- `claude-haiku-4-5-20251001`
+
+Claude models support extended thinking and native tool use.
+
+<Callout type="warning">
+An Anthropic API key does **not** provide embeddings. Set `VOYAGE_API_KEY` or `OPENAI_API_KEY` separately if you use knowledge bases.
+</Callout>
+
+## OpenAI / OpenAI-compatible
+
+Set `llm.openai_api_key` or `OPENAI_API_KEY`.
+
+```yaml
+llm:
+  openai_api_key: "sk-..."
+  openai_api_base: https://api.openai.com/v1    # default; change for compatible endpoints
+```
+
+Popular model IDs: `gpt-4o`, `gpt-4o-mini`, `gpt-4.1`, `o3-mini`.
+
+### Using a compatible endpoint
+
+Any OpenAI-compatible API works — set `llm.openai_api_base` to the endpoint URL:
+
+| Provider | `openai_api_base` |
+|---|---|
+| Azure OpenAI | `https://<resource>.openai.azure.com/openai/deployments/<deployment>` |
+| LM Studio (local) | `http://localhost:1234/v1` |
+| Ollama (local) | `http://localhost:11434/v1` |
+| Custom proxy | Your proxy URL |
+
+<Callout type="info">
+OpenAI API keys also power embeddings when `VOYAGE_API_KEY` is not set.
+</Callout>
+
+## Google Gemini
+
+Set `llm.gemini_api_key` or `GEMINI_API_KEY`.
+
+```yaml
+llm:
+  gemini_api_key: "AIza..."
+  chat_default_api_model: gemini-2.5-flash-lite    # lowest-cost Gemini option
+```
+
+Popular model IDs: `gemini-2.5-flash`, `gemini-2.5-flash-lite`, `gemini-2.5-pro`.
+
+## Setting the default model
+
+`llm.chat_default_api_model` sets the model used for new conversations when no catalog default is configured:
+
+```yaml
+llm:
+  chat_default_api_model: claude-sonnet-4-6
+```
+
+This also serves as a streaming fallback when a conversation has no model set.
+
+## Using multiple providers
+
+Set multiple keys — the model catalog routes each conversation to the correct provider:
+
+```yaml
+llm:
+  anthropic_api_key: "sk-ant-..."
+  openai_api_key: "sk-..."
+  gemini_api_key: "AIza..."
+  chat_default_api_model: claude-sonnet-4-6
+```
+
+After seeding the catalog (`seed-catalog-models`), users can switch between providers in the model picker.

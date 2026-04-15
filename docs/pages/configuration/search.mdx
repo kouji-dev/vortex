@@ -1,1 +1,37 @@
 # Search Providers
+
+The `web_search` tool in chat uses a configurable search provider. Configure it with `search.provider`.
+
+import { Callout } from 'nextra/components'
+
+## Providers
+
+| Provider | `search.provider` value | Key required | Notes |
+|---|---|---|---|
+| DuckDuckGo | `duckduckgo` | No | Default. Free, no key needed. Rate-limited for heavy use. |
+| Tavily | `tavily` | `TAVILY_API_KEY` | Best quality for AI-augmented search. |
+| Serper | `serper` | `SERPER_API_KEY` | Google Search via Serper API. |
+| Exa | `exa` | `EXA_API_KEY` | Neural / semantic search. |
+
+## Configuration
+
+```yaml
+search:
+  provider: tavily
+  tavily_api_key: "tvly-..."
+```
+
+## Fallback behavior
+
+<Callout type="info">
+If `search.provider` is set to a provider that requires an API key but the key is not set, Vortex **automatically falls back to DuckDuckGo** and logs a warning at startup. No error is thrown.
+</Callout>
+
+This means misconfigured search degrades gracefully rather than breaking chat entirely.
+
+## Choosing a provider
+
+- **DuckDuckGo** — zero setup, good for low-volume or development use
+- **Tavily** — recommended for production; purpose-built for AI applications, cleaner results
+- **Serper** — use if you need Google Search quality and have an existing Serper account
+- **Exa** — use for research-oriented queries that benefit from semantic matching
