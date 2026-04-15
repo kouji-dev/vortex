@@ -16,10 +16,13 @@ export function useScrollReveal<T extends HTMLElement>(
           obs.unobserve(el)
         }
       },
-      { threshold: 0.1, rootMargin: '0px 0px -40px 0px', ...options }
+        { threshold: 0.1, rootMargin: '0px 0px -40px 0px', ...options }
     )
     obs.observe(el)
     return () => obs.disconnect()
+  // options intentionally excluded: all callers pass stable objects or no args.
+  // If a caller passes an inline object literal, the initial options will be used.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return ref
