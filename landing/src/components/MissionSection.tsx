@@ -14,12 +14,12 @@ export function MissionSection() {
         <div ref={markRef} className="reveal" style={{ display: 'flex', justifyContent: 'center', marginBottom: 32 }}>
           <svg width="48" height="48" viewBox="0 0 80 80" fill="none" style={{ filter: 'drop-shadow(0 0 18px rgba(167,139,250,.5))' }}>
             <defs>
-              <linearGradient id="mg" x1="12" y1="8" x2="68" y2="72" gradientUnits="userSpaceOnUse">
+              <linearGradient id="mission-prism-grad" x1="12" y1="8" x2="68" y2="72" gradientUnits="userSpaceOnUse">
                 <stop offset="0%" stopColor="#f472b6"/><stop offset="50%" stopColor="#a78bfa"/><stop offset="100%" stopColor="#60a5fa"/>
               </linearGradient>
             </defs>
             <g style={{ animation: 'msway 4s ease-in-out infinite', transformOrigin: '40px 40px' }}>
-              <polygon points="40,8 68,40 40,72 12,40" fill="none" stroke="url(#mg)" strokeWidth="2.5"/>
+              <polygon points="40,8 68,40 40,72 12,40" fill="none" stroke="url(#mission-prism-grad)" strokeWidth="2.5"/>
               <line x1="40" y1="8" x2="68" y2="40" stroke="#f472b6" strokeWidth="1.5" opacity=".5"/>
               <line x1="40" y1="8" x2="40" y2="72" stroke="#a78bfa" strokeWidth="1.5" opacity=".5"/>
               <line x1="40" y1="8" x2="12" y2="40" stroke="#60a5fa" strokeWidth="1.5" opacity=".5"/>
