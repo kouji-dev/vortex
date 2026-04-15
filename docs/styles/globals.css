@@ -1,0 +1,14 @@
+:root {
+  --nextra-primary-hue: 265deg;
+  --nextra-primary-saturation: 89%;
+}
+
+.dark {
+  --nextra-bg: #0f0f17;
+  --nextra-sidebar-bg: #0b0b12;
+}
+
+/* Code block overrides */
+.dark .nextra-code-block pre {
+  background: #1e1b2e !important;
+}
