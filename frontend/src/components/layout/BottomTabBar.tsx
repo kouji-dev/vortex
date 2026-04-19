@@ -40,30 +40,30 @@ export function BottomTabBar() {
 
       {/* More sheet */}
       <div
-        className={`fixed bottom-0 inset-x-0 z-50 rounded-t-2xl border-t border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950 transition-transform duration-200 ease-out ${moreOpen ? 'translate-y-0' : 'translate-y-full'}`}
+        className={`fixed bottom-0 inset-x-0 z-50 rounded-t-2xl border-t border-line bg-panel transition-transform duration-200 ease-out ${moreOpen ? 'translate-y-0' : 'translate-y-full'}`}
         aria-hidden={!moreOpen}
       >
-          <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-neutral-300 dark:bg-neutral-700" />
-          <p className="px-4 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
-            More
-          </p>
-          {OVERFLOW_ITEMS.map(({ to, icon: Icon, label }) => (
-            <Link
-              key={to}
-              to={to}
-              onClick={() => setMoreOpen(false)}
-              className="flex items-center gap-3 px-4 py-3 text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
-            >
-              <Icon className="size-5 shrink-0 text-neutral-500 dark:text-neutral-400" aria-hidden />
-              {label}
-            </Link>
-          ))}
-          <div className="pb-safe" />
-        </div>
+        <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-line" />
+        <p className="px-4 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wide text-ink-3 mono">
+          More
+        </p>
+        {OVERFLOW_ITEMS.map(({ to, icon: Icon, label }) => (
+          <Link
+            key={to}
+            to={to}
+            onClick={() => setMoreOpen(false)}
+            className="flex items-center gap-3 px-4 py-3 text-sm text-ink hover:bg-bg-2"
+          >
+            <Icon className="size-5 shrink-0 text-ink-3" aria-hidden />
+            {label}
+          </Link>
+        ))}
+        <div className="pb-safe" />
+      </div>
 
       {/* Tab bar */}
       <nav
-        className="flex shrink-0 items-stretch border-t border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950"
+        className="flex shrink-0 items-stretch border-t border-line bg-panel"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
         aria-label="Main navigation"
       >
@@ -75,15 +75,13 @@ export function BottomTabBar() {
             <Link
               key={to}
               to={to}
-              className="flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-neutral-500 dark:text-neutral-400"
+              className="flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-ink-3"
             >
               <Icon
-                className={`size-5 shrink-0 ${active ? 'text-neutral-900 dark:text-neutral-100' : ''}`}
+                className={`size-5 shrink-0 ${active ? 'text-ink' : ''}`}
                 aria-hidden
               />
-              <span
-                className={`text-[10px] ${active ? 'font-semibold text-neutral-900 dark:text-neutral-100' : ''}`}
-              >
+              <span className={`text-[10px] mono ${active ? 'font-semibold text-ink' : ''}`}>
                 {label}
               </span>
             </Link>
@@ -94,17 +92,17 @@ export function BottomTabBar() {
         <button
           type="button"
           onClick={() => setMoreOpen((o) => !o)}
-          className="flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-neutral-500 dark:text-neutral-400 relative"
+          className="flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-ink-3 relative"
           aria-label="More navigation options"
         >
           {isOverflowActive && (
-            <span className="absolute top-2 right-[calc(50%-14px)] size-1.5 rounded-full bg-neutral-900 dark:bg-neutral-100" />
+            <span className="absolute top-2 right-[calc(50%-14px)] size-1.5 rounded-full bg-ink" />
           )}
           <MoreHorizontal
-            className={`size-5 shrink-0 ${isOverflowActive ? 'text-neutral-900 dark:text-neutral-100' : ''}`}
+            className={`size-5 shrink-0 ${isOverflowActive ? 'text-ink' : ''}`}
             aria-hidden
           />
-          <span className={`text-[10px] ${isOverflowActive ? 'font-semibold text-neutral-900 dark:text-neutral-100' : ''}`}>
+          <span className={`text-[10px] mono ${isOverflowActive ? 'font-semibold text-ink' : ''}`}>
             More
           </span>
         </button>

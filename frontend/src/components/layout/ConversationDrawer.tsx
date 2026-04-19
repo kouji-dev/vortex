@@ -66,21 +66,21 @@ export function ConversationDrawer({
       {/* Drawer */}
       <div
         ref={drawerRef}
-        className={`fixed inset-y-0 left-0 z-50 flex w-[85vw] max-w-xs flex-col bg-white shadow-xl transition-transform duration-200 ease-out dark:bg-neutral-950 ${open ? 'translate-x-0' : '-translate-x-full'}`}
+        className={`fixed inset-y-0 left-0 z-50 flex w-[85vw] max-w-xs flex-col bg-panel shadow-xl transition-transform duration-200 ease-out ${open ? 'translate-x-0' : '-translate-x-full'}`}
         aria-label="Conversations"
         role="dialog"
         aria-modal="true"
       >
         {/* Drawer header */}
-        <div className="flex h-12 shrink-0 items-center justify-between border-b border-neutral-200 px-3 dark:border-neutral-800">
-          <span className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+        <div className="flex h-12 shrink-0 items-center justify-between border-b border-line px-3">
+          <span className="text-sm font-semibold text-ink">
             Conversations
           </span>
           <div className="flex items-center gap-1">
             <button
               type="button"
               onClick={() => { onNewConversation(); onClose() }}
-              className="rounded-md p-2 text-neutral-600 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800"
+              className="rounded p-2 text-ink-2 hover:bg-bg-2"
               aria-label="New conversation"
             >
               <SquarePen className="size-4" aria-hidden />
@@ -88,7 +88,7 @@ export function ConversationDrawer({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-md p-2 text-neutral-600 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800"
+              className="rounded p-2 text-ink-2 hover:bg-bg-2"
               aria-label="Close conversations"
             >
               <X className="size-4" aria-hidden />

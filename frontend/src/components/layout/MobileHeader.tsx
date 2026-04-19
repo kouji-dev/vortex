@@ -2,7 +2,6 @@
 import { Link, useLocation } from '@tanstack/react-router'
 import { Menu, SquarePen } from 'lucide-react'
 import * as React from 'react'
-import { PrismLogo, VortexWordmark } from '~/components/brand'
 
 type MobileHeaderProps = {
   conversationTitle?: string
@@ -20,22 +19,22 @@ export function MobileHeader({
 
   if (isChatRoute) {
     return (
-      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-neutral-200 bg-white px-3 dark:border-neutral-800 dark:bg-neutral-950">
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-line bg-panel px-3">
         <button
           type="button"
           onClick={onOpenDrawer}
-          className="rounded-md p-2 text-neutral-600 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800"
+          className="rounded p-2 text-ink-2 hover:bg-bg-2"
           aria-label="Open conversations"
         >
           <Menu className="size-5" aria-hidden />
         </button>
-        <span className="flex-1 truncate text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+        <span className="flex-1 truncate text-sm font-semibold text-ink">
           {conversationTitle ?? 'New conversation'}
         </span>
         <button
           type="button"
           onClick={onNewConversation}
-          className="rounded-md p-2 text-neutral-600 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800"
+          className="rounded p-2 text-ink-2 hover:bg-bg-2"
           aria-label="New conversation"
         >
           <SquarePen className="size-5" aria-hidden />
@@ -45,10 +44,11 @@ export function MobileHeader({
   }
 
   return (
-    <header className="flex h-12 shrink-0 items-center border-b border-neutral-200 bg-white px-4 dark:border-neutral-800 dark:bg-neutral-950">
-      <Link to="/" className="flex items-center gap-2">
-        <PrismLogo state="mono-white" size={20} />
-        <VortexWordmark variant="white" size={18} />
+    <header className="flex h-12 shrink-0 items-center border-b border-line bg-panel px-4">
+      {/* Brand — same markup as AppTopbar's .brand for visual consistency */}
+      <Link to="/" className="brand" aria-label="Home" style={{ width: 'auto', borderRight: 'none', padding: '0' }}>
+        <span className="brand-mark" aria-hidden>VX</span>
+        <span className="brand-name">Vortex</span>
       </Link>
     </header>
   )

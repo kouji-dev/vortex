@@ -31,7 +31,7 @@ export function MobileAppShell({ children }: { children: React.ReactNode }) {
   const handleOpenDrawer = React.useCallback(() => setDrawerOpen(true), [])
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-white dark:bg-neutral-950">
+    <div className="flex h-dvh flex-col overflow-hidden bg-panel">
       <MobileHeader
         conversationTitle={conversationTitle}
         onOpenDrawer={handleOpenDrawer}
