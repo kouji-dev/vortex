@@ -78,7 +78,7 @@ def _make_stream_loop_kwargs(
 def _run_stream_loop(**kwargs) -> list[dict]:
     """Run _stream_loop and return parsed SSE events."""
     with (
-        patch("ai_portal.chat.streaming_service.get_chat_provider") as mock_provider_factory,
+        patch("ai_portal.chat.streaming_service.LlmProviderFactory.create") as mock_provider_factory,
         patch("ai_portal.chat.streaming_service.repo.count_messages_in_conversation", return_value=3),
         patch("ai_portal.chat.streaming_service.should_summarize", return_value=False),
         patch("ai_portal.chat.streaming_service.threading.Thread"),
@@ -180,7 +180,7 @@ def test_web_search_item_kind():
     )
 
     with (
-        patch("ai_portal.chat.streaming_service.get_chat_provider") as mock_provider_factory,
+        patch("ai_portal.chat.streaming_service.LlmProviderFactory.create") as mock_provider_factory,
         patch("ai_portal.chat.streaming_service.repo.count_messages_in_conversation", return_value=3),
         patch("ai_portal.chat.streaming_service.should_summarize", return_value=False),
         patch("ai_portal.chat.streaming_service.threading.Thread"),
@@ -264,7 +264,7 @@ def test_stream_items_persisted_in_extra():
     db.add.side_effect = capture_add
 
     with (
-        patch("ai_portal.chat.streaming_service.get_chat_provider") as mock_provider_factory,
+        patch("ai_portal.chat.streaming_service.LlmProviderFactory.create") as mock_provider_factory,
         patch("ai_portal.chat.streaming_service.repo.count_messages_in_conversation", return_value=3),
         patch("ai_portal.chat.streaming_service.should_summarize", return_value=False),
         patch("ai_portal.chat.streaming_service.threading.Thread"),

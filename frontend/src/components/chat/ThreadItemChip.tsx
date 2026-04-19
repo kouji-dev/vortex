@@ -83,15 +83,38 @@ function getDoneLabel(item: StreamThreadItem): React.ReactNode {
   }
 }
 
+function formatProviderName(provider: string): string {
+  const map: Record<string, string> = {
+    TavilyProvider: 'Tavily',
+    SerperProvider: 'Serper',
+    ExaProvider: 'Exa',
+    DuckDuckGoProvider: 'DuckDuckGo',
+    FirecrawlFetchProvider: 'Firecrawl',
+    Crawl4AiFetchProvider: 'Crawl4AI',
+    JinaFetchProvider: 'Jina',
+    RequestsFetchProvider: 'Requests',
+  }
+  return map[provider] ?? provider
+}
+
+function ProviderBadge({ provider }: { provider: string }) {
+  return (
+    <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-neutral-800 text-neutral-400 border border-neutral-700">
+      {formatProviderName(provider)}
+    </span>
+  )
+}
+
 function ExpandedDetails({ item }: { item: StreamThreadItem }) {
   switch (item.kind) {
     case 'web_search':
       return (
         <div className="flex flex-col gap-2 text-[11px]">
-          <div>
-            <div className="text-neutral-600 dark:text-neutral-500 font-semibold uppercase tracking-wide text-[10px] mb-0.5">Query</div>
-            <div className="text-neutral-300">{item.query}</div>
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-neutral-600 dark:text-neutral-500 font-semibold uppercase tracking-wide text-[10px]">Query</div>
+            {item.provider && <ProviderBadge provider={item.provider} />}
           </div>
+          <div className="text-neutral-300">{item.query}</div>
           {item.result_snippet && (
             <div>
               <div className="text-neutral-600 dark:text-neutral-500 font-semibold uppercase tracking-wide text-[10px] mb-0.5">Results</div>
@@ -103,10 +126,11 @@ function ExpandedDetails({ item }: { item: StreamThreadItem }) {
     case 'fetch_webpage':
       return (
         <div className="flex flex-col gap-2 text-[11px]">
-          <div>
-            <div className="text-neutral-600 dark:text-neutral-500 font-semibold uppercase tracking-wide text-[10px] mb-0.5">URL</div>
-            <div className="text-neutral-300 break-all">{item.url}</div>
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-neutral-600 dark:text-neutral-500 font-semibold uppercase tracking-wide text-[10px]">URL</div>
+            {item.provider && <ProviderBadge provider={item.provider} />}
           </div>
+          <div className="text-neutral-300 break-all">{item.url}</div>
           {item.result_snippet && (
             <div>
               <div className="text-neutral-600 dark:text-neutral-500 font-semibold uppercase tracking-wide text-[10px] mb-0.5">Content</div>

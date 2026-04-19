@@ -23,10 +23,7 @@ def build_memory_block(
         and (system_profile.content or "").strip()
         and system_profile.is_active
     ):
-        parts.append(
-            "User profile (auto-updated from your conversations):\n"
-            + system_profile.content.strip()
-        )
+        parts.append("User profile:\n" + system_profile.content.strip())
 
     manuals = [
         m
@@ -35,8 +32,8 @@ def build_memory_block(
     ]
     if manuals:
         lines = "\n".join(f"- {m.content.strip()}" for m in manuals)
-        parts.append(f"Memories the user saved manually:\n{lines}")
+        parts.append(f"Saved memories:\n{lines}")
 
     if not parts:
         return ""
-    return "What you know about this user:\n\n" + "\n\n".join(parts)
+    return "About this user:\n\n" + "\n\n".join(parts)

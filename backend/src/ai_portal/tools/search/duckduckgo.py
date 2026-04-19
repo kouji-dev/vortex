@@ -15,10 +15,10 @@ _TIMEOUT = 10  # seconds
 
 
 class DuckDuckGoProvider(BaseSearchProvider):
-    def search(self, query: str, num_results: int = 5) -> list[SearchResult]:
+    def search(self, query: str, num_results: int = 5, region: str = "uk-en") -> list[SearchResult]:
         try:
             with DDGS(timeout=_TIMEOUT) as ddgs:
-                raw = ddgs.text(query, max_results=min(num_results, 10), region="wt-wt")
+                raw = ddgs.text(query, max_results=min(num_results, 10), region=region)
             return [
                 SearchResult(
                     title=r.get("title", ""),

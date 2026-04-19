@@ -8,9 +8,8 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 SYSTEM_PROMPT = (
-    "You have access to the search_knowledge_base tool. "
-    "Use it when you need information from the user's documents to answer accurately. "
-    "When using retrieved context, cite sources as [Source: filename, section]."
+    "Use search_knowledge_base for questions the user's documents can answer. "
+    "Cite as [Source: filename]."
 )
 
 

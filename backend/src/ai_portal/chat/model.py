@@ -61,6 +61,10 @@ class ChatMessage(Base):
         DateTime(timezone=True), server_default=func.now()
     )
     extra: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    model_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    usage_id: Mapped[int | None] = mapped_column(
+        ForeignKey("message_usage.id", ondelete="SET NULL"), nullable=True
+    )
 
 
 class ChatUpload(Base):

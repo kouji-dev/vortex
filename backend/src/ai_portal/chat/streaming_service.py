@@ -22,7 +22,7 @@ import ai_portal.tools.registry as tool_registry
 from ai_portal.assistant.model import Assistant  # kept for type annotation
 from ai_portal.assistant.router import _can_access_assistant
 from ai_portal.auth.model import User
-from ai_portal.catalog.providers import get_chat_provider
+from ai_portal.catalog.providers import LlmProviderFactory
 from ai_portal.catalog.service import resolve_stored_model_to_chat_model
 from ai_portal.chat import repository as repo
 from ai_portal.chat import upload_service as upload_svc
@@ -76,6 +76,27 @@ def stream_message_svc(
     conv = repo.get_owned_conversation(db, user, conversation_id)
     settings = get_settings()
 
+    # ── Quota check ──────────────────────────────────────────────────────────
+    if user.org_id is not None:
+        try:
+            from ai_portal.usage.service import check_quota  # noqa: PLC0415
+            from fastapi import status as _status  # noqa: PLC0415
+            from fastapi.responses import JSONResponse  # noqa: PLC0415
+            stored_model_for_quota = (body.model or conv.model or settings.chat_default_api_model or "").strip()
+            decision = check_quota(db, org_id=user.org_id, user_id=user.id, api_model_id=stored_model_for_quota)
+            if decision.is_blocked:
+                logger.warning("quota_blocked user=%d reason=%s", user.id, decision.reason)
+                headers = {}
+                if decision.retry_after_seconds:
+                    headers["Retry-After"] = str(decision.retry_after_seconds)
+                raise HTTPException(
+                    status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail=decision.reason or "Quota exceeded",
+                    headers=headers,
+                )
+        except ImportError:
+            pass  # usage domain not yet deployed
+
     # ── Resolve assistant ────────────────────────────────────────────────────
     assistant: Assistant | None = None
     if conv.assistant_id is not None:
@@ -119,12 +140,50 @@ def stream_message_svc(
         len(manual_memories),
     )
 
+    # ── RBAC model gate ─────────────────────────────────────────────────────
+    stored_model_rbac = (body.model or conv.model or settings.chat_default_api_model or "").strip()
+    if user.org_id is not None and stored_model_rbac:
+        try:
+            from ai_portal.rbac.evaluator import evaluate as rbac_eval  # noqa: PLC0415
+            model_decision = rbac_eval(
+                db, user=user, org_id=user.org_id, resource_type="model", resource_key=stored_model_rbac
+            )
+            if not model_decision:
+                logger.warning("rbac: model blocked user=%d model=%s reason=%s", user.id, stored_model_rbac, model_decision.reason)
+                raise HTTPException(
+                    status.HTTP_403_FORBIDDEN,
+                    detail=f"Access to model {stored_model_rbac!r} is not allowed for your role.",
+                )
+        except ImportError:
+            pass
+
     # ── Tool definitions ─────────────────────────────────────────────────────
     kb_ids = repo.get_conversation_kb_ids(db, conv.id)
     _stored_model_for_tools = (
         body.model or conv.model or settings.chat_default_api_model or ""
     ).strip()
-    tools = tool_registry.get_tool_definitions(kb_ids, model_id=_stored_model_for_tools or None)
+    _capabilities = conv.settings.capabilities if conv.settings else None
+    tools = tool_registry.get_tool_definitions(
+        kb_ids,
+        model_id=_stored_model_for_tools or None,
+        capabilities=_capabilities,
+    )
+
+    # Filter tools by RBAC policy.
+    if user.org_id is not None:
+        try:
+            from ai_portal.rbac.evaluator import evaluate as rbac_eval  # noqa: PLC0415
+            tools = [
+                t for t in tools
+                if rbac_eval(
+                    db, user=user, org_id=user.org_id,
+                    resource_type="tool",
+                    resource_key=(t.get("function") or {}).get("name", t.get("type", "")),
+                )
+            ]
+        except ImportError:
+            pass
+
     max_iter = capability_registry.get_max_iterations(
         conv.settings, base=settings.rag_max_tool_iterations
     )
@@ -133,8 +192,22 @@ def stream_message_svc(
     )
 
     # ── System prompt ────────────────────────────────────────────────────────
+    # Filter capabilities by RBAC policy before building prompts.
+    if user.org_id is not None and _capabilities:
+        try:
+            from ai_portal.rbac.evaluator import evaluate as rbac_eval  # noqa: PLC0415
+            from ai_portal.chat.schemas import CapabilityToggles  # noqa: PLC0415
+            cap_dict = _capabilities.model_dump() if hasattr(_capabilities, "model_dump") else {}
+            filtered = {
+                k: v for k, v in cap_dict.items()
+                if not v or rbac_eval(db, user=user, org_id=user.org_id, resource_type="capability", resource_key=k)
+            }
+            _capabilities = type(_capabilities)(**filtered) if filtered else _capabilities
+        except (ImportError, Exception):
+            pass
+
     extra_prompts = tool_registry.get_system_prompts(
-        kb_ids
+        kb_ids, capabilities=_capabilities
     ) + capability_registry.get_system_prompts(conv.settings)
     system_content = _build_system_prompt(
         assistant=assistant,
@@ -358,6 +431,16 @@ def _stream_loop(
     stream_items: list[dict] = []
     messages = list(llm_messages)
     iterations = 0
+    # Accumulated across all iterations — written to message_usage once at persist.
+    accumulated_usage: dict[str, Any] = {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cached_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "reasoning_tokens": None,
+    }
+    thinking_blocks: list[str] = []
+    citations: list[dict] = []
 
     logger.info(
         "stream_loop: start conv=%d model=%r tools=%d max_iter=%d",
@@ -421,7 +504,7 @@ def _stream_loop(
                 use_model,
             )
         try:
-            provider = get_chat_provider(settings)
+            provider = LlmProviderFactory.create(settings, use_model)
             logger.debug("stream_loop: provider=%s", type(provider).__name__)
             for piece in provider.stream_deltas_with_tools(
                 messages,
@@ -429,7 +512,36 @@ def _stream_loop(
                 tools=tools if tools else None,
                 tool_choice=_tool_choice,
             ):
-                if isinstance(piece, dict) and piece.get("type") == "tool_call":
+                if not isinstance(piece, dict):
+                    full.append(str(piece))
+                    yield _sse({"type": "delta", "text": str(piece)})
+                    continue
+
+                ptype = piece.get("type")
+
+                if ptype == "usage":
+                    accumulated_usage["input_tokens"] += piece.get("input_tokens", 0) or 0
+                    accumulated_usage["output_tokens"] += piece.get("output_tokens", 0) or 0
+                    accumulated_usage["cached_input_tokens"] += piece.get("cached_input_tokens", 0) or 0
+                    accumulated_usage["cache_creation_input_tokens"] += piece.get("cache_creation_input_tokens", 0) or 0
+                    rt = piece.get("reasoning_tokens")
+                    if rt:
+                        accumulated_usage["reasoning_tokens"] = (accumulated_usage["reasoning_tokens"] or 0) + rt
+                    continue
+
+                if ptype == "thinking":
+                    thinking_blocks.append(piece.get("text", ""))
+                    continue
+
+                if ptype == "citation":
+                    citations.append({
+                        "url": piece.get("url", ""),
+                        "title": piece.get("title"),
+                        "snippet": piece.get("snippet"),
+                    })
+                    continue
+
+                if ptype == "tool_call":
                     tool_call_buffer = piece.get("tool_call")
                     _tool_name = tool_call_buffer.get("name", "")
                     try:
@@ -477,7 +589,7 @@ def _stream_loop(
                     if _url:
                         stream_item_entry["url"] = _url
                     stream_items.append(stream_item_entry)
-                elif isinstance(piece, dict) and piece.get("type") == "server_tool_use":
+                elif ptype == "server_tool_use":
                     # Native provider tool (Anthropic web_search_20260209, Gemini grounding).
                     # The provider executes this — we just surface a chip for the UI.
                     _srv_name = piece.get("name", "web_search")
@@ -520,13 +632,11 @@ def _stream_loop(
                     stream_items.append(srv_item)
                     yield _sse({"type": "item_done", "item": srv_done})
                     # Do NOT set tool_call_buffer — server tools are not dispatched by us
-                elif isinstance(piece, dict) and piece.get("type") == "delta":
+                elif ptype == "delta":
                     text = piece.get("text", "")
                     full.append(text)
                     yield _sse({"type": "delta", "text": text})
-                else:
-                    full.append(str(piece))
-                    yield _sse({"type": "delta", "text": str(piece)})
+                # Unknown event types are intentionally ignored (forward compatibility).
 
         except (ValueError, Exception) as exc:
             logger.error(
@@ -586,11 +696,14 @@ def _stream_loop(
                 }
             )
             _result_snippet = (tool_result.get("content") or "")[:500]
+            _tool_provider = tool_result.get("_provider") or ""
             # Update stream_items entry with result fields (no status field in persisted copy)
             for _si in stream_items:
                 if _si.get("uid") == _tool_item_uid:
                     if _result_snippet:
                         _si["result_snippet"] = _result_snippet
+                    if _tool_provider:
+                        _si["provider"] = _tool_provider
                     break
             item_done_payload: dict = {
                 "uid": _tool_item_uid,
@@ -602,6 +715,8 @@ def _stream_loop(
                 item_done_payload["url"] = _url
             if _result_snippet:
                 item_done_payload["result_snippet"] = _result_snippet
+            if _tool_provider:
+                item_done_payload["provider"] = _tool_provider
             yield _sse({"type": "item_done", "item": item_done_payload})
             iterations += 1
 
@@ -637,10 +752,13 @@ def _stream_loop(
 
                 fetch_result = fetch_webpage_tool.execute(fetch_url)
                 fetch_snippet = (fetch_result.get("content") or "")[:500]
+                _fetch_provider = fetch_result.get("_provider") or ""
                 for _si in stream_items:
                     if _si.get("uid") == _fetch_uid:
                         if fetch_snippet:
                             _si["result_snippet"] = fetch_snippet
+                        if _fetch_provider:
+                            _si["provider"] = _fetch_provider
                         break
                 _af_tc_id = f"tc_{iterations}_af"
                 messages.append(
@@ -676,6 +794,8 @@ def _stream_loop(
                 }
                 if fetch_snippet:
                     fetch_done_payload["result_snippet"] = fetch_snippet
+                if _fetch_provider:
+                    fetch_done_payload["provider"] = _fetch_provider
                 yield _sse({"type": "item_done", "item": fetch_done_payload})
                 # Note: auto-fetch does NOT increment iterations — it's backend-enforced,
                 # not an LLM tool decision. The next LLM call stays within the budget.
@@ -714,7 +834,7 @@ def _stream_loop(
                 }
             )
             try:
-                provider = get_chat_provider(settings)
+                provider = LlmProviderFactory.create(settings, use_model)
                 for piece in provider.stream_deltas_with_tools(
                     messages, model=use_model, tools=None
                 ):
@@ -741,15 +861,34 @@ def _stream_loop(
             extra["used_kbs"] = used_kbs_meta
         if stream_items:
             extra["stream_items"] = stream_items
-        db.add(
-            ChatMessage(
-                conversation_id=conv.id,
-                role="assistant",
-                content=reply,
-                extra=extra or None,
-            )
+        if thinking_blocks:
+            extra["thinking"] = "".join(thinking_blocks)
+        if citations:
+            extra["citations"] = citations
+        if any(accumulated_usage.values()):
+            extra["usage"] = accumulated_usage
+
+        assistant_msg = ChatMessage(
+            conversation_id=conv.id,
+            role="assistant",
+            content=reply,
+            model_id=str(use_model) if use_model else None,
+            extra=extra or None,
         )
+        db.add(assistant_msg)
         db.commit()
+        db.refresh(assistant_msg)
+
+        # Asynchronously persist usage metrics (non-blocking; fails silently).
+        if any(v for v in accumulated_usage.values() if v):
+            _record_usage_async(
+                db=db,
+                user=user,
+                conv=conv,
+                message_id=assistant_msg.id,
+                use_model=use_model,
+                usage=accumulated_usage,
+            )
 
         # ── Background tasks ─────────────────────────────────────────────────
         total_msgs = repo.count_messages_in_conversation(db, conv.id)
@@ -779,8 +918,66 @@ def _stream_loop(
 
         msg_id = tail_message_id()
         logger.info("stream_loop: done conv=%d message_id=%d", conv.id, msg_id)
+
+        # Fire-and-forget audit event.
+        if user.org_id is not None:
+            try:
+                from ai_portal.audit.service import log_event  # noqa: PLC0415
+                log_event(
+                    org_id=user.org_id,
+                    actor_user_id=user.id,
+                    event_type="chat.stream.completed",
+                    resource_type="message",
+                    resource_id=str(msg_id),
+                    action="stream",
+                    metadata={
+                        "conversation_id": conv.id,
+                        "model": str(use_model),
+                        "input_tokens": accumulated_usage.get("input_tokens"),
+                        "output_tokens": accumulated_usage.get("output_tokens"),
+                    },
+                )
+            except ImportError:
+                pass
+
         yield _sse({"type": "done", "message_id": msg_id})
         return
+
+
+def _record_usage_async(
+    *,
+    db: Session,
+    user: User,
+    conv: ChatConversation,
+    message_id: int,
+    use_model: Any,
+    usage: dict[str, Any],
+) -> None:
+    """Fire-and-forget usage recording — fully wired in M3 (usage domain).
+
+    Uses a daemon thread so it never blocks the streaming response. Silently
+    swallows any error so a metering failure can't break a chat reply.
+    """
+    def _do() -> None:
+        try:
+            from ai_portal.usage.service import record_usage  # noqa: PLC0415
+            from ai_portal.core.db.session import SessionLocal  # noqa: PLC0415
+            with SessionLocal() as _db:
+                record_usage(
+                    _db,
+                    org_id=conv.org_id,
+                    user_id=user.id,
+                    conversation_id=conv.id,
+                    message_id=message_id,
+                    api_model_id=str(use_model or ""),
+                    usage=usage,
+                )
+        except ImportError:
+            pass  # M3 not yet deployed
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("usage_record_failed: %s", exc)
+
+    threading.Thread(target=_do, daemon=True).start()
 
 
 def _friendly_api_error(exc: Exception) -> str:

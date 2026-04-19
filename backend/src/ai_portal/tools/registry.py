@@ -10,16 +10,20 @@ import logging
 
 from sqlalchemy.orm import Session
 
-from ai_portal.catalog.providers.routing import (
-    is_langchain_anthropic_model,
-    is_langchain_gemini_model,
-)
+from ai_portal.catalog.providers.routing import is_langchain_anthropic_model
 from ai_portal.core.config import get_settings
 from ai_portal.tools import fetch_webpage as fetch_webpage_tool
 from ai_portal.tools import kb_search as kb_search_tool
 from ai_portal.tools import web_search as web_search_tool
 
 logger = logging.getLogger(__name__)
+
+
+def _web_tools_enabled(capabilities: object | None) -> bool:
+    """True when reflection or research capability is active."""
+    if capabilities is None:
+        return False
+    return bool(getattr(capabilities, "reflection", False) or getattr(capabilities, "research", False))
 
 
 def _native_anthropic_search_tool() -> dict:
@@ -46,11 +50,12 @@ def _native_gemini_search_tool() -> dict:
     }
 
 
-def get_system_prompts(kb_ids: list[int]) -> list[str]:
-    """Always includes fetch_webpage prompt; adds web_search + kb_search when relevant."""
-    prompts = [fetch_webpage_tool.system_prompt()]
-    # Custom web_search system prompt only needed when our tool is active (non-native providers)
-    prompts.append(web_search_tool.system_prompt())
+def get_system_prompts(kb_ids: list[int], capabilities: object | None = None) -> list[str]:
+    """Return tool system prompts for active tools only."""
+    prompts = []
+    if _web_tools_enabled(capabilities):
+        prompts.append(fetch_webpage_tool.system_prompt())
+        prompts.append(web_search_tool.system_prompt())
     if kb_ids:
         prompts.append(kb_search_tool.system_prompt())
     return prompts
@@ -59,22 +64,26 @@ def get_system_prompts(kb_ids: list[int]) -> list[str]:
 def get_tool_definitions(
     kb_ids: list[int],
     model_id: str | None = None,
+    capabilities: object | None = None,
 ) -> list[dict]:
-    """Return tool schemas for the given model. Search tool varies by provider."""
+    """Return tool schemas for the given model.
+
+    Web search and fetch_webpage are only offered when reflection or research
+    capability is active — prevents models like Gemini from calling web search
+    on every message when the user hasn't asked for it.
+    """
     tools: list[dict] = []
 
-    if model_id and is_langchain_anthropic_model(model_id):
-        # Use Anthropic's native server-side search (no dispatch needed)
-        tools.append(_native_anthropic_search_tool())
-    elif model_id and is_langchain_gemini_model(model_id):
-        # Use Google Search grounding (no dispatch needed)
-        tools.append(_native_gemini_search_tool())
-    else:
-        # All other providers (OpenAI, custom): use our DuckDuckGo web_search tool
-        tools.append(web_search_tool.schema())
+    if _web_tools_enabled(capabilities):
+        if model_id and is_langchain_anthropic_model(model_id):
+            # Use Anthropic's native server-side search (executed by Anthropic, no dispatch)
+            tools.append(_native_anthropic_search_tool())
+        else:
+            # All other providers (Gemini, OpenAI, custom): use our DuckDuckGo web_search tool
+            tools.append(web_search_tool.schema())
 
-    # fetch_webpage always uses our Crawl4AI chain
-    tools.append(fetch_webpage_tool.schema())
+        # fetch_webpage requires web capability too
+        tools.append(fetch_webpage_tool.schema())
 
     if kb_ids:
         tools.append(kb_search_tool.schema(kb_ids))

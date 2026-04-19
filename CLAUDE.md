@@ -106,6 +106,62 @@ Both `worktree-up.sh` and `worktree-down.sh` are **idempotent**:
 - `worktree-up.sh`: if DB already exists, skip creation and just re-run migrations
 - `worktree-down.sh`: if container not found, skip silently
 
+## System Prompt Style (Non-Negotiable)
+
+All system prompts — tool instructions, capability prompts, memory blocks — must be written in **caveman style**:
+
+- Short, direct imperatives. No filler words.
+- Tell the model what to DO. Not what it IS ("You are in research mode" → ❌).
+- No prose explanations. No "Typical use cases include…".
+- Use dashes, not numbered lists, unless strict order matters.
+- No hedging. No "where possible", "if applicable", "try to".
+- If it can be cut without losing meaning, cut it.
+
+**Bad:**
+```
+You are in Research mode. Approach this like a rigorous researcher:
+1. Break the question into focused sub-questions.
+2. Use web_search actively and repeatedly to gather sources for each sub-question.
+Prioritise accuracy and coverage over brevity.
+```
+
+**Good:**
+```
+Research mode.
+- Break into sub-questions. Search each one.
+- Cross-reference. Flag conflicts.
+- Cite inline. Accuracy over brevity.
+```
+
+---
+
+## LLM Model & API Knowledge (Non-Negotiable)
+
+My training data has a cutoff and goes stale fast. Model names, tool names, API parameters, and provider capabilities change frequently. **Before any task that involves LLM providers, models, or their APIs**, I must do a web search to verify current state.
+
+### When to look up
+
+**Always look up before:**
+- Naming specific model IDs (e.g. "gpt-4o", "gemini-2.5-flash", "claude-sonnet-4-6") — newer versions may exist
+- Claiming a feature is available or unavailable on a model (search, thinking, vision, tool use)
+- Specifying API parameter names or shapes (e.g. `thinking`, `reasoning_effort`, `google_search_enabled`)
+- Asserting which tool type strings are valid (e.g. `web_search_20260209`, `web_search_preview`)
+- Referencing LangChain partner library APIs (`langchain-anthropic`, `langchain-google-genai`, `langchain-openai`) — these update independently of LangChain core
+
+### What to search
+
+Use `WebSearch` before answering or implementing. Queries to run:
+- `"site:docs.anthropic.com latest claude models"` — official Anthropic model list
+- `"site:ai.google.dev gemini models"` — official Gemini model list
+- `"site:platform.openai.com latest models"` — official OpenAI model list
+- `"langchain-anthropic changelog"` / `"langchain-google-genai changelog"` for API changes
+
+### Rule
+
+If I give model names or API details from memory without a lookup, that answer is **unreliable**. The user should call me out and I should search before continuing.
+
+---
+
 ## Running the App
 
 Always start with `--host` to expose on the local network:

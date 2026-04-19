@@ -34,6 +34,59 @@ def test_stream_deltas_emits_delta_for_text_chunk():
     assert any(p.get("type") == "delta" and "hello" in p.get("text", "") for p in pieces)
 
 
+def test_stream_deltas_accumulates_input_json_delta_for_server_tool_use():
+    """server_tool_use arrives with input:{} first; query comes via input_json_delta chunks."""
+    from ai_portal.catalog.providers.langchain import LangChainChatProvider
+    from ai_portal.core.config import Settings
+
+    provider = LangChainChatProvider(Settings())
+
+    # Simulate real Anthropic streaming sequence:
+    # 1. content_block_start  → server_tool_use with empty input + id
+    # 2. content_block_delta  → input_json_delta with partial JSON
+    # 3. content_block_delta  → input_json_delta with remaining JSON
+    # 4. text chunk           → text response
+    chunk_start = _make_chunk(content=[{
+        "type": "server_tool_use",
+        "name": "web_search",
+        "id": "srvtoolu_xyz",
+        "input": {},
+    }])
+    chunk_delta1 = _make_chunk(content=[{
+        "type": "input_json_delta",
+        "index": 0,
+        "partial_json": '{"query": "EUW',
+    }])
+    chunk_delta2 = _make_chunk(content=[{
+        "type": "input_json_delta",
+        "index": 0,
+        "partial_json": ' rank 1"}',
+    }])
+    chunk_text = _make_chunk(text="Faker is rank 1.")
+
+    with patch.object(provider, "_chat_model") as mock_cm:
+        mock_model = MagicMock()
+        mock_model.bind_tools.return_value = mock_model
+        mock_model.stream.return_value = iter([chunk_start, chunk_delta1, chunk_delta2, chunk_text])
+        mock_cm.return_value = mock_model
+
+        pieces = list(provider.stream_deltas_with_tools(
+            [{"role": "user", "content": "who is rank 1 EUW?"}],
+            model="claude-sonnet-4-6",
+            tools=[{"type": "web_search_20260209", "name": "web_search"}],
+        ))
+
+    server_tool_pieces = [p for p in pieces if p.get("type") == "server_tool_use"]
+    assert len(server_tool_pieces) == 1, f"Expected 1 server_tool_use, got {server_tool_pieces}"
+    assert server_tool_pieces[0]["name"] == "web_search"
+    assert server_tool_pieces[0]["input"].get("query") == "EUW rank 1"
+
+    # server_tool_use must appear before the text delta in the output
+    srv_idx = next(i for i, p in enumerate(pieces) if p.get("type") == "server_tool_use")
+    text_idx = next(i for i, p in enumerate(pieces) if p.get("type") == "delta")
+    assert srv_idx < text_idx, "server_tool_use chip must precede text deltas"
+
+
 def test_stream_deltas_emits_server_tool_use_for_anthropic_native_search():
     from ai_portal.catalog.providers.langchain import LangChainChatProvider
     from ai_portal.core.config import Settings

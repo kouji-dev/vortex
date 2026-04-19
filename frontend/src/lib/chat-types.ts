@@ -37,13 +37,21 @@ export type Conversation = {
   knowledge_base_ids: number[]
 }
 
+export type MessageUsageExtra = {
+  input_tokens?: number
+  output_tokens?: number
+  cached_input_tokens?: number
+  cost_usd?: number | string
+  model?: string
+}
+
 export type ChatMessage = {
   id: number
   conversation_id: number
   role: string
   content: string
   created_at: string
-  extra: Record<string, unknown> | null
+  extra: (Record<string, unknown> & { usage?: MessageUsageExtra; thinking?: string }) | null
   used_kbs?: UsedKbEntry[] | null
 }
 
@@ -139,6 +147,7 @@ export type WebSearchThreadItem = {
   kind: 'web_search'
   query: string
   result_snippet?: string
+  provider?: string
   status: 'running' | 'done'
 }
 
@@ -155,6 +164,7 @@ export type FetchWebpageThreadItem = {
   kind: 'fetch_webpage'
   url: string
   result_snippet?: string
+  provider?: string
   status: 'running' | 'done'
 }
 

@@ -44,5 +44,23 @@ class ChatProvider(Protocol):
         model: str | None = None,
         tools: list[dict[str, Any]] | None = None,
     ) -> Iterator[dict[str, Any]]:
-        """Yield dicts: {"type": "delta", "text": str} or {"type": "tool_call", "tool_call": {...}}"""
+        """Yield structured event dicts. All providers must emit these types:
+
+        - ``{"type": "delta", "text": str}`` — assistant text fragment.
+        - ``{"type": "tool_call", "tool_call": {"name": str, "arguments": str, "id": str}}``
+          — client-side tool call; caller dispatches.
+        - ``{"type": "server_tool_use", "name": str, "input": dict, "id": str}``
+          — provider-executed tool (Anthropic web_search, Gemini grounding).
+
+        New in enterprise build (emitted once per stream, at the end):
+        - ``{"type": "usage", "input_tokens": int, "output_tokens": int,
+             "cached_input_tokens": int, "cache_creation_input_tokens": int,
+             "reasoning_tokens": int | None}``
+        - ``{"type": "thinking", "text": str}`` — extended thinking fragments
+          (Anthropic only). Stored in ``ChatMessage.extra.thinking``.
+        - ``{"type": "citation", "url": str, "title": str | None,
+             "snippet": str | None}`` — web-search grounding citation.
+
+        Unknown types must be ignored by consumers (forward compatibility).
+        """
         ...

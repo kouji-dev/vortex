@@ -2,9 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import re
 
 from ai_portal.tools.fetch.base import BaseFetchProvider
+
+# Ensure subprocess stdout can handle Unicode on Windows (Crawl4AI uses Playwright).
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 
 logger = logging.getLogger(__name__)
 

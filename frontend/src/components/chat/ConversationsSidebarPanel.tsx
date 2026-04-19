@@ -1,4 +1,4 @@
-import { Link } from '@tanstack/react-router'
+import { Link, useLocation, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { MoreHorizontal, Plus, Trash2 } from 'lucide-react'
 import * as React from 'react'
@@ -28,6 +28,12 @@ export function ConversationsSidebarPanel({
 }: ConversationsSidebarPanelProps) {
   const apiBase = getApiBase()
   const qc = useQueryClient()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const activeConvId = React.useMemo(() => {
+    const m = location.pathname.match(/\/chat\/conversations\/(\d+)/)
+    return m ? Number(m[1]) : null
+  }, [location.pathname])
   const [menuOpen, setMenuOpen] = React.useState(false)
   const [selectionMode, setSelectionMode] = React.useState(false)
   const [selectedIds, setSelectedIds] = React.useState<Set<number>>(new Set())
@@ -57,9 +63,12 @@ export function ConversationsSidebarPanel({
       })
       if (!res.ok) throw new Error(await res.text())
     },
-    onSuccess: () => {
+    onSuccess: (_, deletedId) => {
       setConfirmDelete(null)
       void qc.invalidateQueries({ queryKey: queryKeys.conversations() })
+      if (deletedId === activeConvId) {
+        void navigate({ to: '/chat/conversations' })
+      }
     },
   })
 
@@ -75,11 +84,14 @@ export function ConversationsSidebarPanel({
         }),
       )
     },
-    onSuccess: () => {
+    onSuccess: (_, deletedIds) => {
       setConfirmDelete(null)
       setSelectedIds(new Set())
       setSelectionMode(false)
       void qc.invalidateQueries({ queryKey: queryKeys.conversations() })
+      if (activeConvId != null && deletedIds.includes(activeConvId)) {
+        void navigate({ to: '/chat/conversations' })
+      }
     },
   })
 

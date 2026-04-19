@@ -12,18 +12,16 @@ logger = logging.getLogger(__name__)
 
 _chain = build_fetch_chain()
 
-SYSTEM_PROMPT = (
-    "## Webpage Fetching\n"
-    "Use the `fetch_webpage` tool to retrieve the full text of a specific URL. "
-    "Typical use cases:\n"
-    "- A `web_search` returned URLs with promising titles but thin snippets — fetch the best one.\n"
-    "- The user asks you to read, summarize, or extract information from a specific link.\n"
-    "- You need deeper detail (full article, stats page) that a snippet cannot provide.\n"
-    "You can chain tools: call `web_search` first to find relevant URLs, then `fetch_webpage` "
-    "on the most promising result. "
-    "If a fetch fails or returns no useful content, try a different URL. "
-    "Always synthesize what you fetched into a clear, direct answer for the user."
-)
+SYSTEM_PROMPT = """\
+## Fetch Webpage
+
+Fetch when: user gives a specific URL, or search snippets are thin and a result URL looks useful.
+
+- search -> thin snippets -> fetch the best result URL.
+- Fetch fails or empty -> try next URL.
+- Synthesise fetched content into a direct answer. Never dump raw text.
+- NEVER fetch search engines (google.com, bing.com, duckduckgo.com, etc.) — use web_search for any search query.\
+"""
 
 
 def system_prompt() -> str:
@@ -36,9 +34,11 @@ def schema() -> dict:
         "function": {
             "name": "fetch_webpage",
             "description": (
-                "Fetch and read the full text content of a webpage. "
+                "Fetch and read the full text content of a specific, known URL. "
                 "Handles JavaScript-heavy sites and Cloudflare-protected pages. "
-                "Use after web_search when you need more detail than the snippets provide."
+                "Use after web_search when you need more detail than the snippets provide. "
+                "NEVER use this for search engines (google.com, bing.com, duckduckgo.com) — "
+                "use web_search for any search query."
             ),
             "parameters": {
                 "type": "object",
@@ -54,6 +54,37 @@ def schema() -> dict:
     }
 
 
+_SEARCH_ENGINE_HOSTS = {
+    "google.com", "www.google.com",
+    "bing.com", "www.bing.com",
+    "duckduckgo.com", "www.duckduckgo.com",
+    "yahoo.com", "search.yahoo.com",
+    "baidu.com", "www.baidu.com",
+    "yandex.com", "yandex.ru",
+}
+
+
+def _is_search_engine_url(url: str) -> bool:
+    try:
+        from urllib.parse import urlparse
+        host = urlparse(url).netloc.lower().lstrip("www.")
+        # Strip www. for comparison
+        return host in _SEARCH_ENGINE_HOSTS or f"www.{host}" in _SEARCH_ENGINE_HOSTS
+    except Exception:
+        return False
+
+
 def execute(url: str) -> dict:
-    content = _chain.fetch(url)
-    return {"name": "fetch_webpage", "content": content, "_used_kbs": []}
+    if _is_search_engine_url(url):
+        logger.warning("fetch_webpage called with search engine URL=%r — redirecting to error", url)
+        return {
+            "name": "fetch_webpage",
+            "content": (
+                f"Error: '{url}' is a search engine URL. "
+                "Use the web_search tool to search the web instead of fetching a search engine directly."
+            ),
+            "_used_kbs": [],
+            "_provider": "blocked",
+        }
+    content, provider = _chain.fetch(url)
+    return {"name": "fetch_webpage", "content": content, "_used_kbs": [], "_provider": provider}

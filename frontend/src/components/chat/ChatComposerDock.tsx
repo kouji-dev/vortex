@@ -15,10 +15,8 @@ import {
   SelectValue,
 } from '~/components/ui/select'
 import type { CapabilityToggles, CatalogModelEntry } from '~/lib/chat-types'
-import {
-  catalogModelByStoredModel,
-  portalDefaultCatalogModel,
-} from '~/hooks/useCatalogModelsQuery'
+import { catalogModelByStoredModel, portalDefaultCatalogModel } from '~/hooks/useCatalogModelsQuery'
+import { useModels } from '~/hooks/useModels'
 
 const CATALOG_SELECT_PREFIX = 'catalog:' as const
 
@@ -131,14 +129,12 @@ export function ChatComposerDock({
   const composeTextareaRef = React.useRef<HTMLTextAreaElement>(null)
   const attachInputRef = React.useRef<HTMLInputElement>(null)
 
-  const defaultCatalogRow = React.useMemo(() => portalDefaultCatalogModel(models), [models])
-  const sorted = React.useMemo(
-    () =>
-      models == null
-        ? []
-        : [...models].sort((a, b) => a.sort_order - b.sort_order || a.id - b.id),
-    [models],
-  )
+  const { sorted, selectedModel: storedCatalogRow, defaultModel: defaultCatalogRow, modelLabel, selectModel } = useModels({
+    models,
+    chatModel,
+    onSelectChatModel,
+    onCommitChatModel,
+  })
 
   React.useEffect(() => {
     if (!plusOpen) return
@@ -149,11 +145,6 @@ export function ChatComposerDock({
     document.addEventListener('mousedown', onDoc)
     return () => document.removeEventListener('mousedown', onDoc)
   }, [plusOpen])
-
-  const selectModel = (id: string) => {
-    onSelectChatModel(id)
-    onCommitChatModel?.(id)
-  }
 
   const handleModelSelectChange = (v: string) => {
     if (v === '__auto__') selectModel('')
@@ -199,8 +190,6 @@ export function ChatComposerDock({
     el.style.overflowY = contentH > maxPx ? 'auto' : 'hidden'
   }, [composeDraft])
 
-  const storedCatalogRow =
-    chatModel === '' ? null : catalogModelByStoredModel(models, chatModel)
   const orphanCustomModel =
     chatModel !== '' &&
     !sorted.some((m) => m.slug === chatModel) &&
@@ -213,10 +202,6 @@ export function ChatComposerDock({
       : storedCatalogRow != null
         ? `${CATALOG_SELECT_PREFIX}${storedCatalogRow.slug}`
         : chatModel
-  const modelLabel =
-    chatModel === ''
-      ? (defaultCatalogRow?.display_name ?? 'Model')
-      : (storedCatalogRow?.display_name ?? chatModel)
 
   return (
     <>
@@ -283,7 +268,7 @@ export function ChatComposerDock({
           )}
           <textarea
             ref={composeTextareaRef}
-            className={`min-h-0 w-full resize-none rounded-lg border px-2.5 py-2 text-sm leading-snug ${inputThemed}`}
+            className={`min-h-0 w-full resize-none rounded-lg border px-2.5 py-2 text-base leading-snug ${inputThemed}`}
             value={composeDraft}
             onChange={(e) => setComposeDraft(e.target.value)}
             onKeyDown={(e) => {

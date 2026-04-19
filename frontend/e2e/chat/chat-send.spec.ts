@@ -27,7 +27,43 @@ async function sendMessage(page: import('@playwright/test').Page, text: string) 
 
 // ── tests ─────────────────────────────────────────────────────────────────
 
+const STREAM_ROUTE = '**/api/chat/conversations/*/messages/stream'
+
 test.describe('Chat — send and receive messages', () => {
+  // ──────────────────────────────────────────────────────────────
+  // Regression: user message must not disappear when stream ends
+  // ──────────────────────────────────────────────────────────────
+
+  test('user message remains visible after mocked stream ends (regression)', async ({ page }) => {
+    // Use a mocked instant stream so the race window is as tight as possible.
+    await page.goto('/chat/conversations', { waitUntil: 'networkidle' })
+    const userText = `E2E regression persist ${Date.now()}`
+    await page.route(STREAM_ROUTE, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'text/event-stream',
+        body: [
+          'data: {"type":"delta","text":"Hello"}\n\n',
+          'data: {"type":"done","message_id":9999}\n\n',
+        ].join(''),
+      })
+    })
+    try {
+      await page.getByRole('textbox', { name: /message/i }).fill(userText)
+      await page.getByRole('button', { name: /send message/i }).click()
+      // Wait for stream to complete (Send button reappears)
+      await expect(page.getByRole('button', { name: /send message/i })).toBeVisible({
+        timeout: 30_000,
+      })
+      // Both messages must be visible after the stream ends — this is the regression check
+      await expect(page.getByTestId('chat-message-user').filter({ hasText: userText })).toBeVisible({
+        timeout: 5_000,
+      })
+      await expect(page.getByTestId('chat-message-assistant').last()).toBeVisible({ timeout: 5_000 })
+    } finally {
+      await page.unroute(STREAM_ROUTE)
+    }
+  })
   // ──────────────────────────────────────────────────────────────
   // Basic send / receive
   // ──────────────────────────────────────────────────────────────

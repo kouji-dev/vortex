@@ -12,6 +12,7 @@ from ai_portal.auth.strategies.jwt import decode_token
 from ai_portal.auth.strategies.portal_keys import user_for_portal_api_key
 from ai_portal.auth.service import profile_fields_from_claims, upsert_user_from_entra_claims
 from ai_portal.core.config import get_settings
+from ai_portal.core.db.rls import set_org_context
 from ai_portal.core.db.session import SessionLocal
 from ai_portal.auth.model import User
 
@@ -36,6 +37,20 @@ def get_current_user(
     request: Request,
     authorization: str | None = Header(None),
     db: Session = Depends(get_db),
+) -> User:
+    user = _authenticate(request, authorization, db)
+    # Bind tenant context for RLS-protected tables. Safe to call with None —
+    # translates to an empty session var, which makes RLS-protected rows
+    # invisible (correct behavior for the rare case of org-less users).
+    set_org_context(db, user.org_id)
+    request.state.org_id = user.org_id
+    return user
+
+
+def _authenticate(
+    request: Request,
+    authorization: str | None,
+    db: Session,
 ) -> User:
     settings = get_settings()
     request.state.app_roles = []

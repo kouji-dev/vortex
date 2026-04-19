@@ -65,6 +65,12 @@ _YAML_KEY_MAP: dict[str, str] = {
     "observability.langfuse_secret_key": "langfuse_secret_key",
     "observability.langfuse_host": "langfuse_host",
     "llm.user_search_country": "user_search_country",
+    "search.provider": "search_provider",
+    "search.tavily_api_key": "tavily_api_key",
+    "search.serper_api_key": "serper_api_key",
+    "search.exa_api_key": "exa_api_key",
+    "fetch.firecrawl_api_key": "firecrawl_api_key",
+    "fetch.jina_api_key": "jina_api_key",
 }
 
 
@@ -266,15 +272,64 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("CONVERSATION_INACTIVITY_SUMMARY_HOURS"),
     )
 
-    langfuse_public_key: str = ""
-    langfuse_secret_key: str = ""
-    langfuse_host: str = "https://cloud.langfuse.com"
+    # Native provider SDK flags (default on — use False to fall back to LangChain).
+    use_native_anthropic: bool = Field(
+        default=True,
+        validation_alias=AliasChoices("USE_NATIVE_ANTHROPIC"),
+    )
+    use_native_gemini: bool = Field(
+        default=True,
+        validation_alias=AliasChoices("USE_NATIVE_GEMINI"),
+    )
+
+    # Enterprise feature flags (default on).
+    audit_enabled: bool = Field(
+        default=True,
+        validation_alias=AliasChoices("AUDIT_ENABLED"),
+    )
+    retention_enabled: bool = Field(
+        default=False,
+        validation_alias=AliasChoices("RETENTION_ENABLED"),
+    )
+    rbac_default_policy: str = Field(
+        default="allow",
+        validation_alias=AliasChoices("RBAC_DEFAULT_POLICY"),
+    )
 
     # Web search localisation — passed as user_location.country to Anthropic native search
     # and as Google Search region for Gemini. Default "FR" = Europe.
     user_search_country: str = Field(
         default="FR",
         validation_alias=AliasChoices("USER_SEARCH_COUNTRY"),
+    )
+
+    # Search provider for client-side web_search tool.
+    # Options: duckduckgo (default, no key needed), tavily, serper, exa
+    search_provider: str = Field(
+        default="duckduckgo",
+        validation_alias=AliasChoices("SEARCH_PROVIDER"),
+    )
+    tavily_api_key: str = Field(
+        default="",
+        validation_alias=AliasChoices("TAVILY_API_KEY"),
+    )
+    serper_api_key: str = Field(
+        default="",
+        validation_alias=AliasChoices("SERPER_API_KEY"),
+    )
+    exa_api_key: str = Field(
+        default="",
+        validation_alias=AliasChoices("EXA_API_KEY"),
+    )
+
+    # Fetch providers for fetch_webpage tool
+    firecrawl_api_key: str = Field(
+        default="",
+        validation_alias=AliasChoices("FIRECRAWL_API_KEY"),
+    )
+    jina_api_key: str = Field(
+        default="",
+        validation_alias=AliasChoices("JINA_API_KEY"),
     )
 
     @property
@@ -334,9 +389,6 @@ def settings_log_snapshot(st: Settings) -> dict[str, Any]:
         "chat_default_api_model": st.chat_default_api_model,
         "upload_dir": st.upload_dir,
         "portal_api_key_pepper_set": bool(st.portal_api_key_pepper.strip()),
-        "langfuse_host": st.langfuse_host,
-        "langfuse_public_key_set": bool(st.langfuse_public_key.strip()),
-        "langfuse_secret_key_set": bool(st.langfuse_secret_key.strip()),
         "deployment_mode": st.deployment_mode,
         "secret_key_set": bool(st.secret_key.strip()),
         "smtp_host": st.smtp_host or "(not set)",

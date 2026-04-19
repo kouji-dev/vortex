@@ -5,29 +5,35 @@ Owns its schema, execution, and system prompt instruction.
 
 from __future__ import annotations
 
-from ai_portal.tools.search.duckduckgo import DuckDuckGoProvider
+import unicodedata
 
-SYSTEM_PROMPT = (
-    "## Web Search\n"
-    "Use the `web_search` tool for: current events, live data (prices, rankings, scores), "
-    "recent releases, or any fact you cannot confidently answer from training data.\n"
-    "Strategy:\n"
-    "- Write a focused, specific query — avoid vague or overly broad terms.\n"
-    "- If the first search returns no results, rephrase and try once more with a different query.\n"
-    "- If snippets are too thin to answer the question, call `fetch_webpage` on the most "
-    "relevant URL from the results.\n"
-    "- If search returns no results and you know a reliable URL for this data "
-    "(e.g. op.gg for LoL rankings, a stats site, an official leaderboard page), "
-    "you MUST call `fetch_webpage` on that URL directly. "
-    "NEVER just tell the user to visit a website — always fetch it yourself first.\n"
-    "- After all tool calls, ALWAYS write a complete response. Never end your turn silently.\n"
-    "- If ALL fetch attempts fail (Cloudflare, bot protection, etc.) and search snippets "
-    "do not contain the exact answer, give your BEST EFFORT answer using your training data "
-    "combined with any partial information from snippets. "
-    "State that it may be approximate or outdated, but ALWAYS provide a concrete answer. "
-    "Never refuse to answer or tell the user only to visit a website — they already know "
-    "they can do that. Give them the best information you have right now."
-)
+from ai_portal.tools.search.factory import build_search_provider
+
+SYSTEM_PROMPT = """\
+## Web Search
+
+Search when: question involves current events, live data, recent releases, or anything \
+you cannot answer confidently from training data.
+
+Do NOT search when: the answer is clearly static knowledge, math, code, or the user is \
+just chatting.
+
+Query:
+- Keywords only. Not full sentences.
+- One focused intent per query.
+- Bad results or no results -> rephrase once with different keywords.
+
+Escalate:
+- Snippets too thin to answer -> call `fetch_webpage` on the most relevant result URL.
+- You already know the exact content URL (not a search engine) -> call `fetch_webpage` directly.
+- NEVER pass search engine URLs (google.com, bing.com, etc.) to `fetch_webpage`.
+
+After tools:
+- Always write a complete answer. Never end your turn silently after a tool call.
+- Cite your sources (URL or site name) inline.
+- All fetches failed -> answer from training data, state it may be outdated.
+- Never tell the user to visit a URL themselves — you fetch it.\
+"""
 
 
 def system_prompt() -> str:
@@ -51,6 +57,13 @@ def schema() -> dict:
                         "type": "integer",
                         "description": "Number of results to return. Default 5, max 10.",
                     },
+                    "region": {
+                        "type": "string",
+                        "description": (
+                            "Search region code. Default 'uk-en' (Europe/EUW). "
+                            "Use 'us-en' for NA/US, 'wt-wt' for worldwide."
+                        ),
+                    },
                 },
                 "required": ["query"],
             },
@@ -58,37 +71,82 @@ def schema() -> dict:
     }
 
 
-_MIN_SNIPPET_CHARS = 200  # below this total, snippets are considered too thin to answer from
+_MIN_SNIPPET_CHARS = 200
 
-# Domains that indicate the results are off-topic / wrong locale
-_JUNK_DOMAINS = ("zhidao.baidu.com", "baidu.com", "zhihu.com", "weibo.com")
+# Unicode block ranges considered non-Latin (CJK, Japanese, Korean, Arabic, Hebrew, Thai…)
+_NON_LATIN_RANGES = (
+    (0x0600, 0x06FF),   # Arabic
+    (0x0E00, 0x0E7F),   # Thai
+    (0x0F00, 0x0FFF),   # Tibetan
+    (0x1100, 0x11FF),   # Hangul Jamo
+    (0x3000, 0x303F),   # CJK Symbols
+    (0x3040, 0x309F),   # Hiragana
+    (0x30A0, 0x30FF),   # Katakana
+    (0x3100, 0x312F),   # Bopomofo
+    (0x3400, 0x4DBF),   # CJK Ext-A
+    (0x4E00, 0x9FFF),   # CJK Unified Ideographs
+    (0xA000, 0xA48F),   # Yi Syllables
+    (0xAC00, 0xD7AF),   # Hangul Syllables
+    (0xF900, 0xFAFF),   # CJK Compatibility
+    (0x20000, 0x2A6DF), # CJK Ext-B
+)
 
 
-def _results_are_junk(results: list) -> bool:
-    """Return True if the majority of results come from known irrelevant/locale-wrong domains."""
-    if not results:
-        return False
-    junk_count = sum(
-        1 for r in results if any(d in (r.url or "") for d in _JUNK_DOMAINS)
+def _non_latin_ratio(text: str) -> float:
+    """Return the fraction of characters that fall in non-Latin Unicode ranges."""
+    if not text:
+        return 0.0
+    count = sum(
+        1 for ch in text
+        if any(lo <= ord(ch) <= hi for lo, hi in _NON_LATIN_RANGES)
     )
-    return junk_count > len(results) / 2
+    return count / len(text)
 
 
-def execute(query: str, num_results: int = 5) -> dict:
-    provider = DuckDuckGoProvider()
-    results = provider.search(query, num_results=num_results)
-    if not results:
-        content = "Web search returned no results for this query."
-        top_urls: list[str] = []
-        thin = True
-    elif _results_are_junk(results):
-        content = "Web search returned irrelevant results for this query. No useful data found."
-        top_urls = []
-        thin = True
+def _is_english_result(title: str, snippet: str, threshold: float = 0.15) -> bool:
+    """Return True if the result appears to be in English (Latin script)."""
+    combined = (title or "") + " " + (snippet or "")
+    return _non_latin_ratio(combined) < threshold
+
+
+def execute(query: str, num_results: int = 5, region: str = "uk-en") -> dict:
+    from ai_portal.tools.search.duckduckgo import DuckDuckGoProvider
+    provider = build_search_provider()
+    if isinstance(provider, DuckDuckGoProvider):
+        results = provider.search(query, num_results=num_results, region=region)
     else:
-        lines = [f"{i}. [{r.title}]({r.url})\n   {r.snippet}" for i, r in enumerate(results, 1)]
-        content = "\n\n".join(lines)
-        top_urls = [r.url for r in results[:3] if r.url]
-        total_snippet_len = sum(len(r.snippet or "") for r in results)
-        thin = total_snippet_len < _MIN_SNIPPET_CHARS
-    return {"name": "web_search", "content": content, "_used_kbs": [], "_top_urls": top_urls, "_thin": thin}
+        results = provider.search(query, num_results=num_results)
+
+    if not results:
+        return {
+            "name": "web_search",
+            "content": "Web search returned no results for this query.",
+            "_used_kbs": [],
+            "_top_urls": [],
+            "_thin": True,
+            "_provider": provider.name,
+        }
+
+    # Filter out non-English results using Unicode character analysis
+    english_results = [r for r in results if _is_english_result(r.title, r.snippet)]
+
+    if not english_results:
+        return {
+            "name": "web_search",
+            "content": "Web search returned only non-English results. No useful data found.",
+            "_used_kbs": [],
+            "_top_urls": [],
+            "_thin": True,
+            "_provider": provider.name,
+        }
+
+    lines = [
+        f"{i}. [{r.title}]({r.url})\n   {r.snippet}"
+        for i, r in enumerate(english_results, 1)
+    ]
+    content = "\n\n".join(lines)
+    top_urls = [r.url for r in english_results[:3] if r.url]
+    total_snippet_len = sum(len(r.snippet or "") for r in english_results)
+    thin = total_snippet_len < _MIN_SNIPPET_CHARS
+
+    return {"name": "web_search", "content": content, "_used_kbs": [], "_top_urls": top_urls, "_thin": thin, "_provider": provider.name}

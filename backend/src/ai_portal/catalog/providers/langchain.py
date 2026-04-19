@@ -78,6 +78,27 @@ def _chunk_assistant_text(chunk: Any) -> str:
     return _message_content_to_str(getattr(chunk, "content", None))
 
 
+def _flush_pending_srv(pending_srv: list[dict[str, Any]]) -> Iterator[dict[str, Any]]:
+    """Yield accumulated server_tool_use blocks and clear the buffer."""
+    for pending in list(pending_srv):
+        full_input = pending.get("full_input")
+        if full_input:
+            accumulated_input: dict = full_input
+        else:
+            parts = pending.get("parts", [])
+            try:
+                accumulated_input = json.loads("".join(parts)) if parts else {}
+            except Exception:
+                accumulated_input = {}
+        yield {
+            "type": "server_tool_use",
+            "name": pending["name"],
+            "input": accumulated_input,
+            "id": pending["id"],
+        }
+    pending_srv.clear()
+
+
 class LangChainChatProvider:
     """Chat via LangChain using Anthropic or OpenAI-compatible endpoints."""
 
@@ -194,24 +215,68 @@ class LangChainChatProvider:
         tc_name: str | None = None
         tc_args_parts: list[str] = []
 
+        # Buffer server_tool_use blocks whose input arrives via subsequent input_json_delta chunks.
+        # langchain-anthropic emits content_block_start with input:{} first, then streams the
+        # query via input_json_delta events.  We accumulate before yielding so the chip has a query.
+        _pending_srv: list[dict[str, Any]] = []
+
         for chunk in chat.stream(lc_messages):
-            # Detect Anthropic server_tool_use blocks.
-            # langchain-anthropic puts them in chunk.content as list items
-            # (type == "server_tool_use") — not in additional_kwargs.
             content = getattr(chunk, "content", None)
+            ak = getattr(chunk, "additional_kwargs", {}) or {}
+            tc_raw = getattr(chunk, "tool_call_chunks", None)
+            if content or ak or tc_raw:
+                logger.debug(
+                    "langchain_chunk type=%s content=%r ak=%r tc=%r",
+                    type(chunk).__name__,
+                    content,
+                    ak,
+                    tc_raw,
+                )
+
+            # Detect Anthropic server_tool_use blocks and accumulate their inputs.
+            # langchain-anthropic puts them in chunk.content as list items; the input
+            # arrives via "input_json_delta" blocks in subsequent chunks.
             if isinstance(content, list):
+                has_srv_block = False
                 for block in content:
-                    if isinstance(block, dict) and block.get("type") == "server_tool_use":
-                        srv_input = block.get("input") or {}
-                        # input may arrive as partial_json in delta events — skip empty ones
-                        if block.get("name") and (srv_input or block.get("id")):
-                            yield {
-                                "type": "server_tool_use",
-                                "name": block.get("name", ""),
-                                "input": srv_input,
-                                "id": block.get("id", ""),
-                            }
+                    if not isinstance(block, dict):
                         continue
+                    block_type = block.get("type")
+
+                    if block_type == "server_tool_use":
+                        has_srv_block = True
+                        srv_id = block.get("id", "")
+                        srv_name = block.get("name", "")
+                        srv_input = block.get("input") or {}
+                        if srv_input:
+                            # Input already fully provided in this chunk.
+                            existing = next((p for p in _pending_srv if p["id"] == srv_id), None)
+                            if existing:
+                                existing["full_input"] = srv_input
+                            else:
+                                yield {
+                                    "type": "server_tool_use",
+                                    "name": srv_name,
+                                    "input": srv_input,
+                                    "id": srv_id,
+                                }
+                        elif srv_name or srv_id:
+                            # Input not yet available — buffer for accumulation via deltas.
+                            if not any(p["id"] == srv_id for p in _pending_srv):
+                                _pending_srv.append(
+                                    {"id": srv_id, "name": srv_name, "parts": [], "full_input": None}
+                                )
+                        continue
+
+                    elif block_type == "input_json_delta":
+                        # Partial JSON input for the most recent pending server_tool_use block.
+                        partial = block.get("partial_json", "") or ""
+                        if partial and _pending_srv:
+                            _pending_srv[-1]["parts"].append(partial)
+                        continue
+
+                if has_srv_block:
+                    continue
 
             # Standard client-side tool call chunks
             tc_chunks = getattr(chunk, "tool_call_chunks", None)
@@ -224,7 +289,14 @@ class LangChainChatProvider:
 
             text = _chunk_assistant_text(chunk)
             if text:
+                # Flush any pending server_tool_use blocks before emitting text (preserves order).
+                if _pending_srv:
+                    yield from _flush_pending_srv(_pending_srv)
                 yield {"type": "delta", "text": text}
+
+        # Stream ended — flush any remaining pending server_tool_use blocks.
+        if _pending_srv:
+            yield from _flush_pending_srv(_pending_srv)
 
         if tc_name is not None:
             raw_args = "".join(tc_args_parts)

@@ -34,7 +34,7 @@ This is a **separate sub-project** from the main app. It shares the same tech st
 | Routing | Single page (`index.html`) — no router needed |
 | Deployment | Static hosting (Cloudflare Pages / Render static) |
 
-**No Three.js, no GSAP, no WebGL.** Same approach as voidzero.dev: Canvas 2D (hero) + CSS keyframes.
+**No Three.js, no GSAP, no WebGL, no Canvas.** All animations are DOM + CSS keyframes + vanilla JS `requestAnimationFrame`. Same philosophy as voidzero.dev — fast, dependency-free, renders everywhere.
 
 ---
 

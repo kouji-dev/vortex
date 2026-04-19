@@ -28,9 +28,22 @@ def _default_catalog_row_id(rows: list[CatalogModel], db: Session) -> int | None
     return min(matches, key=lambda m: (m.sort_order, m.id)).id
 
 
-def _row_to_read(m: CatalogModel, *, is_default: bool) -> CatalogModelRead:
-    # Stub until WS-ENT: "granted" = not requires_entitlement
+def _row_to_read(
+    m: CatalogModel,
+    *,
+    is_default: bool,
+    user: "User | None" = None,
+    db: "Session | None" = None,
+) -> CatalogModelRead:
     accessible = not m.requires_entitlement
+    # Apply RBAC policy when user + db context available.
+    if accessible and user is not None and db is not None and user.org_id is not None:
+        try:
+            from ai_portal.rbac.evaluator import evaluate as rbac_eval  # noqa: PLC0415
+            decision = rbac_eval(db, user=user, org_id=user.org_id, resource_type="model", resource_key=m.api_model_id)
+            accessible = decision.allowed
+        except ImportError:
+            pass
     can_request_access = not accessible
     return CatalogModelRead(
         id=m.id,
@@ -58,7 +71,6 @@ def list_catalog_models(
     db: Session = Depends(get_db),
     _user: User = Depends(get_current_user),
 ) -> list[CatalogModelRead]:
-    # catalog_models.org_id is set but not yet used for per-org visibility
     rows = repo.get_all_active_catalog_models(db)
     default_id = _default_catalog_row_id(rows, db)
-    return [_row_to_read(m, is_default=(m.id == default_id)) for m in rows]
+    return [_row_to_read(m, is_default=(m.id == default_id), user=_user, db=db) for m in rows]
