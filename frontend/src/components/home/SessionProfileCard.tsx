@@ -9,24 +9,24 @@ type SessionProfileCardProps = {
 
 export function SessionProfileCard({ me }: SessionProfileCardProps) {
   return (
-    <div className="rounded-xl border border-neutral-200 bg-neutral-50/80 p-5 dark:border-neutral-800 dark:bg-neutral-900/50">
-      <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Your session</h2>
-      <p className="mt-1 text-xs text-neutral-500">
-        <code className="rounded bg-neutral-200/80 px-1 dark:bg-neutral-800">GET /api/me</code>
+    <div className="rounded-xl border border-line bg-bg-2 p-5">
+      <h2 className="text-lg font-semibold text-ink">Your session</h2>
+      <p className="mt-1 text-xs text-ink-3">
+        <code className="rounded bg-bg px-1">GET /api/me</code>
       </p>
       {me.isPending && <PrismLogo state="loading" size={16} className="mt-3" />}
       {me.isError && (
-        <p className="mt-3 text-sm text-amber-700 dark:text-amber-400">
+        <p className="mt-3 text-sm text-warn">
           {(me.error as Error).message}
         </p>
       )}
       {me.isSuccess && (
-        <div className="mt-3 space-y-2 text-sm text-neutral-800 dark:text-neutral-200">
+        <div className="mt-3 space-y-2 text-sm text-ink-2">
           <p>
             <strong>{me.data.email}</strong>
-            <span className="text-neutral-500"> (id {me.data.id})</span>
+            <span className="text-ink-3"> (id {me.data.id})</span>
             {me.data.roles.length > 0 && (
-              <span className="text-neutral-600 dark:text-neutral-400">
+              <span className="text-ink-3">
                 {' '}
                 — roles: {me.data.roles.join(', ')}
               </span>
@@ -36,16 +36,16 @@ export function SessionProfileCard({ me }: SessionProfileCardProps) {
             me.data.given_name ||
             me.data.family_name ||
             me.data.preferred_username) && (
-            <ul className="list-inside list-disc text-neutral-600 dark:text-neutral-400">
+            <ul className="list-inside list-disc text-ink-3">
               {me.data.display_name && (
                 <li>
-                  <span className="font-medium text-neutral-700 dark:text-neutral-300">Name</span>:{' '}
+                  <span className="font-medium text-ink-2">Name</span>:{' '}
                   {me.data.display_name}
                 </li>
               )}
               {(me.data.given_name || me.data.family_name) && (
                 <li>
-                  <span className="font-medium text-neutral-700 dark:text-neutral-300">
+                  <span className="font-medium text-ink-2">
                     Given / family
                   </span>
                   : {[me.data.given_name, me.data.family_name].filter(Boolean).join(' ')}
@@ -53,7 +53,7 @@ export function SessionProfileCard({ me }: SessionProfileCardProps) {
               )}
               {me.data.preferred_username && (
                 <li>
-                  <span className="font-medium text-neutral-700 dark:text-neutral-300">
+                  <span className="font-medium text-ink-2">
                     Preferred username
                   </span>
                   : {me.data.preferred_username}
