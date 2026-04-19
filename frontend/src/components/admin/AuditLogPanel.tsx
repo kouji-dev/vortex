@@ -45,65 +45,56 @@ export function AuditLogPanel() {
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-          Audit Log {data && <span className="text-sm font-normal text-gray-500">({data.total} events)</span>}
-        </h2>
-        <div className="flex items-center gap-2">
+      <div className="panel-head" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+        <span>
+          Audit Log
+          {data && <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 400, color: 'var(--ink-3)', fontFamily: 'var(--font-mono)' }}>({data.total} events)</span>}
+        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <input
             type="text"
             placeholder="Filter by event type..."
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
-            className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white w-44"
+            style={{ borderRadius: 3, border: '1px solid var(--line)', background: 'var(--bg)', color: 'var(--ink)', padding: '3px 8px', fontSize: 11, fontFamily: 'var(--font-mono)', width: 180 }}
           />
-          <button
-            onClick={exportCsv}
-            className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-          >
+          <button onClick={exportCsv} className="btn btn-sm">
             Export CSV
           </button>
         </div>
       </div>
 
-      {error && <p className="mb-4 text-sm text-red-500">{error}</p>}
-      {loading && <p className="text-sm text-gray-500">Loading...</p>}
+      {error && <p style={{ padding: '8px 14px', fontSize: 12, color: 'var(--red)' }}>{error}</p>}
+      {loading && <p style={{ padding: '8px 14px', fontSize: 12, color: 'var(--ink-3)' }}>Loading…</p>}
 
       {data && data.items.length > 0 && (
-        <div className="overflow-x-auto rounded-xl border border-gray-100 dark:border-gray-800">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 dark:border-gray-800 text-left text-xs text-gray-500 dark:text-gray-400">
-                <th className="px-4 py-2 font-medium">Time</th>
-                <th className="px-4 py-2 font-medium">Event</th>
-                <th className="px-4 py-2 font-medium">Resource</th>
-                <th className="px-4 py-2 font-medium">Action</th>
-                <th className="px-4 py-2 font-medium">Actor</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50 dark:divide-gray-800/50">
-              {data.items.map((ev) => (
-                <tr key={ev.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/30">
-                  <td className="px-4 py-2 text-xs text-gray-500 whitespace-nowrap">
-                    {new Date(ev.created_at).toLocaleString()}
-                  </td>
-                  <td className="px-4 py-2 font-mono text-xs text-indigo-600 dark:text-indigo-400">{ev.event_type}</td>
-                  <td className="px-4 py-2 text-xs text-gray-700 dark:text-gray-300">
-                    {ev.resource_type}{ev.resource_id ? ` #${ev.resource_id}` : ''}
-                  </td>
-                  <td className="px-4 py-2 text-xs text-gray-700 dark:text-gray-300 capitalize">{ev.action}</td>
-                  <td className="px-4 py-2 text-xs text-gray-500">
-                    {ev.actor_user_id ? `user:${ev.actor_user_id}` : ev.actor_type}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div>
+          {/* header row */}
+          <div className="audit-row" style={{ background: 'var(--bg-2)', borderBottom: '1px solid var(--line)', fontWeight: 600, fontSize: 10, color: 'var(--ink-3)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            <span>Time</span>
+            <span>Event</span>
+            <span>Resource</span>
+            <span>Action</span>
+            <span>Actor</span>
+          </div>
+          {data.items.map((ev) => (
+            <div key={ev.id} className="audit-row">
+              <span className="ts">{new Date(ev.created_at).toLocaleString()}</span>
+              <span style={{ color: 'var(--accent)', fontSize: 11 }}>{ev.event_type}</span>
+              <span style={{ color: 'var(--ink-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {ev.resource_type}{ev.resource_id ? ` #${ev.resource_id}` : ''}
+              </span>
+              <span style={{ color: 'var(--ink-2)', textTransform: 'capitalize' }}>{ev.action}</span>
+              <span className="actor" style={{ color: 'var(--ink-3)' }}>
+                {ev.actor_user_id ? `user:${ev.actor_user_id}` : ev.actor_type}
+              </span>
+            </div>
+          ))}
         </div>
       )}
 
       {data && data.items.length === 0 && !loading && (
-        <p className="text-sm text-gray-500">No audit events.</p>
+        <p style={{ padding: '20px 14px', fontSize: 12, color: 'var(--ink-3)', fontFamily: 'var(--font-mono)' }}>No audit events.</p>
       )}
     </div>
   )

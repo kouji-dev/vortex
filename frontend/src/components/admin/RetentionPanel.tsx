@@ -100,91 +100,79 @@ export function RetentionPanel() {
     }
   }
 
-  if (loading) return <p className="text-sm text-gray-500">Loading...</p>
+  if (loading) return <p style={{ padding: 16, fontSize: 12, color: 'var(--ink-3)' }}>Loading…</p>
+
+  // Suppress unused variable warning
+  void policy
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Data Retention</h2>
-        <div className="flex items-center gap-3">
-          {saved && <span className="text-sm text-green-600 dark:text-green-400">Saved</span>}
-          {error && <span className="text-sm text-red-500">{error}</span>}
-          <button
-            onClick={save}
-            disabled={saving}
-            className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors"
-          >
+    <div>
+      <div className="panel-head" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span>Data Retention</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {saved && <span style={{ fontSize: 12, color: 'var(--green, #22c55e)' }}>Saved</span>}
+          {error && <span style={{ fontSize: 12, color: 'var(--red)' }}>{error}</span>}
+          <button onClick={save} disabled={saving} className="btn btn-primary btn-sm">
             {saving ? 'Saving…' : 'Save'}
           </button>
         </div>
       </div>
 
-      {/* Legal hold banner */}
-      <div className={`rounded-xl border px-4 py-3 flex items-center justify-between ${legalHold ? 'border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950' : 'border-gray-100 dark:border-gray-800'}`}>
-        <div>
-          <p className="text-sm font-medium text-gray-900 dark:text-white">Legal hold</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400">When enabled, the retention sweeper skips all records for this org. Overrides all retention schedules.</p>
-        </div>
-        <button
-          onClick={() => setLegalHold((v) => !v)}
-          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${legalHold ? 'bg-amber-500' : 'bg-gray-200 dark:bg-gray-700'}`}
-        >
-          <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${legalHold ? 'translate-x-6' : 'translate-x-1'}`} />
-        </button>
-      </div>
-
-      {/* Retention fields */}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <RetentionField
-          label="Conversations"
-          description="Days to keep conversations + messages. Blank = never delete."
-          value={convDays}
-          onChange={setConvDays}
-        />
-        <RetentionField
-          label="Uploads"
-          description="Days to keep file uploads (disk + DB). Blank = never delete."
-          value={uploadDays}
-          onChange={setUploadDays}
-        />
-        <RetentionField
-          label="Audit log"
-          description="Days to retain audit events. Default 2555 (7 years)."
-          value={auditDays}
-          onChange={setAuditDays}
-        />
-        <RetentionField
-          label="Usage data"
-          description="Days to retain token/cost usage rows. Default 2555 (7 years)."
-          value={usageDays}
-          onChange={setUsageDays}
-        />
-      </div>
-
-      {/* GDPR purge */}
-      <section className="rounded-xl border border-red-100 bg-red-50 px-4 py-4 dark:border-red-900/40 dark:bg-red-950/30">
-        <h3 className="mb-1 text-sm font-semibold text-red-700 dark:text-red-400">GDPR — Purge user data</h3>
-        <p className="mb-3 text-xs text-red-600 dark:text-red-400">
-          Permanently deletes all conversations, uploads, and memories for this user. Usage rows are anonymised. This cannot be undone.
-        </p>
-        <div className="flex items-center gap-2">
-          <input
-            type="number"
-            placeholder="User ID"
-            value={purgeUserId}
-            onChange={(e) => { setPurgeUserId(e.target.value); setPurgeConfirm(false) }}
-            className="w-32 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-sm dark:border-red-800 dark:bg-gray-900 dark:text-white"
-          />
+      <div className="panel-body">
+        {/* Legal hold */}
+        <div className="policy-row" style={{
+          gridTemplateColumns: '1fr auto',
+          padding: '12px 14px',
+          marginBottom: 16,
+          border: `1px solid ${legalHold ? 'var(--orange, #f59e0b)' : 'var(--line)'}`,
+          borderRadius: 4,
+          background: legalHold ? 'color-mix(in srgb, var(--orange, #f59e0b) 8%, var(--bg))' : 'var(--bg)',
+        }}>
+          <div>
+            <div className="title">Legal hold</div>
+            <div className="meta">When enabled, the retention sweeper skips all records for this org. Overrides all schedules.</div>
+          </div>
           <button
-            onClick={purgeUser}
-            disabled={purging || !purgeUserId}
-            className={`rounded-lg px-4 py-1.5 text-sm font-semibold text-white transition-colors disabled:opacity-50 ${purgeConfirm ? 'bg-red-700 hover:bg-red-800' : 'bg-red-500 hover:bg-red-600'}`}
-          >
-            {purging ? 'Purging…' : purgeConfirm ? 'Confirm purge' : 'Purge'}
-          </button>
+            onClick={() => setLegalHold((v) => !v)}
+            className={`switch${legalHold ? ' on' : ''}`}
+            aria-label="Toggle legal hold"
+          />
         </div>
-        {purgeError && <p className="mt-2 text-xs text-red-600 dark:text-red-400">{purgeError}</p>}
-      </section>
+
+        {/* Retention fields */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+          <RetentionField label="Conversations" description="Days to keep conversations + messages. Blank = never delete." value={convDays} onChange={setConvDays} />
+          <RetentionField label="Uploads" description="Days to keep file uploads (disk + DB). Blank = never delete." value={uploadDays} onChange={setUploadDays} />
+          <RetentionField label="Audit log" description="Days to retain audit events. Default 2555 (7 years)." value={auditDays} onChange={setAuditDays} />
+          <RetentionField label="Usage data" description="Days to retain token/cost usage rows. Default 2555 (7 years)." value={usageDays} onChange={setUsageDays} />
+        </div>
+
+        {/* GDPR purge */}
+        <div style={{ border: '1px solid color-mix(in srgb, var(--red) 40%, var(--line))', borderRadius: 4, padding: '14px', background: 'color-mix(in srgb, var(--red) 5%, var(--bg))' }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--red)', marginBottom: 4 }}>GDPR — Purge user data</div>
+          <p style={{ fontSize: 11, color: 'var(--red)', fontFamily: 'var(--font-mono)', marginBottom: 10, opacity: 0.8 }}>
+            Permanently deletes all conversations, uploads, and memories for this user. Usage rows anonymised. Cannot be undone.
+          </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <input
+              type="number"
+              placeholder="User ID"
+              value={purgeUserId}
+              onChange={(e) => { setPurgeUserId(e.target.value); setPurgeConfirm(false) }}
+              style={{ width: 100, borderRadius: 3, border: '1px solid color-mix(in srgb, var(--red) 40%, var(--line))', background: 'var(--bg)', color: 'var(--ink)', padding: '3px 8px', fontSize: 12 }}
+            />
+            <button
+              onClick={purgeUser}
+              disabled={purging || !purgeUserId}
+              className="btn btn-sm"
+              style={{ background: purgeConfirm ? 'var(--red)' : undefined, color: purgeConfirm ? '#fff' : 'var(--red)', borderColor: 'color-mix(in srgb, var(--red) 40%, var(--line))' }}
+            >
+              {purging ? 'Purging…' : purgeConfirm ? 'Confirm purge' : 'Purge'}
+            </button>
+          </div>
+          {purgeError && <p style={{ marginTop: 6, fontSize: 11, color: 'var(--red)', fontFamily: 'var(--font-mono)' }}>{purgeError}</p>}
+        </div>
+      </div>
     </div>
   )
 }
@@ -201,18 +189,22 @@ function RetentionField({
   onChange: (v: string) => void
 }) {
   return (
-    <div className="rounded-xl border border-gray-100 dark:border-gray-800 px-4 py-3">
-      <label className="block text-sm font-medium text-gray-900 dark:text-white mb-1">{label}</label>
-      <p className="text-xs text-gray-400 mb-2">{description}</p>
+    <div style={{ border: '1px solid var(--line)', borderRadius: 4, padding: '10px 12px' }}>
+      <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink)', marginBottom: 2 }}>{label}</div>
+      <div style={{ fontSize: 10, color: 'var(--ink-3)', fontFamily: 'var(--font-mono)', marginBottom: 8 }}>{description}</div>
       <input
         type="number"
         min="1"
         placeholder="Never"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+        style={{ width: '100%', borderRadius: 3, border: '1px solid var(--line)', background: 'var(--bg)', color: 'var(--ink)', padding: '3px 8px', fontSize: 12 }}
       />
-      {value && <p className="mt-1 text-xs text-gray-400">{value} days ≈ {(parseInt(value, 10) / 365).toFixed(1)} years</p>}
+      {value && (
+        <p style={{ marginTop: 4, fontSize: 10, color: 'var(--ink-3)', fontFamily: 'var(--font-mono)' }}>
+          {value} days ≈ {(parseInt(value, 10) / 365).toFixed(1)} years
+        </p>
+      )}
     </div>
   )
 }
