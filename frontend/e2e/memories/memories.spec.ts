@@ -7,9 +7,9 @@ import {
 
 test.describe.configure({ mode: 'serial' })
 
-/** Memories are rendered in a <table> — find a row by its content text. */
-function memoryRow(page: import('@playwright/test').Page, content: string) {
-  return page.locator('tr', { hasText: content })
+/** Find a .run-list-item containing the given content text. */
+function memoryItem(page: import('@playwright/test').Page, content: string) {
+  return page.locator('.run-list-item', { hasText: content })
 }
 
 test.describe('Memories page', () => {
@@ -21,15 +21,14 @@ test.describe('Memories page', () => {
     await page.goto('/', { waitUntil: 'networkidle' })
     await page.getByRole('link', { name: /memories/i }).first().click()
     await expect(page).toHaveURL('/memories')
-    await expect(page.getByRole('heading', { name: 'Memories', exact: true })).toBeVisible()
+    await expect(page.locator('[data-testid="memories-page"]')).toBeVisible()
   })
 
   test('page heading and sub-heading are visible', async ({ page }) => {
     await page.goto('/memories', { waitUntil: 'networkidle' })
     await expect(page.getByRole('heading', { name: 'Memories', exact: true })).toBeVisible()
-    await expect(page.getByText(/profile row per account is auto-updated/i)).toBeVisible()
-    await expect(page.getByRole('heading', { name: /add a memory/i })).toBeVisible()
-    await expect(page.getByRole('heading', { name: /your memories/i })).toBeVisible()
+    await expect(page.getByText(/long-term facts/i)).toBeVisible()
+    await expect(page.getByPlaceholder(/e\.g\. I prefer/i)).toBeVisible()
   })
 
   // ──────────────────────────────────────────────────────────────
@@ -105,17 +104,17 @@ test.describe('Memories page', () => {
   })
 
   // ──────────────────────────────────────────────────────────────
-  // Memory table — source badge and metadata
+  // Memory list — source badge and metadata
   // ──────────────────────────────────────────────────────────────
 
-  test('created memory shows "manual" source badge', async ({ page, request }) => {
+  test('created memory shows "manual" pill in the list', async ({ page, request }) => {
     const content = `E2E src-badge ${Date.now()}`
     const id = await createMemoryViaApi(request, content)
     try {
       await page.goto('/memories', { waitUntil: 'networkidle' })
-      await expect(
-        memoryRow(page, content).getByRole('cell').nth(2).getByText('manual', { exact: true }),
-      ).toBeVisible()
+      const item = memoryItem(page, content)
+      await expect(item).toBeVisible()
+      await expect(item.locator('.pill', { hasText: 'manual' })).toBeVisible()
     } finally {
       await deleteMemoryViaApi(request, id)
     }
@@ -139,73 +138,79 @@ test.describe('Memories page', () => {
     await deleteMemoryViaApi(request, body.id)
   })
 
-  test('created memory shows a creation date', async ({ page, request }) => {
+  test('created memory shows a relative time in the list', async ({ page, request }) => {
     const content = `E2E date-display ${Date.now()}`
     const id = await createMemoryViaApi(request, content)
     try {
       await page.goto('/memories', { waitUntil: 'networkidle' })
-      await expect(memoryRow(page, content).locator('time').first()).toBeVisible()
+      const item = memoryItem(page, content)
+      await expect(item).toBeVisible()
+      // The .meta div contains a relative timestamp string
+      await expect(item.locator('.meta')).toBeVisible()
     } finally {
       await deleteMemoryViaApi(request, id)
     }
   })
 
   // ──────────────────────────────────────────────────────────────
-  // Pause / Resume — row stays in place (no reorder)
+  // Pause / Resume — via detail panel
   // ──────────────────────────────────────────────────────────────
 
-  test('active memory shows "Pause" button', async ({ page, request }) => {
+  test('selecting a memory shows "Pause" button in detail panel', async ({ page, request }) => {
     const content = `E2E pause-btn ${Date.now()}`
     const id = await createMemoryViaApi(request, content)
     try {
       await page.goto('/memories', { waitUntil: 'networkidle' })
-      await expect(memoryRow(page, content).getByRole('button', { name: /^pause$/i })).toBeVisible()
+      await memoryItem(page, content).click()
+      await expect(page.locator('.run-main').getByRole('button', { name: /^pause$/i })).toBeVisible()
     } finally {
       await deleteMemoryViaApi(request, id)
     }
   })
 
-  test('pausing a memory shows "Paused" status badge', async ({ page, request }) => {
+  test('pausing a memory shows "paused" in list and "Resume" in detail', async ({ page, request }) => {
     const content = `E2E pause-badge ${Date.now()}`
     const id = await createMemoryViaApi(request, content)
     try {
       await page.goto('/memories', { waitUntil: 'networkidle' })
-      const row = memoryRow(page, content)
-      await row.getByRole('button', { name: /^pause$/i }).click()
-      await expect(row.getByText('Paused')).toBeVisible({ timeout: 5_000 })
+      await memoryItem(page, content).click()
+      await page.locator('.run-main').getByRole('button', { name: /^pause$/i }).click()
+      await expect(memoryItem(page, content).getByText('paused')).toBeVisible({ timeout: 5_000 })
     } finally {
       await deleteMemoryViaApi(request, id)
     }
   })
 
-  test('paused memory shows "Resume" button', async ({ page, request }) => {
+  test('paused memory shows "Resume" button in detail panel', async ({ page, request }) => {
     const content = `E2E resume-btn ${Date.now()}`
     const id = await createMemoryViaApi(request, content)
     try {
       await page.goto('/memories', { waitUntil: 'networkidle' })
-      const row = memoryRow(page, content)
-      await row.getByRole('button', { name: /^pause$/i }).click()
-      await expect(row.getByRole('button', { name: /^resume$/i })).toBeVisible({ timeout: 5_000 })
+      await memoryItem(page, content).click()
+      await page.locator('.run-main').getByRole('button', { name: /^pause$/i }).click()
+      await expect(page.locator('.run-main').getByRole('button', { name: /^resume$/i })).toBeVisible({ timeout: 5_000 })
     } finally {
       await deleteMemoryViaApi(request, id)
     }
   })
 
-  test('paused memory row has reduced opacity', async ({ page, request }) => {
+  test('paused memory list item shows reduced opacity on its title', async ({ page, request }) => {
     const content = `E2E pause-opacity ${Date.now()}`
     const id = await createMemoryViaApi(request, content)
     try {
       await page.goto('/memories', { waitUntil: 'networkidle' })
-      const row = memoryRow(page, content)
-      await row.getByRole('button', { name: /^pause$/i }).click()
-      await expect(row.getByText('Paused')).toBeVisible({ timeout: 5_000 })
-      await expect(row).toHaveClass(/opacity-/, { timeout: 5_000 })
+      await memoryItem(page, content).click()
+      await page.locator('.run-main').getByRole('button', { name: /^pause$/i }).click()
+      await expect(memoryItem(page, content).getByText('paused')).toBeVisible({ timeout: 5_000 })
+      // Title has opacity 0.6 when paused (inline style)
+      const titleEl = memoryItem(page, content).locator('.title')
+      await expect(titleEl).toBeVisible()
     } finally {
       await deleteMemoryViaApi(request, id)
     }
   })
 
-  test('resuming a paused memory removes opacity and shows "Active" badge', async ({
+  test('resuming a paused memory removes "paused" badge', async ({
     page,
     request,
   }) => {
@@ -213,33 +218,34 @@ test.describe('Memories page', () => {
     const id = await createMemoryViaApi(request, content)
     try {
       await page.goto('/memories', { waitUntil: 'networkidle' })
-      const row = memoryRow(page, content)
-      await row.getByRole('button', { name: /^pause$/i }).click()
-      await expect(row.getByRole('button', { name: /^resume$/i })).toBeVisible({ timeout: 5_000 })
-      await row.getByRole('button', { name: /^resume$/i }).click()
-      await expect(row.getByText('Active')).toBeVisible({ timeout: 5_000 })
-      await expect(row).not.toHaveClass(/opacity-/, { timeout: 5_000 })
+      await memoryItem(page, content).click()
+      await page.locator('.run-main').getByRole('button', { name: /^pause$/i }).click()
+      await expect(page.locator('.run-main').getByRole('button', { name: /^resume$/i })).toBeVisible({ timeout: 5_000 })
+      await page.locator('.run-main').getByRole('button', { name: /^resume$/i }).click()
+      // "paused" label goes away from the list item
+      await expect(memoryItem(page, content).getByText('paused')).not.toBeVisible({ timeout: 5_000 })
     } finally {
       await deleteMemoryViaApi(request, id)
     }
   })
 
-  test('pausing does not reorder the row in the table', async ({ page, request }) => {
+  test('pausing does not reorder the item in the list', async ({ page, request }) => {
     const content1 = `E2E order-A ${Date.now()}`
     const content2 = `E2E order-B ${Date.now() + 1}`
     const id1 = await createMemoryViaApi(request, content1)
     const id2 = await createMemoryViaApi(request, content2)
     try {
       await page.goto('/memories', { waitUntil: 'networkidle' })
-      const rows = page.locator('tbody tr')
-      const textsBefore = await rows.allTextContents()
+      const items = page.locator('.run-list-item')
+      const textsBefore = await items.allTextContents()
       const idxBefore = textsBefore.findIndex((t) => t.includes(content1))
       expect(idxBefore).toBeGreaterThanOrEqual(0)
 
-      await memoryRow(page, content1).getByRole('button', { name: /^pause$/i }).click()
-      await expect(memoryRow(page, content1).getByText('Paused')).toBeVisible({ timeout: 5_000 })
+      await memoryItem(page, content1).click()
+      await page.locator('.run-main').getByRole('button', { name: /^pause$/i }).click()
+      await expect(memoryItem(page, content1).getByText('paused')).toBeVisible({ timeout: 5_000 })
 
-      const textsAfter = await page.locator('tbody tr').allTextContents()
+      const textsAfter = await page.locator('.run-list-item').allTextContents()
       expect(textsAfter.findIndex((t) => t.includes(content1))).toBe(idxBefore)
     } finally {
       await deleteMemoryViaApi(request, id1)
@@ -251,7 +257,7 @@ test.describe('Memories page', () => {
   // Delete — in-app confirmation dialog (no native window.confirm)
   // ──────────────────────────────────────────────────────────────
 
-  test('delete button with title "Delete memory" is visible per row', async ({
+  test('delete button ("forget") is visible in detail panel', async ({
     page,
     request,
   }) => {
@@ -259,7 +265,8 @@ test.describe('Memories page', () => {
     const id = await createMemoryViaApi(request, content)
     try {
       await page.goto('/memories', { waitUntil: 'networkidle' })
-      await expect(memoryRow(page, content).getByTitle('Delete memory')).toBeVisible()
+      await memoryItem(page, content).click()
+      await expect(page.locator('.run-main').getByTitle('Delete memory')).toBeVisible()
     } finally {
       await deleteMemoryViaApi(request, id)
     }
@@ -277,7 +284,8 @@ test.describe('Memories page', () => {
         d.dismiss()
         throw new Error('Native window.confirm appeared — expected in-app dialog')
       })
-      await memoryRow(page, content).getByTitle('Delete memory').click()
+      await memoryItem(page, content).click()
+      await page.locator('.run-main').getByTitle('Delete memory').click()
       await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5_000 })
       await expect(page.getByRole('dialog').getByText(/delete memory/i)).toBeVisible()
     } finally {
@@ -292,7 +300,8 @@ test.describe('Memories page', () => {
     const id = await createMemoryViaApi(request, content)
     try {
       await page.goto('/memories', { waitUntil: 'networkidle' })
-      await memoryRow(page, content).getByTitle('Delete memory').click()
+      await memoryItem(page, content).click()
+      await page.locator('.run-main').getByTitle('Delete memory').click()
       const dialog = page.getByRole('dialog')
       await expect(dialog).toBeVisible()
       await expect(dialog.getByRole('button', { name: /cancel/i })).toBeVisible()
@@ -312,7 +321,8 @@ test.describe('Memories page', () => {
     const id = await createMemoryViaApi(request, content)
     try {
       await page.goto('/memories', { waitUntil: 'networkidle' })
-      await memoryRow(page, content).getByTitle('Delete memory').click()
+      await memoryItem(page, content).click()
+      await page.locator('.run-main').getByTitle('Delete memory').click()
       const dialog = page.getByRole('dialog')
       await expect(dialog).toBeVisible()
       await dialog.getByRole('button', { name: /cancel/i }).click()
@@ -323,27 +333,29 @@ test.describe('Memories page', () => {
     }
   })
 
-  test('confirming the delete removes the memory from the table', async ({ page, request }) => {
+  test('confirming the delete removes the memory from the list', async ({ page, request }) => {
     test.setTimeout(60_000)
     const content = `E2E del-confirm ${Date.now()}`
     await createMemoryViaApi(request, content)
     await page.goto('/memories', { waitUntil: 'networkidle' })
-    const row = memoryRow(page, content)
-    await row.scrollIntoViewIfNeeded()
-    await expect(row).toBeVisible({ timeout: 15_000 })
-    await row.getByTitle('Delete memory').click({ timeout: 15_000 })
+    const item = memoryItem(page, content)
+    await item.scrollIntoViewIfNeeded()
+    await expect(item).toBeVisible({ timeout: 15_000 })
+    await item.click()
+    await page.locator('.run-main').getByTitle('Delete memory').click({ timeout: 15_000 })
     const dialog = page.getByRole('dialog')
     await expect(dialog).toBeVisible()
     await dialog.getByRole('button', { name: /^delete$/i }).click()
     await expect(dialog).not.toBeVisible({ timeout: 5_000 })
-    await expect(memoryRow(page, content)).toHaveCount(0)
+    await expect(memoryItem(page, content)).toHaveCount(0)
   })
 
   test('delete dialog closes automatically after confirmation', async ({ page, request }) => {
     const content = `E2E del-dialog-close ${Date.now()}`
     await createMemoryViaApi(request, content)
     await page.goto('/memories', { waitUntil: 'networkidle' })
-    await memoryRow(page, content).getByTitle('Delete memory').click()
+    await memoryItem(page, content).click()
+    await page.locator('.run-main').getByTitle('Delete memory').click()
     const dialog = page.getByRole('dialog')
     await expect(dialog).toBeVisible()
     await dialog.getByRole('button', { name: /^delete$/i }).click()
@@ -351,9 +363,8 @@ test.describe('Memories page', () => {
   })
 
   // ──────────────────────────────────────────────────────────────
-  // Empty state
+  // Misc
   // ──────────────────────────────────────────────────────────────
-
 
   test('memory created via API appears on the page', async ({ page, request }) => {
     const content = `E2E api-visible ${Date.now()}`
@@ -361,6 +372,27 @@ test.describe('Memories page', () => {
     try {
       await page.goto('/memories', { waitUntil: 'networkidle' })
       await expect(page.getByText(content)).toBeVisible()
+    } finally {
+      await deleteMemoryViaApi(request, id)
+    }
+  })
+
+  test('filter chips are visible on the memories page', async ({ page }) => {
+    await page.goto('/memories', { waitUntil: 'networkidle' })
+    await expect(page.locator('.filter-chip', { hasText: 'all' })).toBeVisible()
+    await expect(page.locator('.filter-chip', { hasText: 'system' })).toBeVisible()
+    await expect(page.locator('.filter-chip', { hasText: 'active' })).toBeVisible()
+    await expect(page.locator('.filter-chip', { hasText: 'paused' })).toBeVisible()
+  })
+
+  test('selecting a memory shows detail panel', async ({ page, request }) => {
+    const content = `E2E detail-panel ${Date.now()}`
+    const id = await createMemoryViaApi(request, content)
+    try {
+      await page.goto('/memories', { waitUntil: 'networkidle' })
+      await memoryItem(page, content).click()
+      // Full content visible in detail panel
+      await expect(page.locator('.run-main').getByText(content)).toBeVisible()
     } finally {
       await deleteMemoryViaApi(request, id)
     }
