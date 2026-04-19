@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link, useLocation, useNavigate } from '@tanstack/react-router'
-import { ArrowLeft, Trash2 } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 import * as React from 'react'
 import { PrismLogo } from '~/components/brand'
 
@@ -118,9 +118,7 @@ function KnowledgeBaseDocumentTableRow({
       )
     }
     if (live.showQueued) {
-      return (
-        <PrismLogo state="loading" size={14} />
-      )
+      return <PrismLogo state="loading" size={14} />
     }
     if (doc.status === 'failed' || live.displayStatus === 'failed') {
       const errMsg = (doc.ingest_error ?? live.data?.ingest_error ?? '').trim()
@@ -142,9 +140,7 @@ function KnowledgeBaseDocumentTableRow({
       )
     }
     if (live.poll && live.isPending && !live.data) {
-      return (
-        <PrismLogo state="loading" size={14} />
-      )
+      return <PrismLogo state="loading" size={14} />
     }
     return <span className="text-neutral-400 dark:text-neutral-600">—</span>
   })()
@@ -198,6 +194,7 @@ function KnowledgeBaseDetailPage() {
       state: {},
     })
   }, [location.state?.kbIngestWarning, idParam, navigate])
+
   const fileRef = React.useRef<HTMLInputElement>(null)
 
   const kbQ = useQuery({
@@ -273,12 +270,7 @@ function KnowledgeBaseDetailPage() {
             })
       setActiveUploads((prev) => [
         ...prev,
-        {
-          id: uploadId,
-          filename: file.name,
-          percent: 0,
-          lengthComputable: false,
-        },
+        { id: uploadId, filename: file.name, percent: 0, lengthComputable: false },
       ])
 
       const fd = new FormData()
@@ -295,9 +287,7 @@ function KnowledgeBaseDetailPage() {
         const headers = await getAuthHeaders()
         const uploadResult = await postFormDataWithUploadProgress(url, fd, headers, (percent, lengthComputable) => {
           setActiveUploads((prev) =>
-            prev.map((u) =>
-              u.id === uploadId ? { ...u, percent, lengthComputable } : u,
-            ),
+            prev.map((u) => (u.id === uploadId ? { ...u, percent, lengthComputable } : u)),
           )
         })
         const firstResult = uploadResult.results[0]
@@ -309,9 +299,7 @@ function KnowledgeBaseDetailPage() {
           return
         }
         setActiveUploads((prev) =>
-          prev.map((u) =>
-            u.id === uploadId ? { ...u, percent: 100, lengthComputable: true } : u,
-          ),
+          prev.map((u) => (u.id === uploadId ? { ...u, percent: 100, lengthComputable: true } : u)),
         )
         void qc.invalidateQueries({ queryKey: queryKeys.knowledgeBaseDocuments(kbId) })
         dismissAfterMs(450)
@@ -351,230 +339,284 @@ function KnowledgeBaseDetailPage() {
   )
   const saveDisabled = patchMut.isPending || !detailsDirty
 
+  // Left panel: doc list items for the run-list
+  const docs = docsQ.data ?? []
+
   return (
-    <div className="page-enter flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-4 sm:p-6">
-      <div className="flex items-center gap-2">
-        <Link
-          to="/knowledge-bases"
-          className="inline-flex items-center gap-1 rounded-md text-sm text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
-        >
-          <ArrowLeft className="size-4" aria-hidden />
-          All knowledge bases
-        </Link>
+    <div className="run-grid" data-testid="kb-detail" style={{ gridTemplateColumns: '280px 1fr' }}>
+      {/* Left: doc list */}
+      <div className="run-list">
+        {/* Header row inside run-list */}
+        <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--line)', background: 'var(--panel)' }}>
+          <Link
+            to="/knowledge-bases"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--ink-3)', textDecoration: 'none', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.04em' }}
+          >
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M10 3l-5 5 5 5"/>
+            </svg>
+            All knowledge bases
+          </Link>
+        </div>
+
+        {kbQ.isPending && <PrismLogo state="loading" size={16} className="m-3" />}
+        {kbQ.isError && (
+          <p style={{ padding: '10px 12px', fontSize: 12, color: 'var(--err)' }} role="alert">
+            {(kbQ.error as Error).message}
+          </p>
+        )}
+        {kb && (
+          <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--line)' }}>
+            <h1 style={{ fontSize: 13, fontWeight: 600, marginBottom: 2, marginTop: 0 }}>{kb.name}</h1>
+            {kb.description ? (
+              <div style={{ fontSize: 11, color: 'var(--ink-3)', marginBottom: 4 }}>{kb.description}</div>
+            ) : null}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--ink-3)' }}>
+                {(kb.document_count ?? 0).toLocaleString()} docs
+              </span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--ink-3)' }}>
+                {(kb.chunks_count ?? 0).toLocaleString()} chunks
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Doc list items */}
+        {docsQ.isPending && <PrismLogo state="loading" size={14} className="m-3" />}
+        {docs.length === 0 && !docsQ.isPending && (
+          <div style={{ padding: '10px 12px', fontSize: 12, color: 'var(--ink-3)' }}>
+            No files yet.
+          </div>
+        )}
+        {docs.map((d) => (
+          <div className="run-list-item" key={d.id}>
+            <div className="title">{d.filename}</div>
+            <div className="meta">
+              <span
+                style={{
+                  color: d.status === 'ready' ? 'var(--ok)' : d.status === 'failed' ? 'var(--err)' : 'var(--warn)',
+                }}
+              >
+                {d.status}
+              </span>
+            </div>
+          </div>
+        ))}
       </div>
 
-      {ingestBanner && (
-        <div
-          className="flex flex-col gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-100"
-          role="status"
-        >
-          <p className="font-medium">Initial upload did not finish ingesting</p>
-          <p className="text-amber-900/90 dark:text-amber-100/90">{ingestBanner}</p>
-          <button
-            type="button"
-            className="self-start text-sm font-medium text-amber-900 underline dark:text-amber-200"
-            onClick={() => setIngestBanner(null)}
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
-
-      {kbQ.isPending && <PrismLogo state="loading" size={20} className="my-4" />}
-      {kbQ.isError && (
-        <p className="text-sm text-red-600" role="alert">
-          {(kbQ.error as Error).message}
-        </p>
-      )}
-
-      {kbQ.data && (
-        <>
-          <header className="border-b border-neutral-200 pb-3 dark:border-neutral-800">
-            <h1 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
-              {kbQ.data.name}
-            </h1>
-            <p className="mt-1 text-xs text-neutral-500">
-              Attach this base to a conversation under{' '}
-              <Link to="/chat/conversations" className="text-blue-600 underline dark:text-blue-400">
-                Chat
-              </Link>{' '}
-              → Knowledge bases.
-            </p>
-          </header>
-
-          <section
-            className="rounded-xl border border-neutral-200 bg-neutral-50/80 p-4 dark:border-neutral-800 dark:bg-neutral-900/40"
-            aria-labelledby="kb-edit-heading"
-          >
-            <h2 id="kb-edit-heading" className="mb-3 text-sm font-medium text-neutral-900 dark:text-neutral-100">
-              Details
-            </h2>
-            <div className="flex max-w-md flex-col gap-3">
-              <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400">
-                Name
-                <input
-                  className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  maxLength={255}
-                />
-              </label>
-              <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400">
-                Description
-                <textarea
-                  className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
-                  rows={2}
-                  value={editDescription}
-                  onChange={(e) => setEditDescription(e.target.value)}
-                  maxLength={10_000}
-                />
-              </label>
-              {patchMut.isError && (
-                <p className="text-sm text-red-600">{(patchMut.error as Error).message}</p>
-              )}
+      {/* Right: main content area */}
+      <div className="run-main">
+        <div className="run-scroll">
+          {ingestBanner && (
+            <div
+              className="flex flex-col gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-100"
+              role="status"
+              style={{ marginBottom: 16 }}
+            >
+              <p className="font-medium">Initial upload did not finish ingesting</p>
+              <p className="text-amber-900/90 dark:text-amber-100/90">{ingestBanner}</p>
               <button
                 type="button"
-                disabled={saveDisabled}
-                className={cn(
-                  'w-fit rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors',
-                  'focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-neutral-950',
-                  patchMut.isPending &&
-                    'cursor-wait border border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-800/60 dark:bg-blue-950/40 dark:text-blue-200',
-                  !patchMut.isPending &&
-                    detailsDirty &&
-                    'cursor-pointer border border-blue-600 bg-blue-600 text-white shadow-sm hover:border-blue-500 hover:bg-blue-500 focus-visible:ring-blue-500 dark:border-blue-500 dark:bg-blue-600 dark:hover:border-blue-400 dark:hover:bg-blue-500',
-                  !patchMut.isPending &&
-                    !detailsDirty &&
-                    'cursor-not-allowed border border-neutral-200 bg-neutral-100 text-neutral-400 dark:border-neutral-700 dark:bg-neutral-800/90 dark:text-neutral-500',
-                )}
-                onClick={() =>
-                  patchMut.mutate({
-                    name: editName.trim(),
-                    description: editDescription.trim(),
-                  })
-                }
+                className="self-start text-sm font-medium text-amber-900 underline dark:text-amber-200"
+                onClick={() => setIngestBanner(null)}
               >
-                {patchMut.isPending ? 'Saving…' : 'Save changes'}
+                Dismiss
               </button>
             </div>
-          </section>
+          )}
 
-          <KnowledgeBaseConnectorsSection knowledgeBaseId={kbId} />
-
-          <section aria-labelledby="kb-upload-heading">
-            <h2 id="kb-upload-heading" className="mb-2 text-sm font-medium text-neutral-900 dark:text-neutral-100">
-              Upload documents (files connector)
-            </h2>
-            <p className="mb-2 text-xs text-neutral-500 dark:text-neutral-400">
-              .txt, .md, .pdf — multiple files allowed. Upload finishes quickly; indexing runs in
-              the background (pending, then ingesting with chunk progress, then ready or failed).
+          {kbQ.isPending && <PrismLogo state="loading" size={20} className="my-4" />}
+          {kbQ.isError && (
+            <p className="text-sm text-red-600" role="alert">
+              {(kbQ.error as Error).message}
             </p>
-            <input
-              ref={fileRef}
-              type="file"
-              multiple
-              accept=".txt,.md,.pdf,text/plain,text/markdown,application/pdf"
-              data-testid="kb-upload-input"
-              className="block text-sm text-neutral-600 file:mr-3 file:rounded-md file:border-0 file:bg-neutral-200 file:px-3 file:py-1.5 file:text-sm dark:text-neutral-400 dark:file:bg-neutral-800"
-              onChange={(e) => {
-                const files = Array.from(e.target.files ?? [])
-                e.target.value = ''
-                for (const f of files) {
-                  void runKbDocumentUpload(f)
-                }
-              }}
-            />
-            {activeUploads.length > 0 && (
-              <ul
-                data-testid="kb-upload-active"
-                className="mt-3 space-y-2 rounded-lg border border-neutral-200 bg-white p-3 dark:border-neutral-700 dark:bg-neutral-950/60"
-                aria-label="Upload progress"
-              >
-                {activeUploads.map((u) => (
-                  <li
-                    key={u.id}
-                    data-testid={`kb-upload-row-${u.id}`}
-                    className="text-sm text-neutral-800 dark:text-neutral-200"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="min-w-0 truncate font-medium" title={u.filename}>
-                        {u.filename}
-                      </span>
-                      {u.error ? (
-                        <span className="text-red-600 dark:text-red-400">{u.error}</span>
-                      ) : u.lengthComputable ? (
-                        <span className="tabular-nums text-neutral-500 dark:text-neutral-400">
-                          {u.percent}%
-                        </span>
-                      ) : (
-                        <PrismLogo state="loading" size={14} />
-                      )}
-                    </div>
-                    {!u.error && u.lengthComputable && (
-                      <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
-                        <div
-                          className="h-full bg-blue-500 transition-[width] duration-150 ease-out"
-                          style={{ width: `${u.percent}%` }}
-                        />
-                      </div>
-                    )}
-                    {!u.error && !u.lengthComputable && (
-                      <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
-                        <div className="h-full w-1/3 animate-pulse rounded-full bg-blue-500" />
-                      </div>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+          )}
 
-          <section aria-labelledby="kb-docs-heading">
-            <h2 id="kb-docs-heading" className="mb-2 text-sm font-medium text-neutral-900 dark:text-neutral-100">
-              Documents
-            </h2>
-            {docsQ.isPending && <PrismLogo state="loading" size={20} className="my-4" />}
-            {docsQ.isError && (
-              <p className="text-sm text-red-600">{(docsQ.error as Error).message}</p>
-            )}
-            {docsQ.data && docsQ.data.length === 0 && (
-              <p className="text-sm text-neutral-500">No files yet.</p>
-            )}
-            {docsQ.data && docsQ.data.length > 0 && (
-              <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800">
-                <table className="w-full min-w-[28rem] text-left text-sm">
-                  <thead className="border-b border-neutral-200 bg-neutral-50 text-xs text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900/80 dark:text-neutral-400">
-                    <tr>
-                      <th className="px-3 py-2 font-medium">File</th>
-                      <th className="px-3 py-2 font-medium">Status</th>
-                      <th className="px-3 py-2 font-medium">Progress</th>
-                      <th className="w-12 px-3 py-2 font-medium" aria-label="Actions" />
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
-                    {docsQ.data.map((d) => (
-                      <KnowledgeBaseDocumentTableRow
-                        key={d.id}
-                        kbId={kbId}
-                        doc={d}
-                        deleteDisabled={deleteDocMut.isPending}
-                        onDelete={() => {
-                          if (window.confirm(`Remove “${d.filename}” from this knowledge base?`)) {
-                            deleteDocMut.mutate(d.id)
-                          }
-                        }}
-                      />
-                    ))}
-                  </tbody>
-                </table>
+          {kb && (
+            <>
+              {/* Details section */}
+              <section
+                className="rounded-xl border border-neutral-200 bg-neutral-50/80 p-4 dark:border-neutral-800 dark:bg-neutral-900/40"
+                aria-labelledby="kb-edit-heading"
+                style={{ marginBottom: 20 }}
+              >
+                <h2 id="kb-edit-heading" className="mb-3 text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                  Details
+                </h2>
+                <div className="flex max-w-md flex-col gap-3">
+                  <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400">
+                    Name
+                    <input
+                      className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      maxLength={255}
+                    />
+                  </label>
+                  <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400">
+                    Description
+                    <textarea
+                      className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
+                      rows={2}
+                      value={editDescription}
+                      onChange={(e) => setEditDescription(e.target.value)}
+                      maxLength={10_000}
+                    />
+                  </label>
+                  {patchMut.isError && (
+                    <p className="text-sm text-red-600">{(patchMut.error as Error).message}</p>
+                  )}
+                  <button
+                    type="button"
+                    disabled={saveDisabled}
+                    className={cn(
+                      'w-fit rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors',
+                      'focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-neutral-950',
+                      patchMut.isPending &&
+                        'cursor-wait border border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-800/60 dark:bg-blue-950/40 dark:text-blue-200',
+                      !patchMut.isPending &&
+                        detailsDirty &&
+                        'cursor-pointer border border-blue-600 bg-blue-600 text-white shadow-sm hover:border-blue-500 hover:bg-blue-500 focus-visible:ring-blue-500 dark:border-blue-500 dark:bg-blue-600 dark:hover:border-blue-400 dark:hover:bg-blue-500',
+                      !patchMut.isPending &&
+                        !detailsDirty &&
+                        'cursor-not-allowed border border-neutral-200 bg-neutral-100 text-neutral-400 dark:border-neutral-700 dark:bg-neutral-800/90 dark:text-neutral-500',
+                    )}
+                    onClick={() =>
+                      patchMut.mutate({
+                        name: editName.trim(),
+                        description: editDescription.trim(),
+                      })
+                    }
+                  >
+                    {patchMut.isPending ? 'Saving…' : 'Save changes'}
+                  </button>
+                </div>
+              </section>
+
+              {/* Connectors */}
+              <div style={{ marginBottom: 20 }}>
+                <KnowledgeBaseConnectorsSection knowledgeBaseId={kbId} />
               </div>
-            )}
-            {deleteDocMut.isError && (
-              <p className="mt-2 text-sm text-red-600">{(deleteDocMut.error as Error).message}</p>
-            )}
-          </section>
-        </>
-      )}
+
+              {/* Upload section */}
+              <section aria-labelledby="kb-upload-heading" style={{ marginBottom: 20 }}>
+                <h2 id="kb-upload-heading" className="mb-2 text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                  Upload documents (files connector)
+                </h2>
+                <p className="mb-2 text-xs text-neutral-500 dark:text-neutral-400">
+                  .txt, .md, .pdf — multiple files allowed. Upload finishes quickly; indexing runs in
+                  the background (pending, then ingesting with chunk progress, then ready or failed).
+                </p>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  multiple
+                  accept=".txt,.md,.pdf,text/plain,text/markdown,application/pdf"
+                  data-testid="kb-upload-input"
+                  className="block text-sm text-neutral-600 file:mr-3 file:rounded-md file:border-0 file:bg-neutral-200 file:px-3 file:py-1.5 file:text-sm dark:text-neutral-400 dark:file:bg-neutral-800"
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files ?? [])
+                    e.target.value = ''
+                    for (const f of files) {
+                      void runKbDocumentUpload(f)
+                    }
+                  }}
+                />
+                {activeUploads.length > 0 && (
+                  <ul
+                    data-testid="kb-upload-active"
+                    className="mt-3 space-y-2 rounded-lg border border-neutral-200 bg-white p-3 dark:border-neutral-700 dark:bg-neutral-950/60"
+                    aria-label="Upload progress"
+                  >
+                    {activeUploads.map((u) => (
+                      <li
+                        key={u.id}
+                        data-testid={`kb-upload-row-${u.id}`}
+                        className="text-sm text-neutral-800 dark:text-neutral-200"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="min-w-0 truncate font-medium" title={u.filename}>
+                            {u.filename}
+                          </span>
+                          {u.error ? (
+                            <span className="text-red-600 dark:text-red-400">{u.error}</span>
+                          ) : u.lengthComputable ? (
+                            <span className="tabular-nums text-neutral-500 dark:text-neutral-400">
+                              {u.percent}%
+                            </span>
+                          ) : (
+                            <PrismLogo state="loading" size={14} />
+                          )}
+                        </div>
+                        {!u.error && u.lengthComputable && (
+                          <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
+                            <div
+                              className="h-full bg-blue-500 transition-[width] duration-150 ease-out"
+                              style={{ width: `${u.percent}%` }}
+                            />
+                          </div>
+                        )}
+                        {!u.error && !u.lengthComputable && (
+                          <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
+                            <div className="h-full w-1/3 animate-pulse rounded-full bg-blue-500" />
+                          </div>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+
+              {/* Documents table */}
+              <section aria-labelledby="kb-docs-heading">
+                <h2 id="kb-docs-heading" className="mb-2 text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                  Documents
+                </h2>
+                {docsQ.isPending && <PrismLogo state="loading" size={20} className="my-4" />}
+                {docsQ.isError && (
+                  <p className="text-sm text-red-600">{(docsQ.error as Error).message}</p>
+                )}
+                {docsQ.data && docsQ.data.length === 0 && (
+                  <p className="text-sm text-neutral-500">No files yet.</p>
+                )}
+                {docsQ.data && docsQ.data.length > 0 && (
+                  <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800">
+                    <table className="w-full min-w-[28rem] text-left text-sm">
+                      <thead className="border-b border-neutral-200 bg-neutral-50 text-xs text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900/80 dark:text-neutral-400">
+                        <tr>
+                          <th className="px-3 py-2 font-medium">File</th>
+                          <th className="px-3 py-2 font-medium">Status</th>
+                          <th className="px-3 py-2 font-medium">Progress</th>
+                          <th className="w-12 px-3 py-2 font-medium" aria-label="Actions" />
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+                        {docsQ.data.map((d) => (
+                          <KnowledgeBaseDocumentTableRow
+                            key={d.id}
+                            kbId={kbId}
+                            doc={d}
+                            deleteDisabled={deleteDocMut.isPending}
+                            onDelete={() => {
+                              if (window.confirm(`Remove "${d.filename}" from this knowledge base?`)) {
+                                deleteDocMut.mutate(d.id)
+                              }
+                            }}
+                          />
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                {deleteDocMut.isError && (
+                  <p className="mt-2 text-sm text-red-600">{(deleteDocMut.error as Error).message}</p>
+                )}
+              </section>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
