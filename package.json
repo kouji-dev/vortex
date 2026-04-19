@@ -2,8 +2,8 @@
   "name": "ai-portal-chat-remaining-features",
   "private": true,
   "scripts": {
-    "test:e2e": "pnpm --dir frontend test:e2e",
-    "test:e2e:filter": "pnpm --dir frontend test:e2e:filter",
+    "test:e2e": "pnpm --dir apps/frontend test:e2e",
+    "test:e2e:filter": "pnpm --dir apps/frontend test:e2e:filter",
     "test:e2e:all": "bash ./scripts/e2e-all.sh",
     "worktree:up": "bash ./scripts/worktree-up.sh",
     "worktree:down": "bash ./scripts/worktree-down.sh"

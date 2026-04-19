@@ -14,5 +14,5 @@ fi
 FRONTEND_PORT="${FRONTEND_PORT:-5173}"
 
 echo "==> Starting frontend on port $FRONTEND_PORT (network-exposed)..."
-cd "$REPO/frontend"
+cd "$REPO/apps/frontend"
 exec pnpm dev --host --port "$FRONTEND_PORT"

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Start the E2E stack (./scripts/e2e-up.sh) in the background, wait until /health
-# responds, then run Playwright from frontend/. Use SKIP_E2E_STACK=1 if the API
+# responds, then run Playwright from apps/frontend/. Use SKIP_E2E_STACK=1 if the API
 # is already up.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -17,7 +17,7 @@ fi
 : "${E2E_API_PORT:=8001}"
 
 if [ "${SKIP_E2E_STACK:-}" = "1" ]; then
-  exec pnpm --dir frontend test:e2e "$@"
+  exec pnpm --dir apps/frontend test:e2e "$@"
 fi
 
 ./scripts/e2e-up.sh &
@@ -43,4 +43,4 @@ while true; do
   sleep 1
 done
 
-pnpm --dir frontend test:e2e "$@"
+pnpm --dir apps/frontend test:e2e "$@"

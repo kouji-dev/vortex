@@ -26,7 +26,7 @@
 # Usage:
 #   ./scripts/e2e-up.sh                # foreground — Ctrl-C to stop
 #   ./scripts/e2e-up.sh &              # background
-#   cd frontend && pnpm test:e2e       # run Playwright in another shell
+#   cd apps/frontend && pnpm test:e2e  # run Playwright in another shell
 # ---------------------------------------------------------------------------
 set -euo pipefail
 
@@ -106,11 +106,14 @@ for i in $(seq 1 30); do
   sleep 1
 done
 
-# ── Resolve backend directory (worktree vs main) ─────────────────────────────
-if [ -n "$WORKTREE_NAME" ] && [ -d "$REPO_ROOT/.worktrees/${WORKTREE_NAME}/backend" ]; then
+# ── Resolve API directory (worktree vs main) ─────────────────────────────────
+if [ -n "$WORKTREE_NAME" ] && [ -d "$REPO_ROOT/.worktrees/${WORKTREE_NAME}/server/api" ]; then
+  BACKEND_DIR="$REPO_ROOT/.worktrees/${WORKTREE_NAME}/server/api"
+elif [ -n "$WORKTREE_NAME" ] && [ -d "$REPO_ROOT/.worktrees/${WORKTREE_NAME}/backend" ]; then
+  # Legacy layout fallback.
   BACKEND_DIR="$REPO_ROOT/.worktrees/${WORKTREE_NAME}/backend"
 else
-  BACKEND_DIR="$REPO_ROOT/backend"
+  BACKEND_DIR="$REPO_ROOT/server/api"
 fi
 
 # ── 3.5. Reset E2E database ───────────────────────────────────────────────────

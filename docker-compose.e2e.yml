@@ -3,7 +3,7 @@
 # Usage (infrastructure only — API and frontend run on the host):
 #   docker compose -f docker-compose.e2e.yml up -d
 #   ./scripts/e2e-up.sh          # migrate + seed + start API on :8001
-#   cd frontend && pnpm e2e      # run Playwright
+#   cd apps/frontend && pnpm e2e # run Playwright
 #
 # Ports used (all 127.0.0.1 only, no clash with local-dev):
 #   5435  — Postgres (ai_portal_e2e database)

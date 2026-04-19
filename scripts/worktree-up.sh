@@ -210,11 +210,14 @@ fi
 DEV_DB_URL="postgresql+psycopg://postgres:postgres@127.0.0.1:${DB_PORT}/${DB_NAME}"
 E2E_DB_URL="postgresql+psycopg://postgres:postgres@127.0.0.1:${E2E_DB_PORT}/${E2E_DB_NAME}"
 
-# Use worktree backend if it exists, otherwise fall back to repo root backend
-if [ -d "$REPO_ROOT/.worktrees/${NAME}/backend" ]; then
+# Use worktree API dir if it exists, otherwise fall back to repo root API dir
+if [ -d "$REPO_ROOT/.worktrees/${NAME}/server/api" ]; then
+  BACKEND_DIR="$REPO_ROOT/.worktrees/${NAME}/server/api"
+elif [ -d "$REPO_ROOT/.worktrees/${NAME}/backend" ]; then
+  # Legacy layout fallback.
   BACKEND_DIR="$REPO_ROOT/.worktrees/${NAME}/backend"
 else
-  BACKEND_DIR="$REPO_ROOT/backend"
+  BACKEND_DIR="$REPO_ROOT/server/api"
 fi
 
 # ── 2. Run migrations ─────────────────────────────────────────────────────────
@@ -237,8 +240,8 @@ echo "▶ Seeding catalog models (E2E DB)..."
 echo ""
 echo "✓ Worktree '${NAME}' is ready."
 echo ""
-echo "  Start dev backend:   source .worktree.env && cd backend && DATABASE_URL=postgresql+psycopg://postgres:postgres@127.0.0.1:\${DB_PORT}/\${DB_NAME} python -m uvicorn ai_portal.main:app --host 127.0.0.1 --port \${API_PORT} --reload"
+echo "  Start dev API:       source .worktree.env && cd server/api && DATABASE_URL=postgresql+psycopg://postgres:postgres@127.0.0.1:\${DB_PORT}/\${DB_NAME} python -m uvicorn ai_portal.main:app --host 127.0.0.1 --port \${API_PORT} --reload"
 echo "  Start E2E stack:     ./scripts/e2e-up.sh   (auto-reads .worktree.env)"
-echo "  Start frontend:      source .worktree.env && cd frontend && pnpm dev --host"
-echo "  Run E2E tests:       cd frontend && pnpm test:e2e"
+echo "  Start frontend:      source .worktree.env && cd apps/frontend && pnpm dev --host"
+echo "  Run E2E tests:       cd apps/frontend && pnpm test:e2e"
 echo "  Tear down:           ./scripts/worktree-down.sh ${NAME}"

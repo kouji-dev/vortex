@@ -27,34 +27,34 @@ Infrastructure follows the same **Docker Compose project name** and layout as **
 - Postgres image is **`pgvector/pgvector:pg17`** so the `vector` extension is available for RAG.
 
 ```bash
-# Create repo root `.env` (gitignored) — see comments in that file and backend/README.md.
+# Create repo root `.env` (gitignored) — see comments in that file and server/api/README.md.
 docker compose up -d
 docker compose ps
 ```
 
 Put **`DATABASE_URL`** and other API settings in **`.env`** at the repo root (same directory as `docker-compose.yml`). Compose still includes Redis on **6380** for optional local use or future queues.
 
-After **resetting the DB volume** (`docker compose down -v` then `up -d`), run migrations and the catalog seed from `backend/` — see **“After a database reset”** in [`backend/README.md`](backend/README.md).
+After **resetting the DB volume** (`docker compose down -v` then `up -d`), run migrations and the catalog seed from `server/api/` — see **“After a database reset”** in [`server/api/README.md`](server/api/README.md).
 
 ## API + web (MVP-0)
 
-- **Backend:** from `backend/`, run Uvicorn on port **8000** (see `backend/README.md`). `CORS_ORIGINS` in `.env` should include **`http://localhost:5173`** (TanStack Start dev server).
-- **Frontend:** **`frontend/`** is **TanStack Start** (Vite + `@tanstack/react-start`, TanStack Router file routes, TanStack Query, Tailwind v4). Copy `frontend/.env.example` → `frontend/.env` if you need to override **`VITE_API_URL`** (defaults to `http://127.0.0.1:8000` in code).
+- **Backend:** from `server/api/`, run Uvicorn on port **8000** (see `server/api/README.md`). `CORS_ORIGINS` in `.env` should include **`http://localhost:5173`** (TanStack Start dev server).
+- **Frontend:** **`apps/frontend/`** is **TanStack Start** (Vite + `@tanstack/react-start`, TanStack Router file routes, TanStack Query, Tailwind v4). Copy `apps/frontend/.env.example` → `apps/frontend/.env` if you need to override **`VITE_API_URL`** (defaults to `http://127.0.0.1:8000` in code).
 
 ```bash
-cd frontend
-npm install
-npm run dev
+cd apps/frontend
+pnpm install
+pnpm dev --host
 ```
 
-Copy `frontend/.env.example` → `frontend/.env` and set **`VITE_DEV_TOKEN=devtoken`** so catalog/chat routes can call the API.
+Copy `apps/frontend/.env.example` → `apps/frontend/.env` and set **`VITE_DEV_TOKEN=devtoken`** so catalog/chat routes can call the API.
 
 ### VS Code: run API + web together
 
 Tasks live in **`.vscode/tasks.json`**. The backend task uses **Python: Select Interpreter** (`python.defaultInterpreterPath`), so `uvicorn` must be installed in that environment.
 
-1. **`cd backend`** then **`python -m venv .venv`** (or create a venv via the Python extension).
-2. **Command Palette → Python: Select Interpreter** → choose **`backend/.venv/...`**.
+1. **`cd server/api`** then **`python -m venv .venv`** (or create a venv via the Python extension).
+2. **Command Palette → Python: Select Interpreter** → choose **`server/api/.venv/...`**.
 3. Run task **`backend: pip install (editable dev)`** once (installs `uvicorn` and deps).
 4. Run **`Dev: API + Web (watch)`** (or **Run Build Task** / **Ctrl+Shift+B**).
 
@@ -99,7 +99,7 @@ Full MVP chunk map: [`docs/superpowers/plans/2026-03-21-ai-portal-mvp-implementa
 
 ### 3. First-time migration
 
-Alembic migrations run automatically on every deploy via the `CMD` in `backend/Dockerfile`.
+Alembic migrations run automatically on every deploy via the `CMD` in `server/api/Dockerfile`.
 
 ### Self-hosted mode
 

@@ -4,20 +4,25 @@ worktrees/
 .worktree.env
 .worktrees.json
 
+# Design bundles + local scratch
+.design-bundle-*/
+.zed/
+graphify-out/
+
 # Local uploads (RAG)
 data/
 
 # E2E (local Playwright + API upload dir)
 .e2e-uploads/
-frontend/test-results/
-frontend/playwright-report/
+apps/*/test-results/
+apps/*/playwright-report/
 
 # Env & secrets
 .env
 .env.local
 *.pem
-backend/config.yaml
-backend/config.example.yaml
+server/api/config.yaml
+server/api/config.example.yaml
 
 # Python
 __pycache__/
@@ -32,7 +37,9 @@ build/
 
 # Node
 node_modules/
-frontend/dist/
+apps/*/dist/
+apps/docs/out/
+apps/docs/.next/
 *.tsbuildinfo
 
 # Optional local OpenAPI snapshot (see contracts/README.md)

@@ -5,14 +5,14 @@ set -e
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 
-echo "==> Starting backend..."
-cd "$REPO/backend"
+echo "==> Starting API..."
+cd "$REPO/server/api"
 source .venv/Scripts/activate 2>/dev/null || source .venv/bin/activate
 uvicorn src.ai_portal.main:app --port 8000 --reload &
 BACKEND_PID=$!
 
 echo "==> Starting frontend..."
-cd "$REPO/frontend"
+cd "$REPO/apps/frontend"
 pnpm dev --host &
 FRONTEND_PID=$!
 

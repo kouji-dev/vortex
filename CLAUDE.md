@@ -30,7 +30,7 @@ wmic process where "commandline like '%uvicorn%' and commandline like '%8001%'" 
 
 **After a worktree is deleted**, always delete `.worktree.env` from the repo root — stale worktree ports cause E2E tests to hit the wrong backend.
 
-## E2E Scripts (frontend/)
+## E2E Scripts (apps/frontend/)
 
 | Command | Purpose |
 |---|---|
@@ -84,8 +84,8 @@ When working in a git worktree, each worktree gets its own isolated environment:
      ↓ written by worktree-up.sh
 .worktree.env    (per-worktree, gitignored)
      ↓ sourced by e2e-up.sh, uvicorn start, vite start
-backend/config.py       ← DATABASE_URL, API_PORT
-frontend/vite.config.ts ← VITE_DEV_API_PROXY_TARGET
+server/api/config.py         ← DATABASE_URL, API_PORT
+apps/frontend/vite.config.ts ← VITE_DEV_API_PROXY_TARGET
 playwright.config.ts    ← E2E_API_URL, E2E_BASE_URL
 ```
 
