@@ -1,6 +1,6 @@
 import * as Popover from '@radix-ui/react-popover'
 import * as React from 'react'
-import { Library } from 'lucide-react'
+import { ChevronsUpDown, Library } from 'lucide-react'
 
 import { KbPickerPanel } from '~/components/knowledge-bases/KbPickerPanel'
 
@@ -26,21 +26,21 @@ export function KbChatPicker({
         <button
           type="button"
           data-testid="chat-kb-picker-trigger"
-          className={[
-            'inline-flex h-7 items-center gap-1.5 rounded-md border px-2 text-xs transition-colors',
-            isActive
-              ? 'border-blue-500/70 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-blue-500/70 dark:bg-blue-500/10 dark:text-blue-300 dark:hover:bg-blue-500/20'
-              : 'border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-200 dark:hover:bg-neutral-900',
-          ].join(' ')}
+          className={`composer-pill ${isActive ? 'on' : ''}`}
           aria-label={
             isActive
               ? `${activeCount} knowledge base${activeCount !== 1 ? 's' : ''} active`
-              : 'Knowledge bases'
+              : 'Add knowledge'
           }
           aria-expanded={open}
         >
-          <Library className="size-3.5 shrink-0" aria-hidden />
-          <span>{isActive ? `${activeCount} KBs active` : 'KBs'}</span>
+          <Library className="size-3 shrink-0" strokeWidth={2} aria-hidden />
+          <span className="pill-label-full">
+            {isActive
+              ? `${activeCount} knowledge base${activeCount !== 1 ? 's' : ''}`
+              : 'Add knowledge'}
+          </span>
+          <ChevronsUpDown className="size-3" strokeWidth={2} aria-hidden />
         </button>
       </Popover.Trigger>
       <Popover.Portal>

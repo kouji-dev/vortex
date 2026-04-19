@@ -1,13 +1,22 @@
 import { Link, useRouterState } from '@tanstack/react-router'
+import { Brain, Library, MessageSquare, Settings } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
 import { useConversationsListQuery } from '~/hooks/useConversationsListQuery'
 import { useMeQuery } from '~/hooks/useMeQuery'
 
-const NAV = [
-  { to: '/chat/conversations', n: '01', label: 'Chat', testId: 'nav-chat' },
-  { to: '/knowledge-bases', n: '02', label: 'Knowledge', testId: 'nav-knowledge' },
-  { to: '/memories', n: '03', label: 'Memories', testId: 'nav-memories' },
-  { to: '/org/settings', n: '04', label: 'Org Settings', testId: 'nav-org-settings' },
+type NavItem = {
+  to: '/chat/conversations' | '/knowledge-bases' | '/memories' | '/org/settings'
+  Icon: LucideIcon
+  label: string
+  testId: string
+}
+
+const NAV: readonly NavItem[] = [
+  { to: '/chat/conversations', Icon: MessageSquare, label: 'Chat', testId: 'nav-chat' },
+  { to: '/knowledge-bases', Icon: Library, label: 'Knowledge', testId: 'nav-knowledge' },
+  { to: '/memories', Icon: Brain, label: 'Memories', testId: 'nav-memories' },
+  { to: '/org/settings', Icon: Settings, label: 'Org Settings', testId: 'nav-org-settings' },
 ] as const
 
 function relativeTime(iso?: string | null): string {
@@ -48,7 +57,7 @@ export function AppSidebar() {
       {/* Primary nav */}
       <nav className="side-section" aria-label="Primary">
         <div className="side-label">Workspace</div>
-        {NAV.map(({ to, n, label, testId }) => {
+        {NAV.map(({ to, Icon, label, testId }) => {
           // Match /chat/conversations when on any /chat sub-route
           const active =
             to === '/chat/conversations'
@@ -61,7 +70,7 @@ export function AppSidebar() {
               className={`side-item${active ? ' active' : ''}`}
               data-testid={testId}
             >
-              <span className="side-icon mono">{n}</span>
+              <Icon className="side-icon" strokeWidth={2} aria-hidden />
               <span>{label}</span>
             </Link>
           )

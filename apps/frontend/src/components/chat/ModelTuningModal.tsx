@@ -63,52 +63,85 @@ export function ModelTuningModal({
 
   return (
     <div
-      className="fixed inset-0 z-60 flex items-end justify-center bg-black/45 p-0 md:items-center md:p-4"
+      className="fixed inset-0 z-60 flex items-end justify-center p-0 md:items-center md:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="tuning-title"
+      style={{ background: 'color-mix(in oklch, var(--ink) 45%, transparent)' }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
-        className="flex max-h-[min(92dvh,calc(100dvh-env(safe-area-inset-bottom)))] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-b-0 border-neutral-200 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-950 md:max-h-[90vh] md:rounded-xl md:border-b"
+        className="flex max-h-[min(92dvh,calc(100dvh-env(safe-area-inset-bottom)))] w-full max-w-lg flex-col overflow-hidden md:max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
+        style={{
+          background: 'var(--panel)',
+          border: '1px solid var(--line)',
+          borderBottom: 'none',
+          borderTopLeftRadius: 12,
+          borderTopRightRadius: 12,
+          boxShadow: 'var(--shadow-lg)',
+        }}
       >
+        <style>{`@media (min-width: 768px) { .vx-tuning-shell { border-bottom: 1px solid var(--line); border-radius: var(--radius); } }`}</style>
         <div
-          className="mx-auto mb-4 mt-2 h-1 w-10 shrink-0 rounded-full bg-neutral-300 dark:bg-neutral-700 md:hidden"
           aria-hidden
+          className="mx-auto mb-4 mt-2 h-1 w-10 shrink-0 rounded-full md:hidden"
+          style={{ background: 'var(--line-2)' }}
         />
-        <div className="min-h-0 flex-1 overflow-y-auto p-4">
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <h2 id="tuning-title" className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
-                Model settings
-              </h2>
-              {model && (
-                <p className="mt-0.5 text-sm text-neutral-500">{model.display_name}</p>
-              )}
-            </div>
-            <button
-              type="button"
-              className="rounded p-1 text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-900"
-              onClick={onClose}
-              aria-label="Close"
-              autoFocus
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
 
-          <p className="mt-2 rounded-md bg-amber-50 px-2 py-1.5 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
-            These options apply in this browser session only. API persistence for sampling and
-            reasoning is not wired yet — the portal still uses server defaults for generation.
+        {/* Header */}
+        <div
+          className="flex items-start justify-between gap-2 px-4 py-3"
+          style={{ borderBottom: '1px solid var(--line-2)' }}
+        >
+          <div>
+            <p className="mono" style={{ fontSize: 10, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              Session settings
+            </p>
+            <h2
+              id="tuning-title"
+              style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', margin: '2px 0 0' }}
+            >
+              Model settings
+            </h2>
+            {model && (
+              <p style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 2 }}>{model.display_name}</p>
+            )}
+          </div>
+          <button
+            type="button"
+            className="btn btn-xs"
+            onClick={onClose}
+            aria-label="Close"
+            autoFocus
+            style={{ padding: 4, width: 24, height: 24 }}
+          >
+            <X className="size-3" aria-hidden />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+          <p
+            style={{
+              fontSize: 11,
+              color: 'var(--warn)',
+              padding: '8px 10px',
+              borderRadius: 4,
+              background: 'color-mix(in oklch, var(--warn) 12%, var(--panel))',
+              border: '1px solid color-mix(in oklch, var(--warn) 30%, var(--line))',
+            }}
+          >
+            Applies to this browser session only. Sampling and reasoning are not yet persisted
+            server-side — the portal still uses server defaults for generation.
           </p>
 
-          <div className="mt-4 space-y-4">
+          <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
             {model && r?.supported && r.efforts_available.length > 0 && (
-              <div>
-                <label className="mb-1 block text-xs font-medium text-neutral-500">Reasoning effort</label>
+              <div className="form-row" style={{ marginBottom: 0, maxWidth: 'none' }}>
+                <label>Reasoning effort</label>
                 <select
-                  className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-900"
+                  className="select"
                   value={tuning.reasoningEffort}
                   onChange={(e) =>
                     onTuningChange({ ...tuning, reasoningEffort: e.target.value })
@@ -124,14 +157,27 @@ export function ModelTuningModal({
             )}
 
             {model && tempRange != null && (
-              <div>
-                <div className="mb-1 flex justify-between text-xs font-medium text-neutral-500">
+              <div className="form-row" style={{ marginBottom: 0, maxWidth: 'none' }}>
+                <div
+                  className="mb-1 flex items-baseline justify-between"
+                  style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink)' }}
+                >
                   <span>Temperature</span>
-                  <span className="tabular-nums text-neutral-400">{tuning.temperature.toFixed(2)}</span>
+                  <span
+                    className="mono"
+                    style={{
+                      fontSize: 11,
+                      color: 'var(--ink-3)',
+                      fontVariantNumeric: 'tabular-nums',
+                    }}
+                  >
+                    {tuning.temperature.toFixed(2)}
+                  </span>
                 </div>
                 <input
                   type="range"
-                  className="w-full accent-neutral-800 dark:accent-neutral-200"
+                  className="w-full"
+                  style={{ accentColor: 'var(--accent)' }}
                   min={tempRange.min}
                   max={tempRange.max}
                   step={0.01}
@@ -143,20 +189,17 @@ export function ModelTuningModal({
                     })
                   }
                 />
-                <p className="mt-0.5 text-[10px] text-neutral-400">
-                  Allowed {tempRange.min}–{tempRange.max}
-                </p>
+                <p className="hint">Allowed {tempRange.min}–{tempRange.max}</p>
               </div>
             )}
 
             {model && tokRange != null && (
-              <div>
-                <label className="mb-1 block text-xs font-medium text-neutral-500">
-                  Max output tokens
-                </label>
+              <div className="form-row" style={{ marginBottom: 0, maxWidth: 'none' }}>
+                <label>Max output tokens</label>
                 <input
                   type="number"
-                  className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-900"
+                  className="select"
+                  style={{ backgroundImage: 'none', paddingRight: 10 }}
                   min={tokRange.min}
                   max={tokRange.max}
                   value={tuning.maxOutputTokens}
@@ -167,24 +210,26 @@ export function ModelTuningModal({
                     })
                   }
                 />
-                <p className="mt-0.5 text-[10px] text-neutral-400">
-                  Allowed {tokRange.min}–{tokRange.max}
-                </p>
+                <p className="hint">Allowed {tokRange.min}–{tokRange.max}</p>
               </div>
             )}
           </div>
-
-          <div className="mt-6 flex justify-end">
-            <button
-              type="button"
-              className="rounded-lg bg-neutral-900 px-4 py-2 text-sm text-white dark:bg-neutral-100 dark:text-neutral-900"
-              onClick={onClose}
-            >
-              Done
-            </button>
-          </div>
         </div>
-        <div className="shrink-0 pb-safe" aria-hidden />
+
+        {/* Footer */}
+        <div
+          className="flex justify-end gap-2 px-4 py-3"
+          style={{ borderTop: '1px solid var(--line-2)' }}
+        >
+          <button type="button" className="btn btn-sm" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="button" className="btn btn-primary btn-sm" onClick={onClose}>
+            Done
+          </button>
+        </div>
+
+        <div className="shrink-0" aria-hidden style={{ paddingBottom: 'env(safe-area-inset-bottom)' }} />
       </div>
     </div>
   )

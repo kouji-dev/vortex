@@ -4,6 +4,7 @@ import {
   Outlet,
   Scripts,
   createRootRouteWithContext,
+  useRouterState,
 } from '@tanstack/react-router'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
@@ -20,6 +21,11 @@ import appCss from '~/styles/app.css?url'
 import { seo } from '~/utils/seo'
 import { useAuthRedirect } from '~/hooks/useAuthRedirect'
 import { useSetupRedirect } from '~/hooks/useSetupRedirect'
+import { bootstrapTheme } from '~/hooks/useTheme'
+
+if (typeof window !== 'undefined') {
+  bootstrapTheme()
+}
 
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient
@@ -77,12 +83,18 @@ export const Route = createRootRouteWithContext<{
   component: RootComponent,
 })
 
+const AUTH_ROUTE_RE = /^\/(login|register|setup)(\/|$)/
+
 function RootComponent() {
   useAuthRedirect()
   useSetupRedirect()
   const { isMobile } = useIsMobile()
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
+  const isAuthRoute = AUTH_ROUTE_RE.test(pathname)
 
-  const shell = isMobile ? (
+  const content = isAuthRoute ? (
+    <Outlet />
+  ) : isMobile ? (
     <MobileAppShell>
       <Outlet />
     </MobileAppShell>
@@ -94,7 +106,7 @@ function RootComponent() {
 
   return (
     <RootDocument>
-      {getAuthMode() === 'entra' ? <EntraRoot>{shell}</EntraRoot> : shell}
+      {getAuthMode() === 'entra' ? <EntraRoot>{content}</EntraRoot> : content}
     </RootDocument>
   )
 }

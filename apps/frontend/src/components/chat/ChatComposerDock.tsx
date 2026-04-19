@@ -1,4 +1,15 @@
-import { BookOpen, Brain, Lock, Paperclip, Plus, Send, Settings2, Square, X, type LucideIcon } from 'lucide-react'
+import {
+  ArrowUp,
+  BookOpen,
+  Brain,
+  ChevronsUpDown,
+  Lock,
+  Paperclip,
+  Settings2,
+  Square,
+  X,
+  type LucideIcon,
+} from 'lucide-react'
 import * as React from 'react'
 
 import {
@@ -7,24 +18,15 @@ import {
   defaultTuningFromCatalog,
 } from '~/components/chat/ModelTuningModal'
 import { RequestAccessModal } from '~/components/chat/RequestAccessModal'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '~/components/ui/select'
 import type { CapabilityToggles, CatalogModelEntry } from '~/lib/chat-types'
 import { catalogModelByStoredModel, portalDefaultCatalogModel } from '~/hooks/useCatalogModelsQuery'
 import { useModels } from '~/hooks/useModels'
-
-const CATALOG_SELECT_PREFIX = 'catalog:' as const
 
 const COMPOSER_TEXTAREA_MAX_LINES = 4
 
 export type CapabilityKey = 'reflection' | 'research'
 
-const CAPABILITY_MENU: { key: CapabilityKey; label: string; Icon: LucideIcon }[] = [
+const CAPABILITY_PILLS: { key: CapabilityKey; label: string; Icon: LucideIcon }[] = [
   { key: 'reflection', label: 'Reflection', Icon: Brain },
   { key: 'research', label: 'Research', Icon: BookOpen },
 ]
@@ -40,7 +42,6 @@ type ChatComposerDockProps = {
   capabilities: CapabilityToggles
   onToggleCapability: (key: CapabilityKey) => void
   capabilityDisabled?: boolean
-  /** Per-toggle help text from `GET /api/chat/capability-profile`. */
   capabilityDescriptions?: Record<CapabilityKey, string>
   composeDraft: string
   setComposeDraft: (v: string) => void
@@ -61,30 +62,28 @@ type ChatComposerDockProps = {
   attachDisabled?: boolean
 }
 
-function CapabilityTag({
-  label,
-  icon: Icon,
-  onRemove,
-  disabled,
-}: {
-  label: string
-  icon: LucideIcon
-  onRemove: () => void
-  disabled?: boolean
-}) {
+export function providerInitialFromModelId(apiModelId?: string): string {
+  if (!apiModelId) return '◆'
+  const s = apiModelId.toLowerCase()
+  if (s.includes('claude') || s.includes('anthropic')) return 'A'
+  if (s.includes('gpt') || s.includes('openai') || s.startsWith('o1') || s.startsWith('o3') || s.startsWith('o4')) return 'O'
+  if (s.includes('gemini') || s.includes('google')) return 'G'
+  if (s.includes('azure')) return 'Z'
+  return apiModelId.slice(0, 1).toUpperCase()
+}
+
+export function ProviderMark({ model }: { model: CatalogModelEntry | null | undefined }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-800 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200">
-      <Icon className="h-3 w-3 shrink-0" strokeWidth={2} />
-      {label}
-      <button
-        type="button"
-        className="rounded-full p-0.5 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-800 dark:hover:bg-neutral-700 dark:hover:text-neutral-100"
-        aria-label={`Remove ${label}`}
-        disabled={disabled}
-        onClick={onRemove}
-      >
-        <X className="h-3 w-3" strokeWidth={2.5} />
-      </button>
+    <span
+      aria-hidden
+      className="inline-flex size-3.5 items-center justify-center rounded-[3px] font-mono text-[9px] font-semibold"
+      style={{
+        background: 'var(--bg-2)',
+        border: '1px solid var(--line)',
+        color: 'var(--ink-2)',
+      }}
+    >
+      {providerInitialFromModelId(model?.api_model_id)}
     </span>
   )
 }
@@ -106,7 +105,6 @@ export function ChatComposerDock({
   onSubmit,
   streaming,
   onStop,
-  inputThemed,
   composerDisabled,
   kbSlot,
   selectedCatalogModel,
@@ -119,15 +117,12 @@ export function ChatComposerDock({
   onLocalFilesChosen,
   attachDisabled,
 }: ChatComposerDockProps) {
-  const [requestAccessModel, setRequestAccessModel] = React.useState<CatalogModelEntry | null>(
-    null,
-  )
+  const [requestAccessModel, setRequestAccessModel] = React.useState<CatalogModelEntry | null>(null)
   const [tuningOpen, setTuningOpen] = React.useState(false)
-  const [plusOpen, setPlusOpen] = React.useState(false)
-  const [modelSelectOpen, setModelSelectOpen] = React.useState(false)
-  const plusWrapRef = React.useRef<HTMLDivElement>(null)
+  const [modelMenuOpen, setModelMenuOpen] = React.useState(false)
   const composeTextareaRef = React.useRef<HTMLTextAreaElement>(null)
   const attachInputRef = React.useRef<HTMLInputElement>(null)
+  const modelPillRef = React.useRef<HTMLDivElement>(null)
 
   const { sorted, selectedModel: storedCatalogRow, defaultModel: defaultCatalogRow, modelLabel, selectModel } = useModels({
     models,
@@ -136,30 +131,9 @@ export function ChatComposerDock({
     onCommitChatModel,
   })
 
-  React.useEffect(() => {
-    if (!plusOpen) return
-    const onDoc = (e: MouseEvent) => {
-      const el = plusWrapRef.current
-      if (el && e.target instanceof Node && !el.contains(e.target)) setPlusOpen(false)
-    }
-    document.addEventListener('mousedown', onDoc)
-    return () => document.removeEventListener('mousedown', onDoc)
-  }, [plusOpen])
-
-  const handleModelSelectChange = (v: string) => {
-    if (v === '__auto__') selectModel('')
-    else if (v.startsWith(CATALOG_SELECT_PREFIX))
-      selectModel(v.slice(CATALOG_SELECT_PREFIX.length))
-    else selectModel(v)
-  }
-
-  const openTuning = () => {
-    setPlusOpen(false)
-    if (selectedCatalogModel) {
-      onTuningChange(defaultTuningFromCatalog(selectedCatalogModel))
-    }
-    setTuningOpen(true)
-  }
+  const activeModel = storedCatalogRow ?? defaultCatalogRow ?? null
+  const effortLabel = (selectedCatalogModel?.model_settings as { reasoning_effort?: string } | undefined)
+    ?.reasoning_effort
 
   const maxInputChars = React.useMemo(() => {
     const cap = selectedCatalogModel?.model_settings.limits?.max_input_chars
@@ -179,29 +153,46 @@ export function ChatComposerDock({
     const styles = getComputedStyle(el)
     const lh = parseFloat(styles.lineHeight)
     const lineHeight = Number.isFinite(lh) && lh > 0 ? lh : 20
-    const padY =
-      (parseFloat(styles.paddingTop) || 0) + (parseFloat(styles.paddingBottom) || 0)
+    const padY = (parseFloat(styles.paddingTop) || 0) + (parseFloat(styles.paddingBottom) || 0)
     const borderY =
-      (parseFloat(styles.borderTopWidth) || 0) +
-      (parseFloat(styles.borderBottomWidth) || 0)
+      (parseFloat(styles.borderTopWidth) || 0) + (parseFloat(styles.borderBottomWidth) || 0)
     const maxPx = lineHeight * COMPOSER_TEXTAREA_MAX_LINES + padY + borderY
     const contentH = el.scrollHeight
     el.style.height = `${Math.min(contentH, maxPx)}px`
     el.style.overflowY = contentH > maxPx ? 'auto' : 'hidden'
   }, [composeDraft])
 
-  const orphanCustomModel =
-    chatModel !== '' &&
-    !sorted.some((m) => m.slug === chatModel) &&
-    !sorted.some((m) => m.api_model_id === chatModel)
-  const selectValue =
-    chatModel === ''
-      ? defaultCatalogRow != null
-        ? `${CATALOG_SELECT_PREFIX}${defaultCatalogRow.slug}`
-        : ''
-      : storedCatalogRow != null
-        ? `${CATALOG_SELECT_PREFIX}${storedCatalogRow.slug}`
-        : chatModel
+  React.useEffect(() => {
+    if (!modelMenuOpen) return
+    const onDoc = (e: MouseEvent) => {
+      const el = modelPillRef.current
+      if (el && e.target instanceof Node && !el.contains(e.target)) setModelMenuOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [modelMenuOpen])
+
+  const openTuning = () => {
+    if (selectedCatalogModel) onTuningChange(defaultTuningFromCatalog(selectedCatalogModel))
+    setTuningOpen(true)
+  }
+
+  const handlePickModel = (m: CatalogModelEntry) => {
+    if (!m.accessible) {
+      if (m.request_access_url) {
+        window.open(m.request_access_url, '_blank', 'noopener,noreferrer')
+      } else if (m.can_request_access) {
+        setRequestAccessModel(m)
+      }
+      return
+    }
+    selectModel(m.slug)
+    setModelMenuOpen(false)
+  }
+
+  const hasAttachments =
+    (pendingServerAttachments != null && pendingServerAttachments.length > 0) ||
+    (pendingLocalFileNames != null && pendingLocalFileNames.length > 0)
 
   return (
     <>
@@ -218,148 +209,121 @@ export function ChatComposerDock({
         onTuningChange={onTuningChange}
       />
 
-      <div className="rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-950">
-        <div className="p-2 pb-1.5">
-          {((pendingServerAttachments != null && pendingServerAttachments.length > 0) ||
-            (pendingLocalFileNames != null && pendingLocalFileNames.length > 0)) && (
-            <div
-              data-testid="chat-composer-attachments"
-              className="mb-1.5 flex flex-wrap items-center gap-1"
-            >
-              {pendingServerAttachments?.map((a) => (
-                <span
-                  key={`srv-${a.id}`}
-                  className="inline-flex max-w-[min(100%,14rem)] items-center gap-1 truncate rounded-md border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-xs text-neutral-800 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-200"
-                >
-                  <span className="min-w-0 truncate" title={a.name}>
-                    {a.name}
-                  </span>
-                  <button
-                    type="button"
-                    className="shrink-0 rounded p-0.5 text-neutral-500 hover:bg-neutral-200 dark:hover:bg-neutral-800"
-                    aria-label={`Remove ${a.name}`}
-                    disabled={Boolean(attachDisabled) || streaming}
-                    onClick={() => onRemoveServerAttachment?.(a.id)}
-                  >
-                    <X className="size-3" strokeWidth={2.5} />
-                  </button>
-                </span>
-              ))}
-              {pendingLocalFileNames?.map((name, i) => (
-                <span
-                  key={`loc-${i}-${name}`}
-                  className="inline-flex max-w-[min(100%,14rem)] items-center gap-1 truncate rounded-md border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-xs text-neutral-800 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-200"
-                >
-                  <span className="min-w-0 truncate" title={name}>
-                    {name}
-                  </span>
-                  <button
-                    type="button"
-                    className="shrink-0 rounded p-0.5 text-neutral-500 hover:bg-neutral-200 dark:hover:bg-neutral-800"
-                    aria-label={`Remove ${name}`}
-                    disabled={Boolean(attachDisabled) || streaming}
-                    onClick={() => onRemoveLocalFile?.(i)}
-                  >
-                    <X className="size-3" strokeWidth={2.5} />
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
-          <textarea
-            ref={composeTextareaRef}
-            className={`min-h-0 w-full resize-none rounded-lg border px-2.5 py-2 text-base leading-snug ${inputThemed}`}
-            value={composeDraft}
-            onChange={(e) => setComposeDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                if (!streaming && !composerDisabled && composeDraft.trim()) onSubmit()
-              }
-            }}
-            placeholder="Message Vortex… (Shift+Enter for newline)"
-            disabled={Boolean(composerDisabled) || streaming}
-            rows={1}
-            maxLength={maxInputChars}
-            aria-label="Message"
-          />
-          <p className="mt-1 text-right text-[10px] tabular-nums text-neutral-400 dark:text-neutral-500">
-            {composeDraft.length.toLocaleString('en')} / {maxInputChars.toLocaleString('en')}
-          </p>
-        </div>
-
-        <div className="flex items-center justify-between gap-2 border-t border-neutral-100 px-2 py-1.5 dark:border-neutral-800">
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
-            <div className="relative shrink-0" ref={plusWrapRef}>
-            <button
-              type="button"
-              data-testid="chat-add-options"
-              className="flex size-8 items-center justify-center rounded-lg border border-neutral-200 text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-900"
-              aria-expanded={plusOpen}
-              aria-haspopup="menu"
-              aria-label="Add options"
-              onClick={() => setPlusOpen((o) => !o)}
-            >
-              <Plus className="size-4" strokeWidth={2} />
-            </button>
-            {plusOpen && (
-              <div
-                className="absolute bottom-full left-0 z-50 mb-1 min-w-[200px] rounded-lg border border-neutral-200 bg-white py-0.5 shadow-lg dark:border-neutral-700 dark:bg-neutral-950"
-                role="menu"
+      <div className="composer-wrap">
+        <div className="composer">
+          {/* Pills row ───────────────────────────────────────────────── */}
+          <div className="composer-pills">
+            {/* Model pill */}
+            <div className="pill-wrap" ref={modelPillRef}>
+              <button
+                type="button"
+                data-testid="chat-model-select"
+                className="composer-pill"
+                title={modelLabel}
+                disabled={
+                  modelSelectDisabled ||
+                  modelsPending ||
+                  sorted.length === 0 ||
+                  (chatModel === '' && defaultCatalogRow == null)
+                }
+                onClick={() => setModelMenuOpen((v) => !v)}
+                aria-haspopup="menu"
+                aria-expanded={modelMenuOpen}
               >
-                <p className="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
-                  Capabilities
-                </p>
-                {CAPABILITY_MENU.map(({ key, label, Icon }) => {
-                  const on = capabilities[key]
-                  const desc = capabilityDescriptions?.[key]
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      role="menuitem"
-                      disabled={capabilityDisabled}
-                      className="flex w-full flex-col gap-0.5 px-2.5 py-1.5 text-left text-xs hover:bg-neutral-100 disabled:opacity-50 dark:hover:bg-neutral-900"
-                      onClick={() => {
-                        onToggleCapability(key)
-                        setPlusOpen(false)
-                      }}
-                    >
-                      <span className="flex w-full items-center gap-2">
-                        <Icon className="size-3.5 shrink-0 text-neutral-500 dark:text-neutral-400" strokeWidth={2} />
-                        <span
-                          className={
-                            on ? 'font-medium text-neutral-900 dark:text-neutral-100' : ''
-                          }
-                        >
-                          {label}
-                        </span>
-                        {on && (
-                          <span className="ml-auto shrink-0 text-xs text-neutral-400">on</span>
-                        )}
+                <ProviderMark model={activeModel} />
+                <span className="pill-label-full">{modelLabel}</span>
+                {effortLabel && <span className="pill-effort">{effortLabel}</span>}
+                <ChevronsUpDown className="size-3" strokeWidth={2} />
+              </button>
+              {modelMenuOpen && (
+                <>
+                  <div className="menu-scrim" onClick={() => setModelMenuOpen(false)} />
+                  <div className="menu model-menu" role="listbox" aria-label="Model catalog">
+                    <div className="menu-head">
+                      <span>Model catalog</span>
+                      <span className="mono muted">
+                        {sorted.filter((m) => m.accessible).length} entitled
                       </span>
-                      {desc ? (
-                        <span className="text-[10px] leading-snug text-neutral-500 dark:text-neutral-400">
-                          {desc}
-                        </span>
-                      ) : null}
-                    </button>
-                  )
-                })}
-                <div className="my-0.5 border-t border-neutral-100 dark:border-neutral-800" />
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-xs hover:bg-neutral-100 dark:hover:bg-neutral-900"
-                  onClick={openTuning}
-                >
-                  <Settings2 className="size-3.5 shrink-0" />
-                  Model settings
-                </button>
-              </div>
-            )}
+                    </div>
+                    <div className="menu-scroll">
+                      {sorted.map((m) => {
+                        const isActive = storedCatalogRow?.id === m.id
+                        const actionable = m.can_request_access || Boolean(m.request_access_url)
+                        return (
+                          <div
+                            key={m.id}
+                            role="option"
+                            aria-selected={isActive}
+                            tabIndex={0}
+                            className={`model-menu-row ${isActive ? 'active' : ''} ${
+                              m.accessible ? '' : 'opacity-60'
+                            }`}
+                            onClick={() => handlePickModel(m)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault()
+                                handlePickModel(m)
+                              }
+                            }}
+                          >
+                            <ProviderMark model={m} />
+                            <div className="mm-main">
+                              <div className="mm-name">
+                                {m.display_name}
+                                {!m.accessible && !actionable && ' (locked)'}
+                              </div>
+                              <div className="mm-meta">
+                                {m.api_model_id}
+                              </div>
+                            </div>
+                            {!m.accessible && actionable && (
+                              <Lock className="size-3" strokeWidth={2} />
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                    <div className="menu-foot">
+                      <button
+                        type="button"
+                        className="link-btn"
+                        onClick={() => {
+                          setModelMenuOpen(false)
+                          openTuning()
+                        }}
+                      >
+                        <Settings2 className="size-3" strokeWidth={2} />
+                        Model settings
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
+            {/* Capability pills */}
+            {CAPABILITY_PILLS.map(({ key, label, Icon }) => (
+              <button
+                key={key}
+                type="button"
+                data-testid={`capability-pill-${key}`}
+                className={`composer-pill ${capabilities[key] ? 'on' : ''}`}
+                title={capabilityDescriptions?.[key] ?? label}
+                disabled={capabilityDisabled}
+                aria-pressed={capabilities[key]}
+                onClick={() => onToggleCapability(key)}
+              >
+                <Icon className="size-3" strokeWidth={2} />
+                <span className="pill-label-full">{label}</span>
+              </button>
+            ))}
+
+            {/* KB picker injected by parent */}
+            {kbSlot != null && <div className="pill-wrap">{kbSlot}</div>}
+
+            <span className="pill-spacer" />
+
+            {/* Attach paperclip (ghost pill) */}
             {onLocalFilesChosen != null && (
               <>
                 <input
@@ -378,147 +342,118 @@ export function ChatComposerDock({
                 />
                 <button
                   type="button"
-                  className="inline-flex size-8 items-center justify-center rounded-lg border border-neutral-200 text-neutral-600 hover:bg-neutral-50 disabled:opacity-40 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-900"
+                  className="composer-pill ghost"
                   aria-label="Attach files"
+                  title="Attach file (.txt, .md)"
                   disabled={Boolean(attachDisabled) || streaming}
                   onClick={() => attachInputRef.current?.click()}
                 >
-                  <Paperclip className="size-3.5" strokeWidth={2} />
+                  <Paperclip className="size-3" strokeWidth={2} />
                 </button>
               </>
             )}
-
-            <div className="min-w-0">
-            <label className="sr-only" htmlFor="chat-model-select">
-              Model
-            </label>
-            <Select
-              open={modelSelectOpen}
-              onOpenChange={setModelSelectOpen}
-              value={selectValue || undefined}
-              onValueChange={handleModelSelectChange}
-              disabled={
-                modelSelectDisabled ||
-                modelsPending ||
-                sorted.length === 0 ||
-                (chatModel === '' && defaultCatalogRow == null)
-              }
-            >
-              <SelectTrigger
-                id="chat-model-select"
-                data-testid="chat-model-select"
-                title={modelLabel}
-                className="h-7 w-max max-w-44 border-neutral-200/90 px-1.5 py-0 text-[11px] leading-tight sm:max-w-52 dark:border-neutral-700 [&_svg]:size-3"
-              >
-                <SelectValue placeholder={modelLabel} />
-              </SelectTrigger>
-              <SelectContent position="popper" side="top" sideOffset={6} align="start">
-                {!modelsPending &&
-                  sorted.map((m) => {
-                    const actionable =
-                      m.can_request_access || Boolean(m.request_access_url)
-                    if (m.accessible) {
-                      return (
-                        <SelectItem
-                          key={m.id}
-                          value={`${CATALOG_SELECT_PREFIX}${m.slug}`}
-                          textValue={m.display_name}
-                        >
-                          {m.display_name}
-                        </SelectItem>
-                      )
-                    }
-                    return (
-                      <SelectItem
-                        key={m.id}
-                        value={`${CATALOG_SELECT_PREFIX}${m.slug}`}
-                        disabled
-                        textValue={m.display_name}
-                        itemSuffix={
-                          actionable ? (
-                            <button
-                              type="button"
-                              className="inline-flex size-6 shrink-0 items-center justify-center rounded-sm text-neutral-600 hover:bg-neutral-200/80 dark:text-neutral-400 dark:hover:bg-neutral-800"
-                              aria-label={`Request access to ${m.display_name}`}
-                              onPointerDown={(e) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                              }}
-                              onClick={(e) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                setModelSelectOpen(false)
-                                if (m.request_access_url) {
-                                  window.open(
-                                    m.request_access_url,
-                                    '_blank',
-                                    'noopener,noreferrer',
-                                  )
-                                } else {
-                                  setRequestAccessModel(m)
-                                }
-                              }}
-                            >
-                              <Lock className="size-3" strokeWidth={2} />
-                            </button>
-                          ) : undefined
-                        }
-                      >
-                        {actionable ? m.display_name : `${m.display_name} (locked)`}
-                      </SelectItem>
-                    )
-                  })}
-                {!modelsPending && orphanCustomModel && (
-                  <SelectItem value={chatModel}>{chatModel} (custom)</SelectItem>
-                )}
-              </SelectContent>
-            </Select>
-            {modelsError && (
-              <p className="mt-0.5 w-full text-[10px] leading-tight text-amber-600 dark:text-amber-400">
-                Catalog failed to load
-              </p>
-            )}
-            </div>
-
-            {(capabilities.reflection ||
-              capabilities.research) && (
-              <div className="flex min-w-0 flex-wrap items-center gap-1">
-                {CAPABILITY_MENU.filter(({ key }) => capabilities[key]).map(({ key, label, Icon }) => (
-                  <CapabilityTag
-                    key={key}
-                    label={label}
-                    icon={Icon}
-                    disabled={capabilityDisabled}
-                    onRemove={() => onToggleCapability(key)}
-                  />
-                ))}
-              </div>
-            )}
           </div>
 
-          {kbSlot != null && <div className="shrink-0">{kbSlot}</div>}
+          {/* Attachments list ─────────────────────────────────────────── */}
+          {hasAttachments && (
+            <div
+              data-testid="chat-composer-attachments"
+              className="flex flex-wrap items-center gap-1.5"
+              style={{ padding: '6px 12px 0' }}
+            >
+              {pendingServerAttachments?.map((a) => (
+                <span
+                  key={`srv-${a.id}`}
+                  className="attach-chip"
+                  title={a.name}
+                >
+                  <Paperclip className="size-3" strokeWidth={2} />
+                  <span className="max-w-[12rem] truncate">{a.name}</span>
+                  <button
+                    type="button"
+                    className="link-btn"
+                    aria-label={`Remove ${a.name}`}
+                    disabled={Boolean(attachDisabled) || streaming}
+                    onClick={() => onRemoveServerAttachment?.(a.id)}
+                  >
+                    <X className="size-3" strokeWidth={2.5} />
+                  </button>
+                </span>
+              ))}
+              {pendingLocalFileNames?.map((name, i) => (
+                <span key={`loc-${i}-${name}`} className="attach-chip" title={name}>
+                  <Paperclip className="size-3" strokeWidth={2} />
+                  <span className="max-w-[12rem] truncate">{name}</span>
+                  <button
+                    type="button"
+                    className="link-btn"
+                    aria-label={`Remove ${name}`}
+                    disabled={Boolean(attachDisabled) || streaming}
+                    onClick={() => onRemoveLocalFile?.(i)}
+                  >
+                    <X className="size-3" strokeWidth={2.5} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
 
-          <div className="shrink-0">
-            {streaming ? (
-              <button
-                type="button"
-                className="flex size-8 items-center justify-center rounded-lg border border-red-300 text-red-700 dark:border-red-800 dark:text-red-400"
-                aria-label="Stop generating"
-                onClick={onStop}
-              >
-                <Square className="size-3.5 fill-current" strokeWidth={2} />
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="flex size-8 items-center justify-center rounded-lg bg-neutral-900 text-white shadow-sm disabled:opacity-40 dark:bg-neutral-100 dark:text-neutral-900"
-                disabled={composerDisabled || !composeDraft.trim()}
-                aria-label="Send message"
-                onClick={onSubmit}
-              >
-                <Send className="size-4" strokeWidth={2} />
-              </button>
-            )}
+          {/* Textarea ─────────────────────────────────────────────────── */}
+          <div className="composer-input">
+            <textarea
+              ref={composeTextareaRef}
+              value={composeDraft}
+              onChange={(e) => setComposeDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                  e.preventDefault()
+                  if (!streaming && !composerDisabled && composeDraft.trim()) onSubmit()
+                }
+              }}
+              placeholder={`Message ${modelLabel}…`}
+              disabled={Boolean(composerDisabled) || streaming}
+              rows={1}
+              maxLength={maxInputChars}
+              aria-label="Message"
+            />
+          </div>
+
+          {/* Foot: hints + send ────────────────────────────────────────── */}
+          <div className="composer-foot">
+            <div className="composer-hints">
+              <kbd>⌃↵</kbd> send · <kbd>↵</kbd> newline
+              {modelsError && (
+                <span style={{ color: 'var(--warn)', marginLeft: 10 }}>
+                  · catalog failed to load
+                </span>
+              )}
+            </div>
+            <div className="composer-send">
+              {streaming ? (
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  style={{ color: 'var(--err)' }}
+                  aria-label="Stop generating"
+                  onClick={onStop}
+                >
+                  <Square className="size-3" strokeWidth={2} fill="currentColor" />
+                  Stop
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  disabled={composerDisabled || !composeDraft.trim()}
+                  aria-label="Send message"
+                  data-testid="chat-send-button"
+                  onClick={onSubmit}
+                >
+                  <ArrowUp className="size-3" strokeWidth={2.5} />
+                  Send
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -535,4 +470,3 @@ export function resolveSelectedCatalogModel(
   }
   return portalDefaultCatalogModel(models)
 }
-

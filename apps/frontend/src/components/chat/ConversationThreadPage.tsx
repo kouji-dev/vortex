@@ -11,7 +11,7 @@ import { ChatComposerDockMobile } from '~/components/chat/ChatComposerDockMobile
 import { EmptyConversationState } from '~/components/chat/EmptyConversationState'
 import { MarkdownMessage } from '~/components/chat/MarkdownMessage'
 import { StartersPanel } from '~/components/chat/StartersPanel'
-import { ThreadItemChip } from '~/components/chat/ThreadItemChip'
+import { ThinkingBlock } from '~/components/chat/ThinkingBlock'
 import { MessageKbIndicator } from '~/components/knowledge-bases/MessageKbIndicator'
 import { KbChatPicker } from '~/components/knowledge-bases/KbChatPicker'
 import { MessageUsageBadge } from '~/components/chat/MessageUsageBadge'
@@ -20,6 +20,7 @@ import { useConversationsOutlet } from '~/contexts/ConversationsOutletContext'
 import { useCatalogModelsQuery } from '~/hooks/useCatalogModelsQuery'
 import { useChatCapabilityProfileQuery } from '~/hooks/useChatCapabilityProfileQuery'
 import { useIsMobile } from '~/hooks/useIsMobile'
+import { useMeQuery } from '~/hooks/useMeQuery'
 import { useThread } from '~/hooks/useThread'
 import { isConversationNotFoundError } from '~/lib/conversation-not-found'
 import type { ChatMessage, StreamThreadItem, UsedKbEntry } from '~/lib/chat-types'
@@ -40,11 +41,10 @@ const THREAD_BOTTOM_STICKY_PX = 80
 function PersistedStreamItems({ message }: { message: ChatMessage }) {
   const items = message.extra?.stream_items as StreamThreadItem[] | undefined
   if (!items?.length) return null
+  const normalized = items.map((item) => ({ ...item, status: 'done' as const }))
   return (
-    <div className="mb-2 flex flex-col gap-1.5">
-      {items.map((item, i) => (
-        <ThreadItemChip key={item.uid ?? i} item={{ ...item, status: 'done' }} />
-      ))}
+    <div className="mb-2">
+      <ThinkingBlock items={normalized} running={false} defaultOpen={false} />
     </div>
   )
 }
@@ -121,6 +121,20 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
         : undefined,
     [capProfileQ.data],
   )
+
+  // ── Current user (for avatar initials in user messages) ───────────────────
+  const me = useMeQuery()
+  const userDisplayName = me.data?.display_name ?? me.data?.email ?? 'You'
+  const userInitials = React.useMemo(() => {
+    const n = me.data?.display_name?.trim()
+    if (n) {
+      const parts = n.split(/\s+/).filter(Boolean)
+      if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+      return n.slice(0, 2).toUpperCase()
+    }
+    if (me.data?.email) return me.data.email.slice(0, 2).toUpperCase()
+    return 'U'
+  }, [me.data?.display_name, me.data?.email])
 
   // ── Scroll management ──────────────────────────────────────────────────────
   const messagesScrollRef = React.useRef<HTMLDivElement>(null)
@@ -452,9 +466,9 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
                   >
                     <header className="msg-head">
                       <span className={`avatar-sm ${isUserSide ? '' : 'avatar-asst'} mono`}>
-                        {isUserSide ? 'YOU' : 'VX'}
+                        {isUserSide ? userInitials : 'VX'}
                       </span>
-                      <span className="who-name">{isUserSide ? 'You' : (m.extra?.model_name as string | undefined) ?? 'Assistant'}</span>
+                      <span className="who-name">{isUserSide ? userDisplayName : (m.extra?.model_name as string | undefined) ?? 'Assistant'}</span>
                       <time className="ts mono" dateTime={m.created_at} title={m.created_at}>
                         {formatWhen(m.created_at)}
                       </time>
@@ -554,10 +568,8 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
                   aria-label={streaming ? 'Assistant is responding' : 'Assistant response items'}
                 >
                   {streamThreadItems.length > 0 && (
-                    <div className="mb-2 flex flex-col gap-1.5">
-                      {streamThreadItems.map((item) => (
-                        <ThreadItemChip key={item.uid} item={item} />
-                      ))}
+                    <div className="mb-2">
+                      <ThinkingBlock items={streamThreadItems} running={streaming} defaultOpen />
                     </div>
                   )}
                   {streamingText && (

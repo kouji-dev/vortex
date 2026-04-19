@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from '@tanstack/react-router';
+import { PrismLogo } from '~/components/brand';
 
 export function AuthShell({ children, heroTagline }: { children: ReactNode; heroTagline: string }) {
   return (
@@ -7,7 +8,7 @@ export function AuthShell({ children, heroTagline }: { children: ReactNode; hero
       <aside className="auth-hero">
         <div className="hero-top">
           <Link to="/" className="brand" aria-label="Home">
-            <span className="brand-mark" aria-hidden>VX</span>
+            <span className="brand-mark" aria-hidden><PrismLogo state="idle" size={18} /></span>
             <span className="brand-name">Vortex</span>
           </Link>
         </div>

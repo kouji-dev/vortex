@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as React from 'react'
-import { CheckCircle2, FileText, Search } from 'lucide-react'
+import { Check, Search } from 'lucide-react'
 import { PrismLogo } from '~/components/brand'
 
 import { getApiBase } from '~/lib/api-base'
@@ -160,12 +160,31 @@ export function KbPickerPanel({
 
   return (
     <div
-      className="overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-lg dark:border-neutral-700 dark:bg-neutral-950"
+      className="kb-menu overflow-hidden"
       onKeyDown={handleKeyDown}
       data-testid="kb-picker-popover-inner"
+      style={{
+        background: 'var(--panel)',
+        border: '1px solid var(--line)',
+        borderRadius: 6,
+        boxShadow: 'var(--shadow-md)',
+      }}
     >
-      <div className="flex items-center gap-2 border-b border-neutral-200 px-3 py-2 dark:border-neutral-700">
-        <Search className="size-3.5 shrink-0 text-neutral-400" aria-hidden />
+      <div
+        className="menu-head"
+        style={{ gap: 8 }}
+      >
+        <span>Knowledge bases</span>
+        <span className="mono muted" style={{ fontWeight: 400 }}>
+          {listQ.data?.length ?? 0} available
+        </span>
+      </div>
+
+      <div
+        className="flex items-center gap-2 px-3 py-2"
+        style={{ borderBottom: '1px solid var(--line-2)' }}
+      >
+        <Search className="size-3 shrink-0" strokeWidth={2} style={{ color: 'var(--ink-3)' }} aria-hidden />
         <input
           ref={inputRef}
           type="text"
@@ -173,7 +192,8 @@ export function KbPickerPanel({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           data-testid="kb-picker-search"
-          className="min-w-0 flex-1 bg-transparent text-sm text-neutral-900 placeholder-neutral-400 outline-none dark:text-neutral-100"
+          className="min-w-0 flex-1 bg-transparent outline-none"
+          style={{ fontSize: 12, color: 'var(--ink)' }}
         />
         {conversationId != null && saveMut.isPending && (
           <PrismLogo state="loading" size={12} />
@@ -182,19 +202,22 @@ export function KbPickerPanel({
 
       <ul
         role="listbox"
-        className="max-h-72 overflow-y-auto py-1"
+        className="menu-scroll"
         aria-label="Knowledge bases"
+        style={{ margin: 0, padding: 0, listStyle: 'none' }}
       >
         {listQ.isPending && (
           <li className="px-3 py-3"><PrismLogo state="loading" size={16} /></li>
         )}
         {listQ.isError && (
-          <li className="px-3 py-3 text-sm text-red-500">
+          <li className="px-3 py-3" style={{ fontSize: 12, color: 'var(--err)' }}>
             {(listQ.error as Error).message}
           </li>
         )}
         {!listQ.isPending && filtered.length === 0 && (
-          <li className="px-3 py-3 text-sm text-neutral-400">No knowledge bases found.</li>
+          <li className="px-3 py-3" style={{ fontSize: 12, color: 'var(--ink-3)' }}>
+            No knowledge bases found.
+          </li>
         )}
         {filtered.map((kb, idx) => {
           const isAttached = attachedIds.includes(kb.id)
@@ -207,28 +230,18 @@ export function KbPickerPanel({
               data-testid={`kb-picker-option-${kb.id}`}
               onMouseEnter={() => setActiveIndex(idx)}
               onClick={() => toggle(kb.id)}
-              className={[
-                'flex cursor-pointer select-none items-center gap-2.5 px-3 py-2 text-sm',
-                isActiveRow
-                  ? 'bg-neutral-100 dark:bg-neutral-800'
-                  : 'hover:bg-neutral-50 dark:hover:bg-neutral-800/50',
-              ].join(' ')}
+              className={`kb-menu-row ${isAttached ? 'on' : ''}`}
+              style={isActiveRow ? { background: 'var(--bg-2)' } : undefined}
             >
-              <FileText className="size-4 shrink-0 text-neutral-500 dark:text-neutral-400" aria-hidden />
-
-              <span className="min-w-0 flex-1 truncate text-neutral-900 dark:text-neutral-100">
-                {kb.name}
-              </span>
-              <span className="shrink-0 text-xs text-neutral-400">
-                {kb.document_count != null ? `${kb.document_count} docs` : '–'}
-              </span>
-
-              {isAttached && (
-                <span className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                  <CheckCircle2 className="size-3.5" aria-hidden />
-                  Active
-                </span>
-              )}
+              <div className={`box ${isAttached ? 'on' : ''}`}>
+                {isAttached && <Check className="size-2.5" strokeWidth={3} aria-hidden />}
+              </div>
+              <div className="kb-main">
+                <div className="kb-name truncate">{kb.name}</div>
+                <div className="kb-meta">
+                  {kb.document_count != null ? `${kb.document_count} docs` : '—'}
+                </div>
+              </div>
             </li>
           )
         })}

@@ -23,9 +23,10 @@ export function StartersPanel({
           <p
             className={
               isFeatured
-                ? 'mb-3 text-center text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400'
+                ? 'mb-3 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.08em]'
                 : 'font-medium'
             }
+            style={isFeatured ? { color: 'var(--ink-3)' } : undefined}
           >
             {s.title}
           </p>
@@ -39,9 +40,10 @@ export function StartersPanel({
                     rel="noopener noreferrer"
                     className={
                       isFeatured
-                        ? 'text-xs text-neutral-600 underline decoration-neutral-400/80 underline-offset-2 transition hover:text-neutral-900 dark:text-neutral-400 dark:decoration-neutral-600 dark:hover:text-neutral-200'
-                        : 'text-blue-600 underline decoration-dotted'
+                        ? 'text-xs underline underline-offset-2 transition'
+                        : 'underline decoration-dotted'
                     }
+                    style={isFeatured ? { color: 'var(--ink-2)' } : { color: 'var(--accent)' }}
                   >
                     {l.label}
                   </a>
@@ -60,7 +62,7 @@ export function StartersPanel({
                   type="button"
                   className={
                     isFeatured
-                      ? 'w-full rounded-xl border border-neutral-200/90 bg-white px-3.5 py-2.5 text-left text-sm leading-snug text-neutral-800 shadow-sm transition hover:border-neutral-300 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-950/80 dark:text-neutral-100 dark:hover:border-neutral-600 dark:hover:bg-neutral-800/80'
+                      ? 'starter-chip w-full text-left text-[13px] leading-snug'
                       : 'text-left underline decoration-dotted'
                   }
                   onClick={() => setComposeDraft(p)}

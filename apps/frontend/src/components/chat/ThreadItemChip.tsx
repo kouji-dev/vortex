@@ -7,59 +7,67 @@ interface Props {
   item: StreamThreadItem
 }
 
-type Theme = {
-  border: string
-  bg: string
-  text: string
-  iconColor: string
-  chevronColor: string
+type Kind = StreamThreadItem['kind']
+
+type Accent = {
+  token: string
+  chipStyle: React.CSSProperties
+  dotColor: string
 }
 
-function getTheme(kind: StreamThreadItem['kind']): Theme {
+function getAccent(kind: Kind): Accent {
   switch (kind) {
     case 'memory':
       return {
-        border: 'border-blue-900/60 dark:border-blue-900/40',
-        bg: 'bg-blue-950/40 dark:bg-blue-950/30',
-        text: 'text-blue-300 dark:text-blue-300',
-        iconColor: 'text-blue-400',
-        chevronColor: 'text-blue-800',
+        token: 'var(--acc-violet)',
+        chipStyle: {
+          color: 'var(--acc-violet)',
+          background: 'color-mix(in oklch, var(--acc-violet) 8%, var(--panel))',
+          borderColor: 'color-mix(in oklch, var(--acc-violet) 30%, var(--line))',
+        },
+        dotColor: 'var(--acc-violet)',
+      }
+    case 'kb_search':
+      return {
+        token: 'var(--acc-violet)',
+        chipStyle: {
+          color: 'var(--acc-violet)',
+          background: 'color-mix(in oklch, var(--acc-violet) 7%, var(--panel))',
+          borderColor: 'color-mix(in oklch, var(--acc-violet) 25%, var(--line))',
+        },
+        dotColor: 'var(--acc-violet)',
       }
     case 'web_search':
     case 'fetch_webpage':
       return {
-        border: 'border-neutral-700/60',
-        bg: 'bg-neutral-900/50',
-        text: 'text-neutral-300',
-        iconColor: 'text-neutral-400',
-        chevronColor: 'text-neutral-600',
-      }
-    case 'kb_search':
-      return {
-        border: 'border-purple-900/60',
-        bg: 'bg-purple-950/30',
-        text: 'text-purple-300',
-        iconColor: 'text-purple-400',
-        chevronColor: 'text-purple-800',
+        token: 'var(--accent)',
+        chipStyle: {
+          color: 'var(--ink-2)',
+          background: 'var(--bg-2)',
+          borderColor: 'var(--line)',
+        },
+        dotColor: 'var(--accent)',
       }
     default:
       return {
-        border: 'border-neutral-700/60',
-        bg: 'bg-neutral-900/50',
-        text: 'text-neutral-400',
-        iconColor: 'text-neutral-500',
-        chevronColor: 'text-neutral-600',
+        token: 'var(--ink-2)',
+        chipStyle: {
+          color: 'var(--ink-2)',
+          background: 'var(--bg-2)',
+          borderColor: 'var(--line)',
+        },
+        dotColor: 'var(--ink-3)',
       }
   }
 }
 
-function getIcon(kind: StreamThreadItem['kind']) {
+function getIcon(kind: Kind) {
   switch (kind) {
-    case 'memory': return <Brain className="size-3.5 shrink-0" strokeWidth={2} />
-    case 'web_search': return <Globe className="size-3.5 shrink-0" strokeWidth={2} />
-    case 'fetch_webpage': return <Link className="size-3.5 shrink-0" strokeWidth={2} />
-    case 'kb_search': return <Library className="size-3.5 shrink-0" strokeWidth={2} />
-    default: return <Wrench className="size-3.5 shrink-0" strokeWidth={2} />
+    case 'memory': return <Brain className="size-3 shrink-0" strokeWidth={2} />
+    case 'web_search': return <Globe className="size-3 shrink-0" strokeWidth={2} />
+    case 'fetch_webpage': return <Link className="size-3 shrink-0" strokeWidth={2} />
+    case 'kb_search': return <Library className="size-3 shrink-0" strokeWidth={2} />
+    default: return <Wrench className="size-3 shrink-0" strokeWidth={2} />
   }
 }
 
@@ -76,9 +84,9 @@ function getRunningLabel(item: StreamThreadItem): string {
 function getDoneLabel(item: StreamThreadItem): React.ReactNode {
   switch (item.kind) {
     case 'memory': return <>{item.count} {item.count === 1 ? 'memory' : 'memories'} loaded</>
-    case 'web_search': return <>Web Searched <em className="not-italic opacity-70">&ldquo;{item.query}&rdquo;</em></>
+    case 'web_search': return <>Web searched <em className="not-italic opacity-70">&ldquo;{item.query}&rdquo;</em></>
     case 'fetch_webpage': return <>Fetched <em className="not-italic opacity-70">{item.url}</em></>
-    case 'kb_search': return <>KB Searched <em className="not-italic opacity-70">&ldquo;{item.query}&rdquo;</em></>
+    case 'kb_search': return <>KB searched <em className="not-italic opacity-70">&ldquo;{item.query}&rdquo;</em></>
     case 'tool_call': return <>{item.tool}</>
   }
 }
@@ -99,9 +107,18 @@ function formatProviderName(provider: string): string {
 
 function ProviderBadge({ provider }: { provider: string }) {
   return (
-    <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-neutral-800 text-neutral-400 border border-neutral-700">
+    <span className="cap-tag" style={{ fontSize: 10 }}>
       {formatProviderName(provider)}
     </span>
+  )
+}
+
+function ParamRow({ k, v }: { k: string; v: React.ReactNode }) {
+  return (
+    <div className="tool-params">
+      <span className="param-k">{k}</span>
+      <span className="param-v">{v}</span>
+    </div>
   )
 }
 
@@ -109,65 +126,63 @@ function ExpandedDetails({ item }: { item: StreamThreadItem }) {
   switch (item.kind) {
     case 'web_search':
       return (
-        <div className="flex flex-col gap-2 text-[11px]">
+        <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between gap-2">
-            <div className="text-neutral-600 dark:text-neutral-500 font-semibold uppercase tracking-wide text-[10px]">Query</div>
+            <ParamRow k="query" v={item.query} />
             {item.provider && <ProviderBadge provider={item.provider} />}
           </div>
-          <div className="text-neutral-300">{item.query}</div>
           {item.result_snippet && (
-            <div>
-              <div className="text-neutral-600 dark:text-neutral-500 font-semibold uppercase tracking-wide text-[10px] mb-0.5">Results</div>
-              <div className="text-neutral-400 whitespace-pre-wrap leading-relaxed">{item.result_snippet}</div>
-            </div>
+            <>
+              <div className="tool-params"><span className="param-k">results</span></div>
+              <div className="text-[11px] leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--ink-2)' }}>
+                {item.result_snippet}
+              </div>
+            </>
           )}
         </div>
       )
     case 'fetch_webpage':
       return (
-        <div className="flex flex-col gap-2 text-[11px]">
+        <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between gap-2">
-            <div className="text-neutral-600 dark:text-neutral-500 font-semibold uppercase tracking-wide text-[10px]">URL</div>
+            <ParamRow k="url" v={<span className="break-all">{item.url}</span>} />
             {item.provider && <ProviderBadge provider={item.provider} />}
           </div>
-          <div className="text-neutral-300 break-all">{item.url}</div>
           {item.result_snippet && (
-            <div>
-              <div className="text-neutral-600 dark:text-neutral-500 font-semibold uppercase tracking-wide text-[10px] mb-0.5">Content</div>
-              <div className="text-neutral-400 whitespace-pre-wrap leading-relaxed">{item.result_snippet}</div>
-            </div>
+            <>
+              <div className="tool-params"><span className="param-k">content</span></div>
+              <div className="text-[11px] leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--ink-2)' }}>
+                {item.result_snippet}
+              </div>
+            </>
           )}
         </div>
       )
     case 'kb_search':
       return (
-        <div className="flex flex-col gap-2 text-[11px]">
-          <div>
-            <div className="text-purple-700 dark:text-purple-600 font-semibold uppercase tracking-wide text-[10px] mb-0.5">Query</div>
-            <div className="text-purple-300">{item.query}</div>
-          </div>
+        <div className="flex flex-col gap-2">
+          <ParamRow k="query" v={item.query} />
           {item.sources && item.sources.length > 0 && (
-            <div>
-              <div className="text-purple-700 dark:text-purple-600 font-semibold uppercase tracking-wide text-[10px] mb-0.5">Sources</div>
-              <div className="flex flex-col gap-0.5">
-                {item.sources.map((s, i) => (
-                  <div key={i} className="text-purple-300">
-                    {s.kb_name}
-                    {s.chunks_used > 0 && (
-                      <span className="text-purple-600 ml-1">&middot; {s.chunks_used} chunks</span>
-                    )}
-                  </div>
-                ))}
-              </div>
+            <div className="flex flex-col gap-0.5">
+              <div className="tool-params"><span className="param-k">sources</span></div>
+              {item.sources.map((s, i) => (
+                <div key={i} className="text-[11px]" style={{ color: 'var(--ink-2)' }}>
+                  {s.kb_name}
+                  {s.chunks_used > 0 && (
+                    <span className="mono ml-1" style={{ color: 'var(--ink-3)', fontSize: 10 }}>
+                      · {s.chunks_used} chunks
+                    </span>
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </div>
       )
     case 'tool_call':
       return (
-        <div className="flex flex-col gap-1 text-[11px]">
-          <div className="text-neutral-600 font-semibold uppercase tracking-wide text-[10px]">Tool</div>
-          <div className="text-neutral-300">{item.tool}</div>
+        <div className="flex flex-col gap-1">
+          <ParamRow k="tool" v={item.tool} />
         </div>
       )
     default:
@@ -177,27 +192,17 @@ function ExpandedDetails({ item }: { item: StreamThreadItem }) {
 
 export function ThreadItemChip({ item }: Props) {
   const [expanded, setExpanded] = React.useState(false)
-  const theme = getTheme(item.kind)
+  const accent = getAccent(item.kind)
   const isRunning = item.status === 'running'
   const isMemory = item.kind === 'memory'
-
-  // Use .cap-tag as the base chip class (Vortex design system)
-  // Supplemented with per-kind color overrides via inline style
-  const chipClass = `cap-tag`
-  const chipStyle: React.CSSProperties = {
-    // Per-kind color overrides that go beyond base cap-tag defaults
-    borderColor: undefined,
-    background: undefined,
-    color: undefined,
-  }
 
   if (isRunning) {
     return (
       <div data-testid="thread-item-chip" data-kind={item.kind} data-status="running">
-        <span className={chipClass}>
-          <span className={theme.iconColor}>{getIcon(item.kind)}</span>
+        <span className="cap-tag" style={accent.chipStyle}>
+          {getIcon(item.kind)}
           <span>{getRunningLabel(item)}</span>
-          <PrismLogo state="loading" size={12} />
+          <PrismLogo state="loading" size={10} />
         </span>
       </div>
     )
@@ -206,37 +211,39 @@ export function ThreadItemChip({ item }: Props) {
   if (isMemory) {
     return (
       <div data-testid="thread-item-chip" data-kind="memory" data-status="done">
-        <span className={chipClass}>
-          <span className={theme.iconColor}>{getIcon(item.kind)}</span>
+        <span className="cap-tag" style={accent.chipStyle}>
+          {getIcon(item.kind)}
           <span>{getDoneLabel(item)}</span>
-          <Check className="size-3 shrink-0 text-blue-500" strokeWidth={2.5} />
+          <Check className="size-3 shrink-0" strokeWidth={2.5} style={{ color: accent.dotColor }} />
         </span>
       </div>
     )
   }
 
-  // Expandable done chip (web_search, kb_search, tool_call)
   return (
     <div data-testid="thread-item-chip" data-kind={item.kind} data-status="done">
       <button
+        type="button"
         data-testid="thread-item-chip-toggle"
-        onClick={() => setExpanded(e => !e)}
-        className={`${chipClass} cursor-pointer hover:opacity-90 transition-opacity`}
-        style={chipStyle}
+        onClick={() => setExpanded((e) => !e)}
+        className="cap-tag cursor-pointer transition-opacity hover:opacity-90"
+        style={accent.chipStyle}
       >
-        <span className={theme.iconColor}>{getIcon(item.kind)}</span>
+        {getIcon(item.kind)}
         <span>{getDoneLabel(item)}</span>
-        <Check className="size-3 shrink-0 text-green-500" strokeWidth={2.5} />
-        <span className={theme.chevronColor}>
-          {expanded
-            ? <ChevronDown className="size-3" strokeWidth={2} />
-            : <ChevronRight className="size-3" strokeWidth={2} />}
-        </span>
+        <Check className="size-3 shrink-0" strokeWidth={2.5} style={{ color: 'var(--ok)' }} />
+        {expanded
+          ? <ChevronDown className="size-3" strokeWidth={2} />
+          : <ChevronRight className="size-3" strokeWidth={2} />}
       </button>
       {expanded && (
         <div
           data-testid="thread-item-details"
-          className={`mt-1.5 px-3 py-2 rounded-lg border ${theme.border} ${theme.bg} max-w-sm`}
+          className="mt-1.5 rounded-[4px] px-3 py-2 max-w-md"
+          style={{
+            background: 'var(--bg-2)',
+            border: '1px solid var(--line)',
+          }}
         >
           <ExpandedDetails item={item} />
         </div>

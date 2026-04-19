@@ -4,6 +4,7 @@ import * as React from 'react'
 
 import { useHealthQuery } from '~/hooks/useHealthQuery'
 import { useMeQuery } from '~/hooks/useMeQuery'
+import { useTheme } from '~/hooks/useTheme'
 
 /** Returns up to 2 initials from a display name or email. */
 function initials(me: { display_name?: string | null; email?: string }): string {
@@ -18,16 +19,7 @@ function initials(me: { display_name?: string | null; email?: string }): string 
 }
 
 function ThemeToggle() {
-  const [theme, setTheme] = React.useState<'light' | 'dark'>(() => {
-    if (typeof window === 'undefined') return 'light'
-    return (document.documentElement.getAttribute('data-theme') as 'light' | 'dark') ?? 'light'
-  })
-
-  const toggle = () => {
-    const next = theme === 'light' ? 'dark' : 'light'
-    document.documentElement.setAttribute('data-theme', next)
-    setTheme(next)
-  }
+  const [theme, , toggle] = useTheme()
 
   return (
     <button

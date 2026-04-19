@@ -1,9 +1,16 @@
 import { Link, useLocation, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Search, Trash2 } from 'lucide-react'
+import { Library, Plus, Search, Trash2 } from 'lucide-react'
 import * as React from 'react'
 import { PrismLogo } from '~/components/brand'
+import {
+  ProviderMark,
+} from '~/components/chat/ChatComposerDock'
 
+import {
+  catalogModelByStoredModel,
+  useCatalogModelsQuery,
+} from '~/hooks/useCatalogModelsQuery'
 import { getApiBase } from '~/lib/api-base'
 import { getAuthHeaders } from '~/lib/authorizedFetch'
 import type { Conversation } from '~/lib/chat-types'
@@ -34,12 +41,21 @@ function groupByRecency(convs: Conversation[]) {
 
 function formatWhenShort(iso: string): string {
   try {
-    const d = new Date(iso)
-    if (Number.isNaN(d.getTime())) return ''
-    const now = new Date()
-    const sameDay = d.toDateString() === now.toDateString()
-    if (sameDay) return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
-    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+    const d = new Date(iso).getTime()
+    if (Number.isNaN(d)) return ''
+    const diffSec = Math.max(0, (Date.now() - d) / 1000)
+    if (diffSec < 60) return 'just now'
+    const min = diffSec / 60
+    if (min < 60) return `${Math.round(min)}m ago`
+    const hr = min / 60
+    if (hr < 24) return `${Math.round(hr)}h ago`
+    const day = hr / 24
+    if (day < 7) return `${Math.round(day)}d ago`
+    const wk = day / 7
+    if (wk < 5) return `${Math.round(wk)}w ago`
+    const mo = day / 30
+    if (mo < 12) return `${Math.round(mo)}mo ago`
+    return `${Math.round(day / 365)}y ago`
   } catch { return '' }
 }
 
@@ -55,6 +71,7 @@ export function ConversationsSidebarPanel({
   const qc = useQueryClient()
   const navigate = useNavigate()
   const location = useLocation()
+  const catalogModels = useCatalogModelsQuery()
   const [searchQuery, setSearchQuery] = React.useState('')
   const activeConvId = React.useMemo(() => {
     const m = location.pathname.match(/\/chat\/conversations\/(\d+)/)
@@ -152,57 +169,88 @@ export function ConversationsSidebarPanel({
 
   function renderConvRow(c: Conversation) {
     const isActive = c.id === activeConvId
+    const catalogRow = c.model
+      ? catalogModelByStoredModel(catalogModels.data, c.model)
+      : undefined
+    const kbCount = c.knowledge_base_ids?.length ?? 0
     return (
       <div
         key={c.id}
-        className={`conv-row ${isActive ? 'active' : ''}`}
+        className={`conv-row group ${isActive ? 'active' : ''}`}
         data-testid={`chat-conv-row-${c.id}`}
+        style={{ position: 'relative' }}
       >
-        <div className="flex items-start gap-1">
-          {selectionMode && (
-            <label className="mt-1 inline-flex shrink-0 items-center">
-              <input
-                type="checkbox"
-                className="size-3.5 rounded border-neutral-300 dark:border-neutral-600"
-                checked={selectedIds.has(c.id)}
-                onChange={() => toggleSelected(c.id)}
-                aria-label={`Select conversation ${c.title ?? c.id}`}
-              />
-            </label>
-          )}
-          <Link
-            to="/chat/conversations/$id"
-            params={{ id: String(c.id) }}
-            className="min-w-0 flex-1"
-            onClick={onSelectConversation}
+        {selectionMode && (
+          <label
+            className="inline-flex shrink-0 items-center"
+            style={{ position: 'absolute', top: 10, left: 12, zIndex: 1 }}
           >
-            <div className="top">
-              <span className="title">{c.title ?? 'New conversation'}</span>
-              <span className="when">{formatWhenShort(c.created_at)}</span>
+            <input
+              type="checkbox"
+              className="size-3.5 rounded"
+              checked={selectedIds.has(c.id)}
+              onChange={() => toggleSelected(c.id)}
+              aria-label={`Select conversation ${c.title ?? c.id}`}
+            />
+          </label>
+        )}
+        <Link
+          to="/chat/conversations/$id"
+          params={{ id: String(c.id) }}
+          className="block"
+          onClick={onSelectConversation}
+          style={{ paddingLeft: selectionMode ? 22 : 0 }}
+        >
+          <div className="top">
+            <span className="title">{c.title ?? 'New conversation'}</span>
+            <span className="when">{formatWhenShort(c.created_at)}</span>
+          </div>
+          {(catalogRow || kbCount > 0) && (
+            <div className="meta">
+              {catalogRow && (
+                <>
+                  <ProviderMark model={catalogRow} />
+                  <span className="mono muted">{catalogRow.display_name}</span>
+                </>
+              )}
+              {catalogRow && kbCount > 0 && <span className="sep">·</span>}
+              {kbCount > 0 && (
+                <span className="cap-tag">
+                  <Library className="size-3" strokeWidth={2} aria-hidden />
+                  {kbCount} KB
+                </span>
+              )}
             </div>
-            {c.assistant_id != null && (
-              <div className="preview">Assistant #{c.assistant_id}</div>
-            )}
-          </Link>
-          {!selectionMode && (
-            <button
-              type="button"
-              className="mr-1 mt-1 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-neutral-400 opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 dark:hover:bg-red-950/40 dark:hover:text-red-400"
-              title="Delete conversation"
-              style={{ opacity: undefined }}
-              onClick={() => {
-                setConfirmDelete({
-                  kind: 'single',
-                  id: c.id,
-                  label: c.title?.trim() || `Conversation #${c.id}`,
-                })
-              }}
-            >
-              <Trash2 className="size-3" aria-hidden />
-              <span className="sr-only">Delete</span>
-            </button>
           )}
-        </div>
+        </Link>
+        {!selectionMode && (
+          <button
+            type="button"
+            className="inline-flex items-center justify-center rounded opacity-0 transition group-hover:opacity-100"
+            title="Delete conversation"
+            aria-label="Delete conversation"
+            style={{
+              position: 'absolute',
+              bottom: 6,
+              right: 6,
+              width: 20,
+              height: 20,
+              color: 'var(--ink-3)',
+            }}
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              setConfirmDelete({
+                kind: 'single',
+                id: c.id,
+                label: c.title?.trim() || `Conversation #${c.id}`,
+              })
+            }}
+          >
+            <Trash2 className="size-3" aria-hidden />
+            <span className="sr-only">Delete</span>
+          </button>
+        )}
       </div>
     )
   }
@@ -211,43 +259,16 @@ export function ConversationsSidebarPanel({
     <aside className="conv-list">
       {!hideHeader && (
         <div className="conv-list-head">
-          <div className="flex items-center justify-between gap-2">
-            <span className="mono" style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              Chats
-            </span>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                className="btn btn-sm"
-                onClick={onNewConversation}
-                title="New conversation"
-                aria-label="New conversation"
-              >
-                <Plus className="size-3.5" aria-hidden />
-                <span className="sr-only">New</span>
-              </button>
-              {!selectionMode ? (
-                <button
-                  type="button"
-                  className="btn btn-sm"
-                  onClick={() => setSelectionMode(true)}
-                  title="Select conversations"
-                  aria-label="Select conversations"
-                >
-                  <Trash2 className="size-3.5" aria-hidden />
-                  <span className="sr-only">Select</span>
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="btn btn-sm"
-                  onClick={() => { setSelectionMode(false); setSelectedIds(new Set()) }}
-                >
-                  Cancel
-                </button>
-              )}
-            </div>
-          </div>
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            style={{ width: '100%' }}
+            onClick={onNewConversation}
+            data-testid="sidebar-new-conversation"
+          >
+            <Plus className="size-3" aria-hidden />
+            New conversation
+          </button>
           <div className="conv-list-search">
             <Search className="size-3 shrink-0" aria-hidden />
             <input
@@ -257,6 +278,30 @@ export function ConversationsSidebarPanel({
               onChange={(e) => setSearchQuery(e.target.value)}
               aria-label="Search conversations"
             />
+          </div>
+          <div className="flex items-center justify-end">
+            {!selectionMode ? (
+              <button
+                type="button"
+                className="btn btn-sm"
+                onClick={() => setSelectionMode(true)}
+                title="Select conversations"
+                aria-label="Select conversations"
+                style={{ fontSize: 11, padding: '0 6px', height: 22 }}
+              >
+                <Trash2 className="size-3" aria-hidden />
+                Select
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-sm"
+                onClick={() => { setSelectionMode(false); setSelectedIds(new Set()) }}
+                style={{ fontSize: 11, padding: '0 6px', height: 22 }}
+              >
+                Cancel
+              </button>
+            )}
           </div>
         </div>
       )}
