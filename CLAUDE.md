@@ -50,6 +50,27 @@ Playwright config: **8 workers minimum, 0 retries**.
 - To mock streaming/SSE responses use `page.route()` — intercept at the browser level, never seed via API
 - Teardown cleanup (e.g. deleting a created resource) may use API calls in `finally` blocks — only the regular app API, never seed-specific endpoints
 
+## Design v2 (Vortex) Migration
+
+In progress on `design-v2` worktree. Spec: `docs/superpowers/specs/2026-04-19-design-v2-vortex-migration.md`. Plan: `docs/superpowers/plans/2026-04-19-design-v2-vortex-migration.md`.
+
+Reference bundles (gitignored, kept in worktree root):
+- `.design-bundle-vortex/project/Vortex.html` — 6-screen enterprise portal (chat / kb / memories / models / keys / governance)
+- `.design-bundle-landing/project/Auth.html` — split-screen auth (login / register / setup)
+- `.design-bundle-landing/project/Landing.html` — landing page
+
+### Styling rules
+
+1. Tailwind utility classes inline (first preference). Tokens via Tailwind v4 `@theme` block in `frontend/src/styles/app.css`.
+2. Global design-system classes in `app.css` `@layer components` for patterns reused across screens (`.btn`, `.pill`, `.panel`, `.tbl`, `.kpi`, `.conv-row`, `.chat-grid`, etc.).
+3. CSS modules only when a component has unique structural CSS that can't be expressed with utilities + system classes.
+
+Never hardcode hex/oklch outside `app.css`. Never use the `dark` class — use `data-theme="light|dark"` and `data-density="compact|comfortable"` on `<html>`.
+
+### Migration rule
+
+Each migrated screen must keep existing E2E tests green. This is a visual/layout migration, not a behavior change. Selector updates land in the same commit as the component change. Helpers (`createOrFindConversation`, `createOrFindKb`) keep their external signatures.
+
 ## Worktree Isolation
 
 When working in a git worktree, each worktree gets its own isolated environment:
