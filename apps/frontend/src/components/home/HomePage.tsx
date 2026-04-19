@@ -46,7 +46,7 @@ export function HomePage() {
   return (
     <div className="page-enter mx-auto min-h-0 w-full max-w-4xl flex-1 space-y-8 overflow-y-auto overscroll-contain p-4 md:p-6">
       <section>
-        <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-neutral-500">
+        <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-ink-3">
           Features
         </h2>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -73,12 +73,12 @@ export function HomePage() {
       </section>
 
       <section>
-        <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-neutral-500">
+        <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-ink-3">
           Status
         </h2>
         {mismatch && (
           <div
-            className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-100"
+            className="mb-4 rounded-lg border border-warn/40 bg-warn/10 p-4 text-sm text-ink"
             role="status"
           >
             {mismatch}

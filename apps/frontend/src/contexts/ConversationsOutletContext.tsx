@@ -1,6 +1,7 @@
 import * as React from 'react'
 
 import type { ChatStartersPayload } from '~/hooks/useChatStartersQuery'
+import type { ChatMessage } from '~/lib/chat-types'
 
 export type ConversationsOutletContextValue = {
   composeDraft: string
@@ -8,6 +9,12 @@ export type ConversationsOutletContextValue = {
   chatStarters: ChatStartersPayload | undefined
   /** True once the starters query has finished (success or error). */
   chatStartersFetched: boolean
+  /** Inspector panel open/closed state (3-col layout). */
+  inspectorOpen: boolean
+  setInspectorOpen: React.Dispatch<React.SetStateAction<boolean>>
+  /** The message whose details are shown in the inspector. */
+  activeMessage: ChatMessage | null
+  setActiveMessage: React.Dispatch<React.SetStateAction<ChatMessage | null>>
 }
 
 const ConversationsOutletCtx = React.createContext<ConversationsOutletContextValue | null>(

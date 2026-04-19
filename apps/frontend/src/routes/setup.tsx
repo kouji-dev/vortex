@@ -1,6 +1,8 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import * as React from 'react'
 import { tokenStore } from '~/auth/tokenStore'
+import { AuthShell } from '~/components/auth/AuthShell'
+import { AuthFormCard } from '~/components/auth/AuthFormCard'
 
 export const Route = createFileRoute('/setup')({
   component: SetupPage,
@@ -49,20 +51,14 @@ function SetupPage() {
   }
 
   return (
-    <div className="page-enter flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950 px-4">
-      <div className="w-full max-w-sm">
-        <div className="mb-8 text-center">
-          <span className="text-4xl">🤖</span>
-          <h1 className="mt-4 text-2xl font-bold text-gray-900 dark:text-white">
-            Set up AI Portal
-          </h1>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            Create your organization and admin account to get started.
-          </p>
-        </div>
-        <form onSubmit={handleSubmit} className="space-y-4 rounded-2xl border border-gray-100 bg-white p-8 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+    <AuthShell heroTagline="First run — bootstrap your org.">
+      <AuthFormCard
+        title="Set up AI Portal"
+        subtitle="Create your organization and admin account to get started."
+      >
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label className="mb-1.5 block text-sm font-medium text-ink-2">
               Organization name
             </label>
             <input
@@ -70,12 +66,12 @@ function SetupPage() {
               required
               value={orgName}
               onChange={(e) => setOrgName(e.target.value)}
-              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+              className="textarea h-10 min-h-0 resize-none py-0 px-3 leading-[38px] text-ink bg-panel border-line"
               placeholder="Acme Corp"
             />
           </div>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label className="mb-1.5 block text-sm font-medium text-ink-2">
               Admin email
             </label>
             <input
@@ -83,12 +79,12 @@ function SetupPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+              className="textarea h-10 min-h-0 resize-none py-0 px-3 leading-[38px] text-ink bg-panel border-line"
               placeholder="admin@example.com"
             />
           </div>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label className="mb-1.5 block text-sm font-medium text-ink-2">
               Admin password
             </label>
             <input
@@ -97,24 +93,24 @@ function SetupPage() {
               minLength={8}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+              className="textarea h-10 min-h-0 resize-none py-0 px-3 leading-[38px] text-ink bg-panel border-line"
               placeholder="Min. 8 characters"
             />
           </div>
           {error && (
-            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-900/30 dark:text-red-400">
+            <p className="rounded bg-err/10 px-3 py-2 text-sm text-err">
               {error}
             </p>
           )}
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-lg bg-indigo-600 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+            className="btn btn-primary h-10 w-full justify-center text-sm disabled:opacity-50"
           >
             {loading ? 'Setting up…' : 'Initialize instance'}
           </button>
         </form>
-      </div>
-    </div>
+      </AuthFormCard>
+    </AuthShell>
   )
 }

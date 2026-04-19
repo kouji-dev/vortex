@@ -12,13 +12,13 @@ export const Route = createFileRoute('/org/settings')({
 
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
 
-type Tab = 'members' | 'usage' | 'audit' | 'policies' | 'retention'
+type Tab = 'rbac' | 'audit' | 'retention' | 'usage' | 'members'
 const TABS: { id: Tab; label: string }[] = [
   { id: 'members', label: 'Members' },
-  { id: 'usage', label: 'Usage' },
+  { id: 'rbac', label: 'Policies' },
   { id: 'audit', label: 'Audit Log' },
-  { id: 'policies', label: 'Policies' },
   { id: 'retention', label: 'Retention' },
+  { id: 'usage', label: 'Usage' },
 ]
 
 interface Member { id: number; email: string; role: string; is_verified: boolean }
@@ -36,34 +36,38 @@ function OrgSettingsPage() {
   }, [])
 
   return (
-    <div className="page-enter mx-auto max-w-4xl px-4 py-10">
-      <h1 className="mb-6 text-2xl font-bold text-gray-900 dark:text-white">
-        Organization settings
-        {orgName && <span className="ml-2 text-gray-400 font-normal">— {orgName}</span>}
-      </h1>
+    <div className="main-inner" data-testid="org-settings">
+      <div className="screen-head">
+        <div>
+          <h1>
+            Organization settings
+            {orgName && <span style={{ marginLeft: 8, color: 'var(--ink-3)', fontWeight: 400 }}>— {orgName}</span>}
+          </h1>
+          <div className="sub">Members · policies · audit · retention · usage</div>
+        </div>
+      </div>
 
-      {/* Tab bar */}
-      <div className="mb-8 flex gap-1 border-b border-gray-100 dark:border-gray-800">
+      <div className="tabs">
         {TABS.map((t) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-              tab === t.id
-                ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
-                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-            }`}
+            className={`tab${tab === t.id ? ' active' : ''}`}
           >
             {t.label}
           </button>
         ))}
       </div>
 
-      {tab === 'members' && <MembersTab />}
-      {tab === 'usage' && <UsagePanel />}
-      {tab === 'audit' && <AuditLogPanel />}
-      {tab === 'policies' && <RbacPolicyPanel />}
-      {tab === 'retention' && <RetentionPanel />}
+      <div className="gov-grid" style={{ gridTemplateColumns: '1fr' }}>
+        <div className="panel">
+          {tab === 'members' && <MembersTab />}
+          {tab === 'rbac' && <RbacPolicyPanel />}
+          {tab === 'audit' && <AuditLogPanel />}
+          {tab === 'retention' && <RetentionPanel />}
+          {tab === 'usage' && <UsagePanel />}
+        </div>
+      </div>
     </div>
   )
 }
@@ -110,65 +114,61 @@ function MembersTab() {
   }
 
   return (
-    <div>
-      <section className="mb-10">
-        <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Members</h2>
+    <div className="panel-body" style={{ padding: 20 }}>
+      <section style={{ marginBottom: 28 }}>
+        <div className="panel-head">Members</div>
         <div className="divide-y divide-gray-100 rounded-xl border border-gray-100 dark:divide-gray-800 dark:border-gray-800">
           {members.map((m) => (
-            <div key={m.id} className="flex items-center justify-between px-4 py-3">
-              <div>
-                <p className="text-sm font-medium text-gray-900 dark:text-white">{m.email}</p>
-              </div>
-              <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium capitalize text-gray-600 dark:bg-gray-800 dark:text-gray-400">
-                {m.role}
-              </span>
+            <div key={m.id} className="policy-row">
+              <div className="title">{m.email}</div>
+              <span />
+              <span className="meta">{m.is_verified ? 'verified' : 'unverified'}</span>
+              <span className="meta" style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>{m.role}</span>
             </div>
           ))}
         </div>
       </section>
 
-      <section className="mb-10">
-        <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Invite member</h2>
-        <form onSubmit={sendInvite} className="flex gap-3">
+      <section style={{ marginBottom: 28 }}>
+        <div className="panel-head">Invite member</div>
+        <form onSubmit={sendInvite} style={{ display: 'flex', gap: 8, padding: '12px 0' }}>
           <input
             type="email"
             required
             placeholder="colleague@example.com"
             value={inviteEmail}
             onChange={(e) => setInviteEmail(e.target.value)}
-            className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+            style={{ flex: 1, borderRadius: 4, border: '1px solid var(--line)', background: 'var(--bg)', color: 'var(--ink)', padding: '4px 8px', fontSize: 12 }}
           />
           <select
             value={inviteRole}
             onChange={(e) => setInviteRole(e.target.value as 'member' | 'admin')}
-            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+            style={{ borderRadius: 4, border: '1px solid var(--line)', background: 'var(--bg)', color: 'var(--ink)', padding: '4px 8px', fontSize: 12 }}
           >
             <option value="member">Member</option>
             <option value="admin">Admin</option>
           </select>
-          <button
-            type="submit"
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors"
-          >
-            Invite
-          </button>
+          <button type="submit" className="btn btn-primary">Invite</button>
         </form>
-        {error && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>}
+        {error && <p style={{ marginTop: 6, fontSize: 12, color: 'var(--red)' }}>{error}</p>}
       </section>
 
       {invites.length > 0 && (
         <section>
-          <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Pending invites</h2>
-          <div className="divide-y divide-gray-100 rounded-xl border border-gray-100 dark:divide-gray-800 dark:border-gray-800">
+          <div className="panel-head">Pending invites</div>
+          <div>
             {invites.map((inv) => (
-              <div key={inv.id} className="flex items-center justify-between px-4 py-3">
+              <div key={inv.id} className="policy-row">
                 <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">{inv.invited_email}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{inv.role}</p>
+                  <div className="title">{inv.invited_email}</div>
+                  <div className="meta">{inv.role}</div>
                 </div>
+                <span />
+                <span />
                 <button
                   onClick={() => revokeInvite(inv.id)}
-                  className="text-xs text-red-500 hover:text-red-700 dark:hover:text-red-400"
+                  className="btn btn-sm"
+                  style={{ color: 'var(--red)' }}
                 >
                   Revoke
                 </button>

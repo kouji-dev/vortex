@@ -57,3 +57,7 @@ contracts/openapi.json
 Thumbs.db
 .worktrees/
 .superpowers/brainstorm/
+
+# Design reference bundles (local only — not committed)
+.design-bundle-vortex/
+.design-bundle-landing/

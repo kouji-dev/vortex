@@ -62,11 +62,11 @@ test.describe('Admin — Retention tab', () => {
     await page.goto('/org/settings', { waitUntil: 'networkidle' })
     await page.getByRole('button', { name: 'Retention' }).click()
 
-    const legalHoldSection = page.locator('div').filter({ hasText: 'Legal hold' }).first()
+    const legalHoldSection = page.locator('[data-testid="org-settings"]').locator('div').filter({ hasText: 'Legal hold' }).first()
     await expect(legalHoldSection).toBeVisible()
 
-    // The toggle button exists in the legal hold section.
-    const toggle = legalHoldSection.locator('button[class*="rounded-full"]')
+    // The toggle button uses .switch class in the Vortex design system.
+    const toggle = legalHoldSection.locator('button.switch, button[class*="switch"]')
     if (await toggle.count() > 0) {
       await toggle.click()
       // After toggle, the section should still be visible (no crash).

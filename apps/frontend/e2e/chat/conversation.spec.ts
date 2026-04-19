@@ -27,14 +27,14 @@ test.describe('Chat conversation', () => {
   test('composer index shows message input with correct placeholder', async ({ page }) => {
     await gotoChatComposerIndex(page)
     await expect(
-      page.getByPlaceholder('Message the assistant… (Shift+Enter for newline)'),
+      page.getByPlaceholder('Message Vortex… (Shift+Enter for newline)'),
     ).toBeVisible()
   })
 
   test('thread page shows composer with correct placeholder', async ({ page }) => {
     await createOrFindConversation(page, E2E_CONV_SHARED)
     await expect(
-      page.getByPlaceholder('Message the assistant… (Shift+Enter for newline)'),
+      page.getByPlaceholder('Message Vortex… (Shift+Enter for newline)'),
     ).toBeVisible()
   })
 

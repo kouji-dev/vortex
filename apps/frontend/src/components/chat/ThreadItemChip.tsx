@@ -180,18 +180,25 @@ export function ThreadItemChip({ item }: Props) {
   const theme = getTheme(item.kind)
   const isRunning = item.status === 'running'
   const isMemory = item.kind === 'memory'
-  const canExpand = !isMemory && !isRunning
 
-  const chipClass = `inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-[12px] ${theme.border} ${theme.bg} ${theme.text}`
+  // Use .cap-tag as the base chip class (Vortex design system)
+  // Supplemented with per-kind color overrides via inline style
+  const chipClass = `cap-tag`
+  const chipStyle: React.CSSProperties = {
+    // Per-kind color overrides that go beyond base cap-tag defaults
+    borderColor: undefined,
+    background: undefined,
+    color: undefined,
+  }
 
   if (isRunning) {
     return (
       <div data-testid="thread-item-chip" data-kind={item.kind} data-status="running">
-        <div className={chipClass}>
+        <span className={chipClass}>
           <span className={theme.iconColor}>{getIcon(item.kind)}</span>
           <span>{getRunningLabel(item)}</span>
           <PrismLogo state="loading" size={12} />
-        </div>
+        </span>
       </div>
     )
   }
@@ -199,11 +206,11 @@ export function ThreadItemChip({ item }: Props) {
   if (isMemory) {
     return (
       <div data-testid="thread-item-chip" data-kind="memory" data-status="done">
-        <div className={chipClass}>
+        <span className={chipClass}>
           <span className={theme.iconColor}>{getIcon(item.kind)}</span>
           <span>{getDoneLabel(item)}</span>
           <Check className="size-3 shrink-0 text-blue-500" strokeWidth={2.5} />
-        </div>
+        </span>
       </div>
     )
   }
@@ -215,6 +222,7 @@ export function ThreadItemChip({ item }: Props) {
         data-testid="thread-item-chip-toggle"
         onClick={() => setExpanded(e => !e)}
         className={`${chipClass} cursor-pointer hover:opacity-90 transition-opacity`}
+        style={chipStyle}
       >
         <span className={theme.iconColor}>{getIcon(item.kind)}</span>
         <span>{getDoneLabel(item)}</span>

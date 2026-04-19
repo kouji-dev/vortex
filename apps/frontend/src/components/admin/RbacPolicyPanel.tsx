@@ -101,141 +101,135 @@ export function RbacPolicyPanel() {
     }
   }
 
-  if (loading) return <p className="text-sm text-gray-500">Loading...</p>
+  if (loading) return <p style={{ padding: 16, fontSize: 12, color: 'var(--ink-3)' }}>Loading…</p>
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Access Policies</h2>
-        <div className="flex items-center gap-3">
-          {saved && <span className="text-sm text-green-600 dark:text-green-400">Saved</span>}
-          {error && <span className="text-sm text-red-500">{error}</span>}
-          <button
-            onClick={save}
-            disabled={saving}
-            className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors"
-          >
+    <div>
+      <div className="panel-head" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span>Access Policies</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {saved && <span style={{ fontSize: 12, color: 'var(--green, #22c55e)' }}>Saved</span>}
+          {error && <span style={{ fontSize: 12, color: 'var(--red)' }}>{error}</span>}
+          <button onClick={save} disabled={saving} className="btn btn-primary btn-sm">
             {saving ? 'Saving…' : 'Save'}
           </button>
         </div>
       </div>
 
-      {/* Default policy */}
-      <section>
-        <h3 className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-300">Default policy</h3>
-        <div className="flex gap-4">
-          {(['allow', 'deny'] as const).map((p) => (
-            <label key={p} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
-              <input
-                type="radio"
-                name="default_policy"
-                value={p}
-                checked={defaultPolicy === p}
-                onChange={() => setDefaultPolicy(p)}
-                className="accent-indigo-600"
-              />
-              <span className="capitalize">{p} all (unless overridden)</span>
-            </label>
-          ))}
-        </div>
-        <p className="mt-1 text-xs text-gray-400">
-          &quot;Allow all&quot; is backwards-compatible — existing users keep access. &quot;Deny all&quot; requires explicit role bindings below.
-        </p>
-      </section>
+      <div className="panel-body">
+        {/* Default policy */}
+        <section style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Default policy
+          </div>
+          <div style={{ display: 'flex', gap: 16 }}>
+            {(['allow', 'deny'] as const).map((p) => (
+              <label key={p} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--ink)', cursor: 'pointer' }}>
+                <input
+                  type="radio"
+                  name="default_policy"
+                  value={p}
+                  checked={defaultPolicy === p}
+                  onChange={() => setDefaultPolicy(p)}
+                  style={{ accentColor: 'var(--accent)' }}
+                />
+                <span style={{ textTransform: 'capitalize' }}>{p} all (unless overridden)</span>
+              </label>
+            ))}
+          </div>
+          <p style={{ marginTop: 4, fontSize: 11, color: 'var(--ink-3)', fontFamily: 'var(--font-mono)' }}>
+            &quot;Allow all&quot; is backwards-compatible. &quot;Deny all&quot; requires explicit role bindings.
+          </p>
+        </section>
 
-      {/* Model allowlist */}
-      <section>
-        <h3 className="mb-1 text-sm font-semibold text-gray-700 dark:text-gray-300">Model allowlist</h3>
-        <p className="mb-3 text-xs text-gray-400">
-          When empty, all models are allowed. Check models to restrict access to only those.
-        </p>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {models.map((m) => (
-            <label key={m.slug} className="flex items-center gap-2 rounded-lg border border-gray-100 dark:border-gray-800 px-3 py-2 text-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/40">
-              <input
-                type="checkbox"
-                checked={allowlist === null ? false : allowlist.includes(m.slug)}
-                onChange={() => toggleAllowlistModel(m.slug)}
-                className="accent-indigo-600"
-              />
-              <span className="truncate text-gray-700 dark:text-gray-300">{m.display_name}</span>
-            </label>
-          ))}
-        </div>
-        {allowlist === null && (
-          <p className="mt-2 text-xs text-indigo-500">All models allowed (no allowlist active)</p>
-        )}
-      </section>
+        {/* Model allowlist */}
+        <section style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Model allowlist
+          </div>
+          <p style={{ marginBottom: 10, fontSize: 11, color: 'var(--ink-3)', fontFamily: 'var(--font-mono)' }}>
+            Empty = all models allowed. Check to restrict.
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+            {models.map((m) => (
+              <label key={m.slug} className="policy-row" style={{ cursor: 'pointer', gridTemplateColumns: '20px 1fr', gap: 8, padding: '6px 10px' }}>
+                <input
+                  type="checkbox"
+                  checked={allowlist === null ? false : allowlist.includes(m.slug)}
+                  onChange={() => toggleAllowlistModel(m.slug)}
+                  style={{ accentColor: 'var(--accent)' }}
+                />
+                <span style={{ fontSize: 12, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.display_name}</span>
+              </label>
+            ))}
+          </div>
+          {allowlist === null && (
+            <p style={{ marginTop: 6, fontSize: 11, color: 'var(--accent)', fontFamily: 'var(--font-mono)' }}>All models allowed (no allowlist active)</p>
+          )}
+        </section>
 
-      {/* Capability role bindings */}
-      <section>
-        <h3 className="mb-1 text-sm font-semibold text-gray-700 dark:text-gray-300">Capabilities — required roles</h3>
-        <p className="mb-3 text-xs text-gray-400">
-          Select which roles may use each capability. Empty = capability available to all roles.
-        </p>
-        <div className="overflow-x-auto rounded-xl border border-gray-100 dark:border-gray-800">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 dark:border-gray-800 text-left text-xs text-gray-500">
-                <th className="px-4 py-2 font-medium">Capability</th>
-                {ROLES.map((r) => <th key={r} className="px-4 py-2 font-medium capitalize text-center">{r}</th>)}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50 dark:divide-gray-800/50">
-              {CAPABILITIES.map((cap) => (
-                <tr key={cap} className="hover:bg-gray-50 dark:hover:bg-gray-800/30">
-                  <td className="px-4 py-2 font-mono text-xs text-gray-700 dark:text-gray-300">{cap}</td>
-                  {ROLES.map((role) => (
-                    <td key={role} className="px-4 py-2 text-center">
-                      <input
-                        type="checkbox"
-                        checked={(capBindings[cap] ?? []).includes(role)}
-                        onChange={() => toggleRoleBinding(capBindings, setCapBindings, cap, role)}
-                        className="accent-indigo-600"
-                      />
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+        {/* Capability role bindings */}
+        <section style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Capabilities — required roles
+          </div>
+          <p style={{ marginBottom: 10, fontSize: 11, color: 'var(--ink-3)', fontFamily: 'var(--font-mono)' }}>
+            Empty = available to all roles.
+          </p>
+          <div style={{ border: '1px solid var(--line)', borderRadius: 4, overflow: 'hidden' }}>
+            <div className="policy-row" style={{ gridTemplateColumns: '1fr 80px 80px 80px', background: 'var(--bg-2)', borderBottom: '1px solid var(--line)' }}>
+              <span style={{ fontSize: 11, color: 'var(--ink-3)', fontWeight: 600 }}>Capability</span>
+              {ROLES.map((r) => <span key={r} style={{ fontSize: 11, color: 'var(--ink-3)', fontWeight: 600, textAlign: 'center', textTransform: 'capitalize' }}>{r}</span>)}
+            </div>
+            {CAPABILITIES.map((cap) => (
+              <div key={cap} className="policy-row" style={{ gridTemplateColumns: '1fr 80px 80px 80px' }}>
+                <span className="meta" style={{ fontFamily: 'var(--font-mono)' }}>{cap}</span>
+                {ROLES.map((role) => (
+                  <div key={role} style={{ display: 'flex', justifyContent: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={(capBindings[cap] ?? []).includes(role)}
+                      onChange={() => toggleRoleBinding(capBindings, setCapBindings, cap, role)}
+                      style={{ accentColor: 'var(--accent)' }}
+                    />
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </section>
 
-      {/* Tool role bindings */}
-      <section>
-        <h3 className="mb-1 text-sm font-semibold text-gray-700 dark:text-gray-300">Tools — required roles</h3>
-        <p className="mb-3 text-xs text-gray-400">
-          Select which roles may invoke each tool. Empty = tool available to all roles.
-        </p>
-        <div className="overflow-x-auto rounded-xl border border-gray-100 dark:border-gray-800">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 dark:border-gray-800 text-left text-xs text-gray-500">
-                <th className="px-4 py-2 font-medium">Tool</th>
-                {ROLES.map((r) => <th key={r} className="px-4 py-2 font-medium capitalize text-center">{r}</th>)}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50 dark:divide-gray-800/50">
-              {TOOLS.map((tool) => (
-                <tr key={tool} className="hover:bg-gray-50 dark:hover:bg-gray-800/30">
-                  <td className="px-4 py-2 font-mono text-xs text-gray-700 dark:text-gray-300">{tool}</td>
-                  {ROLES.map((role) => (
-                    <td key={role} className="px-4 py-2 text-center">
-                      <input
-                        type="checkbox"
-                        checked={(toolBindings[tool] ?? []).includes(role)}
-                        onChange={() => toggleRoleBinding(toolBindings, setToolBindings, tool, role)}
-                        className="accent-indigo-600"
-                      />
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+        {/* Tool role bindings */}
+        <section>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Tools — required roles
+          </div>
+          <p style={{ marginBottom: 10, fontSize: 11, color: 'var(--ink-3)', fontFamily: 'var(--font-mono)' }}>
+            Empty = available to all roles.
+          </p>
+          <div style={{ border: '1px solid var(--line)', borderRadius: 4, overflow: 'hidden' }}>
+            <div className="policy-row" style={{ gridTemplateColumns: '1fr 80px 80px 80px', background: 'var(--bg-2)', borderBottom: '1px solid var(--line)' }}>
+              <span style={{ fontSize: 11, color: 'var(--ink-3)', fontWeight: 600 }}>Tool</span>
+              {ROLES.map((r) => <span key={r} style={{ fontSize: 11, color: 'var(--ink-3)', fontWeight: 600, textAlign: 'center', textTransform: 'capitalize' }}>{r}</span>)}
+            </div>
+            {TOOLS.map((tool) => (
+              <div key={tool} className="policy-row" style={{ gridTemplateColumns: '1fr 80px 80px 80px' }}>
+                <span className="meta" style={{ fontFamily: 'var(--font-mono)' }}>{tool}</span>
+                {ROLES.map((role) => (
+                  <div key={role} style={{ display: 'flex', justifyContent: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={(toolBindings[tool] ?? []).includes(role)}
+                      onChange={() => toggleRoleBinding(toolBindings, setToolBindings, tool, role)}
+                      style={{ accentColor: 'var(--accent)' }}
+                    />
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
     </div>
   )
 }

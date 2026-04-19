@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { MoreHorizontal, Plus, Trash2 } from 'lucide-react'
+import { Plus, Search, Trash2 } from 'lucide-react'
 import * as React from 'react'
 import { PrismLogo } from '~/components/brand'
 
@@ -18,6 +18,31 @@ type ConversationsSidebarPanelProps = {
   onSelectConversation?: () => void
 }
 
+function groupByRecency(convs: Conversation[]) {
+  const today: Conversation[] = []
+  const yesterday: Conversation[] = []
+  const earlier: Conversation[] = []
+  const now = Date.now()
+  for (const c of convs) {
+    const days = (now - new Date(c.created_at).getTime()) / (1000 * 60 * 60 * 24)
+    if (days < 1) today.push(c)
+    else if (days < 2) yesterday.push(c)
+    else earlier.push(c)
+  }
+  return { today, yesterday, earlier }
+}
+
+function formatWhenShort(iso: string): string {
+  try {
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) return ''
+    const now = new Date()
+    const sameDay = d.toDateString() === now.toDateString()
+    if (sameDay) return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  } catch { return '' }
+}
+
 export function ConversationsSidebarPanel({
   conversations,
   conversationsPending,
@@ -30,11 +55,11 @@ export function ConversationsSidebarPanel({
   const qc = useQueryClient()
   const navigate = useNavigate()
   const location = useLocation()
+  const [searchQuery, setSearchQuery] = React.useState('')
   const activeConvId = React.useMemo(() => {
     const m = location.pathname.match(/\/chat\/conversations\/(\d+)/)
     return m ? Number(m[1]) : null
   }, [location.pathname])
-  const [menuOpen, setMenuOpen] = React.useState(false)
   const [selectionMode, setSelectionMode] = React.useState(false)
   const [selectedIds, setSelectedIds] = React.useState<Set<number>>(new Set())
   const [confirmDelete, setConfirmDelete] = React.useState<
@@ -45,7 +70,6 @@ export function ConversationsSidebarPanel({
   const selectAllRef = React.useRef<HTMLInputElement | null>(null)
   const conversationIds = React.useMemo(() => (conversations ?? []).map((c) => c.id), [conversations])
 
-  const closeMenu = () => setMenuOpen(false)
   const toggleSelected = (id: number) => {
     setSelectedIds((prev) => {
       const next = new Set(prev)
@@ -116,176 +140,199 @@ export function ConversationsSidebarPanel({
     selectAllRef.current.indeterminate = someSelected
   }, [someSelected, selectedCount])
 
-  return (
-    <aside className="flex h-full min-h-0 w-full shrink-0 flex-col gap-2 border-b border-neutral-200 p-3 dark:border-neutral-800 md:w-64 md:max-w-64 md:overflow-y-auto md:border-b-0 md:border-r md:overscroll-contain">
-      {!hideHeader && (
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-sm font-semibold">Conversations</span>
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200"
-              onClick={onNewConversation}
-              title="New conversation"
-              aria-label="New conversation"
-            >
-              <Plus className="size-4" aria-hidden />
-            </button>
-            <div className="relative">
-              <button
-                type="button"
-                className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-200 dark:hover:bg-neutral-900"
-                onClick={() => setMenuOpen((v) => !v)}
-                title="Conversation actions"
-                aria-label="Conversation actions"
-                aria-expanded={menuOpen}
-                aria-haspopup="menu"
-              >
-                <MoreHorizontal className="size-4" aria-hidden />
-              </button>
-              {menuOpen && (
-                <div
-                  role="menu"
-                  className="absolute right-0 top-8 z-20 min-w-44 rounded-md border border-neutral-200 bg-white p-1 shadow-lg dark:border-neutral-700 dark:bg-neutral-950"
-                >
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className="w-full rounded px-2 py-1.5 text-left text-xs text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-900"
-                    onClick={() => {
-                      setSelectionMode(true)
-                      closeMenu()
-                    }}
-                  >
-                    Select conversations
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-      {selectionMode && (
-        <div className="space-y-2 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs dark:border-neutral-700 dark:bg-neutral-900">
-          <div className="flex items-center justify-between gap-2">
-            <label className="inline-flex items-center gap-1.5 whitespace-nowrap text-neutral-600 dark:text-neutral-300">
+  const filteredConvs = React.useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    if (!q) return conversations ?? []
+    return (conversations ?? []).filter((c) =>
+      (c.title ?? '').toLowerCase().includes(q),
+    )
+  }, [conversations, searchQuery])
+
+  const groups = React.useMemo(() => groupByRecency(filteredConvs), [filteredConvs])
+
+  function renderConvRow(c: Conversation) {
+    const isActive = c.id === activeConvId
+    return (
+      <div
+        key={c.id}
+        className={`conv-row ${isActive ? 'active' : ''}`}
+        data-testid={`chat-conv-row-${c.id}`}
+      >
+        <div className="flex items-start gap-1">
+          {selectionMode && (
+            <label className="mt-1 inline-flex shrink-0 items-center">
               <input
-                ref={selectAllRef}
                 type="checkbox"
                 className="size-3.5 rounded border-neutral-300 dark:border-neutral-600"
-                checked={allSelected}
-                onChange={() => {
-                  if (allSelected) {
-                    setSelectedIds(new Set())
-                  } else {
-                    setSelectedIds(new Set(conversationIds))
-                  }
-                }}
-                aria-label="Select all conversations"
+                checked={selectedIds.has(c.id)}
+                onChange={() => toggleSelected(c.id)}
+                aria-label={`Select conversation ${c.title ?? c.id}`}
               />
-              <span>Select all</span>
             </label>
-            <span className="whitespace-nowrap text-neutral-500 dark:text-neutral-400">
-              {selectedCount} selected
+          )}
+          <Link
+            to="/chat/conversations/$id"
+            params={{ id: String(c.id) }}
+            className="min-w-0 flex-1"
+            onClick={onSelectConversation}
+          >
+            <div className="top">
+              <span className="title">{c.title ?? 'New conversation'}</span>
+              <span className="when">{formatWhenShort(c.created_at)}</span>
+            </div>
+            {c.assistant_id != null && (
+              <div className="preview">Assistant #{c.assistant_id}</div>
+            )}
+          </Link>
+          {!selectionMode && (
+            <button
+              type="button"
+              className="mr-1 mt-1 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-neutral-400 opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+              title="Delete conversation"
+              style={{ opacity: undefined }}
+              onClick={() => {
+                setConfirmDelete({
+                  kind: 'single',
+                  id: c.id,
+                  label: c.title?.trim() || `Conversation #${c.id}`,
+                })
+              }}
+            >
+              <Trash2 className="size-3" aria-hidden />
+              <span className="sr-only">Delete</span>
+            </button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <aside className="conv-list">
+      {!hideHeader && (
+        <div className="conv-list-head">
+          <div className="flex items-center justify-between gap-2">
+            <span className="mono" style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              Chats
             </span>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                className="btn btn-sm"
+                onClick={onNewConversation}
+                title="New conversation"
+                aria-label="New conversation"
+              >
+                <Plus className="size-3.5" aria-hidden />
+                <span className="sr-only">New</span>
+              </button>
+              {!selectionMode ? (
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={() => setSelectionMode(true)}
+                  title="Select conversations"
+                  aria-label="Select conversations"
+                >
+                  <Trash2 className="size-3.5" aria-hidden />
+                  <span className="sr-only">Select</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={() => { setSelectionMode(false); setSelectedIds(new Set()) }}
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
           </div>
-          <div className="flex items-center justify-end gap-1">
-            <button
-              type="button"
-              className="rounded px-2 py-1 text-neutral-600 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-800"
-              onClick={() => {
-                setSelectionMode(false)
-                setSelectedIds(new Set())
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              data-testid="sidebar-bulk-delete"
-              disabled={selectedCount === 0 || bulkDeleteMut.isPending}
-              className="inline-flex items-center gap-1 rounded bg-red-600 px-2 py-1 text-white disabled:cursor-not-allowed disabled:opacity-50"
-              onClick={() => {
-                const ids = Array.from(selectedIds)
-                if (ids.length === 0) return
-                setConfirmDelete({ kind: 'bulk', ids })
-              }}
-            >
-              <Trash2 className="size-3.5" aria-hidden />
-              Delete
-            </button>
+          <div className="conv-list-search">
+            <Search className="size-3 shrink-0" aria-hidden />
+            <input
+              type="search"
+              placeholder="Search…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              aria-label="Search conversations"
+            />
           </div>
         </div>
       )}
-      {conversationsPending && <PrismLogo state="loading" size={16} className="mx-auto my-3" />}
+
+      {selectionMode && (
+        <div className="flex items-center justify-between gap-2 px-3 py-2" style={{ borderBottom: '1px solid var(--line)', background: 'var(--bg-2)', fontSize: 12 }}>
+          <label className="inline-flex items-center gap-1.5">
+            <input
+              ref={selectAllRef}
+              type="checkbox"
+              className="size-3.5 rounded"
+              checked={allSelected}
+              onChange={() => {
+                if (allSelected) setSelectedIds(new Set())
+                else setSelectedIds(new Set(conversationIds))
+              }}
+              aria-label="Select all conversations"
+            />
+            <span style={{ color: 'var(--ink-2)' }}>{selectedCount} selected</span>
+          </label>
+          <button
+            type="button"
+            data-testid="sidebar-bulk-delete"
+            disabled={selectedCount === 0 || bulkDeleteMut.isPending}
+            className="btn btn-sm"
+            style={{ color: '#ef4444' }}
+            onClick={() => {
+              const ids = Array.from(selectedIds)
+              if (ids.length === 0) return
+              setConfirmDelete({ kind: 'bulk', ids })
+            }}
+          >
+            <Trash2 className="size-3" aria-hidden />
+            Delete
+          </button>
+        </div>
+      )}
+
       {conversationsError && (
-        <p className="text-sm text-red-600">{conversationsError.message}</p>
+        <p className="px-3 py-2 text-sm text-red-600">{conversationsError.message}</p>
       )}
       {singleDeleteMut.isError && (
-        <p className="text-sm text-red-600">{(singleDeleteMut.error as Error).message}</p>
+        <p className="px-3 py-2 text-sm text-red-600">{(singleDeleteMut.error as Error).message}</p>
       )}
       {bulkDeleteMut.isError && (
-        <p className="text-sm text-red-600">{(bulkDeleteMut.error as Error).message}</p>
+        <p className="px-3 py-2 text-sm text-red-600">{(bulkDeleteMut.error as Error).message}</p>
       )}
-      <ul className="min-h-0 flex-1 space-y-1 overflow-y-auto">
-        {(conversations ?? []).map((c) => (
-          <li key={c.id}>
-            <div className="group flex items-start gap-1 rounded hover:bg-neutral-100 dark:hover:bg-neutral-900">
-              {selectionMode && (
-                <label className="mt-1.5 inline-flex shrink-0 items-center pl-1">
-                  <input
-                    type="checkbox"
-                    className="size-3.5 rounded border-neutral-300 dark:border-neutral-600"
-                    checked={selectedIds.has(c.id)}
-                    onChange={() => toggleSelected(c.id)}
-                    aria-label={`Select conversation ${c.title ?? c.id}`}
-                  />
-                </label>
-              )}
-              <Link
-                to="/chat/conversations/$id"
-                params={{ id: String(c.id) }}
-                className="min-w-0 flex-1 truncate rounded px-2 py-1 text-left text-sm"
-                activeProps={{
-                  className:
-                    'min-w-0 flex-1 truncate rounded px-2 py-1 text-left text-sm bg-neutral-200 dark:bg-neutral-800',
-                }}
-                onClick={onSelectConversation}
-              >
-                <span
-                  className={
-                    c.title
-                      ? 'block truncate'
-                      : 'block truncate text-neutral-600 dark:text-neutral-400'
-                  }
-                >
-                  {c.title ?? 'New conversation'}
-                </span>
-                {c.assistant_id != null && (
-                  <span className="block truncate text-[10px] text-neutral-500">
-                    Assistant #{c.assistant_id}
-                  </span>
-                )}
-              </Link>
-              <button
-                type="button"
-                className="mr-1 mt-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-neutral-400 opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 dark:hover:bg-red-950/40 dark:hover:text-red-400"
-                title="Delete conversation"
-                onClick={() => {
-                  setConfirmDelete({
-                    kind: 'single',
-                    id: c.id,
-                    label: c.title?.trim() || `Conversation #${c.id}`,
-                  })
-                }}
-              >
-                <Trash2 className="size-3.5" aria-hidden />
-                <span className="sr-only">Delete</span>
-              </button>
-            </div>
-          </li>
-        ))}
-      </ul>
+
+      <div className="conv-list-scroll">
+        {conversationsPending && <PrismLogo state="loading" size={16} className="mx-auto my-3" />}
+
+        {groups.today.length > 0 && (
+          <>
+            <div className="conv-grp-label">Today</div>
+            {groups.today.map(renderConvRow)}
+          </>
+        )}
+        {groups.yesterday.length > 0 && (
+          <>
+            <div className="conv-grp-label">Yesterday</div>
+            {groups.yesterday.map(renderConvRow)}
+          </>
+        )}
+        {groups.earlier.length > 0 && (
+          <>
+            <div className="conv-grp-label">Earlier</div>
+            {groups.earlier.map(renderConvRow)}
+          </>
+        )}
+        {!conversationsPending && filteredConvs.length === 0 && (
+          <p className="px-3 py-4 text-xs" style={{ color: 'var(--ink-3)' }}>
+            {searchQuery ? 'No conversations match.' : 'No conversations yet.'}
+          </p>
+        )}
+      </div>
+
       {confirmDelete && (
         <div
           className="fixed inset-0 z-60 flex items-center justify-center bg-black/45 p-4"

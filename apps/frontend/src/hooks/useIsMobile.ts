@@ -34,6 +34,7 @@ export const useIsMobile = (): UseIsMobileReturn => {
       setIsMobile(isMobileDevice);
       setIsLoading(false);
       document.documentElement.classList.toggle('compact', isMobileDevice);
+      document.documentElement.setAttribute('data-density', isMobileDevice ? 'compact' : 'comfortable');
     };
 
     // Initial check
