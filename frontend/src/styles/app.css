@@ -1176,6 +1176,11 @@ html:not([data-theme]) {
 
 .msg-actions { padding-left: 30px; margin-top: 8px; display: flex; align-items: center; gap: 12px; }
 
+.cap-tag { display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; border-radius: 3px; background: var(--bg-2); border: 1px solid var(--line); color: var(--ink-2); font-size: 11px; font-family: var(--font-mono); }
+.cap-tag.pill-ok { background: color-mix(in oklch, #22c55e 10%, var(--panel)); border-color: color-mix(in oklch, #22c55e 25%, var(--line)); color: #16a34a; }
+.cap-tag.pill-warn { background: color-mix(in oklch, #f59e0b 10%, var(--panel)); border-color: color-mix(in oklch, #f59e0b 25%, var(--line)); color: #d97706; }
+.cap-tag.pill-err { background: color-mix(in oklch, #ef4444 10%, var(--panel)); border-color: color-mix(in oklch, #ef4444 25%, var(--line)); color: #dc2626; }
+
 /* auth split-screen ───────────────────── */
 .auth-grid {
   min-height: 100vh;

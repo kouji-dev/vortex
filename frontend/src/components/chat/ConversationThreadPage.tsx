@@ -65,7 +65,7 @@ export type ConversationThreadPageProps = {
 export function ConversationThreadPage({ conversationId }: ConversationThreadPageProps) {
   const navigate = useNavigate()
   const location = useLocation()
-  const { composeDraft, setComposeDraft, chatStarters, chatStartersFetched } =
+  const { composeDraft, setComposeDraft, chatStarters, chatStartersFetched, inspectorOpen, setInspectorOpen, setActiveMessage } =
     useConversationsOutlet()
   const { isMobile } = useIsMobile()
   const catalogQ = useCatalogModelsQuery()
@@ -298,58 +298,103 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
     !streaming && streamThreadItems.length === 0 && thread.length === 0 &&
     (isComposerMode || (conversation != null && !threadPending))
 
-  const surfaceThemed =
-    'border-neutral-200 bg-neutral-50 text-neutral-900 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100'
-  const inputThemed =
-    'border-neutral-300 bg-white text-neutral-900 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100'
-
   const displayTitle = isComposerMode
     ? 'New conversation'
     : conversation?.title?.trim() || 'New conversation'
 
   const lastMessageId = thread.at(-1)?.id
 
+  const composerProps = {
+    models: catalogQ.data,
+    modelsPending: catalogQ.isPending,
+    modelsError: catalogQ.error as Error | null,
+    chatModel,
+    onSelectChatModel: setChatModel,
+    onCommitChatModel: isComposerMode ? undefined : commitChatModel,
+    modelSelectDisabled: !isComposerMode && patchPending,
+    capabilities,
+    onToggleCapability: toggleCapability,
+    capabilityDescriptions,
+    composeDraft,
+    setComposeDraft,
+    onSubmit: () => { if (!streaming) { setComposeDraft(''); void submitMessage(composeDraft) } },
+    pendingServerAttachments: isComposerMode ? undefined : pendingAttachments,
+    pendingLocalFileNames: isComposerMode ? pendingComposerFiles.map(f => f.name) : undefined,
+    onRemoveServerAttachment: (id: number) => setPendingAttachments(p => p.filter(x => x.id !== id)),
+    onRemoveLocalFile: (i: number) => setPendingComposerFiles(p => p.filter((_, j) => j !== i)),
+    onLocalFilesChosen,
+    attachDisabled: streaming,
+    streaming,
+    onStop: stopStream,
+    inputThemed: 'border-neutral-300 bg-white text-neutral-900 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100',
+    kbSlot: isComposerMode ? (
+      <KbChatPicker
+        conversationId={null}
+        activeCount={draftKbIds.length}
+        draftKnowledgeBaseIds={draftKbIds}
+        onDraftKnowledgeBaseIdsChange={setDraftKbIds}
+      />
+    ) : conversationId != null ? (
+      <KbChatPicker conversationId={conversationId} activeCount={knowledge_base_ids.length} />
+    ) : undefined,
+    selectedCatalogModel,
+    tuning: sessionTuning,
+    onTuningChange: setSessionTuning,
+  }
+
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
-      {/* ── Desktop header ─────────────────────────────────────────────────── */}
-      <header className="hidden shrink-0 items-start justify-between gap-1.5 border-b border-neutral-200 pb-2 dark:border-neutral-800 md:flex">
-        <div className="min-w-0 flex-1 space-y-0.5">
-          <h1 className="truncate text-sm font-semibold text-neutral-900 dark:text-neutral-100 sm:text-base">
-            {displayTitle}
-          </h1>
-          {!isComposerMode && conversation?.created_at && (
-            <p className="text-xs text-neutral-400">
-              Created {formatWhen(conversation.created_at)}
-            </p>
-          )}
+    <div className="chat-main">
+      {/* ── Chat header ───────────────────────────────────────────────────── */}
+      <div className="chat-head">
+        <div className="chat-head-title">
+          <h2>{displayTitle}</h2>
+          <div className="chat-head-meta">
+            {!isComposerMode && conversation?.created_at && (
+              <>
+                <span>Created {formatWhen(conversation.created_at)}</span>
+                <span className="sep">·</span>
+              </>
+            )}
+            <span>{thread.length} msgs</span>
+          </div>
         </div>
-        {!isComposerMode && (
-          <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
+        <div className="chat-head-actions">
+          {!isComposerMode && (
             <button
               type="button"
               data-testid="thread-header-delete-open"
-              className="rounded border border-red-300 px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/40"
+              className="btn btn-sm"
+              style={{ color: '#ef4444' }}
               disabled={deletePending}
               onClick={() => setConfirmDeleteOpen(true)}
             >
               Delete
             </button>
-          </div>
-        )}
-      </header>
+          )}
+          <button
+            type="button"
+            className={`btn btn-sm ${inspectorOpen ? 'active' : ''}`}
+            data-testid="toggle-inspector"
+            onClick={() => setInspectorOpen((v) => !v)}
+          >
+            Inspect
+          </button>
+        </div>
+      </div>
 
       {/* ── Messages scroll area ───────────────────────────────────────────── */}
       <div
         ref={messagesScrollRef}
         onScroll={syncStickToBottomFromScroll}
-        className={`min-h-0 w-full min-w-0 flex-1 overflow-y-auto overflow-x-hidden scroll-pb-4 scroll-smooth overscroll-contain rounded-xl border p-4 sm:p-5 ${surfaceThemed}`}
+        className="thread-scroll"
+        data-testid="chat-thread"
       >
         {canLoadOlder && thread.length > 0 && (
           <div className="mb-3 flex justify-center">
             <button
               type="button"
               data-testid="chat-load-older"
-              className="text-xs text-blue-600 underline decoration-dotted disabled:opacity-50"
+              className="btn btn-sm"
               disabled={loadingOlder}
               onClick={() => void loadOlder()}
             >
@@ -388,93 +433,75 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
               </details>
             )}
 
-            <ul className="flex w-full flex-col gap-5" role="log" aria-label="Conversation messages">
+            <ul role="log" aria-label="Conversation messages" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
               {thread.map((m) => {
                 const isUserSide = m.role === 'user'
-                const isSystem = m.role === 'system'
                 const isLatestAssistant = m.role === 'assistant' && lastMessageId === m.id && !streaming
                 const isErrorAssistant = m.role === 'assistant' && isPersistedStreamErrorMessage(m.content)
-                const roleLabel = isErrorAssistant ? 'error' : m.role === 'system' ? 'system' : m.role
                 const userAttachments =
                   (m.extra?.attachments as { id: number; original_filename: string }[] | undefined) ?? []
+                const usedKbs = usedKbsFromMessage(m)
                 return (
                   <li
                     key={m.id}
+                    // Dual testids: legacy (relied on by existing tests) + new Vortex-style
                     data-testid={`chat-message-${m.role}`}
-                    className={`flex w-full text-sm ${isUserSide ? 'justify-end' : 'justify-start'}`}
+                    data-msg-id={m.id}
+                    className={`msg ${isUserSide ? 'msg-user' : 'msg-asst'}`}
+                    onClick={() => setActiveMessage(m)}
                   >
-                    <div className={`rounded-2xl px-4 py-3 ${
-                      isUserSide
-                        ? 'ml-auto max-w-[85%] md:max-w-[70%] bg-neutral-100/95 text-neutral-900 dark:bg-neutral-800/95 dark:text-neutral-100'
-                        : isSystem
-                          ? 'w-full max-w-none bg-neutral-100/70 text-neutral-800 dark:bg-neutral-800/50 dark:text-neutral-200'
-                          : isErrorAssistant
-                            ? 'w-full max-w-none bg-red-50/90 dark:bg-red-950/35'
-                            : 'w-full max-w-none bg-white/90 dark:bg-neutral-900/75'
-                    }`}>
-                      <div className="mb-1.5 flex items-center justify-between gap-2">
-                        <span className={`text-[10px] font-semibold uppercase tracking-wide ${
-                          isErrorAssistant ? 'text-red-600 dark:text-red-400' : 'text-neutral-500 dark:text-neutral-400'
-                        }`}>
-                          {roleLabel}
-                        </span>
-                        <div className="flex items-center gap-1">
-                          {m.role === 'assistant' && !isErrorAssistant && (
-                            <MessageKbIndicator usedKbs={usedKbsFromMessage(m)} />
-                          )}
-                          <time
-                            className="text-[10px] tabular-nums text-neutral-400 dark:text-neutral-500"
-                            dateTime={m.created_at}
-                            title={m.created_at}
-                          >
-                            {formatWhen(m.created_at)}
-                          </time>
-                          <button
-                            type="button"
-                            className="rounded p-1 text-neutral-500 transition-colors hover:bg-neutral-200/70 disabled:opacity-40 dark:text-neutral-400 dark:hover:bg-neutral-700/60"
-                            disabled={streaming}
-                            aria-label="Copy message"
-                            onClick={() => void copyToClipboard(m.content)}
-                          >
-                            <Copy className="size-3.5" strokeWidth={2} />
-                          </button>
-                          {isLatestAssistant && (
-                            <button
-                              type="button"
-                              data-testid="chat-regenerate"
-                              className="rounded px-1.5 py-0.5 text-[10px] font-medium text-neutral-600 underline decoration-dotted decoration-neutral-400/80 underline-offset-2 hover:text-neutral-900 disabled:opacity-40 dark:text-neutral-400 dark:decoration-neutral-500 dark:hover:text-neutral-200"
-                              disabled={streaming}
-                              onClick={() => void regenerate(m.id)}
-                            >
-                              Regenerate
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      {userAttachments.length > 0 && (
-                        <ul className="mb-1.5 flex flex-wrap gap-1" aria-label="Attachments">
-                          {userAttachments.map((a) => (
-                            <li key={a.id} className="rounded-full border border-neutral-200/90 bg-white/80 px-2 py-0.5 text-[10px] text-neutral-700 dark:border-neutral-600 dark:bg-neutral-950/60 dark:text-neutral-300">
-                              {a.original_filename}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                      {m.role === 'assistant' && <PersistedStreamItems message={m} />}
-                      <MarkdownMessage
-                        content={m.content}
-                        className={
-                          m.role === 'assistant' && isErrorAssistant
-                            ? 'text-red-800 dark:text-red-200'
-                            : m.role === 'assistant'
-                              ? 'text-neutral-900 dark:text-neutral-100'
-                              : isUserSide
-                                ? 'text-neutral-900 dark:text-neutral-100'
-                                : 'text-neutral-800 dark:text-neutral-200'
-                        }
-                      />
+                    <header className="msg-head">
+                      <span className={`avatar-sm ${isUserSide ? '' : 'avatar-asst'} mono`}>
+                        {isUserSide ? 'YOU' : 'VX'}
+                      </span>
+                      <span className="who-name">{isUserSide ? 'You' : (m.extra?.model_name as string | undefined) ?? 'Assistant'}</span>
+                      <time className="ts mono" dateTime={m.created_at} title={m.created_at}>
+                        {formatWhen(m.created_at)}
+                      </time>
                       {m.role === 'assistant' && !isErrorAssistant && (
-                        <MessageUsageBadge extra={m.extra} />
+                        <MessageKbIndicator usedKbs={usedKbs} />
+                      )}
+                    </header>
+
+                    {userAttachments.length > 0 && (
+                      <div className="attach-list">
+                        {userAttachments.map((a) => (
+                          <span key={a.id} className="attach-chip">{a.original_filename}</span>
+                        ))}
+                      </div>
+                    )}
+
+                    {m.role === 'assistant' && <PersistedStreamItems message={m} />}
+
+                    <div className={`msg-body md ${isErrorAssistant ? 'text-red-800 dark:text-red-200' : ''}`}>
+                      <MarkdownMessage content={m.content} />
+                    </div>
+
+                    {m.role === 'assistant' && !isErrorAssistant && (
+                      <MessageUsageBadge extra={m.extra} />
+                    )}
+
+                    <div className="msg-actions">
+                      <button
+                        type="button"
+                        className="btn btn-sm"
+                        disabled={streaming}
+                        aria-label="Copy message"
+                        onClick={() => void copyToClipboard(m.content)}
+                      >
+                        <Copy className="size-3.5" strokeWidth={2} />
+                        <span>Copy</span>
+                      </button>
+                      {isLatestAssistant && (
+                        <button
+                          type="button"
+                          data-testid="chat-regenerate"
+                          className="btn btn-sm"
+                          disabled={streaming}
+                          onClick={() => void regenerate(m.id)}
+                        >
+                          Regenerate
+                        </button>
                       )}
                     </div>
                   </li>
@@ -482,41 +509,46 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
               })}
 
               {sendError && !streaming && (
-                <li data-testid="chat-message-assistant" className="flex w-full justify-start text-sm">
-                  <div className="w-full max-w-none rounded-2xl bg-red-50/90 px-4 py-3 dark:bg-red-950/35">
-                    <div className="mb-1.5 flex items-center justify-between gap-2">
-                      <span className="text-[10px] font-semibold uppercase tracking-wide text-red-600 dark:text-red-400">error</span>
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          className="rounded p-1 text-neutral-500 transition-colors hover:bg-neutral-200/70 disabled:opacity-40 dark:text-neutral-400 dark:hover:bg-neutral-700/60"
-                          aria-label="Copy message"
-                          onClick={() => void copyToClipboard(sendError)}
-                        >
-                          <Copy className="size-3.5" strokeWidth={2} />
-                        </button>
-                        {lastStreamBodyRef.current && (
-                          <button
-                            type="button"
-                            data-testid="chat-stream-retry"
-                            className="rounded px-1.5 py-0.5 text-[10px] font-medium text-neutral-600 underline decoration-dotted decoration-neutral-400/80 underline-offset-2 hover:text-neutral-900 disabled:opacity-40 dark:text-neutral-400 dark:decoration-neutral-500 dark:hover:text-neutral-200"
-                            onClick={() => void retryStream()}
-                          >
-                            Retry
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    <MarkdownMessage content={`**Error:** ${sendError}`} className="text-red-800 dark:text-red-200" />
+                <li data-testid="chat-message-assistant" className="msg msg-asst">
+                  <header className="msg-head">
+                    <span className="avatar-sm avatar-asst mono">VX</span>
+                    <span className="who-name" style={{ color: '#ef4444' }}>Error</span>
+                  </header>
+                  <div className="msg-body md text-red-800 dark:text-red-200">
+                    <MarkdownMessage content={`**Error:** ${sendError}`} />
+                  </div>
+                  <div className="msg-actions">
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      aria-label="Copy message"
+                      onClick={() => void copyToClipboard(sendError)}
+                    >
+                      <Copy className="size-3.5" strokeWidth={2} />
+                    </button>
+                    {lastStreamBodyRef.current && (
+                      <button
+                        type="button"
+                        data-testid="chat-stream-retry"
+                        className="btn btn-sm"
+                        onClick={() => void retryStream()}
+                      >
+                        Retry
+                      </button>
+                    )}
                   </div>
                 </li>
               )}
             </ul>
 
             {(streaming || streamThreadItems.length > 0) && (
-              <div className="mt-1 w-full">
+              <div className="msg msg-asst mt-1">
+                <header className="msg-head">
+                  <span className="avatar-sm avatar-asst mono">VX</span>
+                  <span className="who-name">Assistant</span>
+                </header>
                 <div
-                  className="stream-surface-breathe w-full max-w-none rounded-2xl bg-white/90 px-4 py-3 dark:bg-neutral-900/75"
+                  className="msg-body md stream-surface-breathe"
                   aria-live="polite"
                   aria-busy={streaming}
                   aria-label={streaming ? 'Assistant is responding' : 'Assistant response items'}
@@ -529,11 +561,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
                     </div>
                   )}
                   {streamingText && (
-                    <MarkdownMessage
-                      content={streamingText}
-                      streaming
-                      className="text-neutral-900 dark:text-neutral-100"
-                    />
+                    <MarkdownMessage content={streamingText} streaming />
                   )}
                   {streaming && (
                     <div className="mt-2 flex items-center justify-between gap-2">
@@ -543,7 +571,8 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
                       />
                       <button
                         type="button"
-                        className="rounded px-1.5 py-0.5 text-[10px] font-medium text-red-600 underline decoration-dotted dark:text-red-400"
+                        className="btn btn-sm"
+                        style={{ color: '#ef4444' }}
                         onClick={stopStream}
                       >
                         Stop
@@ -561,88 +590,11 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
       <QuotaBanner />
 
       {/* ── Composer ──────────────────────────────────────────────────────────── */}
-      <div ref={composerRef} className="w-full shrink-0">
+      <div ref={composerRef} className="run-compose">
         {isMobile ? (
-          <ChatComposerDockMobile
-            models={catalogQ.data}
-            modelsPending={catalogQ.isPending}
-            modelsError={catalogQ.error as Error | null}
-            chatModel={chatModel}
-            onSelectChatModel={setChatModel}
-            onCommitChatModel={isComposerMode ? undefined : commitChatModel}
-            modelSelectDisabled={!isComposerMode && patchPending}
-            capabilities={capabilities}
-            onToggleCapability={toggleCapability}
-            capabilityDisabled={!isComposerMode && patchPending}
-            capabilityDescriptions={capabilityDescriptions}
-            composeDraft={composeDraft}
-            setComposeDraft={setComposeDraft}
-            onSubmit={() => { if (!streaming) { setComposeDraft(''); void submitMessage(composeDraft) } }}
-            pendingServerAttachments={isComposerMode ? undefined : pendingAttachments}
-            pendingLocalFileNames={isComposerMode ? pendingComposerFiles.map(f => f.name) : undefined}
-            onRemoveServerAttachment={(id) => setPendingAttachments(p => p.filter(x => x.id !== id))}
-            onRemoveLocalFile={(i) => setPendingComposerFiles(p => p.filter((_, j) => j !== i))}
-            onLocalFilesChosen={onLocalFilesChosen}
-            attachDisabled={streaming}
-            streaming={streaming}
-            onStop={stopStream}
-            inputThemed={inputThemed}
-            kbSlot={
-              isComposerMode ? (
-                <KbChatPicker
-                  conversationId={null}
-                  activeCount={draftKbIds.length}
-                  draftKnowledgeBaseIds={draftKbIds}
-                  onDraftKnowledgeBaseIdsChange={setDraftKbIds}
-                />
-              ) : conversationId != null ? (
-                <KbChatPicker conversationId={conversationId} activeCount={knowledge_base_ids.length} />
-              ) : undefined
-            }
-            selectedCatalogModel={selectedCatalogModel}
-            tuning={sessionTuning}
-            onTuningChange={setSessionTuning}
-          />
+          <ChatComposerDockMobile {...composerProps} />
         ) : (
-          <ChatComposerDock
-            models={catalogQ.data}
-            modelsPending={catalogQ.isPending}
-            modelsError={catalogQ.error as Error | null}
-            chatModel={chatModel}
-            onSelectChatModel={setChatModel}
-            onCommitChatModel={isComposerMode ? undefined : commitChatModel}
-            modelSelectDisabled={!isComposerMode && patchPending}
-            capabilities={capabilities}
-            onToggleCapability={toggleCapability}
-            capabilityDescriptions={capabilityDescriptions}
-            composeDraft={composeDraft}
-            setComposeDraft={setComposeDraft}
-            onSubmit={() => { if (!streaming) { setComposeDraft(''); void submitMessage(composeDraft) } }}
-            pendingServerAttachments={isComposerMode ? undefined : pendingAttachments}
-            pendingLocalFileNames={isComposerMode ? pendingComposerFiles.map(f => f.name) : undefined}
-            onRemoveServerAttachment={(id) => setPendingAttachments(p => p.filter(x => x.id !== id))}
-            onRemoveLocalFile={(i) => setPendingComposerFiles(p => p.filter((_, j) => j !== i))}
-            onLocalFilesChosen={onLocalFilesChosen}
-            attachDisabled={streaming}
-            streaming={streaming}
-            onStop={stopStream}
-            inputThemed={inputThemed}
-            kbSlot={
-              isComposerMode ? (
-                <KbChatPicker
-                  conversationId={null}
-                  activeCount={draftKbIds.length}
-                  draftKnowledgeBaseIds={draftKbIds}
-                  onDraftKnowledgeBaseIdsChange={setDraftKbIds}
-                />
-              ) : conversationId != null ? (
-                <KbChatPicker conversationId={conversationId} activeCount={knowledge_base_ids.length} />
-              ) : undefined
-            }
-            selectedCatalogModel={selectedCatalogModel}
-            tuning={sessionTuning}
-            onTuningChange={setSessionTuning}
-          />
+          <ChatComposerDock {...composerProps} />
         )}
       </div>
 

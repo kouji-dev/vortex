@@ -258,7 +258,7 @@ test.describe('Chat — send and receive messages', () => {
   test('new conversation button creates and navigates to a fresh chat', async ({ page }) => {
     await page.goto('/chat/conversations', { waitUntil: 'networkidle' })
     await expect(
-      page.getByPlaceholder('Message the assistant… (Shift+Enter for newline)'),
+      page.getByPlaceholder('Message Vortex… (Shift+Enter for newline)'),
     ).toBeVisible()
   })
 
@@ -267,7 +267,7 @@ test.describe('Chat — send and receive messages', () => {
     await createOrFindConversation(page, E2E_CHAT_SEND_SHARED)
     await sendMessage(page, 'Hello world!')
     await page.goto('/chat/conversations', { waitUntil: 'networkidle' })
-    await expect(page.locator('aside ul a[href*="/chat/conversations/"]').first()).toBeVisible({
+    await expect(page.locator('aside a[href*="/chat/conversations/"]').first()).toBeVisible({
       timeout: 15_000,
     })
   })
