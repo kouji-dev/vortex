@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Library, Plus, Search, Trash2 } from 'lucide-react'
+import { Library, MoreHorizontal, Plus, Search, Trash2 } from 'lucide-react'
 import * as React from 'react'
 import { PrismLogo } from '~/components/brand'
 import {
@@ -78,6 +78,8 @@ export function ConversationsSidebarPanel({
     return m ? Number(m[1]) : null
   }, [location.pathname])
   const [selectionMode, setSelectionMode] = React.useState(false)
+  const [actionsMenuOpen, setActionsMenuOpen] = React.useState(false)
+  const actionsMenuRef = React.useRef<HTMLDivElement | null>(null)
   const [selectedIds, setSelectedIds] = React.useState<Set<number>>(new Set())
   const [confirmDelete, setConfirmDelete] = React.useState<
     | { kind: 'single'; id: number; label: string }
@@ -281,17 +283,41 @@ export function ConversationsSidebarPanel({
           </div>
           <div className="flex items-center justify-end">
             {!selectionMode ? (
-              <button
-                type="button"
-                className="btn btn-sm"
-                onClick={() => setSelectionMode(true)}
-                title="Select conversations"
-                aria-label="Select conversations"
-                style={{ fontSize: 11, padding: '0 6px', height: 22 }}
-              >
-                <Trash2 className="size-3" aria-hidden />
-                Select
-              </button>
+              <div ref={actionsMenuRef} style={{ position: 'relative' }}>
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={() => setActionsMenuOpen((v) => !v)}
+                  aria-label="Conversation actions"
+                  aria-haspopup="menu"
+                  aria-expanded={actionsMenuOpen}
+                  style={{ fontSize: 11, padding: '0 6px', height: 22 }}
+                >
+                  <MoreHorizontal className="size-3" aria-hidden />
+                </button>
+                {actionsMenuOpen && (
+                  <>
+                    <div
+                      style={{ position: 'fixed', inset: 0, zIndex: 99 }}
+                      onClick={() => setActionsMenuOpen(false)}
+                    />
+                    <div
+                      role="menu"
+                      style={{ position: 'absolute', top: '100%', right: 0, background: 'var(--bg-2)', border: '1px solid var(--line)', borderRadius: 6, zIndex: 100, minWidth: 160, padding: '4px 0', boxShadow: '0 4px 12px rgba(0,0,0,0.12)' }}
+                    >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="w-full text-left px-3 py-1.5 text-xs hover:bg-black/5 dark:hover:bg-white/5"
+                        onClick={() => { setActionsMenuOpen(false); setSelectionMode(true) }}
+                      >
+                        <Trash2 className="size-3 inline mr-1.5" aria-hidden />
+                        Select conversations
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             ) : (
               <button
                 type="button"

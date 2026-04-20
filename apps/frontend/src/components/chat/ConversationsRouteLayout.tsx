@@ -6,14 +6,14 @@ import { ConversationsSidebarPanel } from '~/components/chat/ConversationsSideba
 import { useChatStartersQuery } from '~/hooks/useChatStartersQuery'
 import { useConversationsListQuery } from '~/hooks/useConversationsListQuery'
 import { ConversationsOutletProvider } from '~/contexts/ConversationsOutletContext'
-import type { ChatMessage } from '~/lib/chat-types'
+import type { ThreadItem } from '~/lib/chat-types'
 
 export function ConversationsRouteLayout() {
   const navigate = useNavigate()
   const location = useLocation()
   const [composeDraft, setComposeDraft] = React.useState('')
   const [inspectorOpen, setInspectorOpen] = React.useState(false)
-  const [activeMessage, setActiveMessage] = React.useState<ChatMessage | null>(null)
+  const [activeMessage, setActiveMessage] = React.useState<ThreadItem | null>(null)
 
   const loadStarters = location.pathname.startsWith('/chat/conversations')
 

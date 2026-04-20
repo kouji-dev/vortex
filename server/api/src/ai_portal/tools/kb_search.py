@@ -5,6 +5,8 @@ Owns its schema, execution, and system prompt instruction.
 
 from __future__ import annotations
 
+from decimal import Decimal
+
 from sqlalchemy.orm import Session
 
 SYSTEM_PROMPT = (
@@ -56,8 +58,12 @@ def execute(
 
     result = search_knowledge_base_tool(db, query=query, kb_ids=kb_ids, top_k=top_k)
     content = result.get("context") or "No relevant context found."
+    snippet = content[:500]
     return {
         "name": "search_knowledge_base",
         "content": content,
+        "result_snippet": snippet,
         "_used_kbs": result.get("used_kbs", []),
+        "provider": "kb_search",
+        "cost_usd": Decimal("0"),
     }

@@ -239,6 +239,7 @@ export function KbPickerPanel({
               <div className="kb-main">
                 <div className="kb-name truncate">{kb.name}</div>
                 <div className="kb-meta">
+                  {isAttached && <span className="mr-1 font-medium" style={{ color: 'var(--accent)' }}>Active</span>}
                   {kb.document_count != null ? `${kb.document_count} docs` : '—'}
                 </div>
               </div>

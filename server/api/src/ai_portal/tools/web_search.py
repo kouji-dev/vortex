@@ -6,8 +6,19 @@ Owns its schema, execution, and system prompt instruction.
 from __future__ import annotations
 
 import unicodedata
+from decimal import Decimal
 
 from ai_portal.tools.search.factory import build_search_provider
+
+# Providers with known zero cost; others rely on flat-rate pricing table
+_ZERO_COST_PROVIDERS = {"duckduckgo"}
+
+
+def _provider_cost(provider_name: str) -> dict:
+    """Return cost_usd dict entry for known-free providers; omit for metered ones."""
+    if provider_name in _ZERO_COST_PROVIDERS:
+        return {"cost_usd": Decimal("0")}
+    return {}
 
 SYSTEM_PROMPT = """\
 ## Web Search
@@ -118,26 +129,34 @@ def execute(query: str, num_results: int = 5, region: str = "uk-en") -> dict:
         results = provider.search(query, num_results=num_results)
 
     if not results:
+        snippet = "Web search returned no results for this query."
         return {
             "name": "web_search",
-            "content": "Web search returned no results for this query.",
+            "content": snippet,
+            "result_snippet": snippet,
             "_used_kbs": [],
             "_top_urls": [],
             "_thin": True,
             "_provider": provider.name,
+            "provider": provider.name,
+            **_provider_cost(provider.name),
         }
 
     # Filter out non-English results using Unicode character analysis
     english_results = [r for r in results if _is_english_result(r.title, r.snippet)]
 
     if not english_results:
+        snippet = "Web search returned only non-English results. No useful data found."
         return {
             "name": "web_search",
-            "content": "Web search returned only non-English results. No useful data found.",
+            "content": snippet,
+            "result_snippet": snippet,
             "_used_kbs": [],
             "_top_urls": [],
             "_thin": True,
             "_provider": provider.name,
+            "provider": provider.name,
+            **_provider_cost(provider.name),
         }
 
     lines = [
@@ -148,5 +167,16 @@ def execute(query: str, num_results: int = 5, region: str = "uk-en") -> dict:
     top_urls = [r.url for r in english_results[:3] if r.url]
     total_snippet_len = sum(len(r.snippet or "") for r in english_results)
     thin = total_snippet_len < _MIN_SNIPPET_CHARS
+    snippet = content[:500]
 
-    return {"name": "web_search", "content": content, "_used_kbs": [], "_top_urls": top_urls, "_thin": thin, "_provider": provider.name}
+    return {
+        "name": "web_search",
+        "content": content,
+        "result_snippet": snippet,
+        "_used_kbs": [],
+        "_top_urls": top_urls,
+        "_thin": thin,
+        "_provider": provider.name,
+        "provider": provider.name,
+        **_provider_cost(provider.name),
+    }

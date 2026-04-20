@@ -327,7 +327,7 @@ test.describe('Memories page', () => {
       await expect(dialog).toBeVisible()
       await dialog.getByRole('button', { name: /cancel/i }).click()
       await expect(dialog).not.toBeVisible({ timeout: 3_000 })
-      await expect(page.getByText(content)).toBeVisible()
+      await expect(page.getByText(content).first()).toBeVisible()
     } finally {
       await deleteMemoryViaApi(request, id)
     }

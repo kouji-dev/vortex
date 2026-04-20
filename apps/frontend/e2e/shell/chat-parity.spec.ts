@@ -33,12 +33,11 @@ test.describe('Chat — spec parity (no LLM)', () => {
   })
 
   test('Add options opens capabilities menu with Reflection', async ({ page, request }) => {
+    // Capabilities are now inline pills in the composer toolbar (no separate "Add options" button).
     const convId = await createEmptyConversation(request, apiBase)
     await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
-    await page.getByTestId('chat-add-options').click()
-    await expect(page.getByRole('menuitem', { name: /reflection/i })).toBeVisible()
-    await expect(page.getByRole('menuitem', { name: /research/i })).toBeVisible()
-    await expect(page.getByRole('menuitem', { name: /web stance/i })).toBeHidden()
+    await expect(page.getByTestId('capability-pill-reflection')).toBeVisible()
+    await expect(page.getByTestId('capability-pill-research')).toBeVisible()
   })
 
   test('model selector is visible on thread page', async ({ page, request }) => {
@@ -59,29 +58,34 @@ test.describe('Chat — spec parity (no LLM)', () => {
   }) => {
     const convId = await createEmptyConversation(request, apiBase)
 
-    // Build 100 messages so canLoadOlder=true, plus an "older" batch with the earliest message
-    const tailMessages = Array.from({ length: 100 }, (_, i) => ({
-      id: i + 1,
-      conversation_id: convId,
-      role: i % 2 === 0 ? 'user' : 'assistant',
-      content: `E2E seed ${i % 2 === 0 ? 'user' : 'assistant'} ${i + 1}`,
-      created_at: new Date(Date.now() - (100 - i) * 60_000).toISOString(),
-      extra: null,
-    }))
-    const olderBatch = [
-      {
-        id: 0,
-        conversation_id: convId,
-        role: 'user',
-        content: 'E2E seed user 0',
-        created_at: new Date(Date.now() - 200 * 60_000).toISOString(),
-        extra: null,
-      },
-    ]
+    // Build 100 ThreadItems so canLoadOlder=true, plus an "older" batch with the earliest message.
+    // Items use ThreadItem format (kind/data.text) — the old role/content format is no longer used.
+    const makeItem = (i: number, offset = 0) => ({
+      id: i + offset,
+      thread_id: convId,
+      turn_id: `00000000-0000-4000-${String(i + offset).padStart(4, '0')}-000000000000`,
+      kind: 'user_message' as const,
+      role: 'user',
+      status: 'done',
+      provider: null,
+      model: null,
+      cost_usd: null,
+      cost_estimated: false,
+      latency_ms: null,
+      data: { text: `E2E seed user ${i + offset}`, attachments: [] },
+      parent_item_id: null,
+      started_at: null,
+      finished_at: null,
+      created_at: new Date(Date.now() - (200 - i) * 60_000).toISOString(),
+    })
+
+    const tailMessages = Array.from({ length: 100 }, (_, i) => makeItem(i, 1))
+    const olderBatch = [makeItem(0)]
 
     await page.route(`**/api/chat/conversations/${convId}/messages**`, async (route) => {
       const url = new URL(route.request().url())
-      if (url.searchParams.has('before_id')) {
+      // Tail query has no since_id; load-older query adds since_id=<first item id>.
+      if (url.searchParams.has('since_id')) {
         await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(olderBatch) })
       } else {
         await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(tailMessages) })

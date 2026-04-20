@@ -127,6 +127,18 @@ Both `worktree-up.sh` and `worktree-down.sh` are **idempotent**:
 - `worktree-up.sh`: if DB already exists, skip creation and just re-run migrations
 - `worktree-down.sh`: if container not found, skip silently
 
+## Chat Types Stay in Sync (Non-Negotiable)
+
+When you add, rename, or remove any field or kind in:
+- `server/api/src/ai_portal/chat/item_kinds.py`
+- `server/api/src/ai_portal/chat/items.py`
+- `server/api/src/ai_portal/chat/sse.py`
+- `server/api/src/ai_portal/catalog/providers/events.py`
+
+You MUST update the matching TypeScript in `apps/frontend/src/lib/chat-types.ts` in the **same commit**.
+
+CI runs `server/api/scripts/check_types_align.py` — the build fails if `ItemKind` literals diverge between Python and TS. No dual-tree drift.
+
 ## System Prompt Style (Non-Negotiable)
 
 All system prompts — tool instructions, capability prompts, memory blocks — must be written in **caveman style**:

@@ -12,12 +12,14 @@ import uuid as _uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
 from fastapi.responses import StreamingResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
 from ai_portal.auth.deps import get_current_org_id, get_current_user, get_db
 from ai_portal.chat import repository as repo
 from ai_portal.chat import service as svc
-from ai_portal.chat import streaming_service as streaming_svc
+from ai_portal.chat.streaming.orchestrator import stream_turn
+from ai_portal.core.db.session import get_async_db
 from ai_portal.chat.schemas import (
     CapabilityProfileEntryRead,
     CapabilityProfileRead,
@@ -26,13 +28,12 @@ from ai_portal.chat.schemas import (
     ConversationKnowledgeBasesPut,
     ConversationPatch,
     ConversationRead,
-    MessagePatch,
-    MessageRead,
     StreamMessageBody,
+    ThreadItemRead,
 )
 from ai_portal.core.config import get_settings
 from ai_portal.auth.model import User
-from ai_portal.chat.model import ChatMessage
+from ai_portal.chat.model import ThreadItem
 from ai_portal.chat import upload_service as upload_svc
 
 router = APIRouter(prefix="/api/chat", tags=["chat-conversations"])
@@ -151,75 +152,26 @@ def delete_conversation(
     repo.delete_conversation(db, conv)
 
 
-@router.get("/conversations/{conversation_id}/messages", response_model=list[MessageRead])
+@router.get("/conversations/{conversation_id}/messages", response_model=list[ThreadItemRead])
 def list_messages(
     conversation_id: int,
-    limit: int = 100,
-    offset: int = 0,
-    recent: Annotated[
-        bool,
-        Query(
-            description=(
-                "If true (default), return the latest `limit` messages in chronological order. "
-                "Use `before_id` to load older pages. If false, use `offset` ascending from "
-                "the oldest message (legacy)."
-            ),
-        ),
-    ] = True,
-    before_id: Annotated[
+    since_id: Annotated[
         int | None,
         Query(
-            description=(
-                "When `recent` is true, only messages with id strictly less than this value "
-                "(older than `before_id`)."
-            ),
+            description="Return only items with id strictly greater than this value.",
         ),
     ] = None,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
     org_id: _uuid.UUID = Depends(get_current_org_id),
-) -> list[ChatMessage]:
+) -> list[ThreadItem]:
     repo.get_owned_conversation(db, user, conversation_id)
-    return repo.list_messages_for_conversation(
+    return repo.list_thread_items(
         db,
-        conversation_id,
-        limit=limit,
-        offset=offset,
-        recent=recent,
-        before_id=before_id,
+        thread_id=conversation_id,
+        org_id=org_id,
+        since_id=since_id,
     )
-
-
-@router.patch(
-    "/conversations/{conversation_id}/messages/{message_id}",
-    response_model=MessageRead,
-)
-def patch_message(
-    conversation_id: int,
-    message_id: int,
-    body: MessagePatch,
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
-    org_id: _uuid.UUID = Depends(get_current_org_id),
-) -> ChatMessage:
-    msg = repo.get_owned_message(db, user, conversation_id, message_id)
-    msg = repo.update_message_content(db, msg, body.content)
-    return msg
-
-
-@router.delete(
-    "/conversations/{conversation_id}/messages/{message_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-)
-def delete_message(
-    conversation_id: int,
-    message_id: int,
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
-    org_id: _uuid.UUID = Depends(get_current_org_id),
-) -> None:
-    msg = repo.get_owned_message(db, user, conversation_id, message_id)
-    repo.delete_message(db, msg)
 
 
 @router.post(
@@ -241,20 +193,33 @@ async def upload_attachment(
         db=db,
         user=user,
         org_id=org_id,
-        conversation_id=conversation_id,
+        thread_id=conversation_id,
         file=file,
         upload_dir=settings.upload_dir,
     )
 
 
 @router.post("/conversations/{conversation_id}/messages/stream")
-def stream_message(
+async def stream_message(
     conversation_id: int,
     body: StreamMessageBody,
-    db: Session = Depends(get_db),
+    async_db: AsyncSession = Depends(get_async_db),
     user: User = Depends(get_current_user),
     org_id: _uuid.UUID = Depends(get_current_org_id),
 ) -> StreamingResponse:
-    return streaming_svc.stream_message_svc(db=db, user=user, conversation_id=conversation_id, body=body)
+    return await stream_turn(
+        session=async_db,
+        user=user,
+        thread_id=conversation_id,
+        body={
+            "text": body.content,
+            "attachments": [{"id": aid} for aid in (body.attachment_ids or [])],
+            "model": body.model,
+            "regenerate_from_turn_id": body.regenerate_after_message_id,
+            "use_rag": body.use_rag,
+            "capabilities": body.capabilities,
+            "tools": body.tools,
+        },
+    )
 
 

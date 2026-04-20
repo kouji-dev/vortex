@@ -57,7 +57,7 @@ async function mobileCreateOrFindConversation(
     await route.fulfill({
       status: 200,
       contentType: 'text/event-stream',
-      body: 'data: {"type":"delta","text":"OK"}\n\ndata: {"type":"done","message_id":1}\n\n',
+      body: 'data: {"event_type":"item","item":{"id":1,"thread_id":0,"turn_id":"00000000-0000-0000-0000-000000000000","kind":"assistant_text","role":"assistant","status":"done","provider":null,"model":null,"cost_usd":null,"cost_estimated":false,"latency_ms":null,"data":{"text":"OK"},"parent_item_id":null,"started_at":null,"finished_at":null,"created_at":"2026-01-01T00:00:00Z"}}\n\ndata: {"event_type":"done"}\n\n',
     })
   })
   try {

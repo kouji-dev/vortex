@@ -37,8 +37,7 @@ def sweep_all_orgs(db: Session) -> None:
 
 
 def sweep_org(db: Session, policy: "RetentionPolicy") -> None:
-    from ai_portal.chat.model import ChatConversation, ChatUpload  # noqa: PLC0415
-    from ai_portal.usage.model import MessageUsage, UsageRollup  # noqa: PLC0415
+    from ai_portal.chat.model import Thread, ChatUpload  # noqa: PLC0415
     from ai_portal.audit.model import AuditEvent  # noqa: PLC0415
 
     now = datetime.now(UTC)
@@ -48,16 +47,16 @@ def sweep_org(db: Session, policy: "RetentionPolicy") -> None:
         if policy.conversation_retention_days is not None:
             cutoff = now - timedelta(days=policy.conversation_retention_days)
             old_convs = db.scalars(
-                select(ChatConversation).where(
-                    ChatConversation.org_id == policy.org_id,
-                    ChatConversation.created_at < cutoff,
+                select(Thread).where(
+                    Thread.org_id == policy.org_id,
+                    Thread.created_at < cutoff,
                 )
             ).all()
             for conv in old_convs:
                 # Delete uploads on disk before cascading the DB row.
                 uploads = db.scalars(
                     select(ChatUpload).where(
-                        ChatUpload.conversation_id == conv.id,
+                        ChatUpload.thread_id == conv.id,
                         ChatUpload.legal_hold.is_(False),
                     )
                 ).all()
@@ -85,21 +84,6 @@ def sweep_org(db: Session, policy: "RetentionPolicy") -> None:
             if old_uploads:
                 db.commit()
                 logger.info("retention_sweeper: deleted %d orphan uploads for org=%s", len(old_uploads), policy.org_id)
-
-        # ── Usage rollup ─────────────────────────────────────────────────────
-        usage_cutoff = now - timedelta(days=policy.usage_retention_days)
-        deleted_usage = db.execute(
-            select(MessageUsage.id).where(
-                MessageUsage.org_id == policy.org_id,
-                MessageUsage.created_at < usage_cutoff,
-            ).limit(10_000)
-        ).scalars().all()
-        if deleted_usage:
-            db.execute(
-                MessageUsage.__table__.delete().where(MessageUsage.id.in_(deleted_usage))
-            )
-            db.commit()
-            logger.info("retention_sweeper: deleted %d usage rows for org=%s", len(deleted_usage), policy.org_id)
 
         # ── Audit events ─────────────────────────────────────────────────────
         audit_cutoff = now - timedelta(days=policy.audit_retention_days)

@@ -1,12 +1,12 @@
 import { Link, useRouterState } from '@tanstack/react-router'
-import { Brain, Library, MessageSquare, Settings } from 'lucide-react'
+import { BarChart2, Brain, Library, MessageSquare, Settings } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 import { useConversationsListQuery } from '~/hooks/useConversationsListQuery'
 import { useMeQuery } from '~/hooks/useMeQuery'
 
 type NavItem = {
-  to: '/chat/conversations' | '/knowledge-bases' | '/memories' | '/org/settings'
+  to: '/chat/conversations' | '/knowledge-bases' | '/memories' | '/org/settings' | '/org/consumption'
   Icon: LucideIcon
   label: string
   testId: string
@@ -17,6 +17,7 @@ const NAV: readonly NavItem[] = [
   { to: '/knowledge-bases', Icon: Library, label: 'Knowledge', testId: 'nav-knowledge' },
   { to: '/memories', Icon: Brain, label: 'Memories', testId: 'nav-memories' },
   { to: '/org/settings', Icon: Settings, label: 'Org Settings', testId: 'nav-org-settings' },
+  { to: '/org/consumption', Icon: BarChart2, label: 'Consumption', testId: 'nav-consumption' },
 ] as const
 
 function relativeTime(iso?: string | null): string {

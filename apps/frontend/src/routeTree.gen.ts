@@ -17,6 +17,7 @@ import { Route as ChatRouteRouteImport } from './routes/chat/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as KnowledgeBasesIndexRouteImport } from './routes/knowledge-bases/index'
 import { Route as OrgSettingsRouteImport } from './routes/org/settings'
+import { Route as OrgConsumptionRouteImport } from './routes/org/consumption'
 import { Route as KnowledgeBasesIdRouteImport } from './routes/knowledge-bases/$id'
 import { Route as ChatConversationsRouteRouteImport } from './routes/chat/conversations/route'
 import { Route as ChatConversationsIndexRouteImport } from './routes/chat/conversations/index'
@@ -62,6 +63,11 @@ const OrgSettingsRoute = OrgSettingsRouteImport.update({
   path: '/org/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OrgConsumptionRoute = OrgConsumptionRouteImport.update({
+  id: '/org/consumption',
+  path: '/org/consumption',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const KnowledgeBasesIdRoute = KnowledgeBasesIdRouteImport.update({
   id: '/knowledge-bases/$id',
   path: '/knowledge-bases/$id',
@@ -92,6 +98,7 @@ export interface FileRoutesByFullPath {
   '/setup': typeof SetupRoute
   '/chat/conversations': typeof ChatConversationsRouteRouteWithChildren
   '/knowledge-bases/$id': typeof KnowledgeBasesIdRoute
+  '/org/consumption': typeof OrgConsumptionRoute
   '/org/settings': typeof OrgSettingsRoute
   '/knowledge-bases/': typeof KnowledgeBasesIndexRoute
   '/chat/conversations/$id': typeof ChatConversationsIdRoute
@@ -105,6 +112,7 @@ export interface FileRoutesByTo {
   '/register': typeof RegisterRoute
   '/setup': typeof SetupRoute
   '/knowledge-bases/$id': typeof KnowledgeBasesIdRoute
+  '/org/consumption': typeof OrgConsumptionRoute
   '/org/settings': typeof OrgSettingsRoute
   '/knowledge-bases': typeof KnowledgeBasesIndexRoute
   '/chat/conversations/$id': typeof ChatConversationsIdRoute
@@ -120,6 +128,7 @@ export interface FileRoutesById {
   '/setup': typeof SetupRoute
   '/chat/conversations': typeof ChatConversationsRouteRouteWithChildren
   '/knowledge-bases/$id': typeof KnowledgeBasesIdRoute
+  '/org/consumption': typeof OrgConsumptionRoute
   '/org/settings': typeof OrgSettingsRoute
   '/knowledge-bases/': typeof KnowledgeBasesIndexRoute
   '/chat/conversations/$id': typeof ChatConversationsIdRoute
@@ -136,6 +145,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/chat/conversations'
     | '/knowledge-bases/$id'
+    | '/org/consumption'
     | '/org/settings'
     | '/knowledge-bases/'
     | '/chat/conversations/$id'
@@ -149,6 +159,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/setup'
     | '/knowledge-bases/$id'
+    | '/org/consumption'
     | '/org/settings'
     | '/knowledge-bases'
     | '/chat/conversations/$id'
@@ -163,6 +174,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/chat/conversations'
     | '/knowledge-bases/$id'
+    | '/org/consumption'
     | '/org/settings'
     | '/knowledge-bases/'
     | '/chat/conversations/$id'
@@ -177,6 +189,7 @@ export interface RootRouteChildren {
   RegisterRoute: typeof RegisterRoute
   SetupRoute: typeof SetupRoute
   KnowledgeBasesIdRoute: typeof KnowledgeBasesIdRoute
+  OrgConsumptionRoute: typeof OrgConsumptionRoute
   OrgSettingsRoute: typeof OrgSettingsRoute
   KnowledgeBasesIndexRoute: typeof KnowledgeBasesIndexRoute
 }
@@ -237,6 +250,13 @@ declare module '@tanstack/react-router' {
       path: '/org/settings'
       fullPath: '/org/settings'
       preLoaderRoute: typeof OrgSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/org/consumption': {
+      id: '/org/consumption'
+      path: '/org/consumption'
+      fullPath: '/org/consumption'
+      preLoaderRoute: typeof OrgConsumptionRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/knowledge-bases/$id': {
@@ -306,6 +326,7 @@ const rootRouteChildren: RootRouteChildren = {
   RegisterRoute: RegisterRoute,
   SetupRoute: SetupRoute,
   KnowledgeBasesIdRoute: KnowledgeBasesIdRoute,
+  OrgConsumptionRoute: OrgConsumptionRoute,
   OrgSettingsRoute: OrgSettingsRoute,
   KnowledgeBasesIndexRoute: KnowledgeBasesIndexRoute,
 }

@@ -17,7 +17,7 @@ from ai_portal.catalog.service import (
     resolve_default_conversation_stored_model,
 )
 from ai_portal.chat import repository as repo
-from ai_portal.chat.model import ChatConversation
+from ai_portal.chat.model import Thread
 from ai_portal.chat.schemas import (
     ConversationRead,
     ConversationSettings,
@@ -38,7 +38,7 @@ CHAT_STARTERS: dict[str, Any] = {
 }
 
 
-def conversation_read(db: Session, conv: ChatConversation) -> ConversationRead:
+def conversation_read(db: Session, conv: Thread) -> ConversationRead:
     kb_ids = repo.get_conversation_kb_ids(db, conv.id)
     return ConversationRead(
         id=conv.id,
@@ -71,7 +71,7 @@ def create_conversation_svc(
         if settings is not None
         else default_conversation_settings()
     )
-    conv = ChatConversation(
+    conv = Thread(
         user_id=user.id,
         org_id=org_id,
         assistant_id=assistant_id,

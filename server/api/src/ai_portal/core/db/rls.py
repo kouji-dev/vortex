@@ -1,6 +1,6 @@
 """Row-Level Security helpers.
 
-Every request that touches RLS-protected tables (``message_usage``,
+Every request that touches RLS-protected tables (``thread_items``,
 ``audit_events``, ``rbac_policy``, ``usage_quota``, ``retention_policy``,
 ``usage_rollup``) must have ``app.org_id`` set on its DB session. The
 tenant-context middleware (``middleware/tenant_context.py``) handles this for

@@ -11,10 +11,8 @@ import { ChatComposerDockMobile } from '~/components/chat/ChatComposerDockMobile
 import { EmptyConversationState } from '~/components/chat/EmptyConversationState'
 import { MarkdownMessage } from '~/components/chat/MarkdownMessage'
 import { StartersPanel } from '~/components/chat/StartersPanel'
-import { ThinkingBlock } from '~/components/chat/ThinkingBlock'
-import { MessageKbIndicator } from '~/components/knowledge-bases/MessageKbIndicator'
+import { TurnGroup } from '~/components/chat/items/TurnGroup'
 import { KbChatPicker } from '~/components/knowledge-bases/KbChatPicker'
-import { MessageUsageBadge } from '~/components/chat/MessageUsageBadge'
 import { QuotaBanner } from '~/components/chat/QuotaBanner'
 import { useConversationsOutlet } from '~/contexts/ConversationsOutletContext'
 import { useCatalogModelsQuery } from '~/hooks/useCatalogModelsQuery'
@@ -23,7 +21,7 @@ import { useIsMobile } from '~/hooks/useIsMobile'
 import { useMeQuery } from '~/hooks/useMeQuery'
 import { useThread } from '~/hooks/useThread'
 import { isConversationNotFoundError } from '~/lib/conversation-not-found'
-import type { ChatMessage, StreamThreadItem, UsedKbEntry } from '~/lib/chat-types'
+import type { ThreadItem } from '~/lib/chat-types'
 import type { SessionModelTuning } from '~/components/chat/ModelTuningModal'
 import { defaultTuningFromCatalog } from '~/components/chat/ModelTuningModal'
 
@@ -38,24 +36,15 @@ const randomUUID = (): string =>
 /** Distance from scroll bottom (px) treated as "following" the thread. */
 const THREAD_BOTTOM_STICKY_PX = 80
 
-function PersistedStreamItems({ message }: { message: ChatMessage }) {
-  const items = message.extra?.stream_items as StreamThreadItem[] | undefined
-  if (!items?.length) return null
-  const normalized = items.map((item) => ({ ...item, status: 'done' as const }))
-  return (
-    <div className="mb-2">
-      <ThinkingBlock items={normalized} running={false} defaultOpen={false} />
-    </div>
-  )
-}
-
-function isPersistedStreamErrorMessage(content: string): boolean {
-  return content.trimStart().startsWith('**Error:**')
-}
-
-function usedKbsFromMessage(m: ChatMessage): UsedKbEntry[] {
-  const raw = m.used_kbs ?? m.extra?.used_kbs
-  return Array.isArray(raw) ? (raw as UsedKbEntry[]) : []
+/** Group thread items by turn_id, preserving insertion order. */
+function groupByTurn(items: ThreadItem[]): Map<string, ThreadItem[]> {
+  const groups = new Map<string, ThreadItem[]>()
+  for (const item of items) {
+    const existing = groups.get(item.turn_id) ?? []
+    existing.push(item)
+    groups.set(item.turn_id, existing)
+  }
+  return groups
 }
 
 export type ConversationThreadPageProps = {
@@ -77,7 +66,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
     patchPending,
     deleteConversation, deletePending,
     thread, threadPending, canLoadOlder, loadingOlder, loadOlder,
-    streaming, streamingText, streamThreadItems, sendError, setSendError,
+    streaming, streamingText, streamItems, sendError, setSendError,
     retryStream, stopStream, lastStreamBodyRef,
     submitMessage, regenerate,
     chatModel, setChatModel, commitChatModel,
@@ -98,6 +87,9 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
     },
     onDeleteSuccess: () => void navigate({ to: '/chat/conversations' }),
   })
+
+  // Silence unused warning — setSendError is kept for consumer APIs.
+  void setSendError
 
   // ── UI-only state ──────────────────────────────────────────────────────────
   const [confirmDeleteOpen, setConfirmDeleteOpen] = React.useState(false)
@@ -248,6 +240,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
     if (!hasPayload) return
     const key = `aip-bs-${pending.bootstrapId}`
     if (sessionStorage.getItem(key)) return
+    // sessionStorage guard deduplicates — submitMessage in deps causes re-runs on model sync
     sessionStorage.setItem(key, '1')
     void (async () => {
       try {
@@ -305,18 +298,28 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
   // ── Derived UI ────────────────────────────────────────────────────────────
   const isComposerMode = conversationId == null
   const knowledge_base_ids = conversation?.knowledge_base_ids ?? []
+
+  // Group persisted + live items by turn_id.
+  const turnGroups = React.useMemo(() => groupByTurn(thread), [thread])
+  const turnIds = Array.from(turnGroups.keys())
+  const lastPersistedTurnId = turnIds.at(-1)
+
+  const liveGroups = React.useMemo(
+    () => (streamItems.length > 0 ? groupByTurn(streamItems) : null),
+    [streamItems],
+  )
+  const liveTurnIds = liveGroups ? Array.from(liveGroups.keys()) : []
+
   const threadMessagesLoading =
     !isComposerMode && !streaming && thread.length === 0 &&
     (conversationPending || threadPending)
   const showEmptyHub =
-    !streaming && streamThreadItems.length === 0 && thread.length === 0 &&
+    !streaming && streamItems.length === 0 && thread.length === 0 &&
     (isComposerMode || (conversation != null && !threadPending))
 
   const displayTitle = isComposerMode
     ? 'New conversation'
     : conversation?.title?.trim() || 'New conversation'
-
-  const lastMessageId = thread.at(-1)?.id
 
   const composerProps = {
     models: catalogQ.data,
@@ -369,7 +372,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
                 <span className="sep">·</span>
               </>
             )}
-            <span>{thread.length} msgs</span>
+            <span>{turnIds.length} turns</span>
           </div>
         </div>
         <div className="chat-head-actions">
@@ -448,79 +451,43 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
             )}
 
             <ul role="log" aria-label="Conversation messages" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-              {thread.map((m) => {
-                const isUserSide = m.role === 'user'
-                const isLatestAssistant = m.role === 'assistant' && lastMessageId === m.id && !streaming
-                const isErrorAssistant = m.role === 'assistant' && isPersistedStreamErrorMessage(m.content)
-                const userAttachments =
-                  (m.extra?.attachments as { id: number; original_filename: string }[] | undefined) ?? []
-                const usedKbs = usedKbsFromMessage(m)
-                return (
-                  <li
-                    key={m.id}
-                    // Dual testids: legacy (relied on by existing tests) + new Vortex-style
-                    data-testid={`chat-message-${m.role}`}
-                    data-msg-id={m.id}
-                    className={`msg ${isUserSide ? 'msg-user' : 'msg-asst'}`}
-                    onClick={() => setActiveMessage(m)}
-                  >
-                    <header className="msg-head">
-                      <span className={`avatar-sm ${isUserSide ? '' : 'avatar-asst'} mono`}>
-                        {isUserSide ? userInitials : 'VX'}
-                      </span>
-                      <span className="who-name">{isUserSide ? userDisplayName : (m.extra?.model_name as string | undefined) ?? 'Assistant'}</span>
-                      <time className="ts mono" dateTime={m.created_at} title={m.created_at}>
-                        {formatWhen(m.created_at)}
-                      </time>
-                      {m.role === 'assistant' && !isErrorAssistant && (
-                        <MessageKbIndicator usedKbs={usedKbs} />
-                      )}
-                    </header>
+              {turnIds.map((turnId) => (
+                <TurnGroup
+                  key={turnId}
+                  turnId={turnId}
+                  items={turnGroups.get(turnId)!}
+                  isLastTurn={turnId === lastPersistedTurnId && !streaming}
+                  onSetActive={setActiveMessage}
+                  userInitials={userInitials}
+                  userDisplayName={userDisplayName}
+                  onRegenerate={(tid) => void regenerate(tid)}
+                  regenerateDisabled={streaming}
+                />
+              ))}
 
-                    {userAttachments.length > 0 && (
-                      <div className="attach-list">
-                        {userAttachments.map((a) => (
-                          <span key={a.id} className="attach-chip">{a.original_filename}</span>
-                        ))}
-                      </div>
-                    )}
+              {streaming && liveTurnIds.map((turnId) => (
+                <TurnGroup
+                  key={`live-${turnId}`}
+                  turnId={turnId}
+                  items={liveGroups!.get(turnId)!}
+                  isStreaming
+                  onSetActive={() => {}}
+                  userInitials={userInitials}
+                  userDisplayName={userDisplayName}
+                />
+              ))}
 
-                    {m.role === 'assistant' && <PersistedStreamItems message={m} />}
-
-                    <div className={`msg-body md ${isErrorAssistant ? 'text-red-800 dark:text-red-200' : ''}`}>
-                      <MarkdownMessage content={m.content} />
-                    </div>
-
-                    {m.role === 'assistant' && !isErrorAssistant && (
-                      <MessageUsageBadge extra={m.extra} />
-                    )}
-
-                    <div className="msg-actions">
-                      <button
-                        type="button"
-                        className="btn btn-sm"
-                        disabled={streaming}
-                        aria-label="Copy message"
-                        onClick={() => void copyToClipboard(m.content)}
-                      >
-                        <Copy className="size-3.5" strokeWidth={2} />
-                        <span>Copy</span>
-                      </button>
-                      {isLatestAssistant && (
-                        <button
-                          type="button"
-                          data-testid="chat-regenerate"
-                          className="btn btn-sm"
-                          disabled={streaming}
-                          onClick={() => void regenerate(m.id)}
-                        >
-                          Regenerate
-                        </button>
-                      )}
-                    </div>
-                  </li>
-                )
-              })}
+              {streaming && streamItems.length === 0 && (
+                <li className="msg msg-asst" data-testid="chat-message-assistant">
+                  <header className="msg-head">
+                    <span className="avatar-sm avatar-asst mono">VX</span>
+                    <span className="who-name">Assistant</span>
+                  </header>
+                  <div className="msg-body">
+                    <PrismLogo state="loading" size={20} />
+                  </div>
+                </li>
+              )}
 
               {sendError && !streaming && (
                 <li data-testid="chat-message-assistant" className="msg msg-asst">
@@ -540,6 +507,7 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
                     >
                       <Copy className="size-3.5" strokeWidth={2} />
                     </button>
+                    {/* lastStreamBodyRef doesn't trigger re-renders; conditional is safe because sendError gates the render */}
                     {lastStreamBodyRef.current && (
                       <button
                         type="button"
@@ -554,46 +522,6 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
                 </li>
               )}
             </ul>
-
-            {(streaming || streamThreadItems.length > 0) && (
-              <div className="msg msg-asst mt-1">
-                <header className="msg-head">
-                  <span className="avatar-sm avatar-asst mono">VX</span>
-                  <span className="who-name">Assistant</span>
-                </header>
-                <div
-                  className="msg-body md stream-surface-breathe"
-                  aria-live="polite"
-                  aria-busy={streaming}
-                  aria-label={streaming ? 'Assistant is responding' : 'Assistant response items'}
-                >
-                  {streamThreadItems.length > 0 && (
-                    <div className="mb-2">
-                      <ThinkingBlock items={streamThreadItems} running={streaming} defaultOpen />
-                    </div>
-                  )}
-                  {streamingText && (
-                    <MarkdownMessage content={streamingText} streaming />
-                  )}
-                  {streaming && (
-                    <div className="mt-2 flex items-center justify-between gap-2">
-                      <PrismLogo
-                        state={sendError ? 'error' : streamingText || streamThreadItems.length > 0 ? 'streaming' : 'loading'}
-                        size={20}
-                      />
-                      <button
-                        type="button"
-                        className="btn btn-sm"
-                        style={{ color: '#ef4444' }}
-                        onClick={stopStream}
-                      >
-                        Stop
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
           </>
         )}
       </div>

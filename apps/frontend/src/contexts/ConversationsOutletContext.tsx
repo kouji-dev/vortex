@@ -1,7 +1,7 @@
 import * as React from 'react'
 
 import type { ChatStartersPayload } from '~/hooks/useChatStartersQuery'
-import type { ChatMessage } from '~/lib/chat-types'
+import type { ThreadItem } from '~/lib/chat-types'
 
 export type ConversationsOutletContextValue = {
   composeDraft: string
@@ -13,8 +13,8 @@ export type ConversationsOutletContextValue = {
   inspectorOpen: boolean
   setInspectorOpen: React.Dispatch<React.SetStateAction<boolean>>
   /** The message whose details are shown in the inspector. */
-  activeMessage: ChatMessage | null
-  setActiveMessage: React.Dispatch<React.SetStateAction<ChatMessage | null>>
+  activeMessage: ThreadItem | null
+  setActiveMessage: React.Dispatch<React.SetStateAction<ThreadItem | null>>
 }
 
 const ConversationsOutletCtx = React.createContext<ConversationsOutletContextValue | null>(

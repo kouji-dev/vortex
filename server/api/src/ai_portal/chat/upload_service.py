@@ -18,7 +18,7 @@ async def create_upload(
     db: Session,
     user: User,
     org_id: _uuid.UUID,
-    conversation_id: int,
+    thread_id: int,
     file: UploadFile,
     upload_dir: str,
 ) -> ChatUploadRead:
@@ -35,7 +35,7 @@ async def create_upload(
     record = ChatUpload(
         org_id=org_id,
         user_id=user.id,
-        conversation_id=conversation_id,
+        thread_id=thread_id,
         original_filename=file.filename or "upload",
         stored_path=str(stored_path),
         size_bytes=size_bytes,

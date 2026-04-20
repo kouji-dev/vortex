@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from ai_portal.core.config import get_settings
 from ai_portal.core.db.session import SessionLocal
-from ai_portal.chat.model import ChatConversation, ChatMessage
+from ai_portal.chat.model import Thread, ThreadItem
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,13 @@ _ENHANCE_SUMMARY_PROMPT = (
 
 
 def _format_transcript(messages: list[Any]) -> str:
-    return "\n".join(f"{m.role}: {m.content}" for m in messages)
+    parts: list[str] = []
+    for m in messages:
+        role = (m.role or "system").value if hasattr(m.role, "value") else (m.role or "system")
+        text = m.data.get("text", "") if isinstance(m.data, dict) else ""
+        if text:
+            parts.append(f"{role}: {text}")
+    return "\n".join(parts)
 
 
 def _call_summary_llm(
@@ -95,16 +101,16 @@ def summarize_conversation(
         settings = get_settings()
         summary_interval = summary_interval or settings.conversation_summary_interval
 
-        conv = db.get(ChatConversation, conversation_id)
+        conv = db.get(Thread, conversation_id)
         if conv is None:
             logger.warning("summarize_skip_missing_conv", extra={"id": conversation_id})
             return
 
         all_ids: list[int] = list(
             db.scalars(
-                select(ChatMessage.id)
-                .where(ChatMessage.conversation_id == conv.id)
-                .order_by(ChatMessage.id)
+                select(ThreadItem.id)
+                .where(ThreadItem.thread_id == conv.id)
+                .order_by(ThreadItem.id)
             ).all()
         )
 
@@ -118,11 +124,11 @@ def summarize_conversation(
             prev_cutoff_id = all_ids[prev_cutoff_idx]
             new_msgs = list(
                 db.execute(
-                    select(ChatMessage)
-                    .where(ChatMessage.conversation_id == conv.id)
-                    .where(ChatMessage.id >= prev_cutoff_id)
-                    .where(ChatMessage.id < cutoff_id)
-                    .order_by(ChatMessage.id)
+                    select(ThreadItem)
+                    .where(ThreadItem.thread_id == conv.id)
+                    .where(ThreadItem.id >= prev_cutoff_id)
+                    .where(ThreadItem.id < cutoff_id)
+                    .order_by(ThreadItem.id)
                 )
                 .scalars()
                 .all()
@@ -130,10 +136,10 @@ def summarize_conversation(
         else:
             new_msgs = list(
                 db.execute(
-                    select(ChatMessage)
-                    .where(ChatMessage.conversation_id == conv.id)
-                    .where(ChatMessage.id < cutoff_id)
-                    .order_by(ChatMessage.id)
+                    select(ThreadItem)
+                    .where(ThreadItem.thread_id == conv.id)
+                    .where(ThreadItem.id < cutoff_id)
+                    .order_by(ThreadItem.id)
                 )
                 .scalars()
                 .all()

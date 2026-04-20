@@ -45,7 +45,7 @@ class ConversationKnowledgeBase(Base):
     __tablename__ = "conversation_knowledge_bases"
 
     conversation_id: Mapped[int] = mapped_column(
-        ForeignKey("chat_conversations.id", ondelete="CASCADE"), primary_key=True
+        ForeignKey("threads.id", ondelete="CASCADE"), primary_key=True
     )
     knowledge_base_id: Mapped[int] = mapped_column(
         ForeignKey("knowledge_bases.id", ondelete="CASCADE"), primary_key=True

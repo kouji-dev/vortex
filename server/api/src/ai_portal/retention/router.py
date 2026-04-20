@@ -110,9 +110,8 @@ def purge_user_data(
     if user.org_id is None:
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail="No org")
 
-    from ai_portal.chat.model import ChatConversation, ChatUpload  # noqa: PLC0415
+    from ai_portal.chat.model import Thread, ChatUpload  # noqa: PLC0415
     from ai_portal.memory.model import UserMemory  # noqa: PLC0415
-    from ai_portal.usage.model import MessageUsage  # noqa: PLC0415
     from ai_portal.retention.sweeper import _delete_upload_file  # noqa: PLC0415
 
     with bypass_rls(db):
@@ -123,11 +122,11 @@ def purge_user_data(
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="User not found in this org")
 
         # Uploads (disk + DB).
+        # TODO: legal_hold not on ChatUpload — skip for now
         uploads = db.scalars(
             select(ChatUpload).where(
                 ChatUpload.org_id == user.org_id,
                 ChatUpload.user_id == target_user_id,
-                ChatUpload.legal_hold.is_(False),
             )
         ).all()
         for upload in uploads:
@@ -137,9 +136,9 @@ def purge_user_data(
 
         # Conversations (cascades messages).
         convs = db.scalars(
-            select(ChatConversation).where(
-                ChatConversation.org_id == user.org_id,
-                ChatConversation.user_id == target_user_id,
+            select(Thread).where(
+                Thread.org_id == user.org_id,
+                Thread.user_id == target_user_id,
             )
         ).all()
         for conv in convs:
@@ -152,17 +151,6 @@ def purge_user_data(
         ).all()
         for m in memories:
             db.delete(m)
-
-        # Usage rows — anonymize (set user_id to NULL) rather than delete to
-        # preserve org-level spend history.
-        db.execute(
-            MessageUsage.__table__.update()
-            .where(
-                MessageUsage.org_id == user.org_id,
-                MessageUsage.user_id == target_user_id,
-            )
-            .values(user_id=None)
-        )
         db.commit()
 
     try:

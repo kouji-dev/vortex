@@ -121,3 +121,63 @@ def dispatch(
 
     logger.warning("unknown_tool_call name=%s", tool_name)
     return {"name": tool_name, "content": f"Error: unknown tool '{tool_name}'", "_used_kbs": []}
+
+
+async def run_tool(
+    *,
+    tool_name: str,
+    arguments: dict,
+    org_id: str,
+    user_id: int | None = None,
+) -> dict:
+    """Async entry point used by tool_service.dispatch_tool.
+
+    Runs the tool synchronously (all current tools are blocking I/O) and returns
+    a normalised dict with at least: provider, result_snippet, input.
+    Optional keys: cost_usd, latency_ms.
+
+    Note: db and kb_ids are not available at this layer — callers that need
+    knowledge-base search should use dispatch() directly via the streaming service.
+    """
+    import asyncio
+
+    loop = asyncio.get_event_loop()
+
+    if tool_name == "web_search":
+        query = arguments.get("query", "")
+        num_results = int(arguments.get("num_results", 5))
+        region = arguments.get("region", "uk-en")
+        raw = await loop.run_in_executor(
+            None, lambda: web_search_tool.execute(query, num_results, region)
+        )
+        return {
+            "provider": raw.get("_provider") or "unknown",
+            "result_snippet": raw.get("result_snippet") or (raw.get("content") or "")[:500] or "",
+            "input": arguments,
+        }
+
+    if tool_name == "fetch_webpage":
+        url = arguments.get("url", "")
+        raw = await loop.run_in_executor(None, lambda: fetch_webpage_tool.execute(url))
+        return {
+            "provider": raw.get("_provider") or "unknown",
+            "result_snippet": raw.get("result_snippet") or (raw.get("content") or "")[:500] or "",
+            "input": arguments,
+        }
+
+    if tool_name == "search_knowledge_base":
+        # kb_search requires a DB session — not available at this layer; return error indicator
+        return {
+            "provider": "kb_search",
+            "result_snippet": None,
+            "input": arguments,
+            "error": "search_knowledge_base requires a database session; use dispatch() instead",
+        }
+
+    logger.warning("run_tool: unknown tool_name=%s", tool_name)
+    return {
+        "provider": "unknown",
+        "result_snippet": None,
+        "input": arguments,
+        "error": f"unknown tool '{tool_name}'",
+    }

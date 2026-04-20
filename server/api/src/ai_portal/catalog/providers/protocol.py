@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import AsyncIterator, Iterator
 from typing import Any, Protocol
+
+from ai_portal.catalog.providers.events import ProviderStreamEvent
 
 
 class ChatProvider(Protocol):
@@ -63,4 +65,15 @@ class ChatProvider(Protocol):
 
         Unknown types must be ignored by consumers (forward compatibility).
         """
+        ...
+
+    async def stream(
+        self,
+        *,
+        messages: list[dict],
+        model: str,
+        settings: dict,
+        tools: list[dict] | None = None,
+    ) -> AsyncIterator[ProviderStreamEvent]:
+        """Async typed stream yielding ``ProviderStreamEvent`` discriminated-union values."""
         ...

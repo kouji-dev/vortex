@@ -43,6 +43,9 @@ jobs:
         run: alembic upgrade head
       - name: Pytest
         run: pytest
+      - name: Types align (Python ↔ TS ItemKind)
+        run: python scripts/check_types_align.py
+        working-directory: ${{ github.workspace }}
 
   frontend:
     runs-on: ubuntu-latest

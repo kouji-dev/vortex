@@ -77,14 +77,25 @@ def _is_search_engine_url(url: str) -> bool:
 def execute(url: str) -> dict:
     if _is_search_engine_url(url):
         logger.warning("fetch_webpage called with search engine URL=%r — redirecting to error", url)
+        snippet = (
+            f"Error: '{url}' is a search engine URL. "
+            "Use the web_search tool to search the web instead of fetching a search engine directly."
+        )
         return {
             "name": "fetch_webpage",
-            "content": (
-                f"Error: '{url}' is a search engine URL. "
-                "Use the web_search tool to search the web instead of fetching a search engine directly."
-            ),
+            "content": snippet,
+            "result_snippet": snippet,
             "_used_kbs": [],
             "_provider": "blocked",
+            "provider": "blocked",
         }
     content, provider = _chain.fetch(url)
-    return {"name": "fetch_webpage", "content": content, "_used_kbs": [], "_provider": provider}
+    snippet = (content or "")[:500]
+    return {
+        "name": "fetch_webpage",
+        "content": content,
+        "result_snippet": snippet,
+        "_used_kbs": [],
+        "_provider": provider,
+        "provider": provider,
+    }

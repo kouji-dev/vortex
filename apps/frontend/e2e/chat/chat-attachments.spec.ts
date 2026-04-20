@@ -100,19 +100,39 @@ test.describe('Chat attachments — assistant uses file (Claude Haiku)', () => {
           body: JSON.stringify([
             {
               id: mockMsgId - 1,
-              conversation_id: convId,
+              thread_id: convId,
+              turn_id: '00000000-0000-0000-0000-000000000001',
+              kind: 'user_message',
               role: 'user',
-              content: 'Read ONLY the attached text file.',
+              status: 'done',
+              provider: null,
+              model: null,
+              cost_usd: null,
+              cost_estimated: false,
+              latency_ms: null,
+              data: { text: 'Read ONLY the attached text file.', attachments: [] },
+              parent_item_id: null,
+              started_at: null,
+              finished_at: null,
               created_at: new Date(Date.now() - 5_000).toISOString(),
-              extra: null,
             },
             {
               id: mockMsgId,
-              conversation_id: convId,
+              thread_id: convId,
+              turn_id: '00000000-0000-0000-0000-000000000001',
+              kind: 'assistant_text',
               role: 'assistant',
-              content: secret,
+              status: 'done',
+              provider: null,
+              model: null,
+              cost_usd: null,
+              cost_estimated: false,
+              latency_ms: null,
+              data: { text: secret },
+              parent_item_id: null,
+              started_at: null,
+              finished_at: null,
               created_at: new Date().toISOString(),
-              extra: null,
             },
           ]),
         })
@@ -126,8 +146,8 @@ test.describe('Chat attachments — assistant uses file (Claude Haiku)', () => {
         status: 200,
         contentType: 'text/event-stream',
         body:
-          `data: {"type":"delta","text":"${secret}"}\n\n` +
-          `data: {"type":"done","message_id":${mockMsgId}}\n\n`,
+          `data: ${JSON.stringify({ event_type: 'item', item: { id: mockMsgId, thread_id: convId, turn_id: '00000000-0000-0000-0000-000000000001', kind: 'assistant_text', role: 'assistant', status: 'done', provider: null, model: null, cost_usd: null, cost_estimated: false, latency_ms: null, data: { text: secret }, parent_item_id: null, started_at: null, finished_at: null, created_at: new Date().toISOString() } })}\n\n` +
+          `data: {"event_type":"done"}\n\n`,
       })
     })
 

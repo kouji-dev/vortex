@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import Iterator
+from collections.abc import AsyncIterator, Iterator
 from typing import Any
 
 import google.genai as genai
@@ -23,6 +23,17 @@ import google.genai.types as gtypes
 
 from ai_portal.core.config import Settings
 from ai_portal.catalog.providers.base import BaseLlmProvider
+from ai_portal.catalog.providers.events import (
+    CitationEvent,
+    IterationCompleteEvent,
+    ProviderErrorEvent,
+    ProviderStreamEvent,
+    ServerToolUseEvent,
+    TextDeltaEvent,
+    ThinkingDeltaEvent,
+    ToolCallRequestEvent,
+    UsageEvent,
+)
 from ai_portal.catalog.providers.routing import (
     normalize_model_id_for_gemini,
     remap_deprecated_chat_model,
@@ -244,6 +255,7 @@ class GeminiNativeChatProvider(BaseLlmProvider):
         candidate_tokens = 0
         cached_tokens = 0
         thoughts_tokens = 0
+        finish_reason: str | None = None
 
         try:
             for chunk in self._client.models.generate_content_stream(
@@ -261,18 +273,26 @@ class GeminiNativeChatProvider(BaseLlmProvider):
 
                 candidates = getattr(chunk, "candidates", None) or []
                 for candidate in candidates:
+                    # Capture finish_reason from last non-None candidate.
+                    fr = getattr(candidate, "finish_reason", None)
+                    if fr is not None:
+                        finish_reason = str(fr)
                     parts = getattr(candidate.content, "parts", None) or []
                     for part in parts:
+                        # Thinking (reasoning) delta — check before text because
+                        # a thinking part has thought=True and text set to the
+                        # reasoning content; checking text first would misroute it.
+                        thought = getattr(part, "thought", None)
+                        if thought:
+                            thinking_text = getattr(part, "text", None)
+                            if thinking_text:
+                                yield {"type": "thinking", "text": thinking_text}
+                            continue
+
                         # Text delta.
                         text = getattr(part, "text", None)
                         if text:
                             yield {"type": "delta", "text": text}
-                            continue
-
-                        # Thinking (reasoning) delta.
-                        thought = getattr(part, "thought", None)
-                        if thought and text:
-                            yield {"type": "thinking", "text": text}
                             continue
 
                         # Function call (client-side tool).
@@ -324,4 +344,106 @@ class GeminiNativeChatProvider(BaseLlmProvider):
             "cached_input_tokens": cached_tokens,
             "cache_creation_input_tokens": 0,
             "reasoning_tokens": thoughts_tokens if thoughts_tokens else None,
+            "finish_reason": finish_reason,
         }
+
+    # ── Typed async stream ───────────────────────────────────────────────────
+
+    _FINISH_REASON_MAP: dict[str, str] = {
+        "STOP": "end_turn",
+        "MAX_TOKENS": "max_tokens",
+        "SAFETY": "unknown",
+        "TOOL": "tool_use",
+        "FUNCTION": "tool_use",
+    }
+
+    def _translate_dict(self, piece: dict[str, Any]) -> list[ProviderStreamEvent]:
+        """Translate a legacy dict event into typed ProviderStreamEvent list."""
+        ptype = piece.get("type")
+
+        if ptype == "delta":
+            text = piece.get("text", "")
+            if text:
+                return [ProviderStreamEvent.model_validate(
+                    {"type": "text_delta", "text": text}
+                )]
+
+        elif ptype == "thinking":
+            text = piece.get("text", "")
+            if text:
+                return [ProviderStreamEvent.model_validate(
+                    {"type": "thinking_delta", "text": text}
+                )]
+
+        elif ptype == "tool_call":
+            tc = piece.get("tool_call", {})
+            raw_args = tc.get("arguments", "{}")
+            try:
+                arguments = json.loads(raw_args) if isinstance(raw_args, str) else raw_args
+            except Exception:
+                arguments = {}
+            return [ProviderStreamEvent.model_validate({
+                "type": "tool_call_request",
+                "call_id": tc.get("id", ""),
+                "tool_name": tc.get("name", ""),
+                "arguments": arguments,
+            })]
+
+        elif ptype == "server_tool_use":
+            return [ProviderStreamEvent.model_validate({
+                "type": "server_tool_use",
+                "tool_name": piece.get("name", ""),
+                "input": piece.get("input", {}),
+            })]
+
+        elif ptype == "citation":
+            return [ProviderStreamEvent.model_validate({
+                "type": "citation",
+                "url": piece.get("url", ""),
+                "title": piece.get("title"),
+                "snippet": piece.get("snippet"),
+            })]
+
+        elif ptype == "usage":
+            events: list[ProviderStreamEvent] = [ProviderStreamEvent.model_validate({
+                "type": "usage",
+                "input_tokens": piece.get("input_tokens", 0) or 0,
+                "output_tokens": piece.get("output_tokens", 0) or 0,
+                "cached_input_tokens": piece.get("cached_input_tokens", 0) or 0,
+                "cache_creation_input_tokens": piece.get("cache_creation_input_tokens", 0) or 0,
+                "reasoning_tokens": piece.get("reasoning_tokens") or 0,
+            })]
+            raw_finish = str(piece.get("finish_reason") or "").upper()
+            stop_reason = self._FINISH_REASON_MAP.get(raw_finish, "end_turn")
+            events.append(ProviderStreamEvent.model_validate({
+                "type": "iteration_complete",
+                "stop_reason": stop_reason,
+            }))
+            return events
+
+        return []
+
+    async def stream(
+        self,
+        *,
+        messages: list[dict],
+        model: str,
+        settings: dict,
+        tools: list[dict] | None = None,
+    ) -> AsyncIterator[ProviderStreamEvent]:
+        """Async typed stream yielding ProviderStreamEvent."""
+        try:
+            for piece in self.stream_deltas_with_tools(
+                messages,
+                model=model,
+                tools=tools,
+            ):
+                for ev in self._translate_dict(piece):
+                    yield ev
+        except Exception as exc:
+            logger.error("gemini_native.stream: error %s", exc)
+            yield ProviderStreamEvent.model_validate({
+                "type": "provider_error",
+                "code": type(exc).__name__,
+                "message": str(exc),
+            })

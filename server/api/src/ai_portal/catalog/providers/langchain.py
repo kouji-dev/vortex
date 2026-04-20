@@ -4,10 +4,19 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import Iterator
+from collections.abc import AsyncIterator, Iterator
 from typing import Any
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+
+from ai_portal.catalog.providers.events import (
+    IterationCompleteEvent,
+    ProviderErrorEvent,
+    ProviderStreamEvent,
+    TextDeltaEvent,
+    ToolCallRequestEvent,
+    UsageEvent,
+)
 
 from ai_portal.core.config import Settings
 from ai_portal.catalog.providers.routing import (
@@ -304,3 +313,80 @@ class LangChainChatProvider:
                 "type": "tool_call",
                 "tool_call": {"name": tc_name, "arguments": raw_args},
             }
+
+    # ── Typed async stream ───────────────────────────────────────────────────
+
+    async def stream(
+        self,
+        *,
+        messages: list[dict],
+        model: str,
+        settings: dict,
+        tools: list[dict] | None = None,
+    ) -> AsyncIterator[ProviderStreamEvent]:
+        """Async typed stream yielding ProviderStreamEvent.
+
+        Iterates over the LangChain chat model's .stream() output, translating
+        AIMessageChunk objects into typed ProviderStreamEvent instances.
+
+        # NOTE: This stream() path does not support server_tool_use events (Anthropic web_search,
+        # Gemini grounding). For server-tool support, use the native provider adapters directly.
+        # Phase 6 will make this explicit via routing.
+        """
+        try:
+            mid = self._resolved_model_id(model)
+            chat = self._chat_model(mid)
+            lc_messages = _map_dict_messages_to_lc(messages)
+
+            stop_reason = "end_turn"
+
+            for chunk in chat.stream(lc_messages):
+                # Text content
+                text = _chunk_assistant_text(chunk)
+                if text:
+                    yield ProviderStreamEvent.model_validate(
+                        {"type": "text_delta", "text": text}
+                    )
+
+                # Tool calls (fully resolved, from .tool_calls attribute)
+                tool_calls = getattr(chunk, "tool_calls", None) or []
+                for tc in tool_calls:
+                    args = tc.get("args", {})
+                    if isinstance(args, str):
+                        try:
+                            args = json.loads(args)
+                        except Exception:
+                            args = {}
+                    yield ProviderStreamEvent.model_validate({
+                        "type": "tool_call_request",
+                        "call_id": tc.get("id", ""),
+                        "tool_name": tc.get("name", ""),
+                        "arguments": args,
+                    })
+                    stop_reason = "tool_use"
+
+                # Usage metadata
+                usage_meta = getattr(chunk, "usage_metadata", None)
+                if usage_meta and isinstance(usage_meta, dict):
+                    yield ProviderStreamEvent.model_validate({
+                        "type": "usage",
+                        "input_tokens": usage_meta.get("input_tokens", 0) or 0,
+                        "output_tokens": usage_meta.get("output_tokens", 0) or 0,
+                        "cached_input_tokens": usage_meta.get("cached_tokens", 0) or 0,
+                        "cache_creation_input_tokens": 0,
+                        "reasoning_tokens": 0,
+                    })
+
+            # Synthesize iteration_complete after stream ends
+            yield ProviderStreamEvent.model_validate({
+                "type": "iteration_complete",
+                "stop_reason": stop_reason,
+            })
+
+        except Exception as exc:
+            logger.error("langchain.stream: error %s", exc)
+            yield ProviderStreamEvent.model_validate({
+                "type": "provider_error",
+                "code": type(exc).__name__,
+                "message": str(exc),
+            })

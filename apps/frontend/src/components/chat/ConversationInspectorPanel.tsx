@@ -2,26 +2,35 @@ import { useConversationsOutlet } from '~/contexts/ConversationsOutletContext'
 
 export function ConversationInspectorPanel() {
   const { activeMessage } = useConversationsOutlet()
+
+  const isLlmCall = activeMessage?.kind === 'llm_call'
+  const totalTokens =
+    isLlmCall && activeMessage
+      ? (activeMessage.data.input_tokens ?? 0) +
+        (activeMessage.data.output_tokens ?? 0)
+      : null
+  const cost =
+    isLlmCall && activeMessage?.cost_usd != null
+      ? parseFloat(activeMessage.cost_usd)
+      : null
+
   return (
     <aside className="run-inspect" data-testid="conversation-inspector">
       <div className="inspect-sec">
-        <h4>Message</h4>
+        <h4>Item</h4>
         <div className="kv">
           <div className="k">ID</div>
           <div className="v">{activeMessage?.id ?? '—'}</div>
+          <div className="k">Kind</div>
+          <div className="v">{activeMessage?.kind ?? '—'}</div>
           <div className="k">Role</div>
           <div className="v">{activeMessage?.role ?? '—'}</div>
           <div className="k">Tokens</div>
-          <div className="v">
-            {activeMessage?.extra?.usage
-              ? String(
-                  (activeMessage.extra.usage.input_tokens ?? 0) +
-                  (activeMessage.extra.usage.output_tokens ?? 0),
-                )
-              : '—'}
-          </div>
+          <div className="v">{totalTokens != null ? String(totalTokens) : '—'}</div>
           <div className="k">Cost</div>
-          <div className="v">{activeMessage?.extra?.usage?.cost_usd != null ? `$${Number(activeMessage.extra.usage.cost_usd).toFixed(5)}` : '—'}</div>
+          <div className="v">
+            {cost != null ? `$${cost.toFixed(5)}` : '—'}
+          </div>
         </div>
       </div>
       <div className="inspect-sec">

@@ -1,57 +1,168 @@
 """Chat domain — database query layer.
 
-All functions here take a ``db: Session`` as first argument and return ORM objects
-or plain Python values.  No business logic, no HTTP concerns.
+All functions here take a ``db: Session`` as first argument and return ORM
+objects or plain Python values.  No business logic, no HTTP concerns.
 """
 
 from __future__ import annotations
 
 import uuid as _uuid
+from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import delete, select
-from sqlalchemy import func as sa_func
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
 from ai_portal.assistant.model import Assistant
 from ai_portal.auth.model import User
-from ai_portal.chat.model import ChatConversation, ChatMessage
-from ai_portal.memory.model import UserMemory as UserMemoryModel
+from ai_portal.chat.model import Thread, ThreadItem
+from ai_portal.chat.schemas import ConversationSettings
 from ai_portal.knowledge_base.model import ConversationKnowledgeBase, KnowledgeBase
 
 
 # ---------------------------------------------------------------------------
-# Conversation helpers
+# Thread CRUD
 # ---------------------------------------------------------------------------
+
+
+def list_threads(
+    db: Session,
+    *,
+    org_id: UUID,
+    user_id: int,
+    limit: int = 50,
+    offset: int = 0,
+) -> list[Thread]:
+    stmt = (
+        select(Thread)
+        .where(Thread.org_id == org_id, Thread.user_id == user_id)
+        .order_by(Thread.last_message_at.desc().nulls_last(), Thread.id.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    return list(db.scalars(stmt).all())
+
+
+def get_thread(
+    db: Session, *, thread_id: int, org_id: UUID
+) -> Thread | None:
+    stmt = select(Thread).where(Thread.id == thread_id, Thread.org_id == org_id)
+    return db.scalars(stmt).first()
+
+
+def create_thread(
+    db: Session,
+    *,
+    org_id: UUID,
+    user_id: int,
+    title: str | None = None,
+    model: str | None = None,
+    assistant_id: int | None = None,
+    settings: ConversationSettings | None = None,
+) -> Thread:
+    thread = Thread(
+        org_id=org_id,
+        user_id=user_id,
+        title=title,
+        model=model,
+        assistant_id=assistant_id,
+        settings=settings,
+    )
+    db.add(thread)
+    db.flush()
+    return thread
+
+
+def update_thread(
+    db: Session,
+    *,
+    thread_id: int,
+    org_id: UUID,
+    **fields,
+) -> Thread:
+    stmt = (
+        update(Thread)
+        .where(Thread.id == thread_id, Thread.org_id == org_id)
+        .values(**fields)
+        .returning(Thread)
+    )
+    result = db.execute(stmt)
+    thread = result.scalar_one_or_none()
+    if thread is None:
+        raise HTTPException(status_code=404, detail="Thread not found")
+    return thread
+
+
+def delete_thread(
+    db: Session, *, thread_id: int, org_id: UUID
+) -> None:
+    stmt = delete(Thread).where(Thread.id == thread_id, Thread.org_id == org_id)
+    db.execute(stmt)
+
+
+# ---------------------------------------------------------------------------
+# ThreadItem reads
+# ---------------------------------------------------------------------------
+
+
+def list_thread_items(
+    db: Session,
+    *,
+    thread_id: int,
+    org_id: UUID,
+    since_id: int | None = None,
+) -> list[ThreadItem]:
+    stmt = select(ThreadItem).where(
+        ThreadItem.thread_id == thread_id,
+        ThreadItem.org_id == org_id,
+    )
+    if since_id is not None:
+        stmt = stmt.where(ThreadItem.id > since_id)
+    stmt = stmt.order_by(ThreadItem.created_at, ThreadItem.id)
+    return list(db.scalars(stmt).all())
+
+
+def get_thread_item(
+    db: Session, *, item_id: int, org_id: UUID
+) -> ThreadItem | None:
+    stmt = select(ThreadItem).where(
+        ThreadItem.id == item_id, ThreadItem.org_id == org_id
+    )
+    return db.scalars(stmt).first()
+
+
+def count_thread_items(
+    db: Session, *, thread_id: int, org_id: UUID
+) -> int:
+    stmt = select(func.count()).select_from(ThreadItem).where(
+        ThreadItem.thread_id == thread_id, ThreadItem.org_id == org_id
+    )
+    return db.scalar(stmt) or 0
+
+
+# ---------------------------------------------------------------------------
+# Legacy conversation helpers (still used by router / service)
+# ---------------------------------------------------------------------------
+
 
 def get_owned_conversation(
     db: Session, user: User, conversation_id: int
-) -> ChatConversation:
-    conv = db.get(ChatConversation, conversation_id)
+) -> Thread:
+    conv = db.get(Thread, conversation_id)
     if conv is None or conv.user_id != user.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Conversation not found")
     return conv
 
 
-def get_owned_message(
-    db: Session, user: User, conversation_id: int, message_id: int
-) -> ChatMessage:
-    get_owned_conversation(db, user, conversation_id)
-    msg = db.get(ChatMessage, message_id)
-    if msg is None or msg.conversation_id != conversation_id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Message not found")
-    return msg
-
-
 def list_conversations_for_user(
     db: Session, user_id: int, org_id: _uuid.UUID
-) -> list[ChatConversation]:
+) -> list[Thread]:
     return list(
         db.scalars(
-            select(ChatConversation)
-            .where(ChatConversation.user_id == user_id)
-            .where(ChatConversation.org_id == org_id)
-            .order_by(ChatConversation.id.desc())
+            select(Thread)
+            .where(Thread.user_id == user_id)
+            .where(Thread.org_id == org_id)
+            .order_by(Thread.id.desc())
         ).all()
     )
 
@@ -68,10 +179,10 @@ def get_conversation_kb_ids(db: Session, conversation_id: int) -> list[int]:
 
 def sync_conversation_knowledge_links(
     db: Session,
-    conv: ChatConversation,
+    conv: Thread,
     user: User,
     knowledge_base_ids: list[int],
-) -> ChatConversation:
+) -> Thread:
     seen: set[int] = set()
     unique_ids: list[int] = []
     for kb_id in knowledge_base_ids:
@@ -103,57 +214,9 @@ def sync_conversation_knowledge_links(
     return conv
 
 
-def delete_conversation(db: Session, conv: ChatConversation) -> None:
+def delete_conversation(db: Session, conv: Thread) -> None:
     db.delete(conv)
     db.commit()
-
-
-def update_message_content(db: Session, msg: ChatMessage, content: str) -> ChatMessage:
-    msg.content = content.strip()
-    db.commit()
-    db.refresh(msg)
-    return msg
-
-
-def delete_message(db: Session, msg: ChatMessage) -> None:
-    db.delete(msg)
-    db.commit()
-
-
-
-
-def get_messages_before(
-    db: Session,
-    conversation_id: int,
-    before_id: int,
-    *,
-    role: str | None = None,
-) -> list[ChatMessage]:
-    stmt = (
-        select(ChatMessage)
-        .where(ChatMessage.conversation_id == conversation_id)
-        .where(ChatMessage.id < before_id)
-    )
-    if role is not None:
-        stmt = stmt.where(ChatMessage.role == role)
-    stmt = stmt.order_by(ChatMessage.id)
-    return list(db.scalars(stmt).all())
-
-
-def get_latest_message_with_role_before(
-    db: Session,
-    conversation_id: int,
-    before_id: int,
-    role: str,
-) -> ChatMessage | None:
-    return db.scalars(
-        select(ChatMessage)
-        .where(ChatMessage.conversation_id == conversation_id)
-        .where(ChatMessage.id < before_id)
-        .where(ChatMessage.role == role)
-        .order_by(ChatMessage.id.desc())
-        .limit(1)
-    ).first()
 
 
 def get_assistant_for_user(
@@ -162,56 +225,71 @@ def get_assistant_for_user(
     return db.get(Assistant, assistant_id)
 
 
-def list_messages_for_conversation(
+# ---------------------------------------------------------------------------
+# Legacy message helpers (still used by streaming_service — remove in Phase 6)
+# ---------------------------------------------------------------------------
+
+
+def get_messages_before(
     db: Session,
     conversation_id: int,
+    before_id: int,
     *,
-    limit: int,
-    offset: int,
-    recent: bool,
-    before_id: int | None,
-) -> list[ChatMessage]:
-    lim = min(max(limit, 1), 500)
-    off = max(offset, 0)
-    base = select(ChatMessage).where(ChatMessage.conversation_id == conversation_id)
-    if recent:
-        stmt = base
-        if before_id is not None:
-            stmt = stmt.where(ChatMessage.id < before_id)
-        stmt = stmt.order_by(ChatMessage.id.desc()).limit(lim)
-        rows = list(db.scalars(stmt).all())
-        rows.reverse()
-        return rows
-    return list(
-        db.scalars(
-            base.order_by(ChatMessage.id).offset(off).limit(lim)
-        ).all()
+    role: str | None = None,
+) -> list[ThreadItem]:
+    stmt = (
+        select(ThreadItem)
+        .where(ThreadItem.thread_id == conversation_id)
+        .where(ThreadItem.id < before_id)
     )
+    if role is not None:
+        stmt = stmt.where(ThreadItem.role == role)
+    stmt = stmt.order_by(ThreadItem.id)
+    return list(db.scalars(stmt).all())
+
+
+def get_latest_message_with_role_before(
+    db: Session,
+    conversation_id: int,
+    before_id: int,
+    role: str,
+) -> ThreadItem | None:
+    return db.scalars(
+        select(ThreadItem)
+        .where(ThreadItem.thread_id == conversation_id)
+        .where(ThreadItem.id < before_id)
+        .where(ThreadItem.role == role)
+        .order_by(ThreadItem.id.desc())
+        .limit(1)
+    ).first()
 
 
 def count_messages_in_conversation(db: Session, conversation_id: int) -> int:
     return db.scalar(
-        select(sa_func.count())
-        .select_from(ChatMessage)
-        .where(ChatMessage.conversation_id == conversation_id)
-    )
+        select(func.count())
+        .select_from(ThreadItem)
+        .where(ThreadItem.thread_id == conversation_id)
+    ) or 0
 
 
-def get_latest_message(db: Session, conversation_id: int) -> ChatMessage | None:
+def get_latest_message(db: Session, conversation_id: int) -> ThreadItem | None:
     return db.scalars(
-        select(ChatMessage)
-        .where(ChatMessage.conversation_id == conversation_id)
-        .order_by(ChatMessage.id.desc())
+        select(ThreadItem)
+        .where(ThreadItem.thread_id == conversation_id)
+        .order_by(ThreadItem.id.desc())
         .limit(1)
     ).first()
 
 
 def get_user_memories(
     db: Session, user_id: int
-) -> tuple[UserMemoryModel | None, list[UserMemoryModel]]:
+) -> tuple:
     """Return (system_profile, manual_memories) for a user."""
+    from sqlalchemy import select as _select
+    from ai_portal.memory.model import UserMemory as UserMemoryModel
+
     system_profile = db.scalars(
-        select(UserMemoryModel)
+        _select(UserMemoryModel)
         .where(
             UserMemoryModel.user_id == user_id,
             UserMemoryModel.is_system == True,  # noqa: E712
@@ -221,7 +299,7 @@ def get_user_memories(
     ).first()
     manual_memories = list(
         db.scalars(
-            select(UserMemoryModel)
+            _select(UserMemoryModel)
             .where(
                 UserMemoryModel.user_id == user_id,
                 UserMemoryModel.is_system == False,  # noqa: E712

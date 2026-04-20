@@ -21,9 +21,9 @@ import { queryKeys } from "~/lib/queryKeys";
 import {
   DEFAULT_CAPABILITIES,
   type CapabilityToggles,
-  type ChatMessage,
   type Conversation,
   type ConversationSettings,
+  type ThreadItem,
 } from "~/lib/chat-types";
 
 const MESSAGES_LIMIT = 100;
@@ -40,7 +40,7 @@ export type UseThreadReturn = {
   deleteError: Error | null;
 
   // ── Messages ──────────────────────────────────────────────────────────────
-  thread: ChatMessage[];
+  thread: ThreadItem[];
   /** True while the tail messages query is loading (useful for skeleton states). */
   threadPending: boolean;
   canLoadOlder: boolean;
@@ -50,7 +50,7 @@ export type UseThreadReturn = {
   // ── Stream state ──────────────────────────────────────────────────────────
   streaming: boolean;
   streamingText: string;
-  streamThreadItems: ReturnType<typeof useStream>["streamThreadItems"];
+  streamItems: ThreadItem[];
   sendError: string | null;
   setSendError: React.Dispatch<React.SetStateAction<string | null>>;
   retryStream: () => Promise<void>;
@@ -67,7 +67,7 @@ export type UseThreadReturn = {
    *   opts can override model/attachments/use_rag for the bootstrap replay case.
    */
   submitMessage: (text: string, opts?: SubmitOpts) => Promise<void>;
-  regenerate: (assistantMessageId: number) => Promise<void>;
+  regenerate: (assistantItemTurnId: string) => Promise<void>;
 
   // ── Model ─────────────────────────────────────────────────────────────────
   /** Current model slug stored for this conversation (or draft in composer mode). */
@@ -135,7 +135,7 @@ export function useThread(
   const {
     streaming,
     streamingText,
-    streamThreadItems,
+    streamItems,
     sendError,
     setSendError,
     runStream,
@@ -156,7 +156,7 @@ export function useThread(
   );
 
   // ── Local state ───────────────────────────────────────────────────────────
-  const [olderMessages, setOlderMessages] = React.useState<ChatMessage[]>([]);
+  const [olderMessages, setOlderMessages] = React.useState<ThreadItem[]>([]);
   const [canLoadOlder, setCanLoadOlder] = React.useState(false);
   const [loadingOlder, setLoadingOlder] = React.useState(false);
 
@@ -293,11 +293,11 @@ export function useThread(
     setLoadingOlder(true);
     try {
       const res = await fetch(
-        `${apiBase}/api/chat/conversations/${conversationId}/messages?limit=${MESSAGES_LIMIT}&recent=true&before_id=${first.id}`,
+        `${apiBase}/api/chat/conversations/${conversationId}/messages?limit=${MESSAGES_LIMIT}&recent=true&since_id=${first.id}`,
         { headers: await getAuthHeaders() },
       );
       if (!res.ok) return;
-      const chunk = (await res.json()) as ChatMessage[];
+      const chunk = (await res.json()) as ThreadItem[];
       if (chunk.length === 0) {
         setCanLoadOlder(false);
         return;
@@ -411,15 +411,29 @@ export function useThread(
           // wipe the optimistic user message written by runStream.
           const optimisticContent =
             trimmed || (attachment_ids.length > 0 ? "(Attached files)" : "");
+          const fakeTurnId = (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function")
+            ? crypto.randomUUID()
+            : `pending-${created.id}`;
+          const fakeUserItem: ThreadItem = {
+            id: -1,
+            thread_id: created.id,
+            turn_id: fakeTurnId,
+            kind: "user_message",
+            role: "user",
+            status: "done",
+            provider: null,
+            model: null,
+            cost_usd: null,
+            cost_estimated: false,
+            latency_ms: null,
+            parent_item_id: null,
+            started_at: null,
+            finished_at: null,
+            created_at: new Date().toISOString(),
+            data: { text: optimisticContent, attachments: [] },
+          };
           qc.setQueryData(queryKeys.conversationMessagesTail(created.id), [
-            {
-              id: -1,
-              conversation_id: created.id,
-              role: "user" as const,
-              content: optimisticContent,
-              created_at: new Date().toISOString(),
-              extra: null,
-            },
+            fakeUserItem,
           ]);
 
           onConversationCreated?.(created.id, {
@@ -477,10 +491,10 @@ export function useThread(
 
   // ── Regenerate ────────────────────────────────────────────────────────────
   const regenerate = React.useCallback(
-    async (assistantMessageId: number) => {
+    async (assistantItemTurnId: string) => {
       const body: Record<string, unknown> = {
         content: "",
-        regenerate_after_message_id: assistantMessageId,
+        regenerate_after_message_id: assistantItemTurnId,
         use_rag: true,
       };
       if (chatModel.trim()) body.model = chatModel.trim();
@@ -525,7 +539,7 @@ export function useThread(
 
     streaming,
     streamingText,
-    streamThreadItems,
+    streamItems,
     sendError,
     setSendError,
     retryStream,

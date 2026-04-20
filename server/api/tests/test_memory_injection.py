@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 
-from ai_portal.chat.streaming_service import _build_memory_block
+from ai_portal.chat.memory_context import build_memory_block as _build_memory_block
 
 
 def _mem(content: str, *, is_system: bool = False, active: bool = True) -> MagicMock:
@@ -15,7 +15,7 @@ def test_memory_block_includes_system_and_manual():
     system = _mem("Likes concise answers", is_system=True)
     manuals = [_mem("Prefers dark mode")]
     block = _build_memory_block(system_profile=system, manual_memories=manuals)
-    assert "auto-updated" in block
+    assert "User profile:" in block
     assert "Likes concise" in block
     assert "Prefers dark mode" in block
 
@@ -25,7 +25,7 @@ def test_memory_block_manual_only():
         system_profile=None,
         manual_memories=[_mem("Manual fact")],
     )
-    assert "saved manually" in block
+    assert "Saved memories:" in block
     assert "Manual fact" in block
 
 

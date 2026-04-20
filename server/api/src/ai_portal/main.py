@@ -21,6 +21,7 @@ from ai_portal.usage.router import router as usage_router
 from ai_portal.audit.router import router as audit_router
 from ai_portal.rbac.router import router as rbac_router
 from ai_portal.retention.router import router as retention_router
+from ai_portal.api.admin.consumption import router as consumption_router
 from ai_portal.core.config import get_settings, settings_log_snapshot
 from ai_portal.core.logging import configure_logging
 from ai_portal.core.middleware.setup_guard import SetupGuardMiddleware
@@ -92,4 +93,5 @@ app.include_router(usage_router)
 app.include_router(audit_router)
 app.include_router(rbac_router)
 app.include_router(retention_router)
+app.include_router(consumption_router)
 

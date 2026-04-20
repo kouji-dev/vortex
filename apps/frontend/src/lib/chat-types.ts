@@ -1,185 +1,220 @@
-/** Mirrors backend `ConversationRead` / `MessageRead` where the UI needs them. */
+// apps/frontend/src/lib/chat-types.ts
+export type ItemKind =
+  | "user_message"
+  | "assistant_text"
+  | "llm_call"
+  | "tool_call"
+  | "server_tool_use"
+  | "thinking"
+  | "citation"
+  | "memory_pill"
+  | "turn_end"
+  | "error";
 
-export interface UsedKbCitation {
-  source: string
-  section: string
-  page?: number | null
+export type ItemStatus = "streaming" | "done" | "error" | "cancelled";
+export type ItemRole = "user" | "assistant" | "system";
+
+export interface ThreadItemBase {
+  id: number;
+  thread_id: number;
+  turn_id: string;
+  role: ItemRole | null;
+  status: ItemStatus;
+  provider: string | null;
+  model: string | null;
+  cost_usd: string | null; // Decimal serialized as string
+  cost_estimated: boolean;
+  latency_ms: number | null;
+  parent_item_id: number | null;
+  started_at: string | null;
+  finished_at: string | null;
+  created_at: string;
 }
 
-export interface UsedKbEntry {
-  kb_id: number
-  kb_name: string
-  chunks_used?: number
-  top_score?: number
-  /** Section labels from retrieval; omitted in some API / seed payloads. */
-  sections?: string[]
-  citations?: UsedKbCitation[]
+export interface UserMessagePayload { text: string; attachments: unknown[] }
+export interface AssistantTextPayload { text: string }
+export interface LlmCallPayload {
+  input_tokens: number;
+  output_tokens: number;
+  cached_input_tokens: number;
+  cache_creation_input_tokens: number;
+  reasoning_tokens: number;
+  iteration_index: number;
+}
+export interface ToolCallPayload {
+  tool_name: string;
+  params: Record<string, unknown>;
+  result_snippet?: string | null;
+  error?: string | null;
+}
+export interface ServerToolUsePayload {
+  tool_name: string;
+  input: Record<string, unknown>;
+}
+export interface ThinkingPayload { text: string }
+export interface CitationPayload {
+  url: string;
+  title?: string | null;
+  snippet?: string | null;
+}
+export interface MemoryPillPayload { count: number }
+export interface TurnEndPayload { reason: "done" | "error" | "cancelled" }
+export interface ErrorPayload { code: string; message: string }
+
+export type ThreadItem =
+  | (ThreadItemBase & { kind: "user_message"; data: UserMessagePayload })
+  | (ThreadItemBase & { kind: "assistant_text"; data: AssistantTextPayload })
+  | (ThreadItemBase & { kind: "llm_call"; data: LlmCallPayload })
+  | (ThreadItemBase & { kind: "tool_call"; data: ToolCallPayload })
+  | (ThreadItemBase & { kind: "server_tool_use"; data: ServerToolUsePayload })
+  | (ThreadItemBase & { kind: "thinking"; data: ThinkingPayload })
+  | (ThreadItemBase & { kind: "citation"; data: CitationPayload })
+  | (ThreadItemBase & { kind: "memory_pill"; data: MemoryPillPayload })
+  | (ThreadItemBase & { kind: "turn_end"; data: TurnEndPayload })
+  | (ThreadItemBase & { kind: "error"; data: ErrorPayload });
+
+export type SseEvent =
+  | { event_type: "item"; item: ThreadItem }
+  | { event_type: "error"; error: ErrorPayload }
+  | { event_type: "done" };
+
+export interface ThreadRead {
+  id: number;
+  org_id: string;
+  user_id: number;
+  assistant_id: number | null;
+  title: string | null;
+  model: string | null;
+  summary: string | null;
+  last_message_at: string | null;
+  created_at: string;
 }
 
-export type CapabilityToggles = {
-  reflection: boolean
-  research: boolean
-}
+// ── Legacy conversation types (still needed for conversation metadata) ─────
 
-export type ConversationSettings = {
-  capabilities?: CapabilityToggles | null
-}
-
-export type Conversation = {
-  id: number
-  user_id: number
-  assistant_id: number | null
-  title: string | null
-  model: string | null
-  settings: ConversationSettings | null
-  created_at: string
-  /** Knowledge bases attached to this thread (RAG scope). */
-  knowledge_base_ids: number[]
-}
-
-export type MessageUsageExtra = {
-  input_tokens?: number
-  output_tokens?: number
-  cached_input_tokens?: number
-  cost_usd?: number | string
-  model?: string
-}
-
-export type ChatMessage = {
-  id: number
-  conversation_id: number
-  role: string
-  content: string
-  created_at: string
-  extra: (Record<string, unknown> & { usage?: MessageUsageExtra; thinking?: string }) | null
-  used_kbs?: UsedKbEntry[] | null
-}
-
-/** Router `location.state` — first stream after creating a conversation from the composer. */
-export type PendingChatStreamPayload = {
-  bootstrapId: string
-  content: string
-  use_rag: boolean
-  model?: string
-}
-
-export type AssistantSummary = {
-  id: number
-  name: string
-  description: string
-  visibility: string
-}
+export type CapabilityKey = "reflection" | "research";
+export type CapabilityToggles = Partial<Record<CapabilityKey, boolean>>;
 
 export const DEFAULT_CAPABILITIES: CapabilityToggles = {
   reflection: false,
   research: false,
+};
+
+export interface ConversationSettings {
+  capabilities?: CapabilityToggles;
+  [key: string]: unknown;
 }
 
-/** Parsed from ``catalog_metadata.config``; stable API surface for UI. */
-export type CatalogReasoningSettings = {
-  supported: boolean
-  efforts_available: string[]
-  default_effort: string | null
+export interface Conversation {
+  id: number;
+  org_id: string;
+  user_id: number;
+  assistant_id: number | null;
+  title: string | null;
+  model: string | null;
+  settings: ConversationSettings | null;
+  summary: string | null;
+  last_message_at: string | null;
+  created_at: string;
+  knowledge_base_ids?: number[];
 }
 
-export type CatalogFloatRange = {
-  min: number
-  max: number
-  default: number
+export interface UsedKbEntry {
+  kb_id: number;
+  kb_name: string;
+  chunks_used: number;
 }
 
-export type CatalogIntRange = {
-  min: number
-  max: number
-  default: number
-}
+// ── Legacy streaming chip types — used by ThinkingBlock and ThreadItemChip ──
+// These are kept for the chip-style streaming UI. New ThreadItem renderer casts
+// ThreadItem[] to StreamThreadItem[] when feeding these components.
 
-export type CatalogSamplingSettings = {
-  temperature: CatalogFloatRange | null
-  max_output_tokens: CatalogIntRange
-}
+export type StreamItemStatus = "running" | "done" | "error";
 
-export type CatalogFeatureFlags = {
-  streaming: boolean
-  vision: boolean
-  tools: boolean
-  json_mode: boolean
-}
-
-export type CatalogLimits = {
-  max_input_chars: number
-}
-
-export type CatalogModelSettings = {
-  reasoning: CatalogReasoningSettings
-  sampling: CatalogSamplingSettings
-  features: CatalogFeatureFlags
-  limits: CatalogLimits
-}
-
-/** Mirrors authenticated `GET /api/models` (metadata uses JSON alias). */
-export type CatalogModelEntry = {
-  id: number
-  slug: string
-  display_name: string
-  description: string
-  api_model_id: string
-  effort: string
-  sort_order: number
-  metadata: Record<string, unknown> | null
-  model_settings: CatalogModelSettings
-  accessible: boolean
-  can_request_access: boolean
-  request_access_url: string | null
-  /** Server default when conversation ``model`` is unset; at most one row per response. */
-  is_default?: boolean
-}
-
-export type MemoryThreadItem = {
-  uid: string
-  kind: 'memory'
-  count: number
-  status: 'running' | 'done'
-}
-
-export type WebSearchThreadItem = {
-  uid: string
-  kind: 'web_search'
-  query: string
-  result_snippet?: string
-  provider?: string
-  status: 'running' | 'done'
-}
-
-export type KBSearchThreadItem = {
-  uid: string
-  kind: 'kb_search'
-  query: string
-  sources?: { kb_name: string; chunks_used: number }[]
-  status: 'running' | 'done'
-}
-
-export type FetchWebpageThreadItem = {
-  uid: string
-  kind: 'fetch_webpage'
-  url: string
-  result_snippet?: string
-  provider?: string
-  status: 'running' | 'done'
-}
-
-export type GenericToolThreadItem = {
-  uid: string
-  kind: 'tool_call'
-  tool: string
-  params: Record<string, string>
-  status: 'running' | 'done'
-}
-
-/** Union of all thread-level stream item types. */
 export type StreamThreadItem =
-  | MemoryThreadItem
-  | WebSearchThreadItem
-  | FetchWebpageThreadItem
-  | KBSearchThreadItem
-  | GenericToolThreadItem
+  | { uid: string; kind: "memory"; count: number; status: StreamItemStatus }
+  | {
+      uid: string;
+      kind: "web_search";
+      query: string;
+      status: StreamItemStatus;
+      provider?: string;
+      result_snippet?: string;
+    }
+  | {
+      uid: string;
+      kind: "fetch_webpage";
+      url: string;
+      status: StreamItemStatus;
+      provider?: string;
+      result_snippet?: string;
+    }
+  | {
+      uid: string;
+      kind: "kb_search";
+      query: string;
+      status: StreamItemStatus;
+      sources?: { kb_name: string; chunks_used: number }[];
+    }
+  | {
+      uid: string;
+      kind: "tool_call";
+      tool: string;
+      params?: Record<string, string>;
+      status: StreamItemStatus;
+    };
+
+// ChatMessage is REMOVED — use ThreadItem instead.
+
+// ── Model catalog types (shared by model picker / tuning modal / RBAC panel) ──
+
+export interface CatalogModelRange {
+  min: number;
+  max: number;
+  default: number;
+}
+
+export interface CatalogModelReasoning {
+  supported: boolean;
+  efforts_available: string[];
+  default_effort?: string;
+}
+
+export interface CatalogModelFeatures {
+  vision: boolean;
+  tool_use?: boolean;
+  [key: string]: unknown;
+}
+
+export interface CatalogModelLimits {
+  max_input_chars?: number;
+  [key: string]: unknown;
+}
+
+export interface CatalogModelSampling {
+  temperature: CatalogModelRange | null;
+  max_output_tokens: CatalogModelRange;
+}
+
+export interface CatalogModelSettings {
+  reasoning: CatalogModelReasoning;
+  features: CatalogModelFeatures;
+  sampling: CatalogModelSampling;
+  limits?: CatalogModelLimits;
+}
+
+export interface CatalogModelEntry {
+  id: number;
+  slug: string;
+  display_name: string;
+  description?: string | null;
+  api_model_id: string;
+  provider: string;
+  accessible: boolean;
+  is_default: boolean;
+  sort_order: number;
+  effort: string;
+  model_settings: CatalogModelSettings;
+  can_request_access?: boolean;
+  request_access_url?: string | null;
+}

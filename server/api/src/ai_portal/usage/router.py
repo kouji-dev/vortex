@@ -7,21 +7,23 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, select
+from sqlalchemy import Integer, cast, func, select
 from sqlalchemy.orm import Session
 
 from ai_portal.auth.deps import get_current_user, get_db
 from ai_portal.auth.model import User
 from ai_portal.auth.routes_orgs import _require_role
 from ai_portal.core.db.rls import bypass_rls, set_org_context
-from ai_portal.usage.model import MessageUsage
+from ai_portal.chat.model import Thread, ThreadItem
+from ai_portal.chat.item_kinds import ItemKind
 from ai_portal.usage.schemas import (
     ConversationUsageResponse,
     MyUsageResponse,
     UsageSummaryResponse,
     UsageSummaryRow,
 )
-from ai_portal.usage.service import _period_start, _seconds_to_period_end, check_quota
+from ai_portal.usage.model import UsageQuota
+from ai_portal.usage.service import _period_end, _period_start, _seconds_to_period_end, check_quota
 
 router = APIRouter(prefix="/api/admin/usage", tags=["usage"])
 
@@ -31,7 +33,7 @@ def _require_admin(user: User = Depends(get_current_user)) -> User:
     return user
 
 
-@router.get("/summary", response_model=UsageSummaryResponse)
+@router.get("/summary", response_model=UsageSummaryResponse, deprecated=True)
 def get_usage_summary(
     start: datetime | None = Query(None),
     end: datetime | None = Query(None),
@@ -50,28 +52,29 @@ def get_usage_summary(
         set_org_context(db, user.org_id)
 
         if group_by == "user":
-            label_col = func.cast(MessageUsage.user_id, type_=None).label("group_key")
-        elif group_by == "capability":
-            label_col = func.coalesce(
-                MessageUsage.capability_flags.cast(type_=None), "unknown"
-            ).label("group_key")
+            label_col = Thread.user_id.label("group_key")
         else:
-            label_col = func.coalesce(MessageUsage.api_model_id, "unknown").label("group_key")
+            label_col = func.coalesce(ThreadItem.model, "unknown").label("group_key")
 
-        rows = db.execute(
+        base_stmt = (
             select(
                 label_col,
-                func.coalesce(func.sum(MessageUsage.input_tokens), 0).label("input_tokens"),
-                func.coalesce(func.sum(MessageUsage.output_tokens), 0).label("output_tokens"),
-                func.coalesce(func.sum(MessageUsage.cached_input_tokens), 0).label("cached_input_tokens"),
-                func.coalesce(func.sum(MessageUsage.cost_usd), Decimal("0")).label("cost_usd"),
+                func.coalesce(func.sum(cast(ThreadItem.data["input_tokens"].astext, Integer)), 0).label("input_tokens"),
+                func.coalesce(func.sum(cast(ThreadItem.data["output_tokens"].astext, Integer)), 0).label("output_tokens"),
+                func.coalesce(func.sum(cast(ThreadItem.data["cached_input_tokens"].astext, Integer)), 0).label("cached_input_tokens"),
+                func.coalesce(func.sum(ThreadItem.cost_usd), Decimal("0")).label("cost_usd"),
                 func.count().label("message_count"),
-            ).where(
-                MessageUsage.org_id == user.org_id,
-                MessageUsage.created_at >= effective_start,
-                MessageUsage.created_at < effective_end,
-            ).group_by(label_col)
-        ).all()
+            )
+            .join(Thread, Thread.id == ThreadItem.thread_id)
+            .where(
+                ThreadItem.org_id == user.org_id,
+                ThreadItem.kind == ItemKind.llm_call,
+                ThreadItem.created_at >= effective_start,
+                ThreadItem.created_at < effective_end,
+            )
+            .group_by(label_col)
+        )
+        rows = db.execute(base_stmt).all()
 
     summary_rows = [
         UsageSummaryRow(
@@ -97,7 +100,7 @@ def get_usage_summary(
     )
 
 
-@router.get("/by-conversation/{conversation_id}", response_model=ConversationUsageResponse)
+@router.get("/by-conversation/{conversation_id}", response_model=ConversationUsageResponse, deprecated=True)
 def get_conversation_usage(
     conversation_id: int,
     db: Session = Depends(get_db),
@@ -109,14 +112,15 @@ def get_conversation_usage(
     with bypass_rls(db):
         row = db.execute(
             select(
-                func.coalesce(func.sum(MessageUsage.input_tokens), 0).label("input_tokens"),
-                func.coalesce(func.sum(MessageUsage.output_tokens), 0).label("output_tokens"),
-                func.coalesce(func.sum(MessageUsage.cached_input_tokens), 0).label("cached_input_tokens"),
-                func.coalesce(func.sum(MessageUsage.cost_usd), Decimal("0")).label("cost_usd"),
+                func.coalesce(func.sum(cast(ThreadItem.data["input_tokens"].astext, Integer)), 0).label("input_tokens"),
+                func.coalesce(func.sum(cast(ThreadItem.data["output_tokens"].astext, Integer)), 0).label("output_tokens"),
+                func.coalesce(func.sum(cast(ThreadItem.data["cached_input_tokens"].astext, Integer)), 0).label("cached_input_tokens"),
+                func.coalesce(func.sum(ThreadItem.cost_usd), Decimal("0")).label("cost_usd"),
                 func.count().label("message_count"),
             ).where(
-                MessageUsage.org_id == user.org_id,
-                MessageUsage.conversation_id == conversation_id,
+                ThreadItem.org_id == user.org_id,
+                ThreadItem.thread_id == conversation_id,
+                ThreadItem.kind == ItemKind.llm_call,
             )
         ).one()
 
@@ -139,34 +143,29 @@ def get_my_usage(
     if user.org_id is None:
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail="No org")
 
-    from ai_portal.usage.service import _period_end  # noqa: PLC0415
-
     period_start = _period_start(period)
     period_end_dt = _period_end(period)
 
     with bypass_rls(db):
         row = db.execute(
             select(
-                func.coalesce(func.sum(MessageUsage.input_tokens), 0).label("input_tokens"),
-                func.coalesce(func.sum(MessageUsage.output_tokens), 0).label("output_tokens"),
-                func.coalesce(func.sum(MessageUsage.cost_usd), Decimal("0")).label("cost_usd"),
+                func.coalesce(func.sum(cast(ThreadItem.data["input_tokens"].astext, Integer)), 0).label("input_tokens"),
+                func.coalesce(func.sum(cast(ThreadItem.data["output_tokens"].astext, Integer)), 0).label("output_tokens"),
+                func.coalesce(func.sum(ThreadItem.cost_usd), Decimal("0")).label("cost_usd"),
                 func.count().label("message_count"),
-            ).where(
-                MessageUsage.org_id == user.org_id,
-                MessageUsage.user_id == user.id,
-                MessageUsage.created_at >= period_start,
+            )
+            .join(Thread, Thread.id == ThreadItem.thread_id)
+            .where(
+                ThreadItem.org_id == user.org_id,
+                ThreadItem.kind == ItemKind.llm_call,
+                ThreadItem.created_at >= period_start,
+                Thread.user_id == user.id,
             )
         ).one()
 
     # Check if user has a quota for context.
     quota_max: Decimal | None = None
     quota_pct: float | None = None
-    quotas = db.scalars(
-        select(MessageUsage)
-        .where(MessageUsage.org_id == user.org_id)
-        .limit(0)
-    ).all()  # warm up RLS context then use separate query
-    from ai_portal.usage.model import UsageQuota  # noqa: PLC0415
     with bypass_rls(db):
         user_quota = db.scalars(
             select(UsageQuota).where(

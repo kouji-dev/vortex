@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+from decimal import Decimal
 from typing import Any, Self
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from ai_portal.chat.item_kinds import ItemKind, ItemRole, ItemStatus
 
 
 # ---------------------------------------------------------------------------
@@ -29,6 +34,45 @@ class ConversationSettings(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     capabilities: CapabilityToggles | None = None
+
+
+# ---------------------------------------------------------------------------
+# Thread / ThreadItem read schemas (Task 1.6)
+# ---------------------------------------------------------------------------
+
+class ThreadRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    org_id: UUID
+    user_id: int
+    assistant_id: int | None
+    title: str | None
+    model: str | None
+    summary: str | None
+    last_message_at: datetime | None
+    created_at: datetime
+
+
+class ThreadItemRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    thread_id: int
+    turn_id: UUID
+    kind: ItemKind
+    role: ItemRole | None
+    status: ItemStatus
+    provider: str | None
+    model: str | None
+    cost_usd: Decimal | None
+    cost_estimated: bool
+    latency_ms: int | None
+    data: dict[str, Any]
+    parent_item_id: int | None
+    started_at: datetime | None
+    finished_at: datetime | None
+    created_at: datetime
 
 
 # ---------------------------------------------------------------------------
@@ -61,21 +105,6 @@ class ConversationRead(BaseModel):
     knowledge_base_ids: list[int] = Field(default_factory=list)
 
 
-class MessageRead(BaseModel):
-    id: int
-    conversation_id: int
-    role: str
-    content: str
-    created_at: Any
-    extra: dict | None
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class MessagePatch(BaseModel):
-    content: str = Field(min_length=1, max_length=500_000)
-
-
 class ConversationKnowledgeBasesPut(BaseModel):
     knowledge_base_ids: list[int] = Field(default_factory=list)
 
@@ -86,6 +115,8 @@ class StreamMessageBody(BaseModel):
     model: str | None = Field(default=None, max_length=128)
     use_rag: bool = False
     attachment_ids: list[int] = Field(default_factory=list)
+    capabilities: list[str] = Field(default_factory=list)
+    tools: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def content_or_regenerate(self) -> Self:

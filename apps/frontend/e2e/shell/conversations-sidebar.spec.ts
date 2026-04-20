@@ -42,11 +42,7 @@ test.describe('Conversations sidebar', () => {
 
   test('"New conversation" button / link is visible', async ({ page }) => {
     await page.goto('/chat/conversations', { waitUntil: 'networkidle' })
-    await expect(
-      page
-        .getByRole('link', { name: /new conversation/i })
-        .or(page.getByRole('button', { name: /new conversation/i })),
-    ).toBeVisible()
+    await expect(page.getByTestId('sidebar-new-conversation')).toBeVisible()
   })
 
   test('"Conversation actions" menu button is visible', async ({ page }) => {

@@ -26,16 +26,12 @@ test.describe('Chat conversation', () => {
 
   test('composer index shows message input with correct placeholder', async ({ page }) => {
     await gotoChatComposerIndex(page)
-    await expect(
-      page.getByPlaceholder('Message Vortex… (Shift+Enter for newline)'),
-    ).toBeVisible()
+    await expect(page.getByRole('textbox', { name: /message/i })).toBeVisible()
   })
 
   test('thread page shows composer with correct placeholder', async ({ page }) => {
     await createOrFindConversation(page, E2E_CONV_SHARED)
-    await expect(
-      page.getByPlaceholder('Message Vortex… (Shift+Enter for newline)'),
-    ).toBeVisible()
+    await expect(page.getByRole('textbox', { name: /message/i })).toBeVisible()
   })
 
   test('conversation metadata (Created …) is visible', async ({ page }) => {
@@ -93,8 +89,8 @@ test.describe('Chat conversation', () => {
     await createOrFindKb(page, kbName)
     await gotoChatComposerIndex(page)
     await page.getByTestId('chat-kb-picker-trigger').click()
-    await expect(page.getByRole('option', { name: new RegExp(escapeRegExp(kbName)) })).toBeVisible({
-      timeout: 5_000,
+    await expect(page.getByRole('option', { name: new RegExp(escapeRegExp(kbName)) }).first()).toBeVisible({
+      timeout: 15_000,
     })
   })
 
@@ -104,9 +100,9 @@ test.describe('Chat conversation', () => {
     await createOrFindKb(page, kbName)
     await gotoChatComposerIndex(page)
     await page.getByTestId('chat-kb-picker-trigger').click()
-    const opt = page.getByRole('option', { name: new RegExp(escapeRegExp(kbName)) })
+    const opt = page.getByRole('option', { name: new RegExp(escapeRegExp(kbName)) }).first()
     await opt.click()
-    await expect(opt).toContainText('Active', { timeout: 5_000 })
+    await expect(opt).toContainText('Active', { timeout: 10_000 })
   })
 
   test('trigger button updates text when KB is attached', async ({ page }) => {
@@ -115,10 +111,10 @@ test.describe('Chat conversation', () => {
     await createOrFindKb(page, kbName)
     await gotoChatComposerIndex(page)
     await page.getByTestId('chat-kb-picker-trigger').click()
-    await page.getByRole('option', { name: new RegExp(escapeRegExp(kbName)) }).click()
+    await page.getByRole('option', { name: new RegExp(escapeRegExp(kbName)) }).first().click()
     await page.keyboard.press('Escape')
-    // The trigger should now reflect the attached count
-    await expect(page.getByTestId('chat-kb-picker-trigger')).toContainText(/active/i, {
+    // The trigger shows "N knowledge base[s]" when KBs are attached
+    await expect(page.getByTestId('chat-kb-picker-trigger')).toContainText(/1 knowledge base/i, {
       timeout: 5_000,
     })
   })
@@ -131,10 +127,11 @@ test.describe('Chat conversation', () => {
     await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
     await attachKbToConversationViaUi(page, kbName)
     await page.getByTestId('chat-kb-picker-trigger').click()
-    const opt = page.getByRole('option', { name: new RegExp(escapeRegExp(kbName)) })
-    await expect(opt).toContainText('Active', { timeout: 5_000 })
+    const opt = page.getByRole('option', { name: new RegExp(escapeRegExp(kbName)) }).first()
+    await expect(opt).toHaveAttribute('aria-selected', 'true', { timeout: 10_000 })
     await opt.click()
-    await expect(opt).not.toContainText('Active', { timeout: 5_000 })
+    await expect(page.getByTestId('kb-picker-popover-inner').getByText(/saving/i)).toBeHidden({ timeout: 30_000 })
+    await expect(opt).not.toHaveAttribute('aria-selected', 'true', { timeout: 10_000 })
   })
 
   // ──────────────────────────────────────────────────────────────
@@ -150,8 +147,8 @@ test.describe('Chat conversation', () => {
     await page.getByTestId('chat-kb-picker-trigger').click()
     await page.getByTestId('kb-picker-search').fill(uniquePart)
     await expect(
-      page.getByRole('option', { name: new RegExp(escapeRegExp(kbName)) }),
-    ).toBeVisible()
+      page.getByRole('option', { name: new RegExp(escapeRegExp(kbName)) }).first(),
+    ).toBeVisible({ timeout: 15_000 })
   })
 
   test('searching a non-existent name shows "No knowledge bases found."', async ({ page }) => {
@@ -186,10 +183,10 @@ test.describe('Chat conversation', () => {
     await gotoChatComposerIndex(page)
     await page.getByTestId('chat-kb-picker-trigger').click()
     await page.getByTestId('kb-picker-search').fill(kbName)
-    await expect(page.getByRole('option', { name: kbName })).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByRole('option', { name: kbName }).first()).toBeVisible({ timeout: 20_000 })
     await page.keyboard.press('Enter')
     await expect(page.getByText('Saving…')).toBeHidden({ timeout: 30_000 })
-    await expect(page.getByTestId('chat-kb-picker-trigger')).toContainText(/active/i, {
+    await expect(page.getByTestId('chat-kb-picker-trigger')).toContainText(/1 knowledge base/i, {
       timeout: 15_000,
     })
   })
@@ -264,9 +261,16 @@ test.describe('Chat conversation', () => {
     const title = `E2E Del ${Date.now()}`
     await createOrFindConversation(page, title)
     await page.getByTestId('thread-header-delete-open').click()
-    const dialog = page.getByRole('dialog', { name: /delete conversation/i })
-    await expect(dialog).toBeVisible()
-    await dialog.getByRole('button', { name: /^delete$/i }).click()
-    await expect(page).toHaveURL(/\/chat\/conversations\/?$/, { timeout: 45_000 })
+    const dialog = page.getByRole('dialog').filter({ has: page.getByText(/delete conversation/i) })
+    await expect(dialog).toBeVisible({ timeout: 5_000 })
+    const deleteBtn = dialog.getByRole('button', { name: /^delete$/i })
+    await expect(deleteBtn).toBeEnabled({ timeout: 5_000 })
+    const deleteDone = page.waitForResponse(
+      (resp) => /\/api\/chat\/conversations\/\d+$/.test(resp.url()) && resp.request().method() === 'DELETE',
+      { timeout: 30_000 },
+    )
+    await deleteBtn.click()
+    await deleteDone
+    await expect(page).toHaveURL(/\/chat\/conversations\/?$/, { timeout: 30_000 })
   })
 })

@@ -19,10 +19,22 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import Iterator
+from collections.abc import AsyncIterator, Iterator
 from typing import Any
 
 import anthropic
+
+from ai_portal.catalog.providers.events import (
+    CitationEvent,
+    IterationCompleteEvent,
+    ProviderErrorEvent,
+    ProviderStreamEvent,
+    ServerToolUseEvent,
+    TextDeltaEvent,
+    ThinkingDeltaEvent,
+    ToolCallRequestEvent,
+    UsageEvent,
+)
 
 from ai_portal.core.config import Settings
 from ai_portal.catalog.providers.base import BaseLlmProvider
@@ -266,6 +278,7 @@ class AnthropicNativeChatProvider(BaseLlmProvider):
         output_tokens = 0
         cache_creation_tokens = 0
         cache_read_tokens = 0
+        stop_reason: str | None = None
 
         try:
             with self._client.messages.stream(**kwargs) as stream:
@@ -351,6 +364,11 @@ class AnthropicNativeChatProvider(BaseLlmProvider):
                         usage = getattr(event, "usage", None)
                         if usage:
                             output_tokens += getattr(usage, "output_tokens", 0) or 0
+                        delta = getattr(event, "delta", None)
+                        if delta:
+                            sr = getattr(delta, "stop_reason", None)
+                            if sr:
+                                stop_reason = str(sr)
 
                     elif event_type == "RawMessageStopEvent":
                         pass
@@ -367,4 +385,109 @@ class AnthropicNativeChatProvider(BaseLlmProvider):
             "cached_input_tokens": cache_read_tokens,
             "cache_creation_input_tokens": cache_creation_tokens,
             "reasoning_tokens": None,
+            "stop_reason": stop_reason,
         }
+
+    # ── Typed async stream ───────────────────────────────────────────────────
+
+    _ANTHROPIC_STOP_MAP: dict[str, str] = {
+        "end_turn": "end_turn",
+        "tool_use": "tool_use",
+        "max_tokens": "max_tokens",
+        "stop_sequence": "stop_sequence",
+    }
+
+    def _translate(
+        self,
+        piece: dict[str, Any],
+    ) -> list[ProviderStreamEvent]:
+        """Translate a legacy dict event into typed ProviderStreamEvent list."""
+        ptype = piece.get("type")
+
+        if ptype == "delta":
+            text = piece.get("text", "")
+            if text:
+                return [ProviderStreamEvent.model_validate(
+                    {"type": "text_delta", "text": text}
+                )]
+
+        elif ptype == "thinking":
+            text = piece.get("text", "")
+            if text:
+                return [ProviderStreamEvent.model_validate(
+                    {"type": "thinking_delta", "text": text}
+                )]
+
+        elif ptype == "tool_call":
+            tc = piece.get("tool_call", {})
+            raw_args = tc.get("arguments", "{}")
+            try:
+                arguments = json.loads(raw_args) if isinstance(raw_args, str) else raw_args
+            except Exception:
+                arguments = {}
+            return [ProviderStreamEvent.model_validate({
+                "type": "tool_call_request",
+                "call_id": tc.get("id", ""),
+                "tool_name": tc.get("name", ""),
+                "arguments": arguments,
+            })]
+
+        elif ptype == "server_tool_use":
+            return [ProviderStreamEvent.model_validate({
+                "type": "server_tool_use",
+                "tool_name": piece.get("name", ""),
+                "input": piece.get("input", {}),
+            })]
+
+        elif ptype == "citation":
+            return [ProviderStreamEvent.model_validate({
+                "type": "citation",
+                "url": piece.get("url", ""),
+                "title": piece.get("title"),
+                "snippet": piece.get("snippet"),
+            })]
+
+        elif ptype == "usage":
+            events: list[ProviderStreamEvent] = [ProviderStreamEvent.model_validate({
+                "type": "usage",
+                "input_tokens": piece.get("input_tokens", 0) or 0,
+                "output_tokens": piece.get("output_tokens", 0) or 0,
+                "cached_input_tokens": piece.get("cached_input_tokens", 0) or 0,
+                "cache_creation_input_tokens": piece.get("cache_creation_input_tokens", 0) or 0,
+                "reasoning_tokens": piece.get("reasoning_tokens") or 0,
+            })]
+            # usage is the last event from stream_deltas_with_tools — append iteration_complete
+            raw_stop = piece.get("stop_reason") or "end_turn"
+            canonical_stop = self._ANTHROPIC_STOP_MAP.get(str(raw_stop), "end_turn")
+            events.append(ProviderStreamEvent.model_validate({
+                "type": "iteration_complete",
+                "stop_reason": canonical_stop,
+            }))
+            return events
+
+        return []
+
+    async def stream(
+        self,
+        *,
+        messages: list[dict],
+        model: str,
+        settings: dict,
+        tools: list[dict] | None = None,
+    ) -> AsyncIterator[ProviderStreamEvent]:
+        """Async typed stream yielding ProviderStreamEvent."""
+        try:
+            for piece in self.stream_deltas_with_tools(
+                messages,
+                model=model,
+                tools=tools,
+            ):
+                for ev in self._translate(piece):
+                    yield ev
+        except Exception as exc:
+            logger.error("anthropic_native.stream: error %s", exc)
+            yield ProviderStreamEvent.model_validate({
+                "type": "provider_error",
+                "code": type(exc).__name__,
+                "message": str(exc),
+            })

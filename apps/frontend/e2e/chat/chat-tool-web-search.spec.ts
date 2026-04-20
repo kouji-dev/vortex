@@ -1,110 +1,113 @@
 import { test, expect } from '@playwright/test'
-import { createOrFindConversation } from '../support/ui-helpers'
+import { createEmptyConversation } from '../support/create-conversation'
 
 test.describe.configure({ mode: 'serial' })
 
-const CONV_NAME = 'E2E Web Search Tool'
+const MOCK_TURN_ID = '00000000-0000-4000-8000-000000000002'
 
-function buildWebSearchSse(messageId: number): string {
+function buildWebSearchSse(threadId: number): string {
   const e = (payload: object) => `data: ${JSON.stringify(payload)}\n\n`
+  const ts = new Date().toISOString()
   return (
-    e({ type: 'item_start', item: { uid: 'uid-ws-1', kind: 'web_search', query: 'current oil price' } }) +
-    e({ type: 'item_done', item: { uid: 'uid-ws-1', kind: 'web_search', query: 'current oil price', result_snippet: 'Brent crude at $82.40/barrel', status: 'done' } }) +
-    e({ type: 'delta', text: 'Based on web search, oil is $80/barrel.' }) +
-    e({ type: 'done', message_id: messageId })
+    e({
+      event_type: 'item',
+      item: {
+        id: 1,
+        thread_id: threadId,
+        turn_id: MOCK_TURN_ID,
+        kind: 'tool_call',
+        role: 'assistant',
+        status: 'done',
+        provider: 'web_search',
+        model: null,
+        cost_usd: null,
+        cost_estimated: false,
+        latency_ms: 200,
+        data: { tool_name: 'web_search', params: { query: 'current oil price' }, result_snippet: 'Brent crude at $82.40/barrel' },
+        parent_item_id: null,
+        started_at: null,
+        finished_at: null,
+        created_at: ts,
+      },
+    }) +
+    e({
+      event_type: 'item',
+      item: {
+        id: 2,
+        thread_id: threadId,
+        turn_id: MOCK_TURN_ID,
+        kind: 'assistant_text',
+        role: 'assistant',
+        status: 'done',
+        provider: null,
+        model: null,
+        cost_usd: null,
+        cost_estimated: false,
+        latency_ms: null,
+        data: { text: 'Based on web search, oil is $80/barrel.' },
+        parent_item_id: null,
+        started_at: null,
+        finished_at: null,
+        created_at: ts,
+      },
+    }) +
+    e({ event_type: 'done' })
   )
 }
 
+function buildMessagesResponse(threadId: number): object[] {
+  const ts = new Date().toISOString()
+  return [
+    {
+      id: 1,
+      thread_id: threadId,
+      turn_id: MOCK_TURN_ID,
+      kind: 'tool_call',
+      role: 'assistant',
+      status: 'done',
+      provider: 'web_search',
+      model: null,
+      cost_usd: null,
+      cost_estimated: false,
+      latency_ms: 200,
+      data: { tool_name: 'web_search', params: { query: 'current oil price' }, result_snippet: 'Brent crude at $82.40/barrel' },
+      parent_item_id: null,
+      started_at: null,
+      finished_at: null,
+      created_at: ts,
+    },
+    {
+      id: 2,
+      thread_id: threadId,
+      turn_id: MOCK_TURN_ID,
+      kind: 'assistant_text',
+      role: 'assistant',
+      status: 'done',
+      provider: null,
+      model: null,
+      cost_usd: null,
+      cost_estimated: false,
+      latency_ms: null,
+      data: { text: 'Based on web search, oil is $80/barrel.' },
+      parent_item_id: null,
+      started_at: null,
+      finished_at: null,
+      created_at: ts,
+    },
+  ]
+}
+
 test.describe('web_search tool', () => {
-  test('Test A — tool card renders during stream', async ({ page }) => {
-    const convId = await createOrFindConversation(page, CONV_NAME)
-    const messageId = convId * 1000 + 1
-    const sseBody = buildWebSearchSse(messageId)
+  test('Test A — tool call item renders with web_search name', async ({ page, request }) => {
+    const base = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
+    const convId = await createEmptyConversation(request, base)
 
     await page.route(`**/api/chat/conversations/${convId}/messages/stream`, async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'text/event-stream',
-        body: sseBody,
-      })
+      await route.fulfill({ status: 200, contentType: 'text/event-stream', body: buildWebSearchSse(convId) })
     })
-
-    // Mock messages refetch so PersistedStreamItems shows chips after stream ends
     await page.route(`**/api/chat/conversations/${convId}/messages*`, async (route) => {
       if (route.request().method() === 'GET') {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify([
-            {
-              id: messageId,
-              conversation_id: convId,
-              role: 'assistant',
-              content: 'Based on web search, oil is $80/barrel.',
-              created_at: new Date().toISOString(),
-              extra: {
-                stream_items: [
-                  { uid: 'uid-ws-1', kind: 'web_search', query: 'current oil price', result_snippet: 'Brent crude at $82.40/barrel', status: 'done' },
-                ],
-              },
-            },
-          ]),
-        })
-      } else {
-        await route.continue()
-      }
-    })
-
-    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
-    const textarea = page.getByRole('textbox', { name: /message/i })
-    await textarea.fill('What is the current oil price?')
-    await page.getByRole('button', { name: /send message/i }).click()
-
-    // Wait for stream to complete
-    await expect(page.getByRole('textbox', { name: /message/i })).toBeEnabled({ timeout: 15_000 })
-
-    const wsChip = page.locator('[data-testid="thread-item-chip"][data-kind="web_search"]')
-    await expect(wsChip).toBeVisible()
-    await expect(wsChip).toHaveAttribute('data-status', 'done')
-
-    // Click to expand and check query in details
-    await wsChip.getByTestId('thread-item-chip-toggle').click()
-    const details = wsChip.locator('[data-testid="thread-item-details"]')
-    await expect(details).toBeVisible()
-    await expect(details).toContainText('current oil price')
-  })
-
-  test('Test B — assistant message rendered after stream', async ({ page }) => {
-    const convId = await createOrFindConversation(page, CONV_NAME)
-    const messageId = convId * 1000 + 2
-    const sseBody = buildWebSearchSse(messageId)
-    let streamCompleted = false
-
-    await page.route(`**/api/chat/conversations/${convId}/messages/stream`, async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'text/event-stream',
-        body: sseBody,
-      })
-      streamCompleted = true
-    })
-
-    await page.route(`**/api/chat/conversations/${convId}/messages*`, async (route) => {
-      if (route.request().method() === 'GET' && streamCompleted) {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify([
-            {
-              id: messageId,
-              conversation_id: convId,
-              role: 'assistant',
-              content: 'Based on web search, oil is $80/barrel.',
-              created_at: new Date().toISOString(),
-              extra: null,
-            },
-          ]),
-        })
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(buildMessagesResponse(convId)) })
       } else {
         await route.continue()
       }
@@ -114,11 +117,35 @@ test.describe('web_search tool', () => {
     await page.getByRole('textbox', { name: /message/i }).fill('What is the current oil price?')
     await page.getByRole('button', { name: /send message/i }).click()
 
-    // Wait for stream to finish
     await expect(page.getByRole('textbox', { name: /message/i })).toBeEnabled({ timeout: 15_000 })
 
-    // Assistant message with the synthesised content is in the thread
     const assistantMsg = page.getByTestId('chat-message-assistant').last()
-    await expect(assistantMsg).toContainText('Based on web search, oil is $80/barrel.')
+    await expect(assistantMsg.getByTestId('tool-call-item')).toBeVisible()
+    await expect(assistantMsg.getByTestId('tool-call-item')).toContainText('web_search')
+  })
+
+  test('Test B — assistant message rendered after stream', async ({ page, request }) => {
+    const base = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
+    const convId = await createEmptyConversation(request, base)
+
+    await page.route(`**/api/chat/conversations/${convId}/messages/stream`, async (route) => {
+      await route.fulfill({ status: 200, contentType: 'text/event-stream', body: buildWebSearchSse(convId) })
+    })
+    await page.route(`**/api/chat/conversations/${convId}/messages*`, async (route) => {
+      if (route.request().method() === 'GET') {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(buildMessagesResponse(convId)) })
+      } else {
+        await route.continue()
+      }
+    })
+
+    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
+    await page.getByRole('textbox', { name: /message/i }).fill('What is the current oil price?')
+    await page.getByRole('button', { name: /send message/i }).click()
+
+    await expect(page.getByRole('textbox', { name: /message/i })).toBeEnabled({ timeout: 15_000 })
+
+    const assistantMsg = page.getByTestId('chat-message-assistant').last()
+    await expect(assistantMsg).toContainText('Based on web search')
   })
 })

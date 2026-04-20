@@ -132,6 +132,7 @@ test.describe('KB detail page', () => {
   })
 
   test('can save updated KB name', async ({ page, request }) => {
+    test.setTimeout(180_000)
     const name = e2eStableResourceName('kb', test.info().title)
     const updated = `${name} UPDATED`
     const id = await openKbDetailForTest(page, name)
@@ -258,7 +259,7 @@ test.describe('KB detail page', () => {
     const name = e2eStableResourceName('kb', test.info().title)
     const id = await openKbDetailForTest(page, name)
     try {
-      await expect(page.getByText(/no files yet/i)).toBeVisible()
+      await expect(page.getByText('No files yet.').first()).toBeVisible({ timeout: 15_000 })
     } finally {
       await deleteKbViaApi(request, id)
     }

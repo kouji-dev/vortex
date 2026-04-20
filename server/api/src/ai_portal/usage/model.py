@@ -6,33 +6,11 @@ import uuid as _uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, Numeric, String, func
-from sqlalchemy.dialects.postgresql import JSONB, UUID as PGUUID
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, Numeric, String, func
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ai_portal.core.db.base import Base
-
-
-class MessageUsage(Base):
-    __tablename__ = "message_usage"
-
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    org_id: Mapped[_uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("orgs.id", ondelete="CASCADE"), nullable=False)
-    user_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    conversation_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("chat_conversations.id", ondelete="SET NULL"), nullable=True)
-    message_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("chat_messages.id", ondelete="SET NULL"), nullable=True)
-    api_model_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
-    provider: Mapped[str | None] = mapped_column(String(32), nullable=True)
-    input_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    output_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    cached_input_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    cache_creation_input_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    reasoning_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    tool_calls_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    cost_usd: Mapped[Decimal] = mapped_column(Numeric(12, 6), nullable=False, default=Decimal("0"))
-    capability_flags: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
 class UsageRollup(Base):

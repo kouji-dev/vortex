@@ -82,11 +82,11 @@ function MembersTab() {
   React.useEffect(() => {
     authorizedFetch(`${API_BASE}/api/orgs/me/members`)
       .then((r) => r.json())
-      .then(setMembers)
+      .then((d) => { if (Array.isArray(d)) setMembers(d) })
       .catch(() => null)
     authorizedFetch(`${API_BASE}/api/orgs/me/invites`)
       .then((r) => r.json())
-      .then(setInvites)
+      .then((d) => { if (Array.isArray(d)) setInvites(d) })
       .catch(() => null)
   }, [])
 
