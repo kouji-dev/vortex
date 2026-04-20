@@ -1,17 +1,47 @@
-// landing/src/components/StatsSection.tsx
+// landing/src/components/StatsSection.tsx — Landing v2 design
 import * as React from 'react'
-import { useScrollReveal } from '~/hooks/useScrollReveal'
 import { useCountUp } from '~/hooks/useCountUp'
+import { useScrollReveal } from '~/hooks/useScrollReveal'
 
-function CountStat({ target, suffix, sym, label }: { target?: number; suffix?: string; sym?: string; label: string }) {
-  const numRef = useCountUp(target ?? 0)
+interface StatProps {
+  label: string
+  value?: number
+  sym?: string
+  suffix?: string
+  sub: string
+  delay?: number
+}
+
+function Stat({ label, value, sym, suffix, sub, delay }: StatProps) {
+  const numRef = useCountUp(value ?? 0)
   return (
-    <div style={{ padding: '52px 28px', textAlign: 'center', borderRight: '1px solid var(--border)', position: 'relative', flex: 1 }}>
-      <div style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: '60%', height: 1, background: 'linear-gradient(90deg,transparent,rgba(167,139,250,.25),transparent)' }}/>
-      <div style={{ fontSize: 48, fontWeight: 900, letterSpacing: '-.06em', lineHeight: 1, background: 'linear-gradient(135deg,var(--pink),var(--violet))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', marginBottom: 8 }}>
-        {sym ? sym : <><span ref={numRef as any}>{target ? '0' : '0'}</span>{suffix}</>}
+    <div
+      className="reveal"
+      style={{
+        textAlign: 'left', paddingRight: 20,
+        borderRight: '1px solid var(--border)',
+        transitionDelay: delay ? `${delay}ms` : undefined,
+      }}
+    >
+      <div style={{
+        fontFamily: '"JetBrains Mono", monospace', fontSize: 11,
+        color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.12em',
+        marginBottom: 6,
+      }}>
+        {label}
       </div>
-      <div style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 500, lineHeight: 1.4 }} dangerouslySetInnerHTML={{ __html: label }}/>
+      <div style={{
+        fontSize: 56, fontWeight: 600, letterSpacing: '-0.03em', lineHeight: 1,
+        background: 'var(--g-grad)',
+        WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent',
+        fontVariantNumeric: 'tabular-nums',
+        marginBottom: 10,
+      }}>
+        {sym ? sym : (
+          <>{value !== undefined ? <span ref={numRef as any}>0</span> : null}{suffix}</>
+        )}
+      </div>
+      <div style={{ color: 'var(--text-2)', fontSize: 13 }}>{sub}</div>
     </div>
   )
 }
@@ -19,11 +49,21 @@ function CountStat({ target, suffix, sym, label }: { target?: number; suffix?: s
 export function StatsSection() {
   const ref = useScrollReveal<HTMLDivElement>()
   return (
-    <div ref={ref} className="reveal" style={{ display: 'flex', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
-      <CountStat target={10} suffix="+"  label="AI models<br/>supported"/>
-      <CountStat sym="∞"                 label="Knowledge base<br/>size limit"/>
-      <CountStat target={100} suffix="%" label="Self-hostable &amp;<br/>open source"/>
-      <CountStat sym="&lt;1s"            label="First token<br/>latency"/>
+    <div
+      ref={ref}
+      className="reveal"
+      style={{
+        maxWidth: 1280, margin: '0 auto',
+        padding: '80px 32px',
+        display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 32,
+        borderTop: '1px solid var(--border)',
+        borderBottom: '1px solid var(--border)',
+      }}
+    >
+      <Stat label="Models"      value={10}  suffix="+" sub="Anthropic · OpenAI · Google · Mistral · open-source" delay={100}/>
+      <Stat label="KB size"     sym="∞"               sub="Ingest millions of documents. pgvector + rerank."     delay={200}/>
+      <Stat label="Self-host"   value={100} suffix="%" sub="One Docker Compose. Your data never leaves."         delay={300}/>
+      <Stat label="First token" sym="&lt;1s"           sub="Streaming from turn one. No cold-start tax."         delay={400}/>
     </div>
   )
 }

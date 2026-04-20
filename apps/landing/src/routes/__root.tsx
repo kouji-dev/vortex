@@ -9,10 +9,13 @@ export const Route = createRootRoute({
     meta: [
       { charSet: 'utf-8' },
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-      { title: 'Vortex — AI Portal for Teams' },
-      { name: 'description', content: 'Vortex connects the best AI models to your knowledge, memory, and team — in one place.' },
+      { title: 'Vortex — Ask anything. Know everything.' },
+      { name: 'description', content: 'Vortex is the AI portal your team actually wants to use. One chat for every model. Your knowledge, your memory, your guardrails — under one roof.' },
     ],
     links: [
+      { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+      { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossOrigin: 'anonymous' },
+      { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap' },
       { rel: 'stylesheet', href: appCss },
       { rel: 'icon', href: '/favicon.ico' },
     ],
@@ -22,13 +25,20 @@ export const Route = createRootRoute({
 
 function RootComponent() {
   return (
-    <html lang="en" style={{ background: 'var(--bg)' }}>
+    <html lang="en">
       <head><HeadContent /></head>
-      <body style={{ background: 'var(--bg)', color: 'var(--text)', overflowX: 'hidden', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+      <body>
         <AnnounceBanner />
         <VortexNav />
         <main><Outlet /></main>
         <VortexFooter />
+        <div className="copybar">
+          <span>© {new Date().getFullYear()} Vortex · Made for teams</span>
+          <span style={{ display: 'flex', gap: 16 }}>
+            <a href="#">v1.0.0-beta</a>
+            <a href="#">status · operational</a>
+          </span>
+        </div>
         <Scripts />
       </body>
     </html>
@@ -37,80 +47,111 @@ function RootComponent() {
 
 function AnnounceBanner() {
   return (
-    <div style={{ background: 'linear-gradient(90deg,transparent,rgba(167,139,250,.07),transparent)', borderBottom: '1px solid rgba(167,139,250,.12)', textAlign: 'center', padding: '9px 16px', fontSize: 12, color: '#a78bfa', fontWeight: 500, letterSpacing: '.04em' }}>
-      <em style={{ color: 'var(--pink)', fontStyle: 'normal', fontWeight: 700, marginRight: 4 }}>✦ NEW</em>
-      Vortex supports web search, multi-model routing &amp; persistent memory —{' '}
-      {/* TODO: wire real changelog URL */}
-      <a href="#" style={{ color: '#c4b5fd' }}>Changelog →</a>
+    <div className="annbar">
+      <div className="annbar-inner">
+        <span className="pill">beta</span>
+        <span>Vortex is open for public beta — Google, GitHub, or email to get in.</span>
+        <span style={{ color: 'var(--violet)' }}>→</span>
+      </div>
     </div>
   )
 }
 
-const PRISM_NAV = (
-  <svg width="24" height="24" viewBox="0 0 80 80" fill="none">
+/* ── Prism SVG (reused in nav + footer) ── */
+const PrismNav = ({ size = 28 }: { size?: number }) => (
+  <svg viewBox="0 0 80 80" width={size} height={size} style={{ display: 'block' }}>
     <defs>
-      <linearGradient id="nav-prism-grad" x1="12" y1="8" x2="68" y2="72" gradientUnits="userSpaceOnUse">
+      <linearGradient id="pgNav" x1="0" y1="0" x2="1" y2="1">
         <stop offset="0%" stopColor="#f472b6"/>
         <stop offset="50%" stopColor="#a78bfa"/>
         <stop offset="100%" stopColor="#60a5fa"/>
       </linearGradient>
     </defs>
-    <polygon points="40,8 68,40 40,72 12,40" fill="none" stroke="url(#nav-prism-grad)" strokeWidth="2.5"/>
-    <line x1="40" y1="8" x2="68" y2="40" stroke="#f472b6" strokeWidth="1.5" opacity=".5"/>
-    <line x1="40" y1="8" x2="40" y2="72" stroke="#a78bfa" strokeWidth="1.5" opacity=".5"/>
-    <line x1="40" y1="8" x2="12" y2="40" stroke="#60a5fa" strokeWidth="1.5" opacity=".5"/>
+    <polygon points="40,8 68,40 40,72 12,40" fill="none" stroke="url(#pgNav)" strokeWidth="2.5" strokeLinejoin="round"/>
+    <line x1="40" y1="8" x2="68" y2="40" stroke="#f472b6" strokeWidth="1.5" opacity="0.6"/>
+    <line x1="40" y1="8" x2="40" y2="72" stroke="#a78bfa" strokeWidth="1.5" opacity="0.6"/>
+    <line x1="40" y1="8" x2="12" y2="40" stroke="#60a5fa" strokeWidth="1.5" opacity="0.6"/>
     <circle cx="40" cy="40" r="4" fill="#e0d7ff"/>
   </svg>
 )
 
 function VortexNav() {
   return (
-    <nav style={{ position: 'sticky', top: 0, zIndex: 100, display: 'flex', alignItems: 'center', padding: '0 56px', height: 60, background: 'rgba(4,4,7,.85)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(22,22,40,.8)' }}>
-      <a href="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
-        {PRISM_NAV}
-        <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-.04em', background: 'linear-gradient(90deg,var(--pink),var(--violet))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Vortex</span>
-      </a>
-      <ul style={{ display: 'flex', gap: 32, marginLeft: 40, listStyle: 'none', padding: 0 }}>
-        {['Features','Docs','Blog'].map(l => (
-          <li key={l}><a href="#" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: 14, fontWeight: 500 }}>{l}</a></li>
-        ))}
-      </ul>
-      <div style={{ marginLeft: 'auto', display: 'flex', gap: 10, alignItems: 'center' }}>
-        <a href={`${getAppUrl()}/login`} style={{ padding: '7px 18px', background: 'transparent', border: '1px solid var(--b2)', color: '#94a3b8', fontSize: 13, fontWeight: 500, borderRadius: 7, textDecoration: 'none' }}>Sign in</a>
-        <a href={`${getAppUrl()}/register`} style={{ padding: '8px 20px', background: 'linear-gradient(135deg,#f472b6,#a78bfa 60%,#60a5fa)', color: '#fff', fontSize: 13, fontWeight: 600, borderRadius: 7, textDecoration: 'none', boxShadow: '0 0 20px rgba(167,139,250,.25)' }}>Get started</a>
+    <nav className="nav">
+      <div className="nav-inner">
+        <a className="brand" href="/">
+          <span className="prism idle" style={{ width: 28, height: 28 }}>
+            <PrismNav size={28} />
+          </span>
+          <span className="wm">Vortex</span>
+        </a>
+        <div className="nav-links">
+          <a href="#features">Features</a>
+          <a href="#how">How it works</a>
+          <a href="#">Docs</a>
+          <a href="#">Blog</a>
+          <a href="#">Changelog</a>
+        </div>
+        <div className="nav-cta">
+          <a className="btn btn-ghost" href={`${getAppUrl()}/login`}>Sign in</a>
+          <a className="btn btn-grad" href={`${getAppUrl()}/register`}>
+            <span className="inner">Get started <span style={{ transition: 'transform 160ms' }}>→</span></span>
+          </a>
+        </div>
       </div>
     </nav>
   )
 }
 
 function VortexFooter() {
-  const cols = [
-    { head: 'Product',    links: ['Chat','Knowledge Bases','Memory','Changelog'] },
-    { head: 'Developers', links: ['Docs','API','GitHub','Self-hosting'] },
-    { head: 'Company',    links: ['About','Blog','Privacy','Terms'] },
-  ]
   return (
-    <footer style={{ background: '#020205', borderTop: '1px solid var(--border)', padding: '56px 56px 32px' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: 48, marginBottom: 48 }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-            <svg width="18" height="18" viewBox="0 0 80 80" fill="none"><polygon points="40,8 68,40 40,72 12,40" fill="none" stroke="#a78bfa" strokeWidth="3"/><circle cx="40" cy="40" r="4" fill="#a78bfa"/></svg>
-            <span style={{ fontSize: 15, fontWeight: 700, background: 'linear-gradient(90deg,var(--pink),var(--violet))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Vortex</span>
-          </div>
-          <p style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.7, maxWidth: 240 }}>The AI portal for teams. Chat, search, remember — all in one place.</p>
+    <footer>
+      <div>
+        <div className="brand" style={{ marginBottom: 12 }}>
+          <span className="prism idle" style={{ width: 22, height: 22 }}>
+            <PrismNav size={22} />
+          </span>
+          <span className="wm">Vortex</span>
         </div>
-        {cols.map(c => (
-          <div key={c.head}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 16 }}>{c.head}</div>
-            <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 11 }}>
-              {c.links.map(l => <li key={l}><a href="#" style={{ fontSize: 13, color: '#64748b', textDecoration: 'none' }}>{l}</a></li>)}
-            </ul>
-          </div>
-        ))}
+        <p className="tag">The AI portal your team actually wants to use. Open-source. Self-hostable. Enterprise-ready.</p>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 24, borderTop: '1px solid var(--border)', fontSize: 12, color: 'var(--dim)' }}>
-        <span>© {new Date().getFullYear()} Vortex. All rights reserved.</span>
-        <span>Built with ♥ and Claude</span>
+      <div>
+        <h4>Product</h4>
+        <ul>
+          <li><a href={`${getAppUrl()}/chat`}>Chat</a></li>
+          <li><a href="#">Workflows</a></li>
+          <li><a href="#">Knowledge</a></li>
+          <li><a href="#">Memories</a></li>
+          <li><a href="#">Governance</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Developers</h4>
+        <ul>
+          <li><a href="#">Docs</a></li>
+          <li><a href="#">API</a></li>
+          <li><a href="#">Changelog</a></li>
+          <li><a href="#">GitHub</a></li>
+          <li><a href="#">Self-host guide</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Company</h4>
+        <ul>
+          <li><a href="#">About</a></li>
+          <li><a href="#">Customers</a></li>
+          <li><a href="#">Security</a></li>
+          <li><a href="#">Careers</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Legal</h4>
+        <ul>
+          <li><a href="#">Privacy</a></li>
+          <li><a href="#">Terms</a></li>
+          <li><a href="#">DPA</a></li>
+          <li><a href="#">Subprocessors</a></li>
+        </ul>
       </div>
     </footer>
   )

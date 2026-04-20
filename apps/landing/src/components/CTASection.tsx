@@ -1,28 +1,47 @@
-// landing/src/components/CTASection.tsx
+// landing/src/components/CTASection.tsx — Landing v2 design
 import * as React from 'react'
-import { useScrollReveal } from '~/hooks/useScrollReveal'
 import { getAppUrl } from '~/lib/app-url'
 
 export function CTASection() {
-  const titleRef   = useScrollReveal<HTMLHeadingElement>()
-  const subRef     = useScrollReveal<HTMLParagraphElement>()
-  const actionsRef = useScrollReveal<HTMLDivElement>()
-
   return (
-    <section style={{ padding: '120px 48px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 22, position: 'relative', overflow: 'hidden', background: 'var(--bg2)', borderTop: '1px solid var(--border)' }}>
-      <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 80% 70% at 50% 100%,rgba(167,139,250,.06),transparent 60%)', pointerEvents: 'none' }}/>
-      <h2 ref={titleRef} className="reveal" style={{ fontSize: 'clamp(30px,5vw,58px)', fontWeight: 900, letterSpacing: '-.05em', lineHeight: 1.05, maxWidth: 600, position: 'relative' }}>
-        Your team deserves<br/>
-        <span style={{ background: 'linear-gradient(90deg,var(--pink),var(--violet),var(--blue))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-          better AI tooling.
-        </span>
+    <section style={{
+      maxWidth: 1280, margin: '0 auto',
+      padding: '120px 32px',
+      textAlign: 'center',
+      position: 'relative', overflow: 'hidden',
+    }}>
+      {/* Radial glow */}
+      <div style={{
+        position: 'absolute', left: '50%', bottom: -200, transform: 'translateX(-50%)',
+        width: 900, height: 500,
+        background: 'radial-gradient(ellipse at center, rgba(167,139,250,0.3), transparent 60%)',
+        pointerEvents: 'none', filter: 'blur(20px)',
+      }}/>
+
+      <h2
+        className="reveal"
+        style={{
+          position: 'relative',
+          margin: '0 0 18px',
+          fontSize: 64, fontWeight: 600,
+          letterSpacing: '-0.03em', lineHeight: 1.02,
+        }}
+      >
+        Ask anything.{' '}
+        <em style={{ background: 'var(--g-grad)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent', fontStyle: 'normal' }}>
+          Know everything.
+        </em>
       </h2>
-      <p ref={subRef} className="reveal" style={{ fontSize: 17, color: 'var(--muted)', maxWidth: 440, lineHeight: 1.65, position: 'relative' }}>
-        Start for free. No credit card. Deploy on your own infrastructure in minutes.
+
+      <p className="reveal" style={{ position: 'relative', fontSize: 18, color: 'var(--text-2)', marginBottom: 32 }}>
+        Join the public beta. Sign in with Google, GitHub, or email. It takes about 12 seconds.
       </p>
-      <div ref={actionsRef} className="reveal" style={{ display: 'flex', gap: 14, position: 'relative' }}>
-        <a href={`${getAppUrl()}/register`} style={{ padding: '14px 32px', background: 'linear-gradient(135deg,var(--pink),var(--violet) 60%,var(--blue))', color: '#fff', fontSize: 15, fontWeight: 700, borderRadius: 10, textDecoration: 'none', boxShadow: '0 4px 32px rgba(167,139,250,.3)' }}>Get started free →</a>
-        <a href="#" style={{ padding: '14px 28px', background: 'transparent', border: '1px solid var(--b2)', color: '#4b5563', fontSize: 15, fontWeight: 500, borderRadius: 10, textDecoration: 'none' }}>Talk to us</a>
+
+      <div className="reveal" style={{ position: 'relative', display: 'flex', gap: 10, justifyContent: 'center' }}>
+        <a className="btn btn-grad" href={`${getAppUrl()}/register`}>
+          <span className="inner">Start for free <span>→</span></span>
+        </a>
+        <a className="btn" href="#">Read the docs</a>
       </div>
     </section>
   )

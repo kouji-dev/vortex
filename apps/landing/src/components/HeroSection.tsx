@@ -1,179 +1,405 @@
-// landing/src/components/HeroSection.tsx
+// landing/src/components/HeroSection.tsx — Landing v2 design
 import * as React from 'react'
+import { getAppUrl } from '~/lib/app-url'
 
-const DEMO_MODEL = '{DEMO_MODEL}'
+/* ── Inline SVG helpers ─────────────────────────────────────────── */
+function PrismSVG({ size = 80, id = 'pgHero', animate = 'idle' }: { size?: number; id?: string; animate?: 'idle' | 'loading' | 'streaming' }) {
+  return (
+    <svg viewBox="0 0 80 80" width={size} height={size}>
+      <defs>
+        <linearGradient id={id} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#f472b6"/>
+          <stop offset="50%" stopColor="#a78bfa"/>
+          <stop offset="100%" stopColor="#60a5fa"/>
+        </linearGradient>
+      </defs>
+      <g
+        className="pbox"
+        style={{
+          transformOrigin: '40px 40px',
+          animation: animate === 'idle' ? 'prismIdleSway 4s ease-in-out infinite'
+                   : animate === 'loading' ? 'prismSpin 1.2s linear infinite'
+                   : 'prismPendulum 1.8s ease-in-out infinite',
+        }}
+      >
+        <polygon points="40,8 68,40 40,72 12,40" fill="none" stroke={`url(#${id})`} strokeWidth="2.5" strokeLinejoin="round"/>
+        <line x1="40" y1="8" x2="68" y2="40" stroke="#f472b6" strokeWidth="1.5" opacity="0.6"/>
+        <line x1="40" y1="8" x2="40" y2="72" stroke="#a78bfa" strokeWidth="1.5" opacity="0.6"/>
+        <line x1="40" y1="8" x2="12" y2="40" stroke="#60a5fa" strokeWidth="1.5" opacity="0.6"/>
+        <circle cx="40" cy="40" r="4" fill="#e0d7ff"/>
+      </g>
+    </svg>
+  )
+}
 
-const PRISM_SVG_SMALL = (
-  <svg width="18" height="18" viewBox="0 0 80 80" fill="none">
-    <defs><linearGradient id="hero-sidebar-prism-grad" x1="12" y1="8" x2="68" y2="72" gradientUnits="userSpaceOnUse"><stop offset="0%" stopColor="#f472b6"/><stop offset="50%" stopColor="#a78bfa"/><stop offset="100%" stopColor="#60a5fa"/></linearGradient></defs>
-    <polygon points="40,8 68,40 40,72 12,40" fill="none" stroke="url(#hero-sidebar-prism-grad)" strokeWidth="3"/>
-    <circle cx="40" cy="40" r="4" fill="#a78bfa"/>
-  </svg>
-)
+function ChatIcon() {
+  return (
+    <svg className="ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M3 3h10v7H8l-3 3v-3H3V3z"/>
+    </svg>
+  )
+}
+function KbIcon() {
+  return (
+    <svg className="ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <rect x="3" y="3" width="10" height="10" rx="1"/>
+      <line x1="3" y1="6" x2="13" y2="6"/>
+    </svg>
+  )
+}
 
-const SEND_ICON = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="14" height="14">
-    <line x1="22" y1="2" x2="11" y2="13"/>
-    <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-  </svg>
-)
+function prismInlineSVG() {
+  return `<svg class="spin-prism" viewBox="0 0 16 16" fill="none"><polygon points="8,1 14,8 8,15 2,8" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="8" cy="8" r="1.2" fill="currentColor"/></svg>`
+}
 
-const chatIcon = (w = 14) => (
-  <svg style={{ width: w, height: w, opacity: .6 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-  </svg>
-)
-
-const kbIcon = (w = 14) => (
-  <svg style={{ width: w, height: w, opacity: .6 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
-    <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
-  </svg>
-)
-
+/* ── Hero Section ───────────────────────────────────────────────── */
 export function HeroSection() {
-  const threadRef    = React.useRef<HTMLDivElement>(null)
-  const composerRef  = React.useRef<HTMLTextAreaElement>(null)
-  const charCountRef = React.useRef<HTMLSpanElement>(null)
-  const sendBtnRef   = React.useRef<HTMLButtonElement>(null)
+  const threadRef = React.useRef<HTMLDivElement>(null)
+  const inputRef  = React.useRef<HTMLTextAreaElement>(null)
+  const sendRef   = React.useRef<HTMLButtonElement>(null)
 
   React.useEffect(() => {
-    let cleanup: (() => void) | undefined
-    let aborted = false
-    // Lazy-import to avoid SSR issues
-    import('~/lib/demo-hero').then(({ startHeroDemo }) => {
-      if (aborted) return
-      if (!threadRef.current || !composerRef.current || !charCountRef.current || !sendBtnRef.current) return
-      cleanup = startHeroDemo({
-        thread:    threadRef.current,
-        composer:  composerRef.current,
-        charCount: charCountRef.current,
-        sendBtn:   sendBtnRef.current,
-      })
-    })
-    return () => {
-      aborted = true
-      cleanup?.()
+    const thread  = threadRef.current
+    const input   = inputRef.current
+    const sendBtn = sendRef.current
+    if (!thread || !input || !sendBtn) return
+
+    const query = "What's our Q3 pricing guidance for deals over $250k?"
+    const responseText =
+      "For Q3 2026, deals over $250k ARR go through Deal Desk regardless of product mix. " +
+      "Standard packaging applies below that threshold, with two exceptions: multi-year terms " +
+      "and any land where expansion potential exceeds 40% of current ARR. All quotes must include " +
+      "the 12-month default term and quarterly true-ups."
+
+    let stopped = false
+    const wait = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
+
+    async function typeInto(el: HTMLTextAreaElement, text: string, perChar = 28) {
+      el.value = ''
+      for (let i = 0; i < text.length; i++) {
+        if (stopped) return
+        el.value += text[i]
+        await wait(perChar + (Math.random() * 20 - 8))
+      }
     }
+
+    async function streamText(el: HTMLElement, text: string) {
+      el.textContent = ''
+      const caret = document.createElement('span')
+      caret.className = 'caret'
+      el.appendChild(caret)
+      const chunks = text.split(/(\s+)/)
+      for (const c of chunks) {
+        for (const ch of c) {
+          if (stopped) return
+          caret.insertAdjacentText('beforebegin', ch)
+          await wait(11 + Math.random() * 10)
+        }
+      }
+      caret.remove()
+    }
+
+    async function run() {
+      if (stopped) return
+      if (!thread || !input || !sendBtn) return
+      thread.innerHTML = ''
+      input.value = ''
+
+      await typeInto(input, query, 26)
+      await wait(350)
+      if (stopped) return
+
+      sendBtn.classList.add('flash')
+      await wait(250)
+      sendBtn.classList.remove('flash')
+
+      const userText = input.value
+      input.value = ''
+
+      const userMsg = document.createElement('div')
+      userMsg.className = 'msg user'
+      userMsg.innerHTML = `
+        <div class="av">You</div>
+        <div class="body">
+          <div class="who">You · now</div>
+          <div class="text">${userText}</div>
+        </div>`
+      thread.appendChild(userMsg)
+      await wait(300)
+      if (stopped) return
+
+      // AI msg with chips
+      const aiMsg = document.createElement('div')
+      aiMsg.className = 'msg ai'
+      aiMsg.innerHTML = `
+        <div class="av">
+          <svg viewBox="0 0 80 80" width="22" height="22" style="animation:prismSpin 1.2s linear infinite;transform-origin:40px 40px">
+            <polygon points="40,8 68,40 40,72 12,40" fill="none" stroke="url(#pgNav)" stroke-width="3" stroke-linejoin="round"/>
+            <circle cx="40" cy="40" r="5" fill="#e0d7ff"/>
+          </svg>
+        </div>
+        <div class="body">
+          <div class="who">Strategist · claude-sonnet-4.6 <span class="kb-ind" style="color:#22c55e;display:inline-flex;align-items:center;gap:4px;opacity:0;transition:opacity 200ms;margin-left:6px">📚 used knowledge</span></div>
+          <div class="chips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+            <span class="chip memory"><span class="spin">${prismInlineSVG()}</span><span class="check">✓</span>memory · loading</span>
+            <span class="chip kb"><span class="spin">${prismInlineSVG()}</span><span class="check">✓</span>Product docs · searching</span>
+          </div>
+          <div class="thinking" style="display:none;"><span></span><span></span><span></span></div>
+          <div class="text" style="font-size:13.5px;line-height:1.55;color:var(--text)"></div>
+          <div class="kb-sources">
+            <div class="lbl">📚 used knowledge bases</div>
+            <div class="src"><span>Product docs · pricing-v12.md p.4</span><span class="score">0.91</span></div>
+            <div class="src"><span>Product docs · packaging.md p.2</span><span class="score">0.84</span></div>
+            <div class="src"><span>Sales playbook · gtm-q3.md §3</span><span class="score">0.77</span></div>
+          </div>
+        </div>`
+      thread.appendChild(aiMsg)
+
+      const memChip = aiMsg.querySelector('.chip.memory') as HTMLElement
+      const kbChip  = aiMsg.querySelector('.chip.kb') as HTMLElement
+      const think   = aiMsg.querySelector('.thinking') as HTMLElement
+      const textEl  = aiMsg.querySelector('.text') as HTMLElement
+      const kbInd   = aiMsg.querySelector('.kb-ind') as HTMLElement
+      const sources = aiMsg.querySelector('.kb-sources') as HTMLElement
+      const avSvg   = aiMsg.querySelector('.av svg') as SVGElement
+
+      await wait(700)
+      if (stopped) return
+      memChip.classList.add('done')
+      memChip.innerHTML = memChip.innerHTML.replace('memory · loading', 'memory · 14 facts')
+
+      await wait(900)
+      if (stopped) return
+      kbChip.classList.add('done')
+      kbChip.innerHTML = kbChip.innerHTML.replace('Product docs · searching', 'Product docs · 3 chunks')
+
+      await wait(250)
+      if (stopped) return
+      if (avSvg) avSvg.style.animation = 'prismPendulum 1.8s ease-in-out infinite'
+      think.style.display = 'inline-flex'
+      await wait(900)
+      if (stopped) return
+      think.style.display = 'none'
+
+      await streamText(textEl, responseText)
+      if (stopped) return
+
+      await wait(200)
+      kbInd.style.opacity = '1'
+      sources.classList.add('on')
+      if (avSvg) avSvg.style.animation = 'prismIdleSway 4s ease-in-out infinite'
+
+      await wait(6000)
+      if (stopped) return
+      run()
+    }
+
+    const t = setTimeout(run, 700)
+    return () => { stopped = true; clearTimeout(t) }
   }, [])
 
   return (
-    <section style={{ position: 'relative', overflow: 'hidden', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '100px 24px 60px' }}>
-      {/* Background */}
-      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 80% 60% at 50% 20%,rgba(167,139,250,.07) 0%,transparent 70%),radial-gradient(ellipse 50% 40% at 20% 80%,rgba(244,114,182,.04) 0%,transparent 60%),radial-gradient(ellipse 50% 40% at 80% 80%,rgba(96,165,250,.04) 0%,transparent 60%)', animation: 'bgBreath 8s ease-in-out infinite' }}/>
-        <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(rgba(167,139,250,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(167,139,250,.03) 1px,transparent 1px)', backgroundSize: '64px 64px', maskImage: 'radial-gradient(ellipse 80% 80% at 50% 50%,black 30%,transparent 100%)', WebkitMaskImage: 'radial-gradient(ellipse 80% 80% at 50% 50%,black 30%,transparent 100%)' }}/>
-      </div>
-
-      {/* Content */}
-      <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', maxWidth: 1000 }}>
-
-        {/* Badge */}
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '5px 14px 5px 8px', background: 'rgba(167,139,250,.06)', border: '1px solid rgba(167,139,250,.18)', borderRadius: 100, fontSize: 12, color: '#a78bfa', fontWeight: 500, fontFamily: 'monospace', marginBottom: 40, animation: 'fadeDown .7s ease both' }}>
-          <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#22c55e', animation: 'dotPulse 2s ease-in-out infinite' }}/>
-          prod server&nbsp;&nbsp;<span style={{ color: '#2a2a3e' }}>/</span>&nbsp;&nbsp;running
+    <section style={{
+      maxWidth: 1280, margin: '0 auto',
+      padding: '72px 32px 80px',
+      display: 'grid',
+      gridTemplateColumns: '1fr 1.05fr',
+      gap: 60,
+      alignItems: 'center',
+    }}>
+      {/* ── Left: copy ── */}
+      <div>
+        <div className="eyebrow" style={{
+          display: 'inline-flex', alignItems: 'center', gap: 8,
+          fontFamily: '"JetBrains Mono", ui-monospace, monospace', fontSize: 11,
+          color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.1em',
+          marginBottom: 28,
+          animation: 'fadeUp 700ms cubic-bezier(.2,.8,.2,1) both',
+        }}>
+          <span style={{ display: 'inline-block', width: 24, height: 1, background: 'var(--violet)' }}/>
+          AI PORTAL · BUILT FOR TEAMS
         </div>
 
-        <p style={{ fontSize: 13, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--violet)', marginBottom: 18, animation: 'fadeDown .7s ease .1s both' }}>AI Portal · Built for Teams</p>
-
-        <h1 style={{ fontSize: 'clamp(40px,6vw,76px)', fontWeight: 900, letterSpacing: '-.055em', lineHeight: .95, textAlign: 'center', marginBottom: 24, animation: 'fadeUp .8s ease .2s both' }}>
-          <span style={{ display: 'block', color: 'var(--text)' }}>Ask anything.</span>
-          <span style={{ display: 'block', margin: '6px 0' }}>
-            <span style={{ background: 'linear-gradient(100deg,var(--pink) 0%,var(--violet) 45%,var(--blue) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', backgroundSize: '400% 100%', backgroundPosition: '100% 0', animation: 'shineSweep 5s ease-in-out .8s forwards' }}>
-              Know everything.
-            </span>
-          </span>
-          <span style={{ display: 'block', color: 'rgba(232,228,255,.28)', fontWeight: 800 }}>Ship faster.</span>
+        <h1 style={{
+          margin: '0 0 28px',
+          fontSize: 72, fontWeight: 700,
+          letterSpacing: '-0.035em', lineHeight: 1.0,
+        }}>
+          <span style={{ display: 'block', color: 'var(--text)', animation: 'fadeUp 900ms 80ms cubic-bezier(.2,.8,.2,1) both' }}>Ask anything.</span>
+          <span style={{
+            display: 'block',
+            background: 'linear-gradient(90deg, #f472b6 0%, #a78bfa 50%, #60a5fa 100%)',
+            backgroundSize: '400% 100%',
+            WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent',
+            animation: 'fadeUp 900ms 200ms cubic-bezier(.2,.8,.2,1) both, shineSweep 4s 1000ms cubic-bezier(.2,.8,.2,1) both',
+          }}>Know everything.</span>
+          <span style={{ display: 'block', color: 'var(--muted)', fontWeight: 500, animation: 'fadeUp 900ms 320ms cubic-bezier(.2,.8,.2,1) both' }}>Ship faster.</span>
         </h1>
 
-        <p style={{ fontSize: 18, color: 'var(--muted)', maxWidth: 500, lineHeight: 1.7, textAlign: 'center', marginBottom: 40, animation: 'fadeUp .8s ease .35s both' }}>
-          Stop switching between AI tools and repeating context.{' '}
-          <strong style={{ color: '#94a3b8', fontWeight: 500 }}>Vortex connects the best models to your knowledge, memory, and team</strong> — in one place.
+        <p style={{
+          fontSize: 19, lineHeight: 1.55, color: 'var(--text-2)',
+          maxWidth: 520, margin: '0 0 36px',
+          animation: 'fadeUp 900ms 420ms cubic-bezier(.2,.8,.2,1) both',
+        }}>
+          Vortex is the AI portal your team actually wants to use. One chat for every model. Your knowledge, your memory, your guardrails — under one roof.
         </p>
 
-        <div style={{ display: 'flex', gap: 14, alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', marginBottom: 60, animation: 'fadeUp .8s ease .5s both' }}>
-          <a href="#" style={{ padding: '14px 32px', background: 'linear-gradient(135deg,var(--pink),var(--violet) 60%,var(--blue))', color: '#fff', fontSize: 15, fontWeight: 700, borderRadius: 10, border: 'none', textDecoration: 'none', letterSpacing: '-.01em', boxShadow: '0 4px 32px rgba(167,139,250,.3)' }}>Start for free →</a>
-          <a href="#hiw" style={{ padding: '14px 28px', background: 'transparent', border: '1px solid var(--b2)', color: '#4b5563', fontSize: 15, fontWeight: 500, borderRadius: 10, textDecoration: 'none' }}>See how it works</a>
+        <div style={{ display: 'flex', gap: 10, marginBottom: 36, animation: 'fadeUp 900ms 520ms cubic-bezier(.2,.8,.2,1) both' }}>
+          <a className="btn btn-grad" href={`${getAppUrl()}/register`}>
+            <span className="inner">Start for free <span>→</span></span>
+          </a>
+          <a className="btn" href="#how">How it works</a>
         </div>
 
-        {/* App demo frame */}
-        <div style={{ width: '100%', maxWidth: 960, animation: 'fadeUp .9s ease .65s both' }}>
-          <div style={{ background: '#0a0a12', border: '1px solid rgba(167,139,250,.12)', borderRadius: 16, overflow: 'hidden', boxShadow: '0 48px 120px rgba(0,0,0,.85),0 0 80px rgba(167,139,250,.05)' }}>
-            {/* Title bar */}
-            <div style={{ background: '#0c0c18', borderBottom: '1px solid var(--border)', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
-              {[0,1,2].map(i => <div key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: '#2a2a3e' }}/>)}
-              <div style={{ marginLeft: 12, flex: 1, background: '#111122', border: '1px solid var(--border)', borderRadius: 5, padding: '4px 10px', fontSize: 11, color: '#374151', fontFamily: 'monospace' }}>vortex.app/chat/conversations/42</div>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 12,
+          fontFamily: '"JetBrains Mono", ui-monospace, monospace', fontSize: 11, color: 'var(--muted)',
+          animation: 'fadeUp 900ms 620ms cubic-bezier(.2,.8,.2,1) both',
+        }}>
+          <span style={{
+            width: 5, height: 5, borderRadius: '50%',
+            background: '#22c55e', boxShadow: '0 0 10px #22c55e',
+            animation: 'pulse 1.8s ease-in-out infinite',
+            display: 'inline-block',
+          }}/>
+          No credit card · Google, GitHub, or email · Self-host ready
+        </div>
+      </div>
+
+      {/* ── Right: app demo frame ── */}
+      <div style={{
+        position: 'relative',
+        height: 560, borderRadius: 14, overflow: 'hidden',
+        background: 'var(--bg2)', border: '1px solid var(--border)',
+        boxShadow: '0 1px 0 rgba(255,255,255,0.04) inset, 0 40px 80px -30px rgba(0,0,0,0.6), 0 0 120px -30px rgba(167,139,250,0.35)',
+        animation: 'heroIn 1200ms cubic-bezier(.2,.8,.2,1) both',
+      }}>
+        {/* Chrome titlebar */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: '10px 14px', borderBottom: '1px solid var(--border)',
+          background: 'var(--bg2)',
+        }}>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {[0,1,2].map(i => <span key={i} style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--b2)', display: 'inline-block' }}/>)}
+          </div>
+          <div style={{
+            flex: 1, margin: '0 8px', height: 22, borderRadius: 5,
+            background: 'var(--bg-3)', border: '1px solid var(--border)',
+            padding: '0 10px', display: 'flex', alignItems: 'center',
+            fontFamily: '"JetBrains Mono", monospace', fontSize: 11, color: 'var(--muted)', gap: 6,
+          }}>
+            <span style={{ fontSize: 9, opacity: 0.6 }}>🔒</span>
+            <span style={{ color: 'var(--text-2)' }}>vortex.app</span>
+            <span>/chat/c/0x9f4a…</span>
+          </div>
+        </div>
+
+        {/* App body */}
+        <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', height: 'calc(100% - 43px)' }}>
+          {/* Sidebar */}
+          <aside style={{
+            background: 'var(--bg2)', borderRight: '1px solid var(--border)',
+            display: 'flex', flexDirection: 'column',
+            padding: '12px 8px', gap: 14, overflow: 'hidden',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 8px', fontWeight: 600, fontSize: 14, letterSpacing: '-0.01em' }}>
+              <span style={{ display: 'inline-block', width: 20, height: 20 }}>
+                <PrismSVG size={20} id="pgSide" animate="idle" />
+              </span>
+              <span style={{ background: 'var(--g-grad)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent', fontWeight: 700 }}>Vortex</span>
+            </div>
+            <div>
+              <div style={{ fontFamily: 'monospace', fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.1em', padding: '0 10px', marginBottom: 4 }}>Conversations</div>
+              {[
+                { label: 'Q3 go-to-market…', active: true },
+                { label: 'Pricing analysis' },
+                { label: 'Benchmark research' },
+                { label: 'Onboarding email' },
+              ].map(item => (
+                <div key={item.label} style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '6px 10px', borderRadius: 5,
+                  fontSize: 12.5, color: item.active ? 'var(--text)' : 'var(--text-2)',
+                  background: item.active ? 'rgba(167,139,250,0.12)' : 'transparent',
+                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                }}>
+                  <ChatIcon />
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</span>
+                </div>
+              ))}
+            </div>
+            <div>
+              <div style={{ fontFamily: 'monospace', fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.1em', padding: '0 10px', marginBottom: 4 }}>Knowledge</div>
+              {[
+                { label: 'Product docs', badge: '284' },
+                { label: 'Sales playbook', badge: '41' },
+                { label: 'Engineering wiki', badge: '1.2k' },
+              ].map(item => (
+                <div key={item.label} style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '6px 10px', borderRadius: 5,
+                  fontSize: 12.5, color: 'var(--text-2)',
+                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                }}>
+                  <KbIcon />
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</span>
+                  <span style={{ marginLeft: 'auto', fontFamily: 'monospace', fontSize: 10, color: 'var(--muted)', flexShrink: 0 }}>{item.badge}</span>
+                </div>
+              ))}
+            </div>
+          </aside>
+
+          {/* Chat area */}
+          <div style={{ display: 'flex', flexDirection: 'column', background: 'var(--bg)', overflow: 'hidden' }}>
+            {/* Chat header */}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '12px 18px', borderBottom: '1px solid var(--border)',
+              background: 'var(--bg2)',
+            }}>
+              <div>
+                <div style={{ fontWeight: 500, fontSize: 13 }}>Q3 go-to-market planning</div>
+                <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--muted)' }}>with Strategist · using Product docs + Sales playbook</div>
+              </div>
+              <div style={{
+                marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '3px 8px', borderRadius: 5,
+                fontFamily: 'monospace', fontSize: 11,
+                background: 'var(--panel)', border: '1px solid var(--border)', color: 'var(--text-2)',
+              }}>
+                ◆ claude-sonnet-4.6
+              </div>
             </div>
 
-            {/* App shell */}
-            <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', height: 520 }}>
-              {/* Sidebar */}
-              <div style={{ background: '#060610', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                <div style={{ padding: '14px 14px 10px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {PRISM_SVG_SMALL}
-                  <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-.03em', background: 'linear-gradient(90deg,var(--pink),var(--violet))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Vortex</span>
-                </div>
-                <div style={{ padding: '8px 0', flex: 1 }}>
-                  {[
-                    { label: 'Conversations', isSection: true },
-                    { label: 'Q3 Risk Analysis', active: true },
-                    { label: 'Product roadmap 2026' },
-                    { label: 'Engineering runbook' },
-                    { label: 'Knowledge Bases', isSection: true },
-                    { label: 'Finance Docs', isKb: true },
-                    { label: 'Product Specs', isKb: true },
-                  ].map((item, i) => item.isSection
-                    ? <div key={item.label} style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#1e1e35', padding: '6px 14px 4px', marginTop: i > 0 ? 8 : 0 }}>{item.label}</div>
-                    : <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 14px', fontSize: 12, color: item.active ? '#c4b5fd' : '#374151', background: item.active ? 'rgba(167,139,250,.08)' : 'transparent' }}>
-                        {item.isKb ? kbIcon() : chatIcon()}
-                        {item.label}
-                      </div>
-                  )}
-                </div>
+            {/* Thread */}
+            <div
+              ref={threadRef}
+              style={{
+                flex: 1, overflow: 'hidden',
+                padding: '20px 22px',
+                display: 'flex', flexDirection: 'column', gap: 16,
+              }}
+            />
+
+            {/* Composer */}
+            <div className="composer">
+              <div className="composer-top">
+                <span className="cap on reflect">
+                  <svg className="ic" viewBox="0 0 10 10" fill="currentColor"><circle cx="5" cy="5" r="3"/></svg>
+                  Reflection
+                </span>
+                <span className="cap on research">
+                  <svg className="ic" viewBox="0 0 10 10" fill="currentColor"><rect x="1" y="1" width="8" height="8" rx="1"/></svg>
+                  Research
+                </span>
+                <span className="cap">2 KBs · attached</span>
               </div>
-
-              {/* Chat */}
-              <div style={{ display: 'flex', flexDirection: 'column', background: '#07070e' }}>
-                <div style={{ padding: '12px 18px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: '#6b7280' }}>Q3 Risk Analysis</span>
-                  <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px', background: 'rgba(167,139,250,.06)', border: '1px solid rgba(167,139,250,.12)', borderRadius: 5, fontSize: 10, color: '#a78bfa', fontFamily: 'monospace' }}>
-                    <svg viewBox="0 0 80 80" fill="none" width="10" height="10"><polygon points="40,8 68,40 40,72 12,40" fill="none" stroke="#a78bfa" strokeWidth="4"/></svg>
-                    {DEMO_MODEL}
-                  </div>
-                </div>
-
-                <div ref={threadRef} style={{ flex: 1, overflowY: 'auto', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 16 }}/>
-
-                {/* Composer */}
-                <div style={{ borderTop: '1px solid var(--border)', padding: '10px 14px', background: '#060610' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
-                    <span className="cap-tag cap-reflection">
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9.5 2a9 9 0 0 1 0 18 4.5 4.5 0 0 1 0-9"/><path d="M11.5 11.5h8"/></svg>
-                      Reflection
-                    </span>
-                    <span className="cap-tag cap-research">
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-                      Research
-                    </span>
-                    <span className="kb-tag">
-                      {kbIcon(10)}
-                      Finance Docs
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
-                    <textarea ref={composerRef} className="composer-textarea" placeholder="Message Vortex…" rows={1} readOnly/>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
-                      <div style={{ fontSize: 10, color: '#374151', fontFamily: 'monospace', border: '1px solid var(--border)', background: '#0a0a18', borderRadius: 5, padding: '3px 6px' }}>{DEMO_MODEL} ▾</div>
-                      <button ref={sendBtnRef} style={{ width: 32, height: 32, borderRadius: 8, border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg,var(--pink),var(--violet))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {SEND_ICON}
-                      </button>
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
-                    <span style={{ fontSize: 10, color: '#2a2a3e', padding: '2px 6px', border: '1px solid var(--border)', borderRadius: 4 }}>📎 Attach</span>
-                    <span ref={charCountRef} style={{ fontSize: 10, color: '#1e1e35', marginLeft: 'auto' }}>0 / 2000</span>
-                  </div>
-                </div>
+              <div className="composer-mid">
+                <textarea ref={inputRef} placeholder="Message Vortex…" rows={1} readOnly />
+                <button ref={sendRef} className="send" aria-label="Send">
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M1 8l14-7-5 15-3-6-6-2z"/></svg>
+                </button>
               </div>
             </div>
           </div>

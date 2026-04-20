@@ -1,9 +1,10 @@
-// landing/src/routes/index.tsx
+// landing/src/routes/index.tsx — Landing v2
 import { createFileRoute } from '@tanstack/react-router'
 import { HeroSection }    from '~/components/HeroSection'
 import { LogoBand }       from '~/components/LogoBand'
 import { HowItWorks }     from '~/components/HowItWorks'
 import { StatsSection }   from '~/components/StatsSection'
+import { FeaturesSection } from '~/components/FeaturesSection'
 import { MissionSection } from '~/components/MissionSection'
 import { CTASection }     from '~/components/CTASection'
 
@@ -15,11 +16,10 @@ function HomePage() {
   return (
     <>
       <HeroSection />
-      <div className="section-divider"/>
       <LogoBand />
-      <div className="section-divider"/>
       <HowItWorks />
       <StatsSection />
+      <FeaturesSection />
       <MissionSection />
       <CTASection />
     </>
