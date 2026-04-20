@@ -23,20 +23,6 @@ from ai_portal.chat.schemas import (
     ConversationSettings,
 )
 
-CHAT_STARTERS: dict[str, Any] = {
-    "sections": [
-        {
-            "title": "Starters",
-            "prompts": [
-                "Summarize the key risks in this design in 5 bullets.",
-                "Draft a concise PR description from these changes.",
-                "Explain this error and suggest the next debugging step.",
-            ],
-            "links": [],
-        },
-    ],
-}
-
 
 def conversation_read(db: Session, conv: Thread) -> ConversationRead:
     kb_ids = repo.get_conversation_kb_ids(db, conv.id)

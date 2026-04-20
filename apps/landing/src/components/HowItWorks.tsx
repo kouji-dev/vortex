@@ -393,22 +393,14 @@ export function HowItWorks() {
   return (
     <section ref={sectionRef} id="how" style={{ maxWidth: 1280, margin: '0 auto', padding: '120px 32px' }}>
       {/* Header */}
-      <div className="section-head reveal" style={{ marginBottom: 56 }}>
-        <div style={{
-          display: 'inline-flex', alignItems: 'center', gap: 8,
-          fontFamily: '"JetBrains Mono", monospace', fontSize: 11,
-          color: 'var(--violet)', textTransform: 'uppercase', letterSpacing: '0.12em',
-          marginBottom: 20,
-        }}>
-          <span style={{ display: 'inline-block', width: 24, height: 1, background: 'var(--violet)' }}/>
-          How it works
-        </div>
-        <h2 style={{ margin: 0, fontSize: 48, fontWeight: 600, letterSpacing: '-0.028em', lineHeight: 1.05, maxWidth: 800 }}>
+      <div className="section-head reveal">
+        <div className="k">How it works</div>
+        <h2>
           One portal.{' '}
-          <em style={{ background: 'var(--g-grad)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent', fontStyle: 'normal' }}>Every model.</em>
+          <em className="em">Every model.</em>
           <br/>All your context.
         </h2>
-        <p style={{ marginTop: 18, color: 'var(--text-2)', fontSize: 17, lineHeight: 1.55, maxWidth: 640 }}>
+        <p className="sub">
           Vortex is a chat — with the memory, the retrieval, and the guardrails a team needs. Pick a model, attach a knowledge base, and ship.
         </p>
       </div>

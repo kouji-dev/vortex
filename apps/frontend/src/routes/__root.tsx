@@ -31,6 +31,11 @@ export const Route = createRootRouteWithContext<{
   queryClient: QueryClient
 }>()({
   head: () => ({
+    scripts: [
+      {
+        children: `(function(){try{var t=localStorage.getItem('vx.theme');if(t==='light'||t==='dark'){document.documentElement.setAttribute('data-theme',t);return;}var m=window.matchMedia('(prefers-color-scheme: dark)');document.documentElement.setAttribute('data-theme',m.matches?'dark':'light');}catch(e){}})()`,
+      },
+    ],
     meta: [
       {
         charSet: 'utf-8',

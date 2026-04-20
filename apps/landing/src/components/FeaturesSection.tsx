@@ -16,23 +16,13 @@ export function FeaturesSection() {
   return (
     <section id="features" style={{ maxWidth: 1280, margin: '0 auto', padding: '120px 32px' }}>
       {/* Header */}
-      <div className="reveal" style={{ marginBottom: 56 }}>
-        <div style={{
-          display: 'inline-flex', alignItems: 'center', gap: 8,
-          fontFamily: '"JetBrains Mono", monospace', fontSize: 11,
-          color: 'var(--violet)', textTransform: 'uppercase', letterSpacing: '0.12em',
-          marginBottom: 20,
-        }}>
-          <span style={{ display: 'inline-block', width: 24, height: 1, background: 'var(--violet)' }}/>
-          Under the hood
-        </div>
-        <h2 style={{ margin: 0, fontSize: 48, fontWeight: 600, letterSpacing: '-0.028em', lineHeight: 1.05, maxWidth: 800 }}>
+      <div className="section-head reveal">
+        <div className="k">Under the hood</div>
+        <h2>
           A real product, not a{' '}
-          <em style={{ background: 'var(--g-grad)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent', fontStyle: 'normal' }}>
-            prompt wrapper.
-          </em>
+          <em className="em">prompt wrapper.</em>
         </h2>
-        <p style={{ marginTop: 18, color: 'var(--text-2)', fontSize: 17, lineHeight: 1.55, maxWidth: 640 }}>
+        <p className="sub">
           Conversations persist. Memories compound. KBs index incrementally. Every turn is traced, every token metered. Built by people who've run AI in production — for people about to.
         </p>
       </div>

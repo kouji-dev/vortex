@@ -10,7 +10,6 @@ import {
 import { ChatComposerDockMobile } from '~/components/chat/ChatComposerDockMobile'
 import { EmptyConversationState } from '~/components/chat/EmptyConversationState'
 import { MarkdownMessage } from '~/components/chat/MarkdownMessage'
-import { StartersPanel } from '~/components/chat/StartersPanel'
 import { TurnGroup } from '~/components/chat/items/TurnGroup'
 import { KbChatPicker } from '~/components/knowledge-bases/KbChatPicker'
 import { QuotaBanner } from '~/components/chat/QuotaBanner'
@@ -55,7 +54,7 @@ export type ConversationThreadPageProps = {
 export function ConversationThreadPage({ conversationId }: ConversationThreadPageProps) {
   const navigate = useNavigate()
   const location = useLocation()
-  const { composeDraft, setComposeDraft, chatStarters, chatStartersFetched, inspectorOpen, setInspectorOpen, setActiveMessage } =
+  const { composeDraft, setComposeDraft, inspectorOpen, setInspectorOpen, setActiveMessage } =
     useConversationsOutlet()
   const { isMobile } = useIsMobile()
   const catalogQ = useCatalogModelsQuery()
@@ -427,30 +426,10 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
           </div>
         ) : showEmptyHub ? (
           <EmptyConversationState
-            starters={chatStarters}
-            startersFetched={chatStartersFetched}
             setComposeDraft={setComposeDraft}
           />
         ) : (
           <>
-            {thread.length > 0 && chatStartersFetched && chatStarters?.sections?.length && (
-              <details
-                data-testid="chat-starters-collapsed"
-                className="mb-4 rounded-lg border border-neutral-200/80 bg-neutral-50/50 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900/40"
-              >
-                <summary className="cursor-pointer text-xs font-medium text-neutral-600 dark:text-neutral-400">
-                  Suggested prompts
-                </summary>
-                <div className="mt-2 border-t border-neutral-200/60 pt-3 dark:border-neutral-700">
-                  <StartersPanel
-                    variant="sidebar"
-                    sections={chatStarters.sections}
-                    setComposeDraft={setComposeDraft}
-                  />
-                </div>
-              </details>
-            )}
-
             <ul role="log" aria-label="Conversation messages" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
               {turnIds.map((turnId) => (
                 <TurnGroup

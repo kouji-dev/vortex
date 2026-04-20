@@ -404,10 +404,214 @@ footer .tag { max-width: 280px; color: var(--muted); margin-top: 4px; line-heigh
   color: var(--violet); text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 20px;
 }
 .section-head .k::before { content: ""; width: 24px; height: 1px; background: var(--violet); }
+.section-head h2 {
+  margin: 0;
+  font-size: 48px; font-weight: 600;
+  letter-spacing: -0.028em;
+  line-height: 1.05;
+  max-width: 800px;
+}
+.section-head h2 .em {
+  background: var(--g-grad);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  font-style: normal;
+}
+.section-head .sub {
+  margin-top: 18px;
+  color: var(--text-2); font-size: 17px; line-height: 1.55;
+  max-width: 640px;
+}
 
 /* ── "How it works" panel copy styles ── */
 .copy h3 { margin: 0 0 14px; font-size: 28px; font-weight: 600; letter-spacing: -0.02em; }
 .copy p  { margin: 0 0 16px; color: var(--text-2); font-size: 15px; line-height: 1.55; }
+.copy ul { list-style: none; padding: 0; margin: 16px 0 0; display: flex; flex-direction: column; gap: 10px; }
+.copy ul li {
+  display: flex; gap: 10px; font-size: 13.5px; color: var(--text-2); align-items: flex-start;
+}
+.copy ul li::before {
+  content: ""; flex-shrink: 0;
+  width: 18px; height: 18px; margin-top: 1px;
+  border-radius: 50%;
+  background: rgba(167,139,250,0.15);
+  border: 1px solid rgba(167,139,250,0.4);
+  background-image: radial-gradient(circle, var(--violet) 30%, transparent 35%);
+  display: inline-block;
+}
+
+/* ── Stats section ── */
+.stats {
+  max-width: 1280px; margin: 0 auto;
+  padding: 80px 32px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 32px;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.stat { text-align: left; padding-right: 20px; border-right: 1px solid var(--border); }
+.stat:last-child { border-right: 0; }
+.stat .v {
+  font-size: 56px; font-weight: 600; letter-spacing: -0.03em; line-height: 1;
+  background: var(--g-grad);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 10px;
+}
+.stat .k {
+  font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  color: var(--muted); text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 6px;
+}
+.stat .sub { color: var(--text-2); font-size: 13px; }
+
+/* ── Mission section ── */
+.mission {
+  max-width: 900px; margin: 0 auto;
+  padding: 140px 32px;
+  text-align: center;
+}
+.mission h2 {
+  margin: 0 0 24px;
+  font-size: 42px; font-weight: 500;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+}
+.mission h2 .em {
+  background: var(--g-grad);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  font-weight: 600;
+}
+.mission p { color: var(--text-2); font-size: 17px; line-height: 1.6; }
+
+/* ── CTA section ── */
+.cta-section {
+  max-width: 1280px; margin: 0 auto;
+  padding: 120px 32px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.cta-section::before {
+  content: ""; position: absolute; left: 50%; bottom: -200px; transform: translateX(-50%);
+  width: 900px; height: 500px;
+  background: radial-gradient(ellipse at center, rgba(167,139,250,0.3), transparent 60%);
+  pointer-events: none; filter: blur(20px);
+}
+.cta-section h2 {
+  position: relative;
+  margin: 0 0 18px;
+  font-size: 64px; font-weight: 600;
+  letter-spacing: -0.03em; line-height: 1.02;
+}
+.cta-section h2 .em {
+  background: var(--g-grad);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.cta-section .ld { position: relative; font-size: 18px; color: var(--text-2); margin-bottom: 32px; }
+.cta-section .row { position: relative; display: flex; gap: 10px; justify-content: center; }
+
+/* ── Tab styles (How It Works) ── */
+.tab-prog {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 2px;
+  background: var(--bg2);
+}
+.tab-prog .fill {
+  height: 100%; width: 0;
+  background: var(--g-grad);
+}
+
+/* ── Demo card (How It Works panels) ── */
+.demo-card {
+  border-radius: 12px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  box-shadow: 0 30px 60px -30px rgba(0,0,0,0.6);
+  min-height: 380px;
+}
+.demo-card .head {
+  padding: 10px 14px; border-bottom: 1px solid var(--border);
+  background: var(--bg-3);
+  font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted);
+  display: flex; align-items: center; gap: 8px;
+}
+
+/* ── Logo band ── */
+.logo-band {
+  max-width: 1280px; margin: 0 auto;
+  padding: 40px 32px;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+  position: relative;
+}
+.logo-band .lbl {
+  font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted);
+  text-align: center;
+  text-transform: uppercase; letter-spacing: 0.15em;
+  margin-bottom: 24px;
+}
+.logo-track {
+  display: flex; gap: 64px;
+  animation: marquee 28s linear infinite;
+  width: max-content;
+  mask-image: linear-gradient(90deg, transparent 0%, #000 10%, #000 90%, transparent 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 10%, #000 90%, transparent 100%);
+}
+.logo-band:hover .logo-track { animation-play-state: paused; }
+.logo-item {
+  font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 20px;
+  color: var(--muted); white-space: nowrap;
+  letter-spacing: -0.015em;
+  display: inline-flex; align-items: center; gap: 10px;
+  opacity: 0.7;
+  transition: opacity 200ms, color 200ms;
+}
+.logo-item:hover { opacity: 1; color: var(--text-2); }
+.logo-item::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--dim); }
+
+/* ── App demo (hero frame) ── */
+.app-frame {
+  position: relative;
+  height: 560px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.04) inset,
+    0 40px 80px -30px rgba(0,0,0,0.6),
+    0 0 120px -30px rgba(167,139,250,0.35);
+  animation: heroIn 1200ms cubic-bezier(.2,.8,.2,1) both;
+}
+.app-frame::before {
+  content: ""; position: absolute; inset: -30px; z-index: -1;
+  background: radial-gradient(ellipse at 50% 50%, rgba(167,139,250,0.25), transparent 60%);
+  filter: blur(28px);
+}
+
+/* ── Hero eyebrow ── */
+.eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  color: var(--text-2);
+  text-transform: uppercase; letter-spacing: 0.1em;
+  margin-bottom: 28px;
+  animation: fadeUp 700ms cubic-bezier(.2,.8,.2,1) both;
+}
+.eyebrow::before { content: ""; width: 24px; height: 1px; background: var(--violet); }
+
+/* ── Feature cards ── */
+.feature-card {
+  border: 1px solid var(--border); border-radius: 12px;
+  padding: 28px; background: var(--bg2);
+}
+.feature-card .tag {
+  font-family: 'JetBrains Mono', monospace; font-size: 12px;
+  margin-bottom: 18px; letter-spacing: -0.01em;
+}
+.feature-card h3 { margin: 0 0 10px; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; }
+.feature-card p  { color: var(--text-2); margin: 0; font-size: 14px; line-height: 1.6; }
 
 /* ── Msg styles (used in hero/demo animations) ── */
 .msg { display: flex; gap: 10px; }

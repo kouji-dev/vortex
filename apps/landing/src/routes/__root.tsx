@@ -24,6 +24,28 @@ export const Route = createRootRoute({
 })
 
 function RootComponent() {
+  /* Global scroll-reveal: add `.in` to all .reveal* elements when visible */
+  React.useEffect(() => {
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            e.target.classList.add('in')
+            io.unobserve(e.target)
+          }
+        })
+      },
+      { threshold: 0.12 }
+    )
+    const observe = () => {
+      document.querySelectorAll('.reveal, .reveal-left, .reveal-right').forEach((el) => io.observe(el))
+    }
+    observe()
+    // Also observe after a tick in case hydration adds elements slightly late
+    const tid = setTimeout(observe, 80)
+    return () => { io.disconnect(); clearTimeout(tid) }
+  }, [])
+
   return (
     <html lang="en">
       <head><HeadContent /></head>

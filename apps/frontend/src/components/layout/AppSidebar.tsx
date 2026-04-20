@@ -1,9 +1,12 @@
 import { Link, useRouterState } from '@tanstack/react-router'
-import { BarChart2, Brain, Library, MessageSquare } from 'lucide-react'
+import { BarChart2, Brain, ChevronUp, Library, LogOut, MessageSquare } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import * as React from 'react'
 
 import { useConversationsListQuery } from '~/hooks/useConversationsListQuery'
 import { useMeQuery } from '~/hooks/useMeQuery'
+
+const LANDING_URL = import.meta.env.VITE_LANDING_URL ?? '/'
 
 type NavItem = {
   to: '/chat/conversations' | '/knowledge-bases' | '/memories' | '/org/consumption'
@@ -43,6 +46,19 @@ export function AppSidebar() {
   const path = useRouterState({ select: (s) => s.location.pathname })
   const conversations = useConversationsListQuery()
   const me = useMeQuery()
+  const [menuOpen, setMenuOpen] = React.useState(false)
+  const menuRef = React.useRef<HTMLDivElement>(null)
+
+  React.useEffect(() => {
+    if (!menuOpen) return
+    function onClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [menuOpen])
 
   const user = me.data
   const convList = conversations.data ?? []
@@ -106,16 +122,39 @@ export function AppSidebar() {
         </div>
       )}
 
-      {/* Footer org card */}
+      {/* Footer org card with avatar dropdown */}
       <div className="sidebar-foot">
-        <div className="org-card">
-          <div className="avatar" aria-hidden>
-            {initials(user?.display_name, user?.email)}
-          </div>
-          <div>
-            <div className="name">{user?.display_name ?? user?.email ?? 'Loading…'}</div>
-            <div className="meta mono">{user?.roles?.[0] ?? ''}</div>
-          </div>
+        <div className="relative" ref={menuRef}>
+          {menuOpen && (
+            <div className="avatar-menu">
+              <a
+                href={LANDING_URL}
+                className="avatar-menu-item"
+                onClick={() => setMenuOpen(false)}
+              >
+                <LogOut className="size-3.5 shrink-0" aria-hidden />
+                Log out
+              </a>
+            </div>
+          )}
+          <button
+            className="org-card w-full text-left"
+            onClick={() => setMenuOpen((o) => !o)}
+            aria-expanded={menuOpen}
+            aria-haspopup="menu"
+          >
+            <div className="avatar" aria-hidden>
+              {initials(user?.display_name, user?.email)}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="name truncate">{user?.display_name ?? user?.email ?? 'Loading…'}</div>
+              <div className="meta mono">{user?.roles?.[0] ?? ''}</div>
+            </div>
+            <ChevronUp
+              className={`size-3.5 shrink-0 text-ink-3 transition-transform ${menuOpen ? '' : 'rotate-180'}`}
+              aria-hidden
+            />
+          </button>
         </div>
       </div>
     </aside>

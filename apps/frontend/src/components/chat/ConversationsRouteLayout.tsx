@@ -3,7 +3,6 @@ import * as React from 'react'
 
 import { ConversationInspectorPanel } from '~/components/chat/ConversationInspectorPanel'
 import { ConversationsSidebarPanel } from '~/components/chat/ConversationsSidebarPanel'
-import { useChatStartersQuery } from '~/hooks/useChatStartersQuery'
 import { useConversationsListQuery } from '~/hooks/useConversationsListQuery'
 import { useIsMobile } from '~/hooks/useIsMobile'
 import { ConversationsOutletProvider } from '~/contexts/ConversationsOutletContext'
@@ -19,24 +18,19 @@ export function ConversationsRouteLayout() {
   const [inspectorOpen, setInspectorOpen] = React.useState(false)
   const [activeMessage, setActiveMessage] = React.useState<ThreadItem | null>(null)
 
-  const loadStarters = location.pathname.startsWith('/chat/conversations')
   const isThreadRoute = THREAD_PATH_RE.test(location.pathname)
-
   const convsQ = useConversationsListQuery()
-  const startersQ = useChatStartersQuery(loadStarters)
 
   const outletValue = React.useMemo(
     () => ({
       composeDraft,
       setComposeDraft,
-      chatStarters: startersQ.data,
-      chatStartersFetched: startersQ.isFetched,
       inspectorOpen,
       setInspectorOpen,
       activeMessage,
       setActiveMessage,
     }),
-    [composeDraft, startersQ.data, startersQ.isFetched, inspectorOpen, activeMessage],
+    [composeDraft, inspectorOpen, activeMessage],
   )
 
   // Mobile: master/detail. Index route = full-screen list; ?compose=1 = composer.

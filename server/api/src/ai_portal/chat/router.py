@@ -6,7 +6,7 @@ No direct DB queries, no business logic.
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated
 
 import uuid as _uuid
 
@@ -37,11 +37,6 @@ from ai_portal.chat.model import ThreadItem
 from ai_portal.chat import upload_service as upload_svc
 
 router = APIRouter(prefix="/api/chat", tags=["chat-conversations"])
-
-
-@router.get("/starters")
-def get_starters() -> dict[str, Any]:
-    return svc.CHAT_STARTERS
 
 
 @router.get("/capability-profile", response_model=CapabilityProfileRead)

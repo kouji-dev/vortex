@@ -124,7 +124,7 @@ function KpiStrip({ kpis, loading }: { kpis: KpiCard[]; loading: boolean }) {
           <div className="kpi-value">
             {typeof k.value === 'number' ? k.value.toLocaleString() : k.value}
             {k.unit && (
-              <span style={{ fontSize: 11, marginLeft: 3, color: 'var(--ink-3)' }}>
+              <span className="text-[11px] ml-0.5 text-ink-3">
                 {k.unit}
               </span>
             )}
@@ -199,16 +199,10 @@ function SummaryTable({ rows, loading }: { rows: SummaryRow[]; loading: boolean 
   })
 
   if (loading && rows.length === 0) {
-    return (
-      <p style={{ padding: '12px 14px', fontSize: 12, color: 'var(--ink-3)' }}>Loading…</p>
-    )
+    return <p className="px-3.5 py-3 text-[12px] text-ink-3">Loading…</p>
   }
   if (rows.length === 0) {
-    return (
-      <p style={{ padding: '12px 14px', fontSize: 12, color: 'var(--ink-3)' }}>
-        No data for this period.
-      </p>
-    )
+    return <p className="px-3.5 py-3 text-[12px] text-ink-3">No data for this period.</p>
   }
 
   const arrow = (key: SortKey) =>
@@ -220,36 +214,31 @@ function SummaryTable({ rows, loading }: { rows: SummaryRow[]; loading: boolean 
         <tr>
           <th>Name</th>
           <th
-            className="num"
-            style={{ cursor: 'pointer' }}
+            className="num cursor-pointer"
             onClick={() => toggleSort('messages')}
           >
             Messages{arrow('messages')}
           </th>
           <th
-            className="num"
-            style={{ cursor: 'pointer' }}
+            className="num cursor-pointer"
             onClick={() => toggleSort('input_tokens')}
           >
             Input tok{arrow('input_tokens')}
           </th>
           <th
-            className="num"
-            style={{ cursor: 'pointer' }}
+            className="num cursor-pointer"
             onClick={() => toggleSort('output_tokens')}
           >
             Output tok{arrow('output_tokens')}
           </th>
           <th
-            className="num"
-            style={{ cursor: 'pointer' }}
+            className="num cursor-pointer"
             onClick={() => toggleSort('cost_usd')}
           >
             Cost (USD){arrow('cost_usd')}
           </th>
           <th
-            className="num"
-            style={{ cursor: 'pointer' }}
+            className="num cursor-pointer"
             onClick={() => toggleSort('estimated_ratio')}
           >
             Est %{arrow('estimated_ratio')}
@@ -319,16 +308,10 @@ function ThreadsTable({
   onSelectThread: (id: number) => void
 }) {
   if (loading && !data) {
-    return (
-      <p style={{ padding: '12px 14px', fontSize: 12, color: 'var(--ink-3)' }}>Loading…</p>
-    )
+    return <p className="px-3.5 py-3 text-[12px] text-ink-3">Loading…</p>
   }
   if (!data || data.rows.length === 0) {
-    return (
-      <p style={{ padding: '12px 14px', fontSize: 12, color: 'var(--ink-3)' }}>
-        No threads in this period.
-      </p>
-    )
+    return <p className="px-3.5 py-3 text-[12px] text-ink-3">No threads in this period.</p>
   }
   const totalPages = Math.ceil(data.total / data.page_size)
   return (
@@ -345,22 +328,19 @@ function ThreadsTable({
         </thead>
         <tbody>
           {data.rows.map((r) => (
-            <tr key={r.id} style={{ cursor: 'pointer' }} onClick={() => onSelectThread(r.id)}>
+            <tr key={r.id} className="cursor-pointer" onClick={() => onSelectThread(r.id)}>
               <td className="name-cell">
                 {r.title ?? `Thread #${r.id}`}
                 <div className="sub">#{r.id}</div>
               </td>
               <td>
-                <span
-                  className="mono"
-                  style={{ fontSize: 10, color: 'var(--ink-3)' }}
-                >
+                <span className="mono text-[10px] text-ink-3">
                   {r.model ?? '—'}
                 </span>
               </td>
               <td className="num">{r.item_count}</td>
               <td className="num">${parseFloat(r.total_cost_usd).toFixed(4)}</td>
-              <td style={{ fontSize: 11, color: 'var(--ink-3)' }}>
+              <td className="text-[11px] text-ink-3">
                 {r.last_message_at ? relativeTime(r.last_message_at) : '—'}
               </td>
             </tr>
@@ -368,14 +348,7 @@ function ThreadsTable({
         </tbody>
       </table>
       {totalPages > 1 && (
-        <div
-          style={{
-            display: 'flex',
-            gap: 6,
-            padding: '8px 14px',
-            justifyContent: 'flex-end',
-          }}
-        >
+        <div className="flex gap-1.5 px-3.5 py-2 justify-end">
           <button
             className="btn btn-xs"
             disabled={page <= 1}
@@ -383,9 +356,7 @@ function ThreadsTable({
           >
             ← Prev
           </button>
-          <span
-            style={{ fontSize: 11, color: 'var(--ink-3)', alignSelf: 'center' }}
-          >
+          <span className="text-[11px] text-ink-3 self-center">
             {page} / {totalPages}
           </span>
           <button
@@ -416,119 +387,48 @@ const KIND_ICONS: Record<string, string> = {
 
 function TimelineView({ items }: { items: TimelineItem[] }) {
   return (
-    <div style={{ padding: '8px 14px' }}>
+    <div className="px-3.5 py-2">
       {items.map((item) => (
-        <div
-          key={item.id}
-          style={{
-            display: 'flex',
-            gap: 10,
-            padding: '6px 0',
-            borderBottom: '1px solid var(--line)',
-          }}
-        >
-          <div style={{ fontSize: 16, minWidth: 22, textAlign: 'center' }}>
+        <div key={item.id} className="flex gap-2.5 py-1.5 border-b border-line">
+          <div className="text-base w-5.5 shrink-0 text-center">
             {KIND_ICONS[item.kind] ?? '•'}
           </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div
-              style={{
-                display: 'flex',
-                gap: 8,
-                alignItems: 'baseline',
-                flexWrap: 'wrap',
-              }}
-            >
-              <span
-                style={{
-                  fontSize: 11,
-                  fontFamily: 'var(--font-mono)',
-                  color: 'var(--ink)',
-                  fontWeight: 600,
-                }}
-              >
-                {item.kind}
-              </span>
+          <div className="flex-1 min-w-0">
+            <div className="flex gap-2 items-baseline flex-wrap">
+              <span className="mono text-[11px] text-ink font-semibold">{item.kind}</span>
               {item.model && (
-                <span
-                  style={{
-                    fontSize: 10,
-                    color: 'var(--ink-3)',
-                    fontFamily: 'var(--font-mono)',
-                  }}
-                >
-                  {item.model}
-                </span>
+                <span className="mono text-[10px] text-ink-3">{item.model}</span>
               )}
               {item.provider && (
-                <span style={{ fontSize: 10, color: 'var(--ink-3)' }}>{item.provider}</span>
+                <span className="text-[10px] text-ink-3">{item.provider}</span>
               )}
               {item.cost_usd && parseFloat(item.cost_usd) > 0 && (
-                <span
-                  style={{
-                    fontSize: 10,
-                    color: 'var(--ok)',
-                    fontFamily: 'var(--font-mono)',
-                  }}
-                >
-                  ${parseFloat(item.cost_usd).toFixed(6)}
-                  {item.cost_estimated && '*'}
+                <span className="mono text-[10px] text-ok">
+                  ${parseFloat(item.cost_usd).toFixed(6)}{item.cost_estimated && '*'}
                 </span>
               )}
               {item.latency_ms != null && (
-                <span style={{ fontSize: 10, color: 'var(--ink-3)' }}>
-                  {item.latency_ms}ms
-                </span>
+                <span className="text-[10px] text-ink-3">{item.latency_ms}ms</span>
               )}
             </div>
             {item.kind === 'assistant_text' && item.data.text != null && (
-              <div
-                style={{
-                  fontSize: 11,
-                  color: 'var(--ink-2)',
-                  marginTop: 2,
-                  overflow: 'hidden',
-                  maxHeight: 40,
-                  textOverflow: 'ellipsis',
-                }}
-              >
+              <div className="text-[11px] text-ink-2 mt-0.5 overflow-hidden max-h-10 text-ellipsis">
                 {String(item.data.text).slice(0, 200)}
               </div>
             )}
             {item.kind === 'tool_call' && item.data.tool_name != null && (
-              <div
-                style={{
-                  fontSize: 10,
-                  color: 'var(--ink-3)',
-                  fontFamily: 'var(--font-mono)',
-                  marginTop: 2,
-                }}
-              >
+              <div className="mono text-[10px] text-ink-3 mt-0.5">
                 {String(item.data.tool_name)}
               </div>
             )}
             {item.kind === 'llm_call' && (
-              <div
-                style={{
-                  fontSize: 10,
-                  color: 'var(--ink-3)',
-                  fontFamily: 'var(--font-mono)',
-                  marginTop: 2,
-                }}
-              >
+              <div className="mono text-[10px] text-ink-3 mt-0.5">
                 {item.data.input_tokens != null &&
                   `${item.data.input_tokens}↑ ${item.data.output_tokens}↓ tokens`}
               </div>
             )}
           </div>
-          <div
-            style={{
-              fontSize: 10,
-              color: 'var(--ink-3)',
-              whiteSpace: 'nowrap',
-              alignSelf: 'flex-start',
-            }}
-          >
+          <div className="text-[10px] text-ink-3 whitespace-nowrap self-start">
             {new Date(item.created_at).toLocaleTimeString()}
           </div>
         </div>
@@ -538,16 +438,6 @@ function TimelineView({ items }: { items: TimelineItem[] }) {
 }
 
 // ── main page ────────────────────────────────────────────────────────────────
-
-const dateInputStyle: React.CSSProperties = {
-  marginLeft: 4,
-  fontSize: 11,
-  border: '1px solid var(--line)',
-  borderRadius: 3,
-  padding: '2px 6px',
-  background: 'var(--bg)',
-  color: 'var(--ink)',
-}
 
 export function ConsumptionPage() {
   const [start, setStart] = React.useState(() => isoDate(daysAgo(90)))
@@ -650,8 +540,8 @@ export function ConsumptionPage() {
           <h1>Consumption</h1>
           <div className="sub">Cost · tokens · models · threads</div>
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <label style={{ fontSize: 11, color: 'var(--ink-3)' }}>
+        <div className="flex gap-2 items-center">
+          <label className="text-[11px] text-ink-3 flex items-center gap-1.5">
             From
             <input
               type="date"
@@ -660,10 +550,10 @@ export function ConsumptionPage() {
                 setStart(e.target.value)
                 setPage(1)
               }}
-              style={dateInputStyle}
+              className="input !w-auto !py-0.5 !px-2 !text-[11px]"
             />
           </label>
-          <label style={{ fontSize: 11, color: 'var(--ink-3)' }}>
+          <label className="text-[11px] text-ink-3 flex items-center gap-1.5">
             To
             <input
               type="date"
@@ -672,7 +562,7 @@ export function ConsumptionPage() {
                 setEnd(e.target.value)
                 setPage(1)
               }}
-              style={dateInputStyle}
+              className="input !w-auto !py-0.5 !px-2 !text-[11px]"
             />
           </label>
         </div>
@@ -683,7 +573,7 @@ export function ConsumptionPage() {
 
       {/* Trend sparkline */}
       {trend && trend.points.length > 0 && (
-        <div className="panel" style={{ marginBottom: 16 }}>
+        <div className="panel mb-4">
           <div className="panel-head">Spend trend (daily)</div>
           <div className="panel-body">
             <TrendChart points={trend.points} />
@@ -693,7 +583,7 @@ export function ConsumptionPage() {
 
       {/* Token volume by model */}
       {summary && summary.by_model.length > 0 && (
-        <div className="panel" style={{ marginBottom: 16 }}>
+        <div className="panel mb-4">
           <div className="panel-head">Token volume by model</div>
           <div className="panel-body">
             <TokenVolumeChart rows={summary.by_model} />
@@ -702,13 +592,10 @@ export function ConsumptionPage() {
       )}
 
       {/* Grouped tables */}
-      <div className="panel" style={{ marginBottom: 16 }}>
-        <div
-          className="panel-head"
-          style={{ display: 'flex', alignItems: 'center', gap: 8 }}
-        >
+      <div className="panel mb-4">
+        <div className="panel-head flex items-center gap-2">
           <span>Breakdown</span>
-          <div className="tabs" style={{ marginLeft: 'auto', marginBottom: 0 }}>
+          <div className="tabs ml-auto mb-0">
             {(['model', 'user', 'provider', 'capability', 'tool'] as const).map((t) => (
               <button
                 key={t}
@@ -737,24 +624,18 @@ export function ConsumptionPage() {
 
       {/* Timeline drilldown */}
       {selectedThread != null && (
-        <div className="panel" style={{ marginTop: 16 }}>
-          <div
-            className="panel-head"
-            style={{ display: 'flex', alignItems: 'center', gap: 8 }}
-          >
+        <div className="panel mt-4">
+          <div className="panel-head flex items-center gap-2">
             <span>Timeline — Thread #{selectedThread}</span>
             <button
-              className="btn btn-xs"
-              style={{ marginLeft: 'auto' }}
+              className="btn btn-xs ml-auto"
               onClick={() => setSelectedThread(null)}
             >
               Close
             </button>
           </div>
           {timelineLoading && (
-            <p style={{ padding: '12px 14px', fontSize: 12, color: 'var(--ink-3)' }}>
-              Loading…
-            </p>
+            <p className="px-3.5 py-3 text-[12px] text-ink-3">Loading…</p>
           )}
           {timeline && <TimelineView items={timeline} />}
         </div>

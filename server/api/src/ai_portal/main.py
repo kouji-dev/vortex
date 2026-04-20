@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+import asyncio
 import logging
+import sys
 import uuid
 from contextlib import asynccontextmanager
 from typing import Any
+
+# psycopg async requires SelectorEventLoop on Windows (ProactorEventLoop is the default)
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware

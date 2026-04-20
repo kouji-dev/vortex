@@ -1,14 +1,10 @@
 import * as React from 'react'
 
-import type { ChatStartersPayload } from '~/hooks/useChatStartersQuery'
 import type { ThreadItem } from '~/lib/chat-types'
 
 export type ConversationsOutletContextValue = {
   composeDraft: string
   setComposeDraft: React.Dispatch<React.SetStateAction<string>>
-  chatStarters: ChatStartersPayload | undefined
-  /** True once the starters query has finished (success or error). */
-  chatStartersFetched: boolean
   /** Inspector panel open/closed state (3-col layout). */
   inspectorOpen: boolean
   setInspectorOpen: React.Dispatch<React.SetStateAction<boolean>>

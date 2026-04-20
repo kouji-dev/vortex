@@ -12,14 +12,14 @@ interface StatProps {
   delay?: number
 }
 
-function Stat({ label, value, sym, suffix, sub, delay }: StatProps) {
+function Stat({ label, value, sym, suffix, sub, delay, last }: StatProps & { last?: boolean }) {
   const numRef = useCountUp(value ?? 0)
   return (
     <div
       className="reveal"
       style={{
         textAlign: 'left', paddingRight: 20,
-        borderRight: '1px solid var(--border)',
+        borderRight: last ? '0' : '1px solid var(--border)',
         transitionDelay: delay ? `${delay}ms` : undefined,
       }}
     >
@@ -63,7 +63,7 @@ export function StatsSection() {
       <Stat label="Models"      value={10}  suffix="+" sub="Anthropic · OpenAI · Google · Mistral · open-source" delay={100}/>
       <Stat label="KB size"     sym="∞"               sub="Ingest millions of documents. pgvector + rerank."     delay={200}/>
       <Stat label="Self-host"   value={100} suffix="%" sub="One Docker Compose. Your data never leaves."         delay={300}/>
-      <Stat label="First token" sym="&lt;1s"           sub="Streaming from turn one. No cold-start tax."         delay={400}/>
+      <Stat label="First token" sym="<1s"              sub="Streaming from turn one. No cold-start tax."         delay={400} last/>
     </div>
   )
 }

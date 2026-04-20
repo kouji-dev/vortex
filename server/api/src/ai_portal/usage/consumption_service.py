@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import Literal
 
 from sqlalchemy import Integer, and_, case, cast, func, select, text
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 from ai_portal.chat.item_kinds import ItemKind
 from ai_portal.chat.model import Thread, ThreadItem
@@ -18,9 +18,9 @@ from ai_portal.usage.consumption_schemas import (
 ZERO = Decimal("0")
 
 
-async def summary(*, session: AsyncSession, org_id: uuid.UUID,
-                  start: datetime, end: datetime) -> SummaryResponse:
-    kpis_row = (await session.execute(
+def summary(*, session: Session, org_id: uuid.UUID,
+            start: datetime, end: datetime) -> SummaryResponse:
+    kpis_row = session.execute(
         select(
             func.coalesce(func.sum(ThreadItem.cost_usd), 0),
             func.sum(case((ThreadItem.kind == ItemKind.llm_call, 1), else_=0)),
@@ -30,10 +30,10 @@ async def summary(*, session: AsyncSession, org_id: uuid.UUID,
             ThreadItem.created_at >= start,
             ThreadItem.created_at <= end,
         )
-    )).one()
+    ).one()
     total_cost, llm_count, tool_count = kpis_row
 
-    top_model = (await session.execute(
+    top_model = session.execute(
         select(ThreadItem.model, func.sum(ThreadItem.cost_usd).label("s"))
         .where(
             ThreadItem.org_id == org_id,
@@ -43,7 +43,7 @@ async def summary(*, session: AsyncSession, org_id: uuid.UUID,
         .group_by(ThreadItem.model)
         .order_by(func.sum(ThreadItem.cost_usd).desc())
         .limit(1)
-    )).first()
+    ).first()
 
     kpis = [
         KpiCard(label="Month spend", value=Decimal(str(total_cost or 0)), unit="USD"),
@@ -56,9 +56,9 @@ async def summary(*, session: AsyncSession, org_id: uuid.UUID,
         ),
     ]
 
-    by_model = await _group(session, org_id, start, end, ThreadItem.model)
-    by_user = await _group_via_thread(session, org_id, start, end)
-    by_provider = await _group(session, org_id, start, end, ThreadItem.provider)
+    by_model = _group(session, org_id, start, end, ThreadItem.model)
+    by_user = _group_via_thread(session, org_id, start, end)
+    by_provider = _group(session, org_id, start, end, ThreadItem.provider)
     cap_stmt = (
         select(
             func.jsonb_array_elements_text(ThreadItem.data["capabilities"]).label("capability"),
@@ -78,7 +78,7 @@ async def summary(*, session: AsyncSession, org_id: uuid.UUID,
         .group_by(text("1"))
         .order_by(func.sum(ThreadItem.cost_usd).desc().nullslast())
     )
-    cap_rows = (await session.execute(cap_stmt)).all()
+    cap_rows = session.execute(cap_stmt).all()
     by_capability = [
         SummaryRow(
             key=r.capability, label=r.capability,
@@ -91,7 +91,7 @@ async def summary(*, session: AsyncSession, org_id: uuid.UUID,
         for r in cap_rows
         if r.capability
     ]
-    by_tool = await _group(
+    by_tool = _group(
         session, org_id, start, end,
         func.coalesce(ThreadItem.data["tool_name"].astext, "?"),
         only_kind=ItemKind.tool_call,
@@ -103,7 +103,7 @@ async def summary(*, session: AsyncSession, org_id: uuid.UUID,
     )
 
 
-async def _group(session, org_id, start, end, column, *, only_kind=None) -> list[SummaryRow]:
+def _group(session, org_id, start, end, column, *, only_kind=None) -> list[SummaryRow]:
     where = [
         ThreadItem.org_id == org_id,
         ThreadItem.created_at >= start, ThreadItem.created_at <= end,
@@ -124,7 +124,7 @@ async def _group(session, org_id, start, end, column, *, only_kind=None) -> list
         .order_by(func.sum(ThreadItem.cost_usd).desc().nullslast())
         .limit(50)
     )
-    rows = (await session.execute(stmt)).all()
+    rows = session.execute(stmt).all()
     out: list[SummaryRow] = []
     for k, msgs, it, ot, cost, est in rows:
         key = str(k) if k is not None else "(none)"
@@ -136,7 +136,7 @@ async def _group(session, org_id, start, end, column, *, only_kind=None) -> list
     return out
 
 
-async def _group_via_thread(session, org_id, start, end) -> list[SummaryRow]:
+def _group_via_thread(session, org_id, start, end) -> list[SummaryRow]:
     stmt = (
         select(
             Thread.user_id.label("k"),
@@ -152,7 +152,7 @@ async def _group_via_thread(session, org_id, start, end) -> list[SummaryRow]:
         .order_by(func.sum(ThreadItem.cost_usd).desc().nullslast())
         .limit(50)
     )
-    rows = (await session.execute(stmt)).all()
+    rows = session.execute(stmt).all()
     return [SummaryRow(
         key=str(k), label=str(k), messages=int(m),
         input_tokens=int(it or 0), output_tokens=int(ot or 0),
@@ -160,9 +160,9 @@ async def _group_via_thread(session, org_id, start, end) -> list[SummaryRow]:
     ) for k, m, it, ot, c, e in rows]
 
 
-async def trend(*, session: AsyncSession, org_id: uuid.UUID,
-                start: datetime, end: datetime,
-                grain: Literal["day", "hour"], by: Literal["kind", "provider"]) -> TrendResponse:
+def trend(*, session: Session, org_id: uuid.UUID,
+          start: datetime, end: datetime,
+          grain: Literal["day", "hour"], by: Literal["kind", "provider"]) -> TrendResponse:
     trunc = func.date_trunc(grain, ThreadItem.created_at)
     key_col = ThreadItem.kind if by == "kind" else ThreadItem.provider
     stmt = (
@@ -176,7 +176,7 @@ async def trend(*, session: AsyncSession, org_id: uuid.UUID,
         .group_by(trunc, key_col)
         .order_by(trunc)
     )
-    rows = (await session.execute(stmt)).all()
+    rows = session.execute(stmt).all()
     buckets: dict = {}
     for t, k, cost, it, ot in rows:
         b = buckets.setdefault(t, {"cost_usd": ZERO, "in": 0, "out": 0, "by": {}})
@@ -190,16 +190,16 @@ async def trend(*, session: AsyncSession, org_id: uuid.UUID,
     return TrendResponse(grain=grain, by=by, series=series)
 
 
-async def threads(*, session: AsyncSession, org_id: uuid.UUID,
-                  start: datetime, end: datetime, user_id: int | None, model: str | None,
-                  page: int, page_size: int) -> ThreadsResponse:
+def threads(*, session: Session, org_id: uuid.UUID,
+            start: datetime, end: datetime, user_id: int | None, model: str | None,
+            page: int, page_size: int) -> ThreadsResponse:
     where = [Thread.org_id == org_id, Thread.last_message_at >= start, Thread.last_message_at <= end]
     if user_id is not None:
         where.append(Thread.user_id == user_id)
     if model is not None:
         where.append(Thread.model == model)
 
-    total = (await session.execute(select(func.count(Thread.id)).where(and_(*where)))).scalar_one()
+    total = session.execute(select(func.count(Thread.id)).where(and_(*where))).scalar_one()
     stmt = (
         select(Thread.id, Thread.title, Thread.user_id, Thread.model, Thread.last_message_at,
                func.coalesce(func.sum(ThreadItem.cost_usd), 0).label("cost"),
@@ -210,7 +210,7 @@ async def threads(*, session: AsyncSession, org_id: uuid.UUID,
         .order_by(Thread.last_message_at.desc().nullslast())
         .offset((page - 1) * page_size).limit(page_size)
     )
-    rows = (await session.execute(stmt)).all()
+    rows = session.execute(stmt).all()
     return ThreadsResponse(
         total=int(total), page=page, page_size=page_size,
         rows=[ThreadRow(id=r[0], title=r[1], user_id=r[2], model=r[3], last_message_at=r[4],
@@ -219,9 +219,9 @@ async def threads(*, session: AsyncSession, org_id: uuid.UUID,
     )
 
 
-async def timeline(*, session: AsyncSession, org_id: uuid.UUID, thread_id: int) -> TimelineResponse:
+def timeline(*, session: Session, org_id: uuid.UUID, thread_id: int) -> TimelineResponse:
     stmt = (select(ThreadItem)
             .where(ThreadItem.thread_id == thread_id, ThreadItem.org_id == org_id)
             .order_by(ThreadItem.created_at, ThreadItem.id))
-    rows = (await session.execute(stmt)).scalars().all()
+    rows = session.execute(stmt).scalars().all()
     return TimelineResponse(thread_id=thread_id, items=[TimelineItem.model_validate(r) for r in rows])
