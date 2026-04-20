@@ -58,9 +58,10 @@ export function ConversationDrawer({
     <>
       {/* Backdrop */}
       <div
-        className={`fixed inset-0 z-40 bg-black/30 transition-opacity duration-200 ${open ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+        className={`fixed inset-0 z-40 transition-opacity duration-200 ${open ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
         onClick={onClose}
         aria-hidden
+        style={{ background: 'color-mix(in oklch, var(--ink) 45%, transparent)' }}
       />
 
       {/* Drawer */}

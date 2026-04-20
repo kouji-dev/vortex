@@ -1,8 +1,9 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { ChevronLeft, X } from 'lucide-react'
+import { ChevronLeft } from 'lucide-react'
 import * as React from 'react'
 
+import { Dialog, DialogBody } from '~/components/ui/Dialog'
 import { getApiBase } from '~/lib/api-base'
 import { getAuthHeaders } from '~/lib/authorizedFetch'
 import {
@@ -143,15 +144,6 @@ export function CreateKnowledgeBaseDialog({
     }
   }, [connectorKind])
 
-  React.useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [open, onClose])
-
   const createMut = useMutation({
     mutationFn: async (args: {
       name: string
@@ -289,8 +281,6 @@ export function CreateKnowledgeBaseDialog({
     },
   })
 
-  if (!open) return null
-
   const canGoNext = Boolean(name.trim())
   const kindImplemented = isConnectorKindImplemented(connectorKind)
   const canCreate =
@@ -317,126 +307,148 @@ export function CreateKnowledgeBaseDialog({
     })
   }
 
+  const title = (
+    <span className="flex flex-col leading-tight">
+      <span className="mono text-[10px] font-medium uppercase tracking-wide" style={{ color: 'var(--ink-3)' }}>
+        Step {step} of 2
+      </span>
+      <span>{step === 1 ? 'Knowledge base details' : 'Source & configuration'}</span>
+    </span>
+  )
+
+  const footer =
+    step === 1 ? (
+      <>
+        <button type="button" className="btn btn-sm" onClick={onClose}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="btn btn-sm btn-primary"
+          disabled={!canGoNext}
+          onClick={() => canGoNext && setStep(2)}
+        >
+          Next
+        </button>
+      </>
+    ) : (
+      <>
+        <button
+          type="button"
+          className="btn btn-sm"
+          onClick={() => setStep(1)}
+          disabled={createMut.isPending}
+          style={{ marginRight: 'auto' }}
+        >
+          <ChevronLeft className="size-3" strokeWidth={2} aria-hidden />
+          Back
+        </button>
+        <button
+          type="button"
+          className="btn btn-sm"
+          onClick={onClose}
+          disabled={createMut.isPending}
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="btn btn-sm btn-primary"
+          disabled={!canCreate}
+          onClick={() => {
+            if (!canCreate) return
+            createMut.mutate({
+              name: name.trim(),
+              description: description.trim(),
+              connectorKind,
+              connectorForm,
+              initialFile,
+            })
+          }}
+        >
+          {createMut.isPending ? 'Creating…' : 'Create'}
+        </button>
+      </>
+    )
+
   return (
-    <div
-      className="fixed inset-0 z-60 flex items-end justify-center bg-black/45 md:items-center md:p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="create-kb-title"
-      onClick={(ev) => ev.target === ev.currentTarget && onClose()}
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={title}
+      labelledBy="create-kb-title"
+      size="lg"
+      footer={footer}
     >
-      <div
-        className="flex max-h-[90vh] w-full flex-col overflow-hidden rounded-t-2xl border border-neutral-200 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-950 md:max-w-lg md:rounded-xl"
-        onClick={(ev) => ev.stopPropagation()}
-      >
-        <div className="px-4 pt-4">
-          <div aria-hidden className="mx-auto mb-4 h-1 w-10 rounded-full bg-neutral-300 dark:bg-neutral-700 md:hidden" />
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
-                Step {step} of 2
-              </p>
-              <h2
-                id="create-kb-title"
-                className="mt-0.5 text-base font-semibold text-neutral-900 dark:text-neutral-100"
-              >
-                {step === 1 ? 'Knowledge base details' : 'Source & configuration'}
-              </h2>
-            </div>
-            <button
-              type="button"
-              className="rounded p-1 text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-900"
-              onClick={onClose}
-              aria-label="Close"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-          <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
-            {step === 1
-              ? 'Choose a name and optional description for this corpus.'
-              : 'Pick how content will be connected. Only some types can be created today; others show a preview of the settings we will use when the integration is ready.'}
-          </p>
-        </div>
+      <DialogBody>
+        <p className="mb-4 text-xs" style={{ color: 'var(--ink-3)' }}>
+          {step === 1
+            ? 'Choose a name and optional description for this corpus.'
+            : 'Pick how content will be connected. Some source types are preview-only until the integration ships.'}
+        </p>
 
         {step === 1 ? (
-          <form className="flex min-h-0 flex-1 flex-col" onSubmit={goNext}>
-            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 pt-4">
-            <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400">
-              Name
+          <form onSubmit={goNext} className="flex flex-col gap-4">
+            <div className="form-row !mb-0">
+              <label>Name</label>
               <input
-                className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
+                className="input"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 maxLength={255}
                 required
                 autoFocus
               />
-            </label>
-            <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400">
-              Description (optional)
+            </div>
+            <div className="form-row !mb-0">
+              <label>Description (optional)</label>
               <textarea
-                className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
+                className="textarea"
                 rows={3}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 maxLength={10_000}
               />
-            </label>
-            </div>
-            <div className="flex justify-end gap-2 border-t border-neutral-200 px-4 py-3 dark:border-neutral-800">
-              <button
-                type="button"
-                className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm dark:border-neutral-600"
-                onClick={onClose}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={!canGoNext}
-                className="rounded-lg bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900"
-              >
-                Next
-              </button>
             </div>
           </form>
         ) : (
-          <form className="flex min-h-0 flex-1 flex-col" onSubmit={finish}>
-            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 pt-4">
-            <fieldset>
-              <legend className="text-xs font-medium text-neutral-600 dark:text-neutral-400">
+          <form onSubmit={finish} className="flex flex-col gap-4">
+            <fieldset className="form-row !mb-0">
+              <legend className="mb-1.5 text-xs font-medium" style={{ color: 'var(--ink)' }}>
                 Source type
               </legend>
-              <div className="mt-2 space-y-2">
+              <div className="space-y-2">
                 {CONNECTOR_KINDS.map((k) => {
                   const implemented = isConnectorKindImplemented(k)
+                  const active = connectorKind === k
                   return (
                     <label
                       key={k}
-                      className={
-                        'flex cursor-pointer gap-3 rounded-lg border px-3 py-2.5 text-sm transition-colors ' +
-                        (connectorKind === k
-                          ? 'border-neutral-900 bg-neutral-50 dark:border-neutral-100 dark:bg-neutral-900/80'
-                          : 'border-neutral-200 hover:border-neutral-300 dark:border-neutral-700 dark:hover:border-neutral-600')
-                      }
+                      className="flex cursor-pointer gap-3 rounded px-3 py-2.5 text-sm transition-colors"
+                      style={{
+                        border: `1px solid ${active ? 'var(--ink)' : 'var(--line)'}`,
+                        background: active ? 'var(--hl)' : 'var(--panel)',
+                      }}
                     >
                       <input
                         type="radio"
                         name="kb-connector-type"
-                        className="mt-0.5 border-neutral-400"
-                        checked={connectorKind === k}
+                        className="mt-0.5"
+                        checked={active}
                         onChange={() => setConnectorKind(k)}
                       />
                       <span className="min-w-0 flex-1">
-                        <span className="font-medium text-neutral-900 dark:text-neutral-100">
+                        <span className="font-medium" style={{ color: 'var(--ink)' }}>
                           {CONNECTOR_KIND_LABELS[k]}
                         </span>
-                        {!implemented ? (
-                          <span className="ml-2 text-xs font-normal text-amber-700 dark:text-amber-400">
+                        {!implemented && (
+                          <span
+                            className="ml-2 text-xs font-normal"
+                            style={{ color: 'var(--warn)' }}
+                          >
                             Coming soon
                           </span>
-                        ) : null}
+                        )}
                       </span>
                     </label>
                   )
@@ -444,239 +456,223 @@ export function CreateKnowledgeBaseDialog({
               </div>
             </fieldset>
 
-            <div className="rounded-lg border border-neutral-200 bg-neutral-50/80 px-3 py-3 dark:border-neutral-700 dark:bg-neutral-900/40">
-              <p className="text-xs font-medium text-neutral-700 dark:text-neutral-300">
+            <div
+              className="rounded px-3 py-3"
+              style={{ border: '1px solid var(--line)', background: 'var(--bg-2)' }}
+            >
+              <p
+                className="mb-2 mono text-[10px] font-semibold uppercase tracking-wide"
+                style={{ color: 'var(--ink-3)' }}
+              >
                 Configuration
               </p>
-              <div className="mt-3">
-                {connectorKind === 'files' ? (
-                  <div className="space-y-3">
-                    <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400">
-                      Connector label
-                      <input
-                        className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
-                        value={connectorForm.filesLabel}
-                        onChange={(e) =>
-                          setConnectorForm((s) => ({ ...s, filesLabel: e.target.value }))
-                        }
-                        maxLength={255}
-                        placeholder="File uploads"
-                      />
-                    </label>
-                    <div>
-                      <span className="text-xs font-medium text-neutral-600 dark:text-neutral-400">
-                        Initial document (optional)
-                      </span>
-                      <p className="mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-400">
-                        .txt, .md, or .pdf — after you create the base you&apos;ll go to the detail
-                        page right away; the file uploads in the background and indexing progress
-                        appears there.
-                      </p>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        data-testid="kb-create-initial-file"
-                        accept=".txt,.md,.pdf,text/plain,text/markdown,application/pdf"
-                        className="mt-2 block w-full text-sm text-neutral-600 file:mr-3 file:rounded-md file:border-0 file:bg-neutral-200 file:px-3 file:py-1.5 file:text-sm dark:text-neutral-400 dark:file:bg-neutral-800"
-                        disabled={createMut.isPending}
-                        onChange={(e) => {
-                          const f = e.target.files?.[0] ?? null
-                          setInitialFile(f)
+
+              {connectorKind === 'files' && (
+                <div className="flex flex-col gap-3">
+                  <div className="form-row !mb-0">
+                    <label>Connector label</label>
+                    <input
+                      className="input"
+                      value={connectorForm.filesLabel}
+                      onChange={(e) =>
+                        setConnectorForm((s) => ({ ...s, filesLabel: e.target.value }))
+                      }
+                      maxLength={255}
+                      placeholder="File uploads"
+                    />
+                  </div>
+                  <div>
+                    <span className="text-xs font-medium" style={{ color: 'var(--ink)' }}>
+                      Initial document (optional)
+                    </span>
+                    <p className="mt-0.5 text-[11px]" style={{ color: 'var(--ink-3)' }}>
+                      .txt, .md, or .pdf — the file uploads in the background after creation.
+                    </p>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      data-testid="kb-create-initial-file"
+                      accept=".txt,.md,.pdf,text/plain,text/markdown,application/pdf"
+                      className="mt-2 block w-full text-xs file:mr-3 file:rounded-sm file:border-0 file:px-3 file:py-1.5 file:text-xs"
+                      style={{ color: 'var(--ink-2)' }}
+                      disabled={createMut.isPending}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0] ?? null
+                        setInitialFile(f)
+                      }}
+                    />
+                    {initialFile && (
+                      <div
+                        className="mt-2 flex items-center justify-between gap-2 rounded px-2 py-1.5 text-xs"
+                        style={{
+                          border: '1px solid var(--line)',
+                          background: 'var(--panel)',
+                          color: 'var(--ink-2)',
                         }}
-                      />
-                      {initialFile ? (
-                        <div className="mt-2 flex items-center justify-between gap-2 rounded-md border border-neutral-200 bg-white px-2 py-1.5 text-xs dark:border-neutral-700 dark:bg-neutral-950">
-                          <span className="min-w-0 truncate text-neutral-800 dark:text-neutral-200">
-                            {initialFile.name}
-                          </span>
-                          <button
-                            type="button"
-                            className="shrink-0 text-neutral-500 underline hover:text-red-600 dark:hover:text-red-400"
-                            onClick={() => {
-                              setInitialFile(null)
-                              if (fileInputRef.current) fileInputRef.current.value = ''
-                            }}
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      ) : null}
-                    </div>
+                      >
+                        <span className="min-w-0 truncate">{initialFile.name}</span>
+                        <button
+                          type="button"
+                          className="link-btn shrink-0"
+                          style={{ color: 'var(--err)' }}
+                          onClick={() => {
+                            setInitialFile(null)
+                            if (fileInputRef.current) fileInputRef.current.value = ''
+                          }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    )}
                   </div>
-                ) : null}
+                </div>
+              )}
 
-                {connectorKind === 'github' ? (
-                  <div className="space-y-3">
-                    <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400">
-                      Repository
-                      <input
-                        className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 font-mono text-sm dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
-                        value={connectorForm.githubRepo}
-                        onChange={(e) =>
-                          setConnectorForm((s) => ({ ...s, githubRepo: e.target.value }))
-                        }
-                        placeholder="org/repository"
-                        autoComplete="off"
-                      />
-                    </label>
-                    <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400">
-                      Branch
-                      <input
-                        className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
-                        value={connectorForm.githubBranch}
-                        onChange={(e) =>
-                          setConnectorForm((s) => ({ ...s, githubBranch: e.target.value }))
-                        }
-                        placeholder="main"
-                      />
-                    </label>
+              {connectorKind === 'github' && (
+                <div className="flex flex-col gap-3">
+                  <div className="form-row !mb-0">
+                    <label>Repository</label>
+                    <input
+                      className="input input-mono"
+                      value={connectorForm.githubRepo}
+                      onChange={(e) =>
+                        setConnectorForm((s) => ({ ...s, githubRepo: e.target.value }))
+                      }
+                      placeholder="org/repository"
+                      autoComplete="off"
+                    />
                   </div>
-                ) : null}
+                  <div className="form-row !mb-0">
+                    <label>Branch</label>
+                    <input
+                      className="input"
+                      value={connectorForm.githubBranch}
+                      onChange={(e) =>
+                        setConnectorForm((s) => ({ ...s, githubBranch: e.target.value }))
+                      }
+                      placeholder="main"
+                    />
+                  </div>
+                </div>
+              )}
 
-                {connectorKind === 'gitlab' ? (
-                  <div className="space-y-3">
-                    <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400">
-                      Project ID or path
-                      <input
-                        className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 font-mono text-sm dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
-                        value={connectorForm.gitlabProject}
-                        onChange={(e) =>
-                          setConnectorForm((s) => ({ ...s, gitlabProject: e.target.value }))
-                        }
-                        placeholder="12345 or group/project"
-                      />
-                    </label>
-                    <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400">
-                      Ref / branch
-                      <input
-                        className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
-                        value={connectorForm.gitlabRef}
-                        onChange={(e) =>
-                          setConnectorForm((s) => ({ ...s, gitlabRef: e.target.value }))
-                        }
-                        placeholder="main"
-                      />
-                    </label>
+              {connectorKind === 'gitlab' && (
+                <div className="flex flex-col gap-3">
+                  <div className="form-row !mb-0">
+                    <label>Project ID or path</label>
+                    <input
+                      className="input input-mono"
+                      value={connectorForm.gitlabProject}
+                      onChange={(e) =>
+                        setConnectorForm((s) => ({ ...s, gitlabProject: e.target.value }))
+                      }
+                      placeholder="12345 or group/project"
+                    />
                   </div>
-                ) : null}
+                  <div className="form-row !mb-0">
+                    <label>Ref / branch</label>
+                    <input
+                      className="input"
+                      value={connectorForm.gitlabRef}
+                      onChange={(e) =>
+                        setConnectorForm((s) => ({ ...s, gitlabRef: e.target.value }))
+                      }
+                      placeholder="main"
+                    />
+                  </div>
+                </div>
+              )}
 
-                {connectorKind === 'confluence' ? (
-                  <div className="space-y-3">
-                    <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400">
-                      Space key
-                      <input
-                        className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
-                        value={connectorForm.confluenceSpace}
-                        onChange={(e) =>
-                          setConnectorForm((s) => ({ ...s, confluenceSpace: e.target.value }))
-                        }
-                        placeholder="ENG"
-                      />
-                    </label>
-                    <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400">
-                      Root page ID (optional)
-                      <input
-                        className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
-                        value={connectorForm.confluenceRoot}
-                        onChange={(e) =>
-                          setConnectorForm((s) => ({ ...s, confluenceRoot: e.target.value }))
-                        }
-                        placeholder="123456"
-                      />
-                    </label>
+              {connectorKind === 'confluence' && (
+                <div className="flex flex-col gap-3">
+                  <div className="form-row !mb-0">
+                    <label>Space key</label>
+                    <input
+                      className="input"
+                      value={connectorForm.confluenceSpace}
+                      onChange={(e) =>
+                        setConnectorForm((s) => ({ ...s, confluenceSpace: e.target.value }))
+                      }
+                      placeholder="ENG"
+                    />
                   </div>
-                ) : null}
+                  <div className="form-row !mb-0">
+                    <label>Root page ID (optional)</label>
+                    <input
+                      className="input"
+                      value={connectorForm.confluenceRoot}
+                      onChange={(e) =>
+                        setConnectorForm((s) => ({ ...s, confluenceRoot: e.target.value }))
+                      }
+                      placeholder="123456"
+                    />
+                  </div>
+                </div>
+              )}
 
-                {connectorKind === 's3' ? (
-                  <div className="space-y-3">
-                    <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400">
-                      Bucket
-                      <input
-                        className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
-                        value={connectorForm.s3Bucket}
-                        onChange={(e) =>
-                          setConnectorForm((s) => ({ ...s, s3Bucket: e.target.value }))
-                        }
-                        placeholder="my-doc-bucket"
-                      />
-                    </label>
-                    <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400">
-                      Key prefix (optional)
-                      <input
-                        className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 font-mono text-sm dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
-                        value={connectorForm.s3Prefix}
-                        onChange={(e) =>
-                          setConnectorForm((s) => ({ ...s, s3Prefix: e.target.value }))
-                        }
-                        placeholder="docs/rag/"
-                      />
-                    </label>
-                    <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400">
-                      Region (optional)
-                      <input
-                        className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
-                        value={connectorForm.s3Region}
-                        onChange={(e) =>
-                          setConnectorForm((s) => ({ ...s, s3Region: e.target.value }))
-                        }
-                        placeholder="us-east-1"
-                      />
-                    </label>
+              {connectorKind === 's3' && (
+                <div className="flex flex-col gap-3">
+                  <div className="form-row !mb-0">
+                    <label>Bucket</label>
+                    <input
+                      className="input"
+                      value={connectorForm.s3Bucket}
+                      onChange={(e) =>
+                        setConnectorForm((s) => ({ ...s, s3Bucket: e.target.value }))
+                      }
+                      placeholder="my-doc-bucket"
+                    />
                   </div>
-                ) : null}
-              </div>
+                  <div className="form-row !mb-0">
+                    <label>Key prefix (optional)</label>
+                    <input
+                      className="input input-mono"
+                      value={connectorForm.s3Prefix}
+                      onChange={(e) =>
+                        setConnectorForm((s) => ({ ...s, s3Prefix: e.target.value }))
+                      }
+                      placeholder="docs/rag/"
+                    />
+                  </div>
+                  <div className="form-row !mb-0">
+                    <label>Region (optional)</label>
+                    <input
+                      className="input"
+                      value={connectorForm.s3Region}
+                      onChange={(e) =>
+                        setConnectorForm((s) => ({ ...s, s3Region: e.target.value }))
+                      }
+                      placeholder="us-east-1"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
-            {!kindImplemented ? (
+            {!kindImplemented && (
               <p
-                className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200"
+                className="rounded px-3 py-2 text-xs"
+                style={{
+                  border: '1px solid color-mix(in oklch, var(--warn) 40%, var(--line))',
+                  background: 'color-mix(in oklch, var(--warn) 10%, var(--panel))',
+                  color: 'var(--ink-2)',
+                }}
                 role="status"
               >
                 This source type is not available yet. Choose <strong>Files</strong> to create a
-                knowledge base now, or go back and change your selection later from the base page
-                once integrations ship.
+                knowledge base now, or swap the source later from the base page once the integration
+                ships.
               </p>
-            ) : null}
+            )}
 
-            {createMut.isError ? (
-              <p className="text-sm text-red-600" role="alert">
+            {createMut.isError && (
+              <p className="text-xs" style={{ color: 'var(--err)' }} role="alert">
                 {(createMut.error as Error).message}
               </p>
-            ) : null}
-
-            </div>
-            <div className="flex flex-wrap justify-between gap-2 border-t border-neutral-200 px-4 py-3 dark:border-neutral-800">
-              <button
-                type="button"
-                className="inline-flex items-center gap-1 rounded-lg border border-neutral-300 px-3 py-1.5 text-sm dark:border-neutral-600"
-                onClick={() => setStep(1)}
-                disabled={createMut.isPending}
-              >
-                <ChevronLeft className="size-4" aria-hidden />
-                Back
-              </button>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm dark:border-neutral-600"
-                  onClick={onClose}
-                  disabled={createMut.isPending}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={!canCreate}
-                  className="rounded-lg bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900"
-                >
-                  {createMut.isPending ? 'Creating…' : 'Create'}
-                </button>
-              </div>
-            </div>
+            )}
           </form>
         )}
-        <div aria-hidden className="shrink-0 md:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }} />
-      </div>
-    </div>
+      </DialogBody>
+    </Dialog>
   )
 }

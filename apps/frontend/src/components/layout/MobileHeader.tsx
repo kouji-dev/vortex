@@ -1,6 +1,6 @@
 // frontend/src/components/layout/MobileHeader.tsx
-import { Link, useLocation } from '@tanstack/react-router'
-import { Menu, SquarePen } from 'lucide-react'
+import { Link, useLocation, useNavigate } from '@tanstack/react-router'
+import { ChevronLeft, Menu, SquarePen } from 'lucide-react'
 import * as React from 'react'
 
 type MobileHeaderProps = {
@@ -15,30 +15,53 @@ export function MobileHeader({
   onNewConversation,
 }: MobileHeaderProps) {
   const location = useLocation()
+  const navigate = useNavigate()
   const isChatRoute = location.pathname.startsWith('/chat/conversations')
+  const isThreadRoute = /^\/chat\/conversations\/\d+/.test(location.pathname)
+  const isComposeRoute =
+    location.pathname === '/chat/conversations' &&
+    (location.search as Record<string, unknown>)?.compose === '1'
+  const isListRoute = isChatRoute && !isThreadRoute && !isComposeRoute
 
   if (isChatRoute) {
     return (
       <header className="flex h-12 shrink-0 items-center gap-2 border-b border-line bg-panel px-3">
-        <button
-          type="button"
-          onClick={onOpenDrawer}
-          className="rounded p-2 text-ink-2 hover:bg-bg-2"
-          aria-label="Open conversations"
-        >
-          <Menu className="size-5" aria-hidden />
-        </button>
+        {isListRoute ? (
+          <button
+            type="button"
+            onClick={onOpenDrawer}
+            className="rounded p-2 text-ink-2 hover:bg-bg-2"
+            aria-label="Open navigation"
+          >
+            <Menu className="size-5" aria-hidden />
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => void navigate({ to: '/chat/conversations' })}
+            className="rounded p-2 text-ink-2 hover:bg-bg-2"
+            aria-label="Back to conversations"
+          >
+            <ChevronLeft className="size-5" aria-hidden />
+          </button>
+        )}
         <span className="flex-1 truncate text-sm font-semibold text-ink">
-          {conversationTitle ?? 'New conversation'}
+          {isListRoute
+            ? 'Conversations'
+            : isComposeRoute
+              ? 'New conversation'
+              : (conversationTitle ?? 'New conversation')}
         </span>
-        <button
-          type="button"
-          onClick={onNewConversation}
-          className="rounded p-2 text-ink-2 hover:bg-bg-2"
-          aria-label="New conversation"
-        >
-          <SquarePen className="size-5" aria-hidden />
-        </button>
+        {!isComposeRoute && (
+          <button
+            type="button"
+            onClick={onNewConversation}
+            className="rounded p-2 text-ink-2 hover:bg-bg-2"
+            aria-label="New conversation"
+          >
+            <SquarePen className="size-5" aria-hidden />
+          </button>
+        )}
       </header>
     )
   }

@@ -14,6 +14,7 @@ import { StartersPanel } from '~/components/chat/StartersPanel'
 import { TurnGroup } from '~/components/chat/items/TurnGroup'
 import { KbChatPicker } from '~/components/knowledge-bases/KbChatPicker'
 import { QuotaBanner } from '~/components/chat/QuotaBanner'
+import { Dialog, DialogBody } from '~/components/ui/Dialog'
 import { useConversationsOutlet } from '~/contexts/ConversationsOutletContext'
 import { useCatalogModelsQuery } from '~/hooks/useCatalogModelsQuery'
 import { useChatCapabilityProfileQuery } from '~/hooks/useChatCapabilityProfileQuery'
@@ -539,44 +540,38 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
       </div>
 
       {/* ── Delete confirmation dialog ─────────────────────────────────────── */}
-      {confirmDeleteOpen && (
-        <div
-          className="fixed inset-0 z-60 flex items-center justify-center bg-black/45 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="delete-thread-title"
-          onClick={(e) => e.target === e.currentTarget && setConfirmDeleteOpen(false)}
-        >
-          <div
-            className="w-full max-w-md rounded-xl border border-neutral-200 bg-white p-4 shadow-xl dark:border-neutral-700 dark:bg-neutral-950"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 id="delete-thread-title" className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
-              Delete conversation?
-            </h2>
-            <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
-              This will permanently delete the conversation and all messages.
-            </p>
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm dark:border-neutral-600"
-                onClick={() => setConfirmDeleteOpen(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="rounded-lg bg-red-600 px-3 py-1.5 text-sm text-white hover:bg-red-500 disabled:opacity-50"
-                disabled={deletePending}
-                onClick={() => { setConfirmDeleteOpen(false); deleteConversation() }}
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Dialog
+        open={confirmDeleteOpen}
+        onClose={() => setConfirmDeleteOpen(false)}
+        title="Delete conversation?"
+        size="sm"
+        footer={
+          <>
+            <button
+              type="button"
+              className="btn btn-sm"
+              onClick={() => setConfirmDeleteOpen(false)}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm"
+              style={{ color: 'var(--err)' }}
+              disabled={deletePending}
+              onClick={() => { setConfirmDeleteOpen(false); deleteConversation() }}
+            >
+              Delete
+            </button>
+          </>
+        }
+      >
+        <DialogBody>
+          <p className="text-sm" style={{ color: 'var(--ink-2)' }}>
+            This will permanently delete the conversation and all messages.
+          </p>
+        </DialogBody>
+      </Dialog>
     </div>
   )
 }

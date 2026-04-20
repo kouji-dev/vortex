@@ -23,7 +23,7 @@ export function MobileAppShell({ children }: { children: React.ReactNode }) {
   const conversationTitle = useCurrentConversationTitle()
 
   const handleNewConversation = React.useCallback(() => {
-    void navigate({ to: '/chat/conversations' })
+    void navigate({ to: '/chat/conversations', search: { compose: '1' } })
   }, [navigate])
 
   const handleCloseDrawer = React.useCallback(() => setDrawerOpen(false), [])

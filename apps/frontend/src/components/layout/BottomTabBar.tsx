@@ -33,9 +33,10 @@ export function BottomTabBar() {
     <>
       {/* More sheet backdrop */}
       <div
-        className={`fixed inset-0 z-40 bg-black/30 transition-opacity duration-200 ${moreOpen ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+        className={`fixed inset-0 z-40 transition-opacity duration-200 ${moreOpen ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
         onClick={() => setMoreOpen(false)}
         aria-hidden
+        style={{ background: 'color-mix(in oklch, var(--ink) 45%, transparent)' }}
       />
 
       {/* More sheet */}

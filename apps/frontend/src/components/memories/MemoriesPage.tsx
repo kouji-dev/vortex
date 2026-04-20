@@ -1,6 +1,7 @@
 import { Plus, Search, Trash2 } from 'lucide-react'
 import * as React from 'react'
 import { PrismLogo } from '~/components/brand'
+import { Dialog, DialogBody } from '~/components/ui/Dialog'
 
 import {
   type Memory,
@@ -343,55 +344,54 @@ export function MemoriesPage() {
         )}
       </div>
 
-      {/* Delete confirmation dialog */}
-      {pendingDelete && (
-        <div
-          className="fixed inset-0 z-60 flex items-center justify-center bg-black/45 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="delete-memory-title"
-          onClick={(e) => e.target === e.currentTarget && setPendingDelete(null)}
-        >
-          <div
-            className="w-full max-w-md rounded-xl border border-neutral-200 bg-white p-4 shadow-xl dark:border-neutral-700 dark:bg-neutral-950"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 id="delete-memory-title" className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
-              Delete memory?
-            </h2>
-            <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
-              This action cannot be undone.
-            </p>
-            <p className="mt-2 line-clamp-2 rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1 text-xs text-neutral-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300">
+      <Dialog
+        open={pendingDelete != null}
+        onClose={() => setPendingDelete(null)}
+        title="Delete memory?"
+        size="sm"
+        footer={
+          <>
+            <button type="button" className="btn btn-sm" onClick={() => setPendingDelete(null)}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm"
+              style={{ color: 'var(--err)' }}
+              disabled={deleteMut.isPending}
+              onClick={() => {
+                if (!pendingDelete) return
+                deleteMut.mutate(pendingDelete.id, {
+                  onSuccess: () => {
+                    setPendingDelete(null)
+                    setSelected((prev) => (prev?.id === pendingDelete.id ? null : prev))
+                  },
+                })
+              }}
+            >
+              Delete
+            </button>
+          </>
+        }
+      >
+        <DialogBody>
+          <p className="text-sm" style={{ color: 'var(--ink-2)' }}>
+            This action cannot be undone.
+          </p>
+          {pendingDelete && (
+            <p
+              className="mt-2 line-clamp-2 rounded-md px-2 py-1 text-xs"
+              style={{
+                border: '1px solid var(--line)',
+                background: 'var(--bg-2)',
+                color: 'var(--ink-2)',
+              }}
+            >
               {pendingDelete.content}
             </p>
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm dark:border-neutral-600"
-                onClick={() => setPendingDelete(null)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="rounded-lg bg-red-600 px-3 py-1.5 text-sm text-white hover:bg-red-500 disabled:opacity-50"
-                disabled={deleteMut.isPending}
-                onClick={() => {
-                  deleteMut.mutate(pendingDelete.id, {
-                    onSuccess: () => {
-                      setPendingDelete(null)
-                      setSelected((prev) => (prev?.id === pendingDelete.id ? null : prev))
-                    },
-                  })
-                }}
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          )}
+        </DialogBody>
+      </Dialog>
     </>
   )
 }
