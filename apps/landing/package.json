@@ -7,7 +7,7 @@
     "dev": "vite dev",
     "build": "vite build && tsc --noEmit",
     "preview": "vite preview",
-    "start": "node dist/server/server.js",
+    "start": "pnpx srvx --prod -s ../client dist/server/server.js",
     "test:e2e":        "playwright test",
     "test:e2e:ui":     "playwright test --ui",
     "test:e2e:filter": "playwright test --grep"

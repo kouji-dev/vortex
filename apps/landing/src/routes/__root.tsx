@@ -2,6 +2,7 @@
 import { HeadContent, Outlet, Scripts, createRootRoute } from '@tanstack/react-router'
 import * as React from 'react'
 import { getAppUrl } from '~/lib/app-url'
+import { getDocsUrl } from '~/lib/docs-url'
 import appCss from '~/styles/app.css?url'
 
 export const Route = createRootRoute({
@@ -110,9 +111,7 @@ function VortexNav() {
         <div className="nav-links">
           <a href="#features">Features</a>
           <a href="#how">How it works</a>
-          <a href="#">Docs</a>
-          <a href="#">Blog</a>
-          <a href="#">Changelog</a>
+          <a href={getDocsUrl()}>Docs</a>
         </div>
         <div className="nav-cta">
           <a className="btn btn-ghost" href={`${getAppUrl()}/login`}>Sign in</a>
@@ -150,9 +149,8 @@ function VortexFooter() {
       <div>
         <h4>Developers</h4>
         <ul>
-          <li><a href="#">Docs</a></li>
+          <li><a href={getDocsUrl()}>Docs</a></li>
           <li><a href="#">API</a></li>
-          <li><a href="#">Changelog</a></li>
           <li><a href="#">GitHub</a></li>
           <li><a href="#">Self-host guide</a></li>
         </ul>

@@ -10,10 +10,6 @@ const TABS = [
   { num: '04 · MEMORY',   label: 'Remembers what matters.',    desc: 'Preferences, context, tools — learned across threads.' },
 ]
 
-function prismInlineSVG() {
-  return `<svg class="spin-prism" viewBox="0 0 16 16" fill="none"><polygon points="8,1 14,8 8,15 2,8" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="8" cy="8" r="1.2" fill="currentColor"/></svg>`
-}
-
 /* ── Bullet list ──────────────────────────────────────────────────── */
 function BulletList({ items }: { items: string[] }) {
   return (
@@ -108,56 +104,92 @@ function Panel1({ active }: { active: boolean }) {
       if (!thread) return
       thread.innerHTML = ''
       try {
-        // User msg
         const um = document.createElement('div')
         um.className = 'msg user'
-        um.innerHTML = `<div class="av" style="width:26px;height:26px;border-radius:50%;background:var(--panel);border:1px solid var(--border);display:grid;place-items:center;font-family:monospace;font-size:10px;font-weight:600;flex-shrink:0">You</div><div class="body"><div class="who" style="font-size:11px;color:var(--muted);font-family:monospace;margin-bottom:4px">You · now</div><div style="font-size:13.5px;line-height:1.55;color:var(--text-2)">Summarize the Q3 pricing guardrails for a deal over $250k.</div></div>`
+        um.innerHTML = `
+          <div class="av">You</div>
+          <div class="body">
+            <div class="who">You · now</div>
+            <div class="text">Summarize the Q3 pricing guardrails for a deal over $250k.</div>
+          </div>`
         thread.appendChild(um)
         await wait(400)
 
-        // AI scaffold
         const ai = document.createElement('div')
         ai.className = 'msg ai'
         ai.innerHTML = `
-          <div style="width:26px;height:26px;flex-shrink:0">
-            <svg viewBox="0 0 80 80" width="26" height="26" style="animation:prismSpin 1.2s linear infinite;transform-origin:40px 40px">
-              <polygon points="40,8 68,40 40,72 12,40" fill="none" stroke="url(#pgNav)" stroke-width="3" stroke-linejoin="round"/>
-              <circle cx="40" cy="40" r="5" fill="#e0d7ff"/>
-            </svg>
+          <div class="av">
+            <span class="prism loading" style="width:22px;height:22px;display:inline-block;color:#a78bfa;">
+              <svg viewBox="0 0 80 80" width="22" height="22">
+                <g class="pbox">
+                  <polygon points="40,8 68,40 40,72 12,40" fill="none" stroke="url(#pgNav)" stroke-width="3" stroke-linejoin="round"/>
+                  <circle cx="40" cy="40" r="5" fill="#e0d7ff"/>
+                </g>
+              </svg>
+            </span>
           </div>
           <div class="body">
-            <div class="who" style="font-size:11px;color:var(--muted);font-family:monospace;margin-bottom:4px">Strategist · claude-sonnet-4.6</div>
-            <div class="chips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
-              <span class="chip memory"><span class="spin">${prismInlineSVG()}</span><span class="check">✓</span>memory · loading</span>
-              <span class="chip kb"><span class="spin">${prismInlineSVG()}</span><span class="check">✓</span>kb · searching</span>
-              <span class="chip web"><span class="spin">${prismInlineSVG()}</span><span class="check">✓</span>web · live</span>
+            <div class="who"><span>Claude · now</span></div>
+            <div class="think-block">
+              <div class="think-head">
+                <span class="pulse"></span>
+                <span class="lbl">Thinking</span>
+                <span class="meta" data-meta>running</span>
+                <svg class="caret-ic" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="2,4 5,7 8,4"/></svg>
+              </div>
+              <div class="think-body">
+                <div class="tool-card memory" data-tool="memory">
+                  <div class="ic-box">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 13c-3 0-5-2-5-4.5S5 4 8 4s5 2 5 4.5S11 13 8 13z"/><path d="M5 8.5c0-1 .8-1.5 1.5-1.5M11 8.5c0-1-.8-1.5-1.5-1.5"/></svg>
+                  </div>
+                  <span class="tool-name">recall_memory</span>
+                  <span class="tool-arg">query: "pricing guardrails"</span>
+                  <span class="tool-status"><span class="spinner"></span><span class="ok"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2"><polyline points="2,5 4,7 8,3"/></svg>14 facts</span></span>
+                </div>
+                <div class="tool-card kb" data-tool="kb">
+                  <div class="ic-box">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3.5A1.5 1.5 0 0 1 4.5 2h7A1.5 1.5 0 0 1 13 3.5v9a.5.5 0 0 1-.8.4L8 10.6 3.8 12.9a.5.5 0 0 1-.8-.4v-9z"/></svg>
+                  </div>
+                  <span class="tool-name">search_knowledge_base</span>
+                  <span class="tool-arg">kb: Sales playbook · top_k=8</span>
+                  <span class="tool-status"><span class="spinner"></span><span class="ok"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2"><polyline points="2,5 4,7 8,3"/></svg>3 chunks · 0.89</span></span>
+                </div>
+                <div class="tool-card web" data-tool="web">
+                  <div class="ic-box">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><line x1="2" y1="8" x2="14" y2="8"/><path d="M8 2c2 2 3 4 3 6s-1 4-3 6c-2-2-3-4-3-6s1-4 3-6z"/></svg>
+                  </div>
+                  <span class="tool-name">web_search</span>
+                  <span class="tool-arg">"SaaS Q3 2026 pricing benchmark"</span>
+                  <span class="tool-status"><span class="spinner"></span><span class="ok"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2"><polyline points="2,5 4,7 8,3"/></svg>2 results</span></span>
+                </div>
+              </div>
             </div>
             <div class="thinking" style="display:none;"><span></span><span></span><span></span></div>
-            <div class="text" style="font-size:13.5px;line-height:1.55;color:var(--text)"></div>
+            <div class="text"></div>
           </div>`
         thread.appendChild(ai)
 
-        const memChip = ai.querySelector('.chip.memory') as HTMLElement
-        const kbChip  = ai.querySelector('.chip.kb') as HTMLElement
-        const webChip = ai.querySelector('.chip.web') as HTMLElement
-        const think   = ai.querySelector('.thinking') as HTMLElement
-        const textEl  = ai.querySelector('.text') as HTMLElement
-        const avSvg   = ai.querySelector('svg') as SVGElement
+        const thinkBlock = ai.querySelector('.think-block') as HTMLElement
+        const thinkMeta  = ai.querySelector('[data-meta]') as HTMLElement
+        const memCard    = ai.querySelector('[data-tool="memory"]') as HTMLElement
+        const kbCard     = ai.querySelector('[data-tool="kb"]') as HTMLElement
+        const webCard    = ai.querySelector('[data-tool="web"]') as HTMLElement
+        const think      = ai.querySelector('.thinking') as HTMLElement
+        const textEl     = ai.querySelector('.text') as HTMLElement
+        const prism      = ai.querySelector('.prism') as HTMLElement
 
         await wait(700)
-        memChip.classList.add('done')
-        memChip.innerHTML = memChip.innerHTML.replace('memory · loading', 'memory · 14 facts')
+        memCard.classList.add('done')
 
         await wait(700)
-        kbChip.classList.add('done')
-        kbChip.innerHTML = kbChip.innerHTML.replace('kb · searching', 'kb · 3 chunks')
+        kbCard.classList.add('done')
 
         await wait(600)
-        webChip.classList.add('done')
-        webChip.innerHTML = webChip.innerHTML.replace('web · live', 'web · 2 results')
+        webCard.classList.add('done')
 
         await wait(200)
-        if (avSvg) avSvg.style.animation = 'prismPendulum 1.8s ease-in-out infinite'
+        prism.classList.remove('loading')
+        prism.classList.add('streaming')
         think.style.display = 'inline-flex'
         await wait(900)
         think.style.display = 'none'
@@ -173,7 +205,10 @@ function Panel1({ active }: { active: boolean }) {
           await wait(11 + Math.random() * 10)
         }
         caret.remove()
-        if (avSvg) avSvg.style.animation = 'prismIdleSway 4s ease-in-out infinite'
+        thinkBlock.classList.add('done', 'collapsed')
+        thinkMeta.textContent = '3 tools · 2.1s'
+        prism.classList.remove('streaming')
+        prism.classList.add('idle')
       } catch {
         /* aborted */
       }

@@ -50,10 +50,10 @@ services:
   - type: web
     name: ai-portal-landing
     runtime: node
-    rootDir: apps/landing
-    buildCommand: npm install -g pnpm && pnpm install && pnpm run build
-    startCommand: pnpm run start
-    plan: starter
+    buildCommand: cd apps/landing && npm install -g pnpm && pnpm install && pnpm run build
+    startCommand: cd apps/landing && pnpx srvx --prod -s ../client dist/server/server.js
+    plan: free
+    region: frankfurt
     envVars:
       - key: VITE_APP_URL
         sync: false          # e.g. https://ai-portal-app.onrender.com
@@ -61,13 +61,10 @@ services:
         value: "20"
 
   # ── Docs ──────────────────────────────────────────────────────────────────
-  - type: web
+  - type: static
     name: ai-portal-docs
-    runtime: node
-    rootDir: apps/docs
-    buildCommand: npm install -g pnpm && pnpm install && pnpm run build
-    startCommand: pnpm run start
-    plan: starter
+    buildCommand: cd apps/docs && npm install -g pnpm && pnpm install && pnpm run build
+    staticPublishPath: apps/docs/out
     envVars:
       - key: NODE_VERSION
         value: "20"
