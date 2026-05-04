@@ -52,13 +52,15 @@ interface SummaryResponse {
 }
 
 interface TrendPoint {
-  ts: string
-  value: number
-  label: string
+  t: string
+  cost_usd: number
+  input_tokens: number
+  output_tokens: number
+  breakdown: Record<string, number>
 }
 
 interface TrendResponse {
-  points: TrendPoint[]
+  series: TrendPoint[]
   grain: string
   by: string
 }
@@ -144,7 +146,7 @@ function KpiStrip({ kpis, loading }: { kpis: KpiCard[]; loading: boolean }) {
 }
 
 function TrendChart({ points }: { points: TrendPoint[] }) {
-  const max = Math.max(...points.map((p) => p.value), 0.0001)
+  const max = Math.max(...points.map((p) => p.cost_usd), 0.0001)
   const W = 600
   const H = 60
   const BAR_W = Math.max(2, Math.floor(W / points.length - 1))
@@ -152,10 +154,10 @@ function TrendChart({ points }: { points: TrendPoint[] }) {
     <div style={{ overflowX: 'auto' }}>
       <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: 'block', height: H }}>
         {points.map((p, i) => {
-          const barH = Math.max(2, (p.value / max) * (H - 4))
+          const barH = Math.max(2, (p.cost_usd / max) * (H - 4))
           return (
             <rect
-              key={p.ts}
+              key={p.t}
               x={i * (W / points.length)}
               y={H - barH}
               width={BAR_W}
@@ -164,7 +166,7 @@ function TrendChart({ points }: { points: TrendPoint[] }) {
               opacity={0.7}
             >
               <title>
-                {new Date(p.ts).toLocaleDateString()} — ${Number(p.value).toFixed(4)}
+                {new Date(p.t).toLocaleDateString()} — ${Number(p.cost_usd).toFixed(4)}
               </title>
             </rect>
           )
@@ -572,11 +574,11 @@ export function ConsumptionPage() {
       <KpiStrip kpis={summary?.kpis ?? []} loading={summaryLoading} />
 
       {/* Trend sparkline */}
-      {trend && trend.points.length > 0 && (
+      {trend && trend.series.length > 0 && (
         <div className="panel mb-4">
           <div className="panel-head">Spend trend (daily)</div>
           <div className="panel-body">
-            <TrendChart points={trend.points} />
+            <TrendChart points={trend.series} />
           </div>
         </div>
       )}

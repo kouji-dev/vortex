@@ -5,16 +5,13 @@ from __future__ import annotations
 import logging
 import uuid
 
-from ai_portal.chat.item_kinds import ItemKind, ItemStatus
-from ai_portal.chat.items import ErrorPayload
-from ai_portal.chat.sse import SseDoneEvent, SseErrorEvent, SseEvent
+from ai_portal.chat.sse import SseEvent
 from ai_portal.chat.streaming.item_writer import ItemWriter
 
 logger = logging.getLogger(__name__)
 
 
 def _friendly_message(exc: Exception) -> str:
-    """Convert a provider exception into a human-readable error string."""
     msg = str(exc)
     exc_type = type(exc).__name__
 
@@ -40,24 +37,20 @@ def _friendly_message(exc: Exception) -> str:
     return f"Model error ({exc_type}): {short}"
 
 
-async def handle_stream_error(
+def handle_stream_error(
     *,
     exc: Exception,
     writer: ItemWriter,
     turn_id: uuid.UUID,
 ) -> list[SseEvent]:
-    """Persist an error item and return error + done SSE events.
-
-    Returns a list (not a generator) so callers can emit them in order.
-    """
     logger.exception("stream_error turn_id=%s exc_type=%s", turn_id, type(exc).__name__)
 
     code = type(exc).__name__
     message = _friendly_message(exc)
 
     try:
-        await writer.insert_error(turn_id=turn_id, code=code, message=message)
-        await writer.insert_turn_end(turn_id=turn_id, reason="error")
+        writer.insert_error(turn_id=turn_id, code=code, message=message)
+        writer.insert_turn_end(turn_id=turn_id, reason="error")
     except Exception:
         logger.exception("failed to write error item for turn_id=%s", turn_id)
 

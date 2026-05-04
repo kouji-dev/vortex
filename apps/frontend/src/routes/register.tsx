@@ -59,9 +59,10 @@ function RegisterPage() {
   }
 
   return (
-    <AuthShell heroTagline="Set up your workspace in minutes.">
+    <AuthShell heroTagline="Ask anything. Know everything.">
       <AuthFormCard
-        title={inviteToken ? 'Accept invite' : 'Create account'}
+        eyebrow={inviteToken ? 'Accept invite' : 'Create account'}
+        title={inviteToken ? 'Join your workspace.' : 'Start your workspace.'}
         subtitle={inviteToken ? undefined : 'Free while in beta. No credit card required.'}
         footer={
           <>
@@ -72,58 +73,82 @@ function RegisterPage() {
           </>
         }
       >
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        {!inviteToken && (
+          <>
+            <div className="auth-sso-row" style={{ marginBottom: 14 }}>
+              <button type="button" className="sso-btn" disabled title="Microsoft Entra SSO">
+                <svg width="16" height="16" viewBox="0 0 23 23">
+                  <path fill="#f25022" d="M1 1h10v10H1z"/>
+                  <path fill="#00a4ef" d="M1 12h10v10H1z"/>
+                  <path fill="#7fba00" d="M12 1h10v10H12z"/>
+                  <path fill="#ffb900" d="M12 12h10v10H12z"/>
+                </svg>
+                Sign up with Entra
+              </button>
+              <button type="button" className="sso-btn" disabled title="Google Workspace SSO">
+                <svg width="16" height="16" viewBox="0 0 18 18">
+                  <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.17-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/>
+                  <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.91-2.26c-.81.54-1.84.86-3.05.86-2.34 0-4.32-1.58-5.03-3.71H.96v2.33A9 9 0 0 0 9 18z"/>
+                  <path fill="#FBBC05" d="M3.97 10.71A5.4 5.4 0 0 1 3.68 9c0-.6.1-1.17.29-1.71V4.96H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.04l3.01-2.33z"/>
+                  <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58A9 9 0 0 0 9 0 9 9 0 0 0 .96 4.96L3.97 7.3C4.68 5.16 6.66 3.58 9 3.58z"/>
+                </svg>
+                Sign up with Google
+              </button>
+            </div>
+            <div className="auth-divider">or use email</div>
+          </>
+        )}
+
+        <form onSubmit={handleSubmit}>
           {!inviteToken && (
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-ink-2">
-                Email
-              </label>
+            <div className="auth-field">
+              <div className="auth-label">Work email</div>
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="textarea h-10 min-h-0 resize-none py-0 px-3 leading-[38px] text-ink bg-panel border-line"
-                placeholder="you@example.com"
+                className="input"
+                placeholder="you@company.com"
+                autoComplete="email"
               />
             </div>
           )}
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-ink-2">
-              Password
-            </label>
+          <div className="auth-field">
+            <div className="auth-label">Password</div>
             <input
               type="password"
               required
               minLength={8}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="textarea h-10 min-h-0 resize-none py-0 px-3 leading-[38px] text-ink bg-panel border-line"
+              className="input"
               placeholder="Min. 8 characters"
+              autoComplete="new-password"
             />
           </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-ink-2">
-              Confirm password
-            </label>
+          <div className="auth-field">
+            <div className="auth-label">Confirm password</div>
             <input
               type="password"
               required
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
-              className="textarea h-10 min-h-0 resize-none py-0 px-3 leading-[38px] text-ink bg-panel border-line"
+              className="input"
               placeholder="••••••••"
+              autoComplete="new-password"
             />
           </div>
+
           {error && (
-            <p className="rounded bg-err/10 px-3 py-2 text-sm text-err">
-              {error}
-            </p>
+            <p className="auth-error">{error}</p>
           )}
+
           <button
             type="submit"
             disabled={loading}
-            className="btn btn-primary h-10 w-full justify-center text-sm disabled:opacity-50"
+            className="btn btn-primary btn-full"
+            style={{ marginTop: 8 }}
           >
             {loading ? 'Creating account…' : inviteToken ? 'Accept & sign in' : 'Create account'}
           </button>

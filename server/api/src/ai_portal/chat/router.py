@@ -12,14 +12,12 @@ import uuid as _uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
 from fastapi.responses import StreamingResponse
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
-from ai_portal.auth.deps import get_current_org_id, get_current_user, get_db
+from ai_portal.auth.deps import get_current_org_id, get_current_user, get_db  # get_db used by other routes
 from ai_portal.chat import repository as repo
 from ai_portal.chat import service as svc
 from ai_portal.chat.streaming.orchestrator import stream_turn
-from ai_portal.core.db.session import get_async_db
 from ai_portal.chat.schemas import (
     CapabilityProfileEntryRead,
     CapabilityProfileRead,
@@ -198,12 +196,10 @@ async def upload_attachment(
 async def stream_message(
     conversation_id: int,
     body: StreamMessageBody,
-    async_db: AsyncSession = Depends(get_async_db),
     user: User = Depends(get_current_user),
     org_id: _uuid.UUID = Depends(get_current_org_id),
 ) -> StreamingResponse:
     return await stream_turn(
-        session=async_db,
         user=user,
         thread_id=conversation_id,
         body={

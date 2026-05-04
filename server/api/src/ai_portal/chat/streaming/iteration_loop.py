@@ -122,14 +122,14 @@ async def run(
         # Check cancellation
         if cancel_token and cancel_token.cancelled:
             logger.info("iteration_loop: cancelled at iteration=%d", iteration)
-            cancelled_count = await writer.cancel_turn_items(turn_id=turn_id)
+            cancelled_count = writer.cancel_turn_items(turn_id=turn_id)
             logger.info("iteration_loop: cancelled %d streaming items", cancelled_count)
             return
 
         logger.info("iteration_loop: LLM call iteration=%d model=%r", iteration, model)
 
         # Start an llm_call item
-        llm_item = await writer.start_llm_call(
+        llm_item = writer.start_llm_call(
             turn_id=turn_id, model=model, iteration_index=iteration
         )
         yield _emit(llm_item)
@@ -161,17 +161,17 @@ async def run(
 
                 if isinstance(ev, TextDeltaEvent):
                     if text_item_id is None:
-                        text_item = await writer.start_text(turn_id=turn_id)
+                        text_item = writer.start_text(turn_id=turn_id)
                         text_item_id = text_item.id
                         yield _emit(text_item)
-                    await writer.append_text_delta(text_item_id, ev.text)
+                    writer.append_text_delta(text_item_id, ev.text)
 
                 elif isinstance(ev, ThinkingDeltaEvent):
                     if thinking_item_id is None:
-                        think_item = await writer.start_thinking(turn_id=turn_id)
+                        think_item = writer.start_thinking(turn_id=turn_id)
                         thinking_item_id = think_item.id
                         yield _emit(think_item)
-                    await writer.append_text_delta(thinking_item_id, ev.text)
+                    writer.append_text_delta(thinking_item_id, ev.text)
 
                 elif isinstance(ev, ToolCallRequestEvent):
                     tool_request = ev
@@ -194,21 +194,21 @@ async def run(
         except Exception as exc:
             logger.exception("iteration_loop: error at iteration=%d", iteration)
             had_error = True
-            await writer.fail_llm_call(item_id=llm_item.id, error=str(exc))
+            writer.fail_llm_call(item_id=llm_item.id, error=str(exc))
             raise
 
         # Finalize text/thinking items
         if text_item_id is not None:
-            final_text = await writer.finalize_text(text_item_id)
+            final_text = writer.finalize_text(text_item_id)
             yield _emit(final_text)
 
         if thinking_item_id is not None:
-            final_think = await writer.finalize_thinking(thinking_item_id)
+            final_think = writer.finalize_thinking(thinking_item_id)
             yield _emit(final_think)
 
         # Emit citation items
         for cit in citations:
-            cit_item = await writer.insert_citation(
+            cit_item = writer.insert_citation(
                 turn_id=turn_id,
                 url=cit.url,
                 title=cit.title,
@@ -234,7 +234,7 @@ async def run(
             cost_estimated = True
 
         if not had_error:
-            done_llm = await writer.finish_llm_call(
+            done_llm = writer.finish_llm_call(
                 item_id=llm_item.id,
                 input_tokens=usage.input_tokens if usage else 0,
                 output_tokens=usage.output_tokens if usage else 0,
@@ -248,13 +248,13 @@ async def run(
 
         # Server tool use — just record and emit (provider executed it)
         if server_tool is not None:
-            srv_item = await writer.start_server_tool(
+            srv_item = writer.start_server_tool(
                 turn_id=turn_id,
                 tool_name=server_tool.tool_name,
                 provider="provider",
                 input_payload=server_tool.input,
             )
-            done_srv = await writer.finish_server_tool(
+            done_srv = writer.finish_server_tool(
                 item_id=srv_item.id,
                 cost_usd=Decimal("0"),
                 cost_estimated=True,
@@ -263,7 +263,7 @@ async def run(
 
         # Tool call dispatch
         if tool_request is not None and iteration < max_iterations:
-            tool_item = await writer.start_tool_call(
+            tool_item = writer.start_tool_call(
                 turn_id=turn_id,
                 tool_name=tool_request.tool_name,
                 provider=None,
@@ -271,7 +271,7 @@ async def run(
             )
             yield _emit(tool_item)
 
-            # Dispatch the tool
+            # Dispatch the tool (async — LLM tool execution)
             outcome: ToolCallOutcome = await dispatch_tool(
                 tool_name=tool_request.tool_name,
                 call_id=tool_request.call_id,
@@ -280,7 +280,7 @@ async def run(
                 user_id=user_id,
             )
 
-            done_tool = await writer.finish_tool_call(
+            done_tool = writer.finish_tool_call(
                 item_id=tool_item.id,
                 result_snippet=outcome.result_snippet,
                 error=outcome.error,

@@ -165,6 +165,22 @@ CATALOG_MODEL_DEFINITIONS: tuple[CatalogModelDefinition, ...] = (
         provider="anthropic",
         config_slug="anthropic-claude-opus-4-6-1m",
     ),
+    CatalogModelDefinition(
+        slug="anthropic-claude-opus-4-7",
+        display_name="Claude Opus 4.7",
+        description=(
+            "Anthropic Opus 4.7 — most capable Claude model with extended thinking. "
+            "API id ``claude-opus-4-7``."
+        ),
+        api_model_id="claude-opus-4-7",
+        effort="high",
+        sort_order=35,
+        requires_entitlement=False,
+        request_access_url=None,
+        provider="anthropic",
+        config_slug="anthropic-claude-opus-4-7",
+        catalog_validation_optional=True,
+    ),
     # --- OpenAI (direct API via LangChain ChatOpenAI) ---
     CatalogModelDefinition(
         slug="openai-o3-mini",

@@ -67,6 +67,7 @@ class FeatureFlagsPublic(BaseModel):
     vision: bool = False
     tools: bool = True
     json_mode: bool = True
+    thinking: bool = False  # extended thinking / reasoning tokens
 
 
 class LimitsPublic(BaseModel):

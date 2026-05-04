@@ -5,21 +5,21 @@ import uuid
 from typing import Any
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 from ai_portal.chat.item_kinds import ItemKind
 from ai_portal.chat.model import ThreadItem
 
 
-async def build_provider_messages(
-    *, session: AsyncSession, thread_id: int, org_id: uuid.UUID,
+def build_provider_messages(
+    *, session: Session, thread_id: int, org_id: uuid.UUID,
     system_prompt: str, window_size: int,
 ) -> list[dict[str, Any]]:
-    rows = (await session.execute(
+    rows = session.execute(
         select(ThreadItem)
         .where(ThreadItem.thread_id == thread_id, ThreadItem.org_id == org_id)
         .order_by(ThreadItem.created_at, ThreadItem.id)
-    )).scalars().all()
+    ).scalars().all()
 
     messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
 

@@ -84,11 +84,31 @@ _CONFIG_ANTHROPIC_OPUS_46: dict[str, Any] = {
         "vision": True,
         "tools": True,
         "json_mode": True,
+        "thinking": True,
     },
 }
 
 # Same API model as Opus 4.6; catalog row is entitlement-gated for 1M-context orgs.
 _CONFIG_ANTHROPIC_OPUS_46_1M: dict[str, Any] = _CONFIG_ANTHROPIC_OPUS_46
+
+_CONFIG_ANTHROPIC_OPUS_47: dict[str, Any] = {
+    "reasoning": {
+        "supported": True,
+        "efforts_available": ["minimal", "low", "medium", "high"],
+        "default_effort": "medium",
+    },
+    "sampling": {
+        "temperature": _temp_claude(0.0, 1.0, 1.0),
+        "max_output_tokens": _tokens(16_384, 128_000),
+    },
+    "features": {
+        "streaming": True,
+        "vision": True,
+        "tools": True,
+        "json_mode": True,
+        "thinking": True,
+    },
+}
 
 # Haiku 4.5 — lowest API tier; 64k max output per Anthropic models table.
 _CONFIG_ANTHROPIC_HAIKU_45: dict[str, Any] = {
@@ -125,6 +145,7 @@ _CONFIG_ANTHROPIC_SONNET_45: dict[str, Any] = {
         "vision": True,
         "tools": True,
         "json_mode": True,
+        "thinking": True,
     },
 }
 
@@ -144,6 +165,7 @@ _CONFIG_ANTHROPIC_SONNET_46: dict[str, Any] = {
         "vision": True,
         "tools": True,
         "json_mode": True,
+        "thinking": True,
     },
 }
 
@@ -288,6 +310,7 @@ CONFIG_BY_SLUG: dict[str, dict[str, Any]] = {
     "anthropic-claude-opus-4-5": _CONFIG_ANTHROPIC_OPUS_45,
     "anthropic-claude-opus-4-6": _CONFIG_ANTHROPIC_OPUS_46,
     "anthropic-claude-opus-4-6-1m": _CONFIG_ANTHROPIC_OPUS_46_1M,
+    "anthropic-claude-opus-4-7": _CONFIG_ANTHROPIC_OPUS_47,
     "anthropic-claude-sonnet-4-5": _CONFIG_ANTHROPIC_SONNET_45,
     "anthropic-claude-sonnet-4-6": _CONFIG_ANTHROPIC_SONNET_46,
     "openai-o3-mini": _CONFIG_O3_MINI,

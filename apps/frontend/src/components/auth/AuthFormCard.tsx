@@ -2,11 +2,13 @@ import type { ReactNode } from 'react';
 
 export function AuthFormCard({
   title,
+  eyebrow,
   subtitle,
   children,
   footer,
 }: {
   title: string;
+  eyebrow?: string;
   subtitle?: string;
   children: ReactNode;
   footer?: ReactNode;
@@ -14,11 +16,12 @@ export function AuthFormCard({
   return (
     <div data-testid="auth-form-card">
       <header className="mb-6">
-        <h1 className="text-xl font-semibold text-ink leading-tight">{title}</h1>
-        {subtitle && <p className="text-ink-3 text-sm mt-1">{subtitle}</p>}
+        {eyebrow && <div className="form-eyebrow">{eyebrow}</div>}
+        <h1 className="form-title serif">{title}</h1>
+        {subtitle && <p className="form-desc">{subtitle}</p>}
       </header>
-      <div className="flex flex-col gap-4">{children}</div>
-      {footer && <footer className="mt-6 text-sm text-ink-3">{footer}</footer>}
+      <div>{children}</div>
+      {footer && <footer className="form-foot">{footer}</footer>}
     </div>
   );
 }

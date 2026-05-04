@@ -63,18 +63,35 @@ def _effort(name: str) -> str:
     return "medium"
 
 
+def _supports_thinking(api_model_id: str) -> bool:
+    """Pro and >=2.5-flash models support extended thinking."""
+    n = api_model_id.lower()
+    return "pro" in n or (("2.5" in n or "3." in n) and "flash" in n)
+
+
 def _catalog_metadata(model, api_model_id: str) -> dict:
+    thinking = _supports_thinking(api_model_id)
     return {
         "provider": "google",
         "model_id": api_model_id,
-        "api_style": "langchain_google_genai",
+        "api_style": "gemini_native",
         "config": {
-            "reasoning": {"supported": False, "efforts_available": [], "default_effort": None},
+            "reasoning": {
+                "supported": thinking,
+                "efforts_available": ["low", "medium", "high"] if thinking else [],
+                "default_effort": "medium" if thinking else None,
+            },
             "sampling": {
                 "temperature": {"default": 0.7, "min": 0.0, "max": 2.0},
                 "max_output_tokens": {"default": 8192, "max": 65536},
             },
-            "features": {"streaming": True, "vision": True, "tools": True, "json_mode": True},
+            "features": {
+                "streaming": True,
+                "vision": True,
+                "tools": True,
+                "json_mode": True,
+                "thinking": thinking,
+            },
         },
     }
 
