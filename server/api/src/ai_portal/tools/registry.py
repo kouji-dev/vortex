@@ -10,7 +10,10 @@ import logging
 
 from sqlalchemy.orm import Session
 
-from ai_portal.catalog.providers.routing import is_langchain_anthropic_model
+from ai_portal.catalog.providers.routing import (
+    _is_gemini_model,
+    is_langchain_anthropic_model,
+)
 from ai_portal.core.config import get_settings
 from ai_portal.tools import fetch_webpage as fetch_webpage_tool
 from ai_portal.tools import kb_search as kb_search_tool
@@ -76,14 +79,19 @@ def get_tool_definitions(
 
     if _web_tools_enabled(capabilities):
         if model_id and is_langchain_anthropic_model(model_id):
-            # Use Anthropic's native server-side search (executed by Anthropic, no dispatch)
+            # Anthropic's native server-side search (executed by Anthropic, no dispatch).
             tools.append(_native_anthropic_search_tool())
+            tools.append(fetch_webpage_tool.schema())
+        elif model_id and _is_gemini_model(model_id):
+            # Gemini grounding marker — gemini_native.py reads tools with
+            # ``type == "web_search"`` and switches to ``Tool(google_search=...)``,
+            # which Google executes server-side (no tool-dispatch loop).
+            tools.append({"type": "web_search", "name": "web_search"})
         else:
-            # All other providers (Gemini, OpenAI, custom): use our DuckDuckGo web_search tool
+            # OpenAI / custom: our DuckDuckGo web_search function tool +
+            # fetch_webpage for follow-up content extraction.
             tools.append(web_search_tool.schema())
-
-        # fetch_webpage requires web capability too
-        tools.append(fetch_webpage_tool.schema())
+            tools.append(fetch_webpage_tool.schema())
 
     if kb_ids:
         tools.append(kb_search_tool.schema(kb_ids))

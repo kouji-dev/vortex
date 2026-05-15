@@ -494,7 +494,7 @@ export function useThread(
     async (assistantItemTurnId: string) => {
       const body: Record<string, unknown> = {
         content: "",
-        regenerate_after_message_id: assistantItemTurnId,
+        regenerate_from_turn_id: assistantItemTurnId,
         use_rag: true,
       };
       if (chatModel.trim()) body.model = chatModel.trim();

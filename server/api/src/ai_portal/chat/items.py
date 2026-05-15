@@ -64,6 +64,31 @@ class ServerToolUsePayload(BaseModel):
     input: dict = Field(default_factory=dict)
 
 
+class KbChunkRef(BaseModel):
+    """A single chunk surfaced by a KB search; lives inside KbSearchPayload."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    document_id: int
+    document_name: str
+    kb_id: int
+    kb_name: str
+    chunk_id: int | None = None
+    score: float = 0.0
+    snippet: str = ""
+
+
+class KbSearchPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    tool_name: Literal["search_knowledge_base"] = "search_knowledge_base"
+    query: str
+    kb_ids: list[int] = Field(default_factory=list)
+    chunks: list[KbChunkRef] = Field(default_factory=list)
+    result_snippet: str | None = None
+    error: str | None = None
+
+
 class ThinkingPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
     text: str
@@ -117,6 +142,11 @@ class ServerToolUseItem(_Base):
     data: ServerToolUsePayload
 
 
+class KbSearchItem(_Base):
+    kind: Literal["kb_search"]
+    data: KbSearchPayload
+
+
 class ThinkingItem(_Base):
     kind: Literal["thinking"]
     data: ThinkingPayload
@@ -144,8 +174,8 @@ class ErrorItem(_Base):
 
 ThreadItemUnion = Annotated[
     UserMessageItem | AssistantTextItem | LlmCallItem | ToolCallItem |
-    ServerToolUseItem | ThinkingItem | CitationItem | MemoryPillItem |
-    TurnEndItem | ErrorItem,
+    ServerToolUseItem | KbSearchItem | ThinkingItem | CitationItem |
+    MemoryPillItem | TurnEndItem | ErrorItem,
     Field(discriminator="kind"),
 ]
 

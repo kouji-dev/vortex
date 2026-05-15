@@ -5,8 +5,15 @@ import type { Components } from 'react-markdown'
 import * as React from 'react'
 
 import { CODE_BLOCK_FALLBACK_PRE_CLASS } from '~/components/chat/codeBlockConstants'
+import { getShikiHighlighter } from '~/components/chat/shikiHighlighter'
 
 const ShikiCodeBlockLazy = React.lazy(() => import('~/components/chat/ShikiCodeBlock'))
+
+// Kick off the Shiki chunk + grammar bundle as soon as a chat message renders,
+// so by the time the first fenced code block mounts, both the lazy chunk and
+// the highlighter are usually ready and we skip the uncoloured fallback flash.
+void import('~/components/chat/ShikiCodeBlock')
+void getShikiHighlighter()
 
 function stringifyMdChildren(node: React.ReactNode): string {
   if (node == null) return ''

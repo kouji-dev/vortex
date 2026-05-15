@@ -1188,6 +1188,7 @@ html:not([data-theme]) {
 .attach-chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 3px; font-size: 11px; color: var(--ink-2); }
 
 .msg-actions { padding-left: 30px; margin-top: 8px; display: flex; align-items: center; gap: 12px; }
+.msg-user .msg-actions { padding-left: 0; padding-right: 30px; justify-content: flex-end; }
 
 .cap-tag { display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; border-radius: 3px; background: var(--bg-2); border: 1px solid var(--line); color: var(--ink-2); font-size: 11px; font-family: var(--font-mono); }
 .cap-tag.pill-ok { background: color-mix(in oklch, #22c55e 10%, var(--panel)); border-color: color-mix(in oklch, #22c55e 25%, var(--line)); color: #16a34a; }
@@ -1821,6 +1822,48 @@ html:not([data-theme]) {
 .starter-chip:hover {
   background: color-mix(in oklch, var(--accent) 4%, var(--bg-2));
   border-color: color-mix(in oklch, var(--accent) 30%, var(--line));
+}
+
+/* ------------------------------------------------------------------ */
+/* Shiki code blocks — line numbers (CSS counter) + indent guides.    */
+/* Markup comes from .shiki-block wrapper around `<pre.shiki>`.       */
+/* ------------------------------------------------------------------ */
+.shiki-block pre.shiki { counter-reset: shiki-line; }
+.shiki-block pre.shiki .line {
+  counter-increment: shiki-line;
+  position: relative;
+  padding-left: 3.25rem; /* room for the gutter + indent guides */
+}
+.shiki-block pre.shiki .line::before {
+  content: counter(shiki-line);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 2.5rem;
+  padding-right: 0.5rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+  pointer-events: none;
+  color: color-mix(in srgb, currentColor 35%, transparent);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+[data-theme="dark"] .shiki-block pre.shiki .line::before {
+  color: rgba(255, 255, 255, 0.25);
+}
+.shiki-block pre.shiki .indent-guide {
+  display: inline-block;
+  width: 2ch;
+  height: 1em;
+  vertical-align: top;
+  border-left: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+}
+[data-theme="dark"] .shiki-block pre.shiki .indent-guide {
+  border-left-color: rgba(255, 255, 255, 0.09);
+}
+.shiki-block pre.shiki .line:hover {
+  background: color-mix(in srgb, currentColor 5%, transparent);
 }
 
 } /* end @layer components */

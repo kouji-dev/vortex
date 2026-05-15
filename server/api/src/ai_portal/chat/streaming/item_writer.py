@@ -121,6 +121,43 @@ class ItemWriter:
         self.session.refresh(item)
         return item
 
+    def start_kb_search(self, *, turn_id: uuid.UUID, query: str,
+                        kb_ids: list[int]) -> ThreadItem:
+        item = ThreadItem(
+            thread_id=self.thread_id, org_id=self.org_id, turn_id=turn_id,
+            kind=ItemKind.kb_search, role=ItemRole.assistant, status=ItemStatus.streaming,
+            provider="kb_search", started_at=_now(),
+            data={
+                "tool_name": "search_knowledge_base",
+                "query": query,
+                "kb_ids": list(kb_ids),
+                "chunks": [],
+            },
+        )
+        self.session.add(item)
+        self.session.flush()
+        self.session.refresh(item)
+        return item
+
+    def finish_kb_search(self, *, item_id: int, chunks: list[dict],
+                         result_snippet: str | None, error: str | None,
+                         latency_ms: int | None) -> ThreadItem:
+        item = self._get_and_require_status(item_id, {ItemStatus.streaming})
+        data = dict(item.data or {})
+        data["chunks"] = chunks
+        if result_snippet is not None:
+            data["result_snippet"] = result_snippet
+        if error is not None:
+            data["error"] = error
+        item.data = data
+        item.latency_ms = latency_ms
+        item.cost_usd = Decimal("0")
+        item.cost_estimated = True
+        item.status = ItemStatus.error if error else ItemStatus.done
+        item.finished_at = _now()
+        self.session.flush()
+        return item
+
     def append_text_delta(self, item_id: int, delta: str) -> None:
         item = self._get_and_require_status(item_id, {ItemStatus.streaming})
         data = dict(item.data or {})

@@ -313,50 +313,59 @@ def search_knowledge_base_tool(
         doc_map[doc.id] = doc
 
     kb_id_set: set[int] = set()
+    for chunk, _ in final:
+        doc = doc_map.get(chunk.document_id)
+        if doc and doc.knowledge_base_id is not None:
+            kb_id_set.add(doc.knowledge_base_id)
+
+    kb_name_map: dict[int, str] = {}
+    if kb_id_set:
+        for kb in db.scalars(
+            select(KnowledgeBase).where(KnowledgeBase.id.in_(list(kb_id_set)))
+        ).all():
+            kb_name_map[kb.id] = kb.name
+
     citations: list[dict] = []
     context_parts: list[str] = []
 
     for chunk, score in final:
         doc = doc_map.get(chunk.document_id)
         filename = doc.filename if doc else "unknown"
-        kb_id = doc.knowledge_base_id if doc else None
-        if kb_id is not None:
-            kb_id_set.add(kb_id)
+        kb_id = doc.knowledge_base_id if doc else 0
+        kb_name = kb_name_map.get(kb_id, f"KB {kb_id}") if kb_id else ""
 
         attribution = _source_attribution(chunk, filename)
         context_parts.append(f"{chunk.content}\n{attribution}")
         meta = chunk.meta if isinstance(chunk.meta, dict) else {}
+        snippet = (chunk.content or "").strip()
+        if len(snippet) > 240:
+            snippet = snippet[:237].rstrip() + "…"
         citations.append({
             "chunk_id": chunk.id,
             "document_id": chunk.document_id,
-            "filename": filename,
+            "document_name": filename,
+            "kb_id": kb_id,
+            "kb_name": kb_name,
             "page": meta.get("page"),
             "section": meta.get("section") or meta.get("source", ""),
             "score": round(score, 4),
+            "snippet": snippet,
         })
 
-    # KB-level metadata
+    # KB-level metadata (kept for callers that want the rollup)
     used_kbs: list[dict] = []
-    if kb_id_set:
-        kb_name_map: dict[int, str] = {}
-        for kb in db.scalars(
-            select(KnowledgeBase).where(KnowledgeBase.id.in_(list(kb_id_set)))
-        ).all():
-            kb_name_map[kb.id] = kb.name
-
-        kb_chunks: dict[int, list[tuple[DocumentChunk, float]]] = {}
-        for chunk, score in final:
-            doc = doc_map.get(chunk.document_id)
-            if doc:
-                kb_chunks.setdefault(doc.knowledge_base_id, []).append((chunk, score))
-
-        for kb_id, pairs in kb_chunks.items():
-            used_kbs.append({
-                "kb_id": kb_id,
-                "kb_name": kb_name_map.get(kb_id, f"KB {kb_id}"),
-                "chunks_used": len(pairs),
-                "top_score": round(max(s for _, s in pairs), 4),
-            })
+    kb_chunks: dict[int, list[tuple[DocumentChunk, float]]] = {}
+    for chunk, score in final:
+        doc = doc_map.get(chunk.document_id)
+        if doc and doc.knowledge_base_id is not None:
+            kb_chunks.setdefault(doc.knowledge_base_id, []).append((chunk, score))
+    for kb_id, pairs in kb_chunks.items():
+        used_kbs.append({
+            "kb_id": kb_id,
+            "kb_name": kb_name_map.get(kb_id, f"KB {kb_id}"),
+            "chunks_used": len(pairs),
+            "top_score": round(max(s for _, s in pairs), 4),
+        })
 
     context = "\n\n".join(context_parts)
     return {"context": context, "used_kbs": used_kbs, "citations": citations}

@@ -256,6 +256,12 @@ class GeminiNativeChatProvider(BaseLlmProvider):
         cached_tokens = 0
         thoughts_tokens = 0
         finish_reason: str | None = None
+        # Grounding state: Gemini's streaming can re-emit the same metadata
+        # across chunks, so dedupe by source URL and only fire `server_tool_use`
+        # once per response with the actual web_search_queries.
+        emitted_citation_urls: set[str] = set()
+        server_tool_emitted = False
+        all_web_search_queries: list[str] = []
 
         try:
             for chunk in self._client.models.generate_content_stream(
@@ -309,29 +315,61 @@ class GeminiNativeChatProvider(BaseLlmProvider):
                             }
                             continue
 
-                    # ── Grounding metadata (citations) ────────────────────────
+                    # ── Grounding metadata (citations + web_search trace) ─────
                     gm = getattr(candidate, "grounding_metadata", None)
                     if gm:
-                        chunks = getattr(gm, "grounding_chunks", None) or []
-                        for gchunk in chunks:
+                        # Accumulate the actual search queries for the single
+                        # server_tool_use event we'll emit once we've seen them.
+                        queries = list(getattr(gm, "web_search_queries", None) or [])
+                        for q in queries:
+                            if q and q not in all_web_search_queries:
+                                all_web_search_queries.append(q)
+
+                        # Build chunk_index → [supporting text segments] so each
+                        # citation gets a meaningful snippet (the model's own
+                        # grounded text, which is what Google exposes).
+                        chunks = list(getattr(gm, "grounding_chunks", None) or [])
+                        snippet_by_idx: dict[int, list[str]] = {}
+                        for support in getattr(gm, "grounding_supports", None) or []:
+                            seg = getattr(support, "segment", None)
+                            seg_text = (getattr(seg, "text", None) or "").strip() if seg else ""
+                            if not seg_text:
+                                continue
+                            for idx in getattr(support, "grounding_chunk_indices", None) or []:
+                                snippet_by_idx.setdefault(int(idx), []).append(seg_text)
+
+                        for idx, gchunk in enumerate(chunks):
                             web = getattr(gchunk, "web", None)
-                            if web:
-                                url = getattr(web, "uri", None) or getattr(web, "url", None)
-                                title = getattr(web, "title", None)
-                                if url:
-                                    yield {
-                                        "type": "citation",
-                                        "url": url,
-                                        "title": title,
-                                        "snippet": None,
-                                    }
-                                    # Signal server tool used grounding.
-                                    yield {
-                                        "type": "server_tool_use",
-                                        "name": "web_search",
-                                        "input": {"query": title or url},
-                                        "id": "",
-                                    }
+                            if not web:
+                                continue
+                            url = getattr(web, "uri", None) or getattr(web, "url", None)
+                            if not url or url in emitted_citation_urls:
+                                continue
+                            emitted_citation_urls.add(url)
+                            title = getattr(web, "title", None)
+                            segs = snippet_by_idx.get(idx) or []
+                            snippet = (
+                                " … ".join(dict.fromkeys(segs))[:500] if segs else None
+                            )
+                            yield {
+                                "type": "citation",
+                                "url": url,
+                                "title": title,
+                                "snippet": snippet,
+                            }
+
+                        # One server_tool_use per response, carrying the real
+                        # search queries — not a per-chunk repeat. Emit once we
+                        # have queries (or once we've seen any chunk if Google
+                        # didn't surface queries on this model).
+                        if not server_tool_emitted and (all_web_search_queries or emitted_citation_urls):
+                            server_tool_emitted = True
+                            yield {
+                                "type": "server_tool_use",
+                                "name": "web_search",
+                                "input": {"queries": list(all_web_search_queries)},
+                                "id": "",
+                            }
 
         except Exception as exc:
             logger.error("gemini_native: error %s", exc)

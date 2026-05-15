@@ -59,10 +59,25 @@ def execute(
     result = search_knowledge_base_tool(db, query=query, kb_ids=kb_ids, top_k=top_k)
     content = result.get("context") or "No relevant context found."
     snippet = content[:500]
+    # Per-chunk refs sized to the KbChunkRef payload — the streaming loop
+    # persists these inside the kb_search ThreadItem so the user can see
+    # exactly which document fragments grounded the answer.
+    chunks_meta: list[dict] = []
+    for c in result.get("citations", []):
+        chunks_meta.append({
+            "document_id": int(c.get("document_id") or 0),
+            "document_name": str(c.get("document_name") or c.get("filename") or "unknown"),
+            "kb_id": int(c.get("kb_id") or 0),
+            "kb_name": str(c.get("kb_name") or ""),
+            "chunk_id": int(c["chunk_id"]) if c.get("chunk_id") is not None else None,
+            "score": float(c.get("score") or 0.0),
+            "snippet": str(c.get("snippet") or ""),
+        })
     return {
         "name": "search_knowledge_base",
         "content": content,
         "result_snippet": snippet,
+        "chunks_meta": chunks_meta,
         "_used_kbs": result.get("used_kbs", []),
         "provider": "kb_search",
         "cost_usd": Decimal("0"),

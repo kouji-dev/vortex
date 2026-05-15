@@ -8,6 +8,7 @@ from typing import Literal
 from sqlalchemy import Integer, and_, case, cast, func, select, text
 from sqlalchemy.orm import Session
 
+from ai_portal.auth.model import User
 from ai_portal.chat.item_kinds import ItemKind
 from ai_portal.chat.model import Thread, ThreadItem
 from ai_portal.usage.consumption_schemas import (
@@ -137,9 +138,12 @@ def _group(session, org_id, start, end, column, *, only_kind=None) -> list[Summa
 
 
 def _group_via_thread(session, org_id, start, end) -> list[SummaryRow]:
+    # Outer-join users so a deleted user still surfaces (label falls back to
+    # the numeric id). Email is the most useful label for admins.
     stmt = (
         select(
             Thread.user_id.label("k"),
+            func.coalesce(User.email, func.concat("user-", cast(Thread.user_id, Integer))).label("label"),
             func.count(ThreadItem.id),
             func.coalesce(func.sum(cast(ThreadItem.data["input_tokens"].astext, Integer)), 0),
             func.coalesce(func.sum(cast(ThreadItem.data["output_tokens"].astext, Integer)), 0),
@@ -147,17 +151,18 @@ def _group_via_thread(session, org_id, start, end) -> list[SummaryRow]:
             func.avg(case((ThreadItem.cost_estimated.is_(True), 1.0), else_=0.0)),
         )
         .join(Thread, Thread.id == ThreadItem.thread_id)
+        .outerjoin(User, User.id == Thread.user_id)
         .where(ThreadItem.org_id == org_id, ThreadItem.created_at >= start, ThreadItem.created_at <= end)
-        .group_by(Thread.user_id)
+        .group_by(Thread.user_id, User.email)
         .order_by(func.sum(ThreadItem.cost_usd).desc().nullslast())
         .limit(50)
     )
     rows = session.execute(stmt).all()
     return [SummaryRow(
-        key=str(k), label=str(k), messages=int(m),
+        key=str(k), label=str(lbl or k), messages=int(m),
         input_tokens=int(it or 0), output_tokens=int(ot or 0),
         cost_usd=Decimal(str(c or 0)), estimated_ratio=float(e or 0.0),
-    ) for k, m, it, ot, c, e in rows]
+    ) for k, lbl, m, it, ot, c, e in rows]
 
 
 def trend(*, session: Session, org_id: uuid.UUID,

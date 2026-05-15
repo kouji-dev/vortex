@@ -38,22 +38,25 @@ from ai_portal.chat.tool_service import dispatch_tool
 logger = logging.getLogger(__name__)
 
 
-def _build_tool_schemas(allowed: list[str]) -> list[dict]:
+def _build_tool_schemas(
+    allowed: list[str],
+    *,
+    model_id: str | None = None,
+    capabilities: object | None = None,
+) -> list[dict]:
     """Return tool schemas for the allowed tool names from the registry.
 
-    Calls get_tool_definitions with no kb_ids / capabilities — it will return
-    the schemas for client-dispatch tools (web_search, fetch_webpage) when those
-    names appear in the allowed list.  Falls back to empty list on any error.
+    Web/search schemas are gated by ``capabilities`` (reflection / research),
+    so callers must pass the active capability toggles — without them
+    ``get_tool_definitions`` will skip ``web_search`` / ``fetch_webpage``.
     """
     if not allowed:
         return []
     try:
         from ai_portal.tools.registry import get_tool_definitions  # noqa: PLC0415
-        # get_tool_definitions(kb_ids, model_id, capabilities) returns all active
-        # tool schemas.  We pass no kb_ids and no model so only generic tools
-        # (web_search / fetch_webpage) that don't require capabilities are returned,
-        # then filter to what is actually allowed for this turn.
-        all_schemas = get_tool_definitions(kb_ids=[], model_id=None, capabilities=None)
+        all_schemas = get_tool_definitions(
+            kb_ids=[], model_id=model_id, capabilities=capabilities
+        )
         return [s for s in all_schemas if s.get("name") in allowed]
     except Exception:
         logger.exception("_build_tool_schemas: failed to load tool definitions")
@@ -108,13 +111,14 @@ async def run(
     cancel_token: CancelToken | None = None,
     org_id: uuid.UUID | None = None,
     user_id: int | None = None,
+    capabilities: object | None = None,
 ):
     """Async generator: stream one or more LLM iterations, yielding SseEvents.
 
     Handles text, thinking, tool calls, server tool uses, citations, and usage.
     Stops when stop_reason == "end_turn" or max_iterations is reached.
     """
-    tool_schemas = _build_tool_schemas(allowed_tools)
+    tool_schemas = _build_tool_schemas(allowed_tools, model_id=model, capabilities=capabilities)
     messages = list(provider_messages)
     iteration = 0
 
@@ -263,12 +267,21 @@ async def run(
 
         # Tool call dispatch
         if tool_request is not None and iteration < max_iterations:
-            tool_item = writer.start_tool_call(
-                turn_id=turn_id,
-                tool_name=tool_request.tool_name,
-                provider=None,
-                params=tool_request.arguments,
-            )
+            is_kb = tool_request.tool_name == "search_knowledge_base"
+
+            if is_kb:
+                kb_query = str(tool_request.arguments.get("query") or "")
+                kb_ids = [int(x) for x in (tool_request.arguments.get("kb_ids") or [])]
+                tool_item = writer.start_kb_search(
+                    turn_id=turn_id, query=kb_query, kb_ids=kb_ids,
+                )
+            else:
+                tool_item = writer.start_tool_call(
+                    turn_id=turn_id,
+                    tool_name=tool_request.tool_name,
+                    provider=None,
+                    params=tool_request.arguments,
+                )
             yield _emit(tool_item)
 
             # Dispatch the tool (async — LLM tool execution)
@@ -280,14 +293,23 @@ async def run(
                 user_id=user_id,
             )
 
-            done_tool = writer.finish_tool_call(
-                item_id=tool_item.id,
-                result_snippet=outcome.result_snippet,
-                error=outcome.error,
-                cost_usd=outcome.cost_usd or Decimal("0"),
-                cost_estimated=True,
-                latency_ms=outcome.latency_ms,
-            )
+            if is_kb:
+                done_tool = writer.finish_kb_search(
+                    item_id=tool_item.id,
+                    chunks=list(outcome.chunks_meta),
+                    result_snippet=outcome.result_snippet,
+                    error=outcome.error,
+                    latency_ms=outcome.latency_ms,
+                )
+            else:
+                done_tool = writer.finish_tool_call(
+                    item_id=tool_item.id,
+                    result_snippet=outcome.result_snippet,
+                    error=outcome.error,
+                    cost_usd=outcome.cost_usd or Decimal("0"),
+                    cost_estimated=True,
+                    latency_ms=outcome.latency_ms,
+                )
             yield _emit(done_tool)
 
             # Append tool result to messages for next iteration

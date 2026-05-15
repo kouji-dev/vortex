@@ -206,7 +206,10 @@ async def stream_message(
             "text": body.content,
             "attachments": [{"id": aid} for aid in (body.attachment_ids or [])],
             "model": body.model,
-            "regenerate_from_turn_id": body.regenerate_after_message_id,
+            "regenerate_from_turn_id": (
+                str(body.regenerate_from_turn_id)
+                if body.regenerate_from_turn_id is not None else None
+            ),
             "use_rag": body.use_rag,
             "capabilities": body.capabilities,
             "tools": body.tools,

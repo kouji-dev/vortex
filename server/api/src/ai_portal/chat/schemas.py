@@ -7,7 +7,7 @@ from decimal import Decimal
 from typing import Any, Self
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
 from ai_portal.chat.item_kinds import ItemKind, ItemRole, ItemStatus
 
@@ -110,8 +110,17 @@ class ConversationKnowledgeBasesPut(BaseModel):
 
 
 class StreamMessageBody(BaseModel):
+    # Allow both the new field name and the legacy one for one release cycle.
+    model_config = ConfigDict(populate_by_name=True)
+
     content: str = Field(default="", max_length=500_000)
-    regenerate_after_message_id: int | None = None
+    # In the thread_items model the regeneration anchor is a turn_id (UUID),
+    # not the legacy chat_messages.id (int). Accept both names so older
+    # frontends (or in-flight requests) keep working.
+    regenerate_from_turn_id: UUID | None = Field(
+        default=None,
+        validation_alias=AliasChoices("regenerate_from_turn_id", "regenerate_after_message_id"),
+    )
     model: str | None = Field(default=None, max_length=128)
     use_rag: bool = False
     attachment_ids: list[int] = Field(default_factory=list)
@@ -120,7 +129,7 @@ class StreamMessageBody(BaseModel):
 
     @model_validator(mode="after")
     def content_or_regenerate(self) -> Self:
-        if self.regenerate_after_message_id is None and not self.content.strip():
+        if self.regenerate_from_turn_id is None and not self.content.strip():
             raise ValueError("content is required unless regenerating a reply")
         return self
 

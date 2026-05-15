@@ -48,15 +48,27 @@ def handle_stream_error(
     code = type(exc).__name__
     message = _friendly_message(exc)
 
+    error_item = None
+    turn_end_item = None
     try:
-        writer.insert_error(turn_id=turn_id, code=code, message=message)
-        writer.insert_turn_end(turn_id=turn_id, reason="error")
+        error_item = writer.insert_error(turn_id=turn_id, code=code, message=message)
+        turn_end_item = writer.insert_turn_end(turn_id=turn_id, reason="error")
     except Exception:
         logger.exception("failed to write error item for turn_id=%s", turn_id)
 
-    error_event = SseEvent.model_validate({
+    # Emit the persisted rows as typed `item` events so the client's thread
+    # cache stays in lockstep with storage (spec: stream shape == storage shape).
+    # The legacy `error` event is kept for the banner shortcut on the frontend.
+    from ai_portal.chat.streaming.iteration_loop import _emit  # noqa: PLC0415
+
+    events: list[SseEvent] = []
+    if error_item is not None:
+        events.append(_emit(error_item))
+    if turn_end_item is not None:
+        events.append(_emit(turn_end_item))
+    events.append(SseEvent.model_validate({
         "event_type": "error",
         "error": {"code": code, "message": message},
-    })
-    done_event = SseEvent.model_validate({"event_type": "done"})
-    return [error_event, done_event]
+    }))
+    events.append(SseEvent.model_validate({"event_type": "done"}))
+    return events

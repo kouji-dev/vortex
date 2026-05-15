@@ -310,6 +310,23 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
   )
   const liveTurnIds = liveGroups ? Array.from(liveGroups.keys()) : []
 
+  // Total thread cost — sum across persisted items + currently-streaming
+  // items, deduped by id so a still-streaming row that's also in the
+  // persisted cache isn't double-counted. Recomputes whenever a new item
+  // arrives, so the header updates live during streaming.
+  const totalCostUsd = React.useMemo(() => {
+    const seen = new Map<number, string | null>()
+    for (const it of thread) seen.set(it.id, it.cost_usd)
+    for (const it of streamItems) seen.set(it.id, it.cost_usd)
+    let sum = 0
+    for (const v of seen.values()) {
+      if (v == null) continue
+      const n = parseFloat(v)
+      if (Number.isFinite(n)) sum += n
+    }
+    return sum
+  }, [thread, streamItems])
+
   const threadMessagesLoading =
     !isComposerMode && !streaming && thread.length === 0 &&
     (conversationPending || threadPending)
@@ -373,6 +390,18 @@ export function ConversationThreadPage({ conversationId }: ConversationThreadPag
               </>
             )}
             <span>{turnIds.length} turns</span>
+            {!isComposerMode && totalCostUsd > 0 && (
+              <>
+                <span className="sep">·</span>
+                <span
+                  title="Total cost so far in this conversation"
+                  className="mono"
+                  data-testid="thread-total-cost"
+                >
+                  ${totalCostUsd.toFixed(6)}
+                </span>
+              </>
+            )}
           </div>
         </div>
         <div className="chat-head-actions">

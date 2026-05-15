@@ -17,6 +17,8 @@ class ToolCallOutcome(BaseModel):
     error: str | None = None
     cost_usd: Decimal | None = None
     latency_ms: int | None = None
+    # KB-specific per-chunk metadata (only populated for `search_knowledge_base`).
+    chunks_meta: list[dict] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _result_xor_error(self) -> Self:

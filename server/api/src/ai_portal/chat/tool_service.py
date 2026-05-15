@@ -38,6 +38,7 @@ async def dispatch_tool(
             result_snippet=result.get("result_snippet"),
             cost_usd=_as_decimal(result.get("cost_usd")),
             latency_ms=result.get("latency_ms") or latency_ms,
+            chunks_meta=list(result.get("chunks_meta") or []),
         )
     except Exception as exc:
         log.exception("tool dispatch failed", extra={"tool_name": tool_name, "call_id": call_id})

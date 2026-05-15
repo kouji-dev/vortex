@@ -5,6 +5,7 @@ export type ItemKind =
   | "llm_call"
   | "tool_call"
   | "server_tool_use"
+  | "kb_search"
   | "thinking"
   | "citation"
   | "memory_pill"
@@ -51,6 +52,23 @@ export interface ServerToolUsePayload {
   tool_name: string;
   input: Record<string, unknown>;
 }
+export interface KbChunkRef {
+  document_id: number;
+  document_name: string;
+  kb_id: number;
+  kb_name: string;
+  chunk_id?: number | null;
+  score: number;
+  snippet: string;
+}
+export interface KbSearchPayload {
+  tool_name: "search_knowledge_base";
+  query: string;
+  kb_ids: number[];
+  chunks: KbChunkRef[];
+  result_snippet?: string | null;
+  error?: string | null;
+}
 export interface ThinkingPayload { text: string }
 export interface CitationPayload {
   url: string;
@@ -67,6 +85,7 @@ export type ThreadItem =
   | (ThreadItemBase & { kind: "llm_call"; data: LlmCallPayload })
   | (ThreadItemBase & { kind: "tool_call"; data: ToolCallPayload })
   | (ThreadItemBase & { kind: "server_tool_use"; data: ServerToolUsePayload })
+  | (ThreadItemBase & { kind: "kb_search"; data: KbSearchPayload })
   | (ThreadItemBase & { kind: "thinking"; data: ThinkingPayload })
   | (ThreadItemBase & { kind: "citation"; data: CitationPayload })
   | (ThreadItemBase & { kind: "memory_pill"; data: MemoryPillPayload })

@@ -20,6 +20,8 @@ import { NotFound } from '~/components/NotFound'
 import appCss from '~/styles/app.css?url'
 import { seo } from '~/utils/seo'
 import { useAuthRedirect } from '~/hooks/useAuthRedirect'
+import { useMeQuery } from '~/hooks/useMeQuery'
+import { useRealtimeEvents } from '~/hooks/useRealtimeEvents'
 import { useSetupRedirect } from '~/hooks/useSetupRedirect'
 import { bootstrapTheme } from '~/hooks/useTheme'
 
@@ -93,6 +95,8 @@ const AUTH_ROUTE_RE = /^\/(login|register|setup)(\/|$)/
 function RootComponent() {
   useAuthRedirect()
   useSetupRedirect()
+  const me = useMeQuery()
+  useRealtimeEvents(me.isSuccess)
   const { isMobile } = useIsMobile()
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const isAuthRoute = AUTH_ROUTE_RE.test(pathname)

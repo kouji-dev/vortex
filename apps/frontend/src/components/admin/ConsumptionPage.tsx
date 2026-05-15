@@ -6,13 +6,19 @@ const API_BASE = import.meta.env.VITE_API_URL ?? ''
 // ── helpers ─────────────────────────────────────────────────────────────────
 
 function isoDate(d: Date): string {
+  // YYYY-MM-DD in UTC — must agree with how the backend expands a date-only
+  // payload into a UTC day. Using local-tz slicing here would drop a day for
+  // anyone east of UTC near midnight.
   return d.toISOString().slice(0, 10)
 }
 
 function daysAgo(n: number): Date {
-  const d = new Date()
-  d.setDate(d.getDate() - n)
-  return d
+  // Anchor "today" at UTC midnight so the picker matches the backend filter
+  // (start = 00:00:00Z of the chosen day).
+  const now = new Date()
+  const utc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+  utc.setUTCDate(utc.getUTCDate() - n)
+  return utc
 }
 
 function relativeTime(iso: string): string {

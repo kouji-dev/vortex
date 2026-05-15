@@ -99,7 +99,7 @@ export function useStream({
 
     // Optimistic user message so the UI shows the message instantly.
     const userContent = (body.content as string | undefined)?.trim() ?? ''
-    if (userContent && body.regenerate_after_message_id == null) {
+    if (userContent && body.regenerate_from_turn_id == null) {
       await qc.cancelQueries({ queryKey: queryKeys.conversationMessagesTail(conversationId) })
       const fakeUserItem: ThreadItem = {
         id: -1,
@@ -160,6 +160,18 @@ export function useStream({
             const items = Array.from(liveItemsRef.current.values())
             setStreamItems(items)
 
+            // The backend now emits the persisted user_message as the first
+            // SSE frame. Drop the optimistic id=-1 from the tail cache as soon
+            // as it arrives, otherwise the UI renders both (cache + live)
+            // until stream-end and the user sees the prompt duplicated.
+            if (item.kind === 'user_message' && item.id !== -1) {
+              qc.setQueryData(
+                queryKeys.conversationMessagesTail(conversationId),
+                (old: ThreadItem[] | undefined): ThreadItem[] =>
+                  (old ?? []).filter((it) => it.id !== -1),
+              )
+            }
+
             // Update streaming text from the latest assistant_text item.
             const textItem = [...items]
               .reverse()
@@ -196,15 +208,38 @@ export function useStream({
       if (abortRef.current === ac) abortRef.current = null
       setStreaming(false)
       setStreamingText('')
-      // Clear live stream items synchronously — the invalidation below refetches
-      // persisted ThreadItem[] which will drive the post-stream render.
+
+      const finalItems = Array.from(liveItemsRef.current.values())
+      const streamSucceeded =
+        streamReachedTerminal && !hadSseErrorRef.current && finalItems.length > 0
+
+      if (streamSucceeded) {
+        // Stream is authoritative — items already carry final costs/usage/latency
+        // at the `done` status update. Merge into the tail cache (dropping the
+        // optimistic id=-1 user item) and skip the refetch; otherwise the UI
+        // flickers empty for ~1 RTT while the GET resolves.
+        qc.setQueryData(
+          queryKeys.conversationMessagesTail(conversationId),
+          (old: ThreadItem[] | undefined): ThreadItem[] => {
+            const byId = new Map<number, ThreadItem>()
+            for (const it of old ?? []) {
+              if (it.id !== -1) byId.set(it.id, it)
+            }
+            for (const it of finalItems) byId.set(it.id, it)
+            return Array.from(byId.values()).sort((a, b) =>
+              a.created_at < b.created_at ? -1 : 1,
+            )
+          },
+        )
+      } else {
+        // Failure / abort: persisted state may diverge from what we observed.
+        void qc.invalidateQueries({ queryKey: queryKeys.conversationMessagesTail(conversationId) })
+      }
+
       setStreamItems([])
       liveItemsRef.current = new Map()
 
-      // The backend is authoritative for persisted ThreadItems — invalidate the
-      // tail so the next render shows fully-persisted items with costs/usage.
-      void qc.invalidateQueries({ queryKey: queryKeys.conversationMessagesTail(conversationId) })
-      // Refresh the conversation title + sidebar list.
+      // Title + sidebar may change based on first message — refresh regardless.
       void qc.invalidateQueries({ queryKey: queryKeys.conversations() })
       void qc.invalidateQueries({ queryKey: queryKeys.conversation(conversationId) })
 

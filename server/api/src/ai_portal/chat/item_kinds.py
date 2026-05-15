@@ -7,6 +7,7 @@ class ItemKind(str, Enum):
     llm_call = "llm_call"
     tool_call = "tool_call"
     server_tool_use = "server_tool_use"
+    kb_search = "kb_search"
     thinking = "thinking"
     citation = "citation"
     memory_pill = "memory_pill"
