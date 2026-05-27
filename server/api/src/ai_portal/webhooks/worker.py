@@ -22,7 +22,7 @@ import logging
 import uuid as _uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
@@ -68,7 +68,7 @@ def compute_backoff(attempts: int) -> timedelta:
 
 def next_attempt_at(attempts: int, *, now: datetime | None = None) -> datetime:
     """``now + compute_backoff(attempts)`` — convenience for service callers."""
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
     return now + compute_backoff(attempts)
 
 
@@ -205,7 +205,7 @@ class DeliveryWorker:
 
     async def run_once(self, *, now: datetime | None = None) -> int:
         """Drain a single batch of due deliveries. Returns row count handled."""
-        now = now or datetime.now(timezone.utc)
+        now = now or datetime.now(UTC)
         rows = await self._fetch_due(now)
         for row in rows:
             await self._attempt(row, now)
@@ -245,7 +245,7 @@ class DeliveryWorker:
                 logger.exception("webhook delivery worker tick failed")
             try:
                 await asyncio.wait_for(self._stop.wait(), timeout=self._poll_interval)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 pass
 
     def stop(self) -> None:

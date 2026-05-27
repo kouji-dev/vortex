@@ -13,10 +13,22 @@ from ai_portal.webhooks.event_types import (
     list_event_types,
     register_event_type,
 )
+from ai_portal.webhooks.service import (
+    DeliveryNotFound,
+    UnknownEventType,
+    WebhookNotFound,
+    WebhookService,
+    emit_webhook,
+)
 from ai_portal.webhooks.signer import sign_payload, verify_signature
 
 __all__ = [
+    "DeliveryNotFound",
     "EventTypeAlreadyRegistered",
+    "UnknownEventType",
+    "WebhookNotFound",
+    "WebhookService",
+    "emit_webhook",
     "list_event_types",
     "register_event_type",
     "sign_payload",

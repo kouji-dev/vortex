@@ -24,12 +24,14 @@ from ai_portal.auth.routes_orgs import router as orgs_router
 from ai_portal.auth.routes_control_plane import router as control_plane_router
 from ai_portal.auth.routes_setup import router as setup_router
 from ai_portal.memory.router import router as memories_router
-from ai_portal.usage.router import router as usage_router
+from ai_portal.usage.router import router as usage_router, v1_router as usage_v1_router
+from ai_portal.budgets.router import router as budgets_router
 from ai_portal.audit.router import router as audit_router
 from ai_portal.rbac.router import router as rbac_router
 from ai_portal.retention.router import router as retention_router
 from ai_portal.api.admin.consumption import router as consumption_router
 from ai_portal.realtime.router import router as realtime_router
+from ai_portal.webhooks.router import router as webhooks_router
 from ai_portal.core.config import get_settings, settings_log_snapshot
 from ai_portal.core.logging import configure_logging
 from ai_portal.core.middleware.setup_guard import SetupGuardMiddleware
@@ -99,9 +101,12 @@ app.include_router(setup_router)
 app.include_router(orgs_router)
 app.include_router(control_plane_router)
 app.include_router(usage_router)
+app.include_router(usage_v1_router)
+app.include_router(budgets_router)
 app.include_router(audit_router)
 app.include_router(rbac_router)
 app.include_router(retention_router)
 app.include_router(consumption_router)
 app.include_router(realtime_router)
+app.include_router(webhooks_router)
 

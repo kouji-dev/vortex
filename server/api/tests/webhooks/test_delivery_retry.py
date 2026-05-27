@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
@@ -20,7 +20,6 @@ from ai_portal.webhooks.worker import (
     deliver_once,
     next_attempt_at,
 )
-
 
 # ── Backoff schedule ─────────────────────────────────────────────────────────
 
@@ -44,7 +43,7 @@ def test_compute_backoff_rejects_zero() -> None:
 
 
 def test_next_attempt_at_adds_delay() -> None:
-    now = datetime(2026, 5, 28, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 5, 28, 12, 0, tzinfo=UTC)
     assert next_attempt_at(1, now=now) == now + timedelta(seconds=30)
     assert next_attempt_at(2, now=now) == now + timedelta(minutes=2)
 
@@ -216,7 +215,7 @@ async def test_worker_schedules_retry_at_30s_on_first_5xx() -> None:
         record_success=store.record_success,
         record_failure=store.record_failure,
     )
-    now = datetime(2026, 5, 28, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 5, 28, 12, 0, tzinfo=UTC)
     await worker.run_once(now=now)
 
     assert len(store.failures) == 1
@@ -241,7 +240,7 @@ async def test_worker_progresses_backoff_across_attempts() -> None:
         record_success=store.record_success,
         record_failure=store.record_failure,
     )
-    now = datetime(2026, 5, 28, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 5, 28, 12, 0, tzinfo=UTC)
     await worker.run_once(now=now)
 
     assert len(store.failures) == 3
@@ -269,7 +268,7 @@ async def test_worker_caps_retry_at_24h() -> None:
         record_success=store.record_success,
         record_failure=store.record_failure,
     )
-    now = datetime(2026, 5, 28, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 5, 28, 12, 0, tzinfo=UTC)
     await worker.run_once(now=now)
 
     assert len(store.failures) == 1

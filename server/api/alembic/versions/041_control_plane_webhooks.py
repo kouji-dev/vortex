@@ -1,7 +1,7 @@
 """control_plane: webhooks — outbound HTTP delivery + signing.
 
-Revision ID: 040_control_plane_webhooks
-Revises: 039_control_plane_audit_chain, 039_control_plane_usage_budgets
+Revision ID: 041_control_plane_webhooks
+Revises: 040_control_plane_audit_chain
 Create Date: 2026-05-28
 
 Phase F of the Control Plane plan. Adds three tables:
@@ -11,8 +11,6 @@ Phase F of the Control Plane plan. Adds three tables:
   (``next_attempt_at``) and last response for replay UX.
 - ``webhook_event_types``: catalog of declared event types (seed: budgets,
   gateway, usage, orgs, api_keys). Modules upsert their own keys at startup.
-
-This is also the merge-point for the two 039 heads (audit_chain + usage_budgets).
 """
 
 from __future__ import annotations
@@ -21,11 +19,8 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
-revision = "040_control_plane_webhooks"
-down_revision = (
-    "039_control_plane_audit_chain",
-    "039_control_plane_usage_budgets",
-)
+revision = "041_control_plane_webhooks"
+down_revision = "040_control_plane_audit_chain"
 branch_labels = None
 depends_on = None
 
