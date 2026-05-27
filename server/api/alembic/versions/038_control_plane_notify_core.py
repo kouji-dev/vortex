@@ -1,7 +1,7 @@
 """control_plane: notify core.
 
-Revision ID: 033_control_plane_notify_core
-Revises: 032_dev_user_admin_role
+Revision ID: 038_control_plane_notify_core
+Revises: 037_control_plane_tenancy
 Create Date: 2026-05-28
 
 Adds two tables for the notification subsystem:
@@ -18,8 +18,8 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
-revision = "033_control_plane_notify_core"
-down_revision = "032_dev_user_admin_role"
+revision = "038_control_plane_notify_core"
+down_revision = "037_control_plane_tenancy"
 branch_labels = None
 depends_on = None
 
