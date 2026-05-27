@@ -1,0 +1,7 @@
+{{ (inviter_name | default("An admin", true)) if inviter_name is defined else "An admin" }} invited you to join {{ org_name }} on AI Portal.
+
+Accept here:
+
+{{ invite_url }}
+
+This invite expires in 7 days.
