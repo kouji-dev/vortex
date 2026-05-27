@@ -23,7 +23,7 @@ Both tables under RLS via the existing ``app.current_org_id`` /
 from __future__ import annotations
 
 import uuid as _uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import sqlalchemy as sa
 from alembic import op
@@ -283,7 +283,7 @@ def upgrade() -> None:
         )
 
     # ── seed: built-in system roles + grants ─────────────────────────────────
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     role_ids: dict[str, _uuid.UUID] = {}
     role_descriptions = {
         "owner": "Full access including billing + org deletion",

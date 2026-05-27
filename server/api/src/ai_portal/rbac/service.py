@@ -28,7 +28,6 @@ from ai_portal.rbac.model import (
     RolePermission,
 )
 
-
 ActorKind = Literal["user", "api_key", "service"]
 
 

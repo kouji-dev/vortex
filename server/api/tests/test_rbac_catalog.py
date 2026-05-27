@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 
 def test_catalog_imports_and_has_min_count():
     from ai_portal.rbac.catalog import PERMISSIONS

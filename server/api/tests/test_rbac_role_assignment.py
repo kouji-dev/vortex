@@ -75,9 +75,10 @@ def test_actor_role_assignment_columns():
 
 @requires_postgres
 def test_builtin_system_roles_seeded():
+    from sqlalchemy import select
+
     from ai_portal.core.db.session import SessionLocal
     from ai_portal.rbac.model import Role
-    from sqlalchemy import select
 
     db = SessionLocal()
     try:
@@ -93,10 +94,11 @@ def test_builtin_system_roles_seeded():
 
 @requires_postgres
 def test_owner_role_has_all_permissions():
+    from sqlalchemy import select
+
     from ai_portal.core.db.session import SessionLocal
     from ai_portal.rbac.catalog import PERMISSIONS
     from ai_portal.rbac.model import Role, RolePermission
-    from sqlalchemy import select
 
     db = SessionLocal()
     try:
@@ -118,9 +120,10 @@ def test_owner_role_has_all_permissions():
 
 @requires_postgres
 def test_viewer_role_has_only_read_permissions():
+    from sqlalchemy import select
+
     from ai_portal.core.db.session import SessionLocal
     from ai_portal.rbac.model import Role, RolePermission
-    from sqlalchemy import select
 
     db = SessionLocal()
     try:
@@ -150,8 +153,8 @@ def test_viewer_role_has_only_read_permissions():
 
 @requires_postgres
 def test_has_permission_owner_passes_any_check():
-    from ai_portal.core.db.session import SessionLocal
     from ai_portal.core.db.rls import bypass_rls
+    from ai_portal.core.db.session import SessionLocal
     from ai_portal.rbac.service import RbacService
 
     db = SessionLocal()
@@ -178,8 +181,8 @@ def test_has_permission_owner_passes_any_check():
 
 @requires_postgres
 def test_has_permission_viewer_blocks_writes():
-    from ai_portal.core.db.session import SessionLocal
     from ai_portal.core.db.rls import bypass_rls
+    from ai_portal.core.db.session import SessionLocal
     from ai_portal.rbac.service import Actor, RbacService
 
     db = SessionLocal()
@@ -204,8 +207,8 @@ def test_has_permission_viewer_blocks_writes():
 
 @requires_postgres
 def test_has_permission_unknown_perm_raises():
-    from ai_portal.core.db.session import SessionLocal
     from ai_portal.core.db.rls import bypass_rls
+    from ai_portal.core.db.session import SessionLocal
     from ai_portal.rbac.service import Actor, RbacService, UnknownPermission
 
     db = SessionLocal()
@@ -227,8 +230,8 @@ def test_has_permission_unknown_perm_raises():
 
 @requires_postgres
 def test_has_permission_no_assignment_denies():
-    from ai_portal.core.db.session import SessionLocal
     from ai_portal.core.db.rls import bypass_rls
+    from ai_portal.core.db.session import SessionLocal
     from ai_portal.rbac.service import Actor, RbacService
 
     db = SessionLocal()
@@ -250,8 +253,8 @@ def test_has_permission_no_assignment_denies():
 @requires_postgres
 def test_has_permission_service_actor_via_api_key():
     """API-key actors check their own role assignment."""
-    from ai_portal.core.db.session import SessionLocal
     from ai_portal.core.db.rls import bypass_rls
+    from ai_portal.core.db.session import SessionLocal
     from ai_portal.rbac.service import Actor, RbacService
 
     db = SessionLocal()
@@ -278,8 +281,8 @@ def test_has_permission_service_actor_via_api_key():
 @requires_postgres
 def test_resource_scope_check():
     """Permission with resource_scope restricts to matching resource_id."""
-    from ai_portal.core.db.session import SessionLocal
     from ai_portal.core.db.rls import bypass_rls
+    from ai_portal.core.db.session import SessionLocal
     from ai_portal.rbac.service import Actor, RbacService
 
     db = SessionLocal()
