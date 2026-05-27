@@ -36,10 +36,13 @@ dependencies = [
   "crawl4ai>=0.4",
   "pandas>=2.0",
   "redis>=5.0",
+  "boto3>=1.40",
+  "azure-storage-blob>=12.20",
+  "google-cloud-storage>=2.18",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.3", "pytest-asyncio>=0.24", "ruff>=0.8"]
+dev = ["pytest>=8.3", "pytest-asyncio>=0.24", "ruff>=0.8", "moto[s3]>=5.0"]
 
 [project.scripts]
 seed-catalog-models = "ai_portal.scripts.seed_catalog_models:main"
