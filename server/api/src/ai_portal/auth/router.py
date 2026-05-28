@@ -6,6 +6,7 @@ import jwt
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
+from ai_portal.audit.service import emit_audit
 from ai_portal.auth import repository as repo
 from ai_portal.auth.deps import get_db
 from ai_portal.auth.limiter import login_limiter
@@ -101,6 +102,20 @@ def register(
         user = manager.register(email=body.email, password=body.password)
     except RegistrationError as e:
         raise HTTPException(status.HTTP_409_CONFLICT, detail=str(e))
+    if user.org_id is not None:
+        try:
+            emit_audit(
+                org_id=user.org_id,
+                event_type="auth.user.registered",
+                actor={"type": "user", "id": user.id, "email": user.email},
+                actor_user_id=user.id,
+                resource={"type": "user", "id": str(user.uuid) if hasattr(user, "uuid") else user.id},
+                payload={"email": user.email},
+                ip_address=_client_ip(request),
+                user_agent=_user_agent(request),
+            )
+        except Exception:  # noqa: BLE001
+            pass
     return _issue_session_tokens(manager, user, db, request=request)
 
 
@@ -158,6 +173,20 @@ def login(
             )
 
     login_limiter.record_success(ip, body.email)
+    if user.org_id is not None:
+        try:
+            emit_audit(
+                org_id=user.org_id,
+                event_type="auth.user.login",
+                actor={"type": "user", "id": user.id, "email": user.email},
+                actor_user_id=user.id,
+                resource={"type": "user", "id": user.id},
+                payload={"email": user.email},
+                ip_address=ip,
+                user_agent=_user_agent(request),
+            )
+        except Exception:  # noqa: BLE001
+            pass
     return _issue_session_tokens(manager, user, db, request=request)
 
 

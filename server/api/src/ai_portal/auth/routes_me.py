@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from ai_portal.audit.service import emit_audit
 from ai_portal.auth.deps import get_app_roles, get_current_user, get_db
 from ai_portal.auth.routes_rbac import require_app_roles
 from ai_portal.core.config import get_settings
@@ -87,6 +88,18 @@ def create_portal_api_key(
         label=body.label,
         pepper=settings.portal_api_key_pepper,
     )
+    if user.org_id is not None:
+        try:
+            emit_audit(
+                org_id=user.org_id,
+                event_type="auth.portal_api_key.created",
+                actor={"type": "user", "id": user.id, "email": user.email},
+                actor_user_id=user.id,
+                resource={"type": "portal_api_key", "id": row.id},
+                payload={"label": row.label, "key_prefix": row.key_prefix},
+            )
+        except Exception:  # noqa: BLE001
+            pass
     return PortalApiKeyCreated(
         id=row.id,
         token=raw,
