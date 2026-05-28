@@ -13,7 +13,7 @@
 import { test, expect } from '@playwright/test'
 
 const COMPLETIONS_ROUTE = '**/v1/chat/completions'
-const TRACES_ROUTE = '**/api/gateway/traces**'
+const TRACES_ROUTE = '**/api/v1/gateway/traces**'
 
 function okCompletion(headers: Record<string, string> = {}) {
   return {
@@ -93,7 +93,7 @@ test.describe('Suite — Gateway', () => {
         contentType: 'application/json',
         body: JSON.stringify({
           total: 1,
-          items: [
+          rows: [
             {
               id: 'trace_suite_gw_1',
               created_at: new Date().toISOString(),
@@ -109,6 +109,7 @@ test.describe('Suite — Gateway', () => {
       })
     })
 
+    await page.goto('/', { waitUntil: 'networkidle' })
     await page.evaluate(async () => {
       await fetch('/v1/chat/completions', {
         method: 'POST',
@@ -121,7 +122,7 @@ test.describe('Suite — Gateway', () => {
     })
 
     await page.goto('/gateway/traces', { waitUntil: 'networkidle' })
-    await expect(page.getByText('trace_suite_gw_1')).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByTestId('view-trace_suite_gw_1')).toBeVisible({ timeout: 10_000 })
   })
 
   // ───────────────────────────────────────────────────────────────────

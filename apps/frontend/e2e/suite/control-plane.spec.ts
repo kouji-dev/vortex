@@ -30,9 +30,9 @@ test.describe('Suite — Control plane', () => {
     })
 
     await page.goto('/login', { waitUntil: 'networkidle' })
-    await page.getByPlaceholder('you@example.com').fill('admin@example.com')
+    await page.getByPlaceholder('you@company.com').fill('admin@example.com')
     await page.getByPlaceholder('••••••••').fill('hunter2')
-    await page.getByRole('button', { name: /sign in/i }).click()
+    await page.getByRole('button', { name: /continue to workspace/i }).click()
 
     // Token persisted by the login page.
     await expect(async () => {
