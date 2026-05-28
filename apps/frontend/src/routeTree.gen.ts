@@ -14,6 +14,7 @@ import { Route as RegisterRouteImport } from './routes/register'
 import { Route as MemoriesRouteImport } from './routes/memories'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as WorkersRouteRouteImport } from './routes/workers/route'
+import { Route as RagRouteRouteImport } from './routes/rag/route'
 import { Route as GatewayRouteRouteImport } from './routes/gateway/route'
 import { Route as ChatRouteRouteImport } from './routes/chat/route'
 import { Route as AdminRouteRouteImport } from './routes/admin/route'
@@ -23,6 +24,10 @@ import { Route as KnowledgeBasesIndexRouteImport } from './routes/knowledge-base
 import { Route as GatewayIndexRouteImport } from './routes/gateway/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as WorkersTasksRouteImport } from './routes/workers/tasks'
+import { Route as WorkersSettingsRouteImport } from './routes/workers/settings'
+import { Route as WorkersPoolsRouteImport } from './routes/workers/pools'
+import { Route as WorkersIntegrationsRouteImport } from './routes/workers/integrations'
+import { Route as WorkersAnalyticsRouteImport } from './routes/workers/analytics'
 import { Route as OrgSettingsRouteImport } from './routes/org/settings'
 import { Route as OrgConsumptionRouteImport } from './routes/org/consumption'
 import { Route as MemoriesSharedRouteImport } from './routes/memories/shared'
@@ -53,6 +58,7 @@ import { Route as AdminAuditRouteImport } from './routes/admin/audit'
 import { Route as AdminApiKeysRouteImport } from './routes/admin/api-keys'
 import { Route as ChatConversationsRouteRouteImport } from './routes/chat/conversations/route'
 import { Route as ChatConversationsIndexRouteImport } from './routes/chat/conversations/index'
+import { Route as WorkersTasksTaskIdRouteImport } from './routes/workers/tasks.$taskId'
 import { Route as ChatConversationsIdRouteImport } from './routes/chat/conversations/$id'
 
 const SetupRoute = SetupRouteImport.update({
@@ -78,6 +84,11 @@ const LoginRoute = LoginRouteImport.update({
 const WorkersRouteRoute = WorkersRouteRouteImport.update({
   id: '/workers',
   path: '/workers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RagRouteRoute = RagRouteRouteImport.update({
+  id: '/rag',
+  path: '/rag',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GatewayRouteRoute = GatewayRouteRouteImport.update({
@@ -123,6 +134,26 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
 const WorkersTasksRoute = WorkersTasksRouteImport.update({
   id: '/tasks',
   path: '/tasks',
+  getParentRoute: () => WorkersRouteRoute,
+} as any)
+const WorkersSettingsRoute = WorkersSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => WorkersRouteRoute,
+} as any)
+const WorkersPoolsRoute = WorkersPoolsRouteImport.update({
+  id: '/pools',
+  path: '/pools',
+  getParentRoute: () => WorkersRouteRoute,
+} as any)
+const WorkersIntegrationsRoute = WorkersIntegrationsRouteImport.update({
+  id: '/integrations',
+  path: '/integrations',
+  getParentRoute: () => WorkersRouteRoute,
+} as any)
+const WorkersAnalyticsRoute = WorkersAnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
   getParentRoute: () => WorkersRouteRoute,
 } as any)
 const OrgSettingsRoute = OrgSettingsRouteImport.update({
@@ -275,6 +306,11 @@ const ChatConversationsIndexRoute = ChatConversationsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => ChatConversationsRouteRoute,
 } as any)
+const WorkersTasksTaskIdRoute = WorkersTasksTaskIdRouteImport.update({
+  id: '/$taskId',
+  path: '/$taskId',
+  getParentRoute: () => WorkersTasksRoute,
+} as any)
 const ChatConversationsIdRoute = ChatConversationsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -286,6 +322,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRouteRouteWithChildren
   '/chat': typeof ChatRouteRouteWithChildren
   '/gateway': typeof GatewayRouteRouteWithChildren
+  '/rag': typeof RagRouteRoute
   '/workers': typeof WorkersRouteRouteWithChildren
   '/login': typeof LoginRoute
   '/memories': typeof MemoriesRouteWithChildren
@@ -320,17 +357,23 @@ export interface FileRoutesByFullPath {
   '/memories/shared': typeof MemoriesSharedRoute
   '/org/consumption': typeof OrgConsumptionRoute
   '/org/settings': typeof OrgSettingsRoute
-  '/workers/tasks': typeof WorkersTasksRoute
+  '/workers/analytics': typeof WorkersAnalyticsRoute
+  '/workers/integrations': typeof WorkersIntegrationsRoute
+  '/workers/pools': typeof WorkersPoolsRoute
+  '/workers/settings': typeof WorkersSettingsRoute
+  '/workers/tasks': typeof WorkersTasksRouteWithChildren
   '/admin/': typeof AdminIndexRoute
   '/gateway/': typeof GatewayIndexRoute
   '/knowledge-bases/': typeof KnowledgeBasesIndexRoute
   '/workers/': typeof WorkersIndexRoute
   '/chat/conversations/$id': typeof ChatConversationsIdRoute
+  '/workers/tasks/$taskId': typeof WorkersTasksTaskIdRoute
   '/chat/conversations/': typeof ChatConversationsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/chat': typeof ChatRouteRouteWithChildren
+  '/rag': typeof RagRouteRoute
   '/login': typeof LoginRoute
   '/memories': typeof MemoriesRouteWithChildren
   '/register': typeof RegisterRoute
@@ -363,12 +406,17 @@ export interface FileRoutesByTo {
   '/memories/shared': typeof MemoriesSharedRoute
   '/org/consumption': typeof OrgConsumptionRoute
   '/org/settings': typeof OrgSettingsRoute
-  '/workers/tasks': typeof WorkersTasksRoute
+  '/workers/analytics': typeof WorkersAnalyticsRoute
+  '/workers/integrations': typeof WorkersIntegrationsRoute
+  '/workers/pools': typeof WorkersPoolsRoute
+  '/workers/settings': typeof WorkersSettingsRoute
+  '/workers/tasks': typeof WorkersTasksRouteWithChildren
   '/admin': typeof AdminIndexRoute
   '/gateway': typeof GatewayIndexRoute
   '/knowledge-bases': typeof KnowledgeBasesIndexRoute
   '/workers': typeof WorkersIndexRoute
   '/chat/conversations/$id': typeof ChatConversationsIdRoute
+  '/workers/tasks/$taskId': typeof WorkersTasksTaskIdRoute
   '/chat/conversations': typeof ChatConversationsIndexRoute
 }
 export interface FileRoutesById {
@@ -377,6 +425,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteRouteWithChildren
   '/chat': typeof ChatRouteRouteWithChildren
   '/gateway': typeof GatewayRouteRouteWithChildren
+  '/rag': typeof RagRouteRoute
   '/workers': typeof WorkersRouteRouteWithChildren
   '/login': typeof LoginRoute
   '/memories': typeof MemoriesRouteWithChildren
@@ -411,12 +460,17 @@ export interface FileRoutesById {
   '/memories/shared': typeof MemoriesSharedRoute
   '/org/consumption': typeof OrgConsumptionRoute
   '/org/settings': typeof OrgSettingsRoute
-  '/workers/tasks': typeof WorkersTasksRoute
+  '/workers/analytics': typeof WorkersAnalyticsRoute
+  '/workers/integrations': typeof WorkersIntegrationsRoute
+  '/workers/pools': typeof WorkersPoolsRoute
+  '/workers/settings': typeof WorkersSettingsRoute
+  '/workers/tasks': typeof WorkersTasksRouteWithChildren
   '/admin/': typeof AdminIndexRoute
   '/gateway/': typeof GatewayIndexRoute
   '/knowledge-bases/': typeof KnowledgeBasesIndexRoute
   '/workers/': typeof WorkersIndexRoute
   '/chat/conversations/$id': typeof ChatConversationsIdRoute
+  '/workers/tasks/$taskId': typeof WorkersTasksTaskIdRoute
   '/chat/conversations/': typeof ChatConversationsIndexRoute
 }
 export interface FileRouteTypes {
@@ -426,6 +480,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/chat'
     | '/gateway'
+    | '/rag'
     | '/workers'
     | '/login'
     | '/memories'
@@ -460,17 +515,23 @@ export interface FileRouteTypes {
     | '/memories/shared'
     | '/org/consumption'
     | '/org/settings'
+    | '/workers/analytics'
+    | '/workers/integrations'
+    | '/workers/pools'
+    | '/workers/settings'
     | '/workers/tasks'
     | '/admin/'
     | '/gateway/'
     | '/knowledge-bases/'
     | '/workers/'
     | '/chat/conversations/$id'
+    | '/workers/tasks/$taskId'
     | '/chat/conversations/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/chat'
+    | '/rag'
     | '/login'
     | '/memories'
     | '/register'
@@ -503,12 +564,17 @@ export interface FileRouteTypes {
     | '/memories/shared'
     | '/org/consumption'
     | '/org/settings'
+    | '/workers/analytics'
+    | '/workers/integrations'
+    | '/workers/pools'
+    | '/workers/settings'
     | '/workers/tasks'
     | '/admin'
     | '/gateway'
     | '/knowledge-bases'
     | '/workers'
     | '/chat/conversations/$id'
+    | '/workers/tasks/$taskId'
     | '/chat/conversations'
   id:
     | '__root__'
@@ -516,6 +582,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/chat'
     | '/gateway'
+    | '/rag'
     | '/workers'
     | '/login'
     | '/memories'
@@ -550,12 +617,17 @@ export interface FileRouteTypes {
     | '/memories/shared'
     | '/org/consumption'
     | '/org/settings'
+    | '/workers/analytics'
+    | '/workers/integrations'
+    | '/workers/pools'
+    | '/workers/settings'
     | '/workers/tasks'
     | '/admin/'
     | '/gateway/'
     | '/knowledge-bases/'
     | '/workers/'
     | '/chat/conversations/$id'
+    | '/workers/tasks/$taskId'
     | '/chat/conversations/'
   fileRoutesById: FileRoutesById
 }
@@ -564,6 +636,7 @@ export interface RootRouteChildren {
   AdminRouteRoute: typeof AdminRouteRouteWithChildren
   ChatRouteRoute: typeof ChatRouteRouteWithChildren
   GatewayRouteRoute: typeof GatewayRouteRouteWithChildren
+  RagRouteRoute: typeof RagRouteRoute
   WorkersRouteRoute: typeof WorkersRouteRouteWithChildren
   LoginRoute: typeof LoginRoute
   MemoriesRoute: typeof MemoriesRouteWithChildren
@@ -610,6 +683,13 @@ declare module '@tanstack/react-router' {
       path: '/workers'
       fullPath: '/workers'
       preLoaderRoute: typeof WorkersRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/rag': {
+      id: '/rag'
+      path: '/rag'
+      fullPath: '/rag'
+      preLoaderRoute: typeof RagRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/gateway': {
@@ -673,6 +753,34 @@ declare module '@tanstack/react-router' {
       path: '/tasks'
       fullPath: '/workers/tasks'
       preLoaderRoute: typeof WorkersTasksRouteImport
+      parentRoute: typeof WorkersRouteRoute
+    }
+    '/workers/settings': {
+      id: '/workers/settings'
+      path: '/settings'
+      fullPath: '/workers/settings'
+      preLoaderRoute: typeof WorkersSettingsRouteImport
+      parentRoute: typeof WorkersRouteRoute
+    }
+    '/workers/pools': {
+      id: '/workers/pools'
+      path: '/pools'
+      fullPath: '/workers/pools'
+      preLoaderRoute: typeof WorkersPoolsRouteImport
+      parentRoute: typeof WorkersRouteRoute
+    }
+    '/workers/integrations': {
+      id: '/workers/integrations'
+      path: '/integrations'
+      fullPath: '/workers/integrations'
+      preLoaderRoute: typeof WorkersIntegrationsRouteImport
+      parentRoute: typeof WorkersRouteRoute
+    }
+    '/workers/analytics': {
+      id: '/workers/analytics'
+      path: '/analytics'
+      fullPath: '/workers/analytics'
+      preLoaderRoute: typeof WorkersAnalyticsRouteImport
       parentRoute: typeof WorkersRouteRoute
     }
     '/org/settings': {
@@ -885,6 +993,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatConversationsIndexRouteImport
       parentRoute: typeof ChatConversationsRouteRoute
     }
+    '/workers/tasks/$taskId': {
+      id: '/workers/tasks/$taskId'
+      path: '/$taskId'
+      fullPath: '/workers/tasks/$taskId'
+      preLoaderRoute: typeof WorkersTasksTaskIdRouteImport
+      parentRoute: typeof WorkersTasksRoute
+    }
     '/chat/conversations/$id': {
       id: '/chat/conversations/$id'
       path: '/$id'
@@ -991,13 +1106,33 @@ const GatewayRouteRouteWithChildren = GatewayRouteRoute._addFileChildren(
   GatewayRouteRouteChildren,
 )
 
+interface WorkersTasksRouteChildren {
+  WorkersTasksTaskIdRoute: typeof WorkersTasksTaskIdRoute
+}
+
+const WorkersTasksRouteChildren: WorkersTasksRouteChildren = {
+  WorkersTasksTaskIdRoute: WorkersTasksTaskIdRoute,
+}
+
+const WorkersTasksRouteWithChildren = WorkersTasksRoute._addFileChildren(
+  WorkersTasksRouteChildren,
+)
+
 interface WorkersRouteRouteChildren {
-  WorkersTasksRoute: typeof WorkersTasksRoute
+  WorkersAnalyticsRoute: typeof WorkersAnalyticsRoute
+  WorkersIntegrationsRoute: typeof WorkersIntegrationsRoute
+  WorkersPoolsRoute: typeof WorkersPoolsRoute
+  WorkersSettingsRoute: typeof WorkersSettingsRoute
+  WorkersTasksRoute: typeof WorkersTasksRouteWithChildren
   WorkersIndexRoute: typeof WorkersIndexRoute
 }
 
 const WorkersRouteRouteChildren: WorkersRouteRouteChildren = {
-  WorkersTasksRoute: WorkersTasksRoute,
+  WorkersAnalyticsRoute: WorkersAnalyticsRoute,
+  WorkersIntegrationsRoute: WorkersIntegrationsRoute,
+  WorkersPoolsRoute: WorkersPoolsRoute,
+  WorkersSettingsRoute: WorkersSettingsRoute,
+  WorkersTasksRoute: WorkersTasksRouteWithChildren,
   WorkersIndexRoute: WorkersIndexRoute,
 }
 
@@ -1026,6 +1161,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRouteRoute: AdminRouteRouteWithChildren,
   ChatRouteRoute: ChatRouteRouteWithChildren,
   GatewayRouteRoute: GatewayRouteRouteWithChildren,
+  RagRouteRoute: RagRouteRoute,
   WorkersRouteRoute: WorkersRouteRouteWithChildren,
   LoginRoute: LoginRoute,
   MemoriesRoute: MemoriesRouteWithChildren,
