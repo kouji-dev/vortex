@@ -17,6 +17,7 @@ from typing import Any
 
 import httpx
 
+from ai_portal.workers.git.pr_templates import PrTemplate, apply_template
 from ai_portal.workers.git.protocol import (
     PrEventParsed,
     PullRequest,
@@ -124,9 +125,21 @@ class GitHubProvider:
         title: str,
         body: str,
         draft: bool = True,
+        template: PrTemplate | None = None,
+        task_id: str = "",
+        summary: str = "",
     ) -> PullRequest:
         if head in _DEFAULT_BRANCHES:
             raise DefaultBranchPushBlocked(head)
+        formatted = apply_template(
+            template,
+            title=title,
+            body=body,
+            task_id=task_id,
+            branch=head,
+            repo=repo.full_name,
+            summary=summary or body,
+        )
         async with self._ctx() as c:
             r = await c.post(
                 f"{self.base}/repos/{repo.full_name}/pulls",
@@ -134,8 +147,8 @@ class GitHubProvider:
                 json={
                     "head": head,
                     "base": base,
-                    "title": title,
-                    "body": body,
+                    "title": formatted["title"],
+                    "body": formatted["body"],
                     "draft": draft,
                 },
             )
