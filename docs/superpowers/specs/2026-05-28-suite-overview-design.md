@@ -1,20 +1,22 @@
 # Suite Overview — Enterprise AI Control Plane
 
 > Supersedes the phase split in `Pivot.md`. Suite is five modules — Control Plane is the substrate; Gateway, RAG, Memories, and Task Workers consume it and are independently deployable.
+>
+> **Status (May 2026, post-pivot):** All five modules implemented and smoke-tested. E2E suite 6/9 passing. See `docs/RUNBOOK.md` for ops.
 
 ## Purpose
 
-- [ ] Build a modular AI suite where each module stands alone but composes into one governed platform
-- [ ] Every module sellable in isolation; every module togglable per deployment
-- [ ] Every external touchpoint (provider, connector, store, sandbox, identity) is an interface with bundled implementations
+- [x] Build a modular AI suite where each module stands alone but composes into one governed platform
+- [x] Every module sellable in isolation; every module togglable per deployment
+- [x] Every external touchpoint (provider, connector, store, sandbox, identity) is an interface with bundled implementations
 
 ## Modules
 
-- [ ] **Control Plane** — orgs, users, SSO, SCIM, RBAC, API keys, audit, usage, billing, webhooks, settings
-- [ ] **Gateway** — provider-compatible APIs, routing, failover, rate limits, prompt caching, guardrails, observability
-- [ ] **RAG Management** — KBs, connectors, ingestion, embedders, stores, hybrid search, rerank, search providers, eval
-- [ ] **Memories** — user/conversation/team memories, extraction, recall, decay, GDPR controls
-- [ ] **Task Workers** — sandboxed coding agents, git/issue-tracker triggers, live streaming, approval gates
+- [x] **Control Plane** — orgs, users, SSO, SCIM, RBAC, API keys, audit, usage, billing, webhooks, settings
+- [x] **Gateway** — provider-compatible APIs, routing, failover, rate limits, prompt caching, guardrails, observability
+- [x] **RAG Management** — KBs, connectors, ingestion, embedders, stores, hybrid search, rerank, search providers, eval
+- [x] **Memories** — user/conversation/team memories, extraction, recall, decay, GDPR controls
+- [x] **Task Workers** — sandboxed coding agents, git/issue-tracker triggers, live streaming, approval gates
 
 ## Dependency Graph
 
@@ -103,15 +105,15 @@ Applies to: LLM providers, embedders, vector stores, rerankers, search providers
 
 ## Acceptance Criteria for the Suite
 
-- [ ] Five module specs exist, approved, committed
-- [ ] Five implementation plans derived from specs, approved
-- [ ] All five sub-agents complete their plans
-- [ ] Final E2E pass covers: gateway-routes-to-provider, kb-ingests-and-answers, memory-recall-in-chat, worker-completes-task-and-opens-pr, all under one org with shared audit log
-- [ ] `Pivot.md` updated to reflect the modular structure (or deleted in favor of these specs)
+- [x] Five module specs exist, approved, committed
+- [x] Five implementation plans derived from specs, approved
+- [x] All five sub-agents complete their plans
+- [~] Final E2E pass covers: gateway-routes-to-provider, kb-ingests-and-answers, memory-recall-in-chat, worker-completes-task-and-opens-pr, all under one org with shared audit log — **6/9 specs passing post-pivot**; remaining gaps tracked separately
+- [x] `Pivot.md` superseded — this spec is the canonical structure; `Pivot.md` retained as history
 
-## Documentation Outputs (deferred to post-implementation)
+## Documentation Outputs
 
-- [ ] One README per module under `server/api/src/ai_portal/<module>/README.md`
-- [ ] Public API reference (OpenAPI) per module
-- [ ] Operator runbook per module
-- [ ] "How to add a provider" guide per abstraction category
+- [~] One README per module under `server/api/src/ai_portal/<module>/README.md` — partial
+- [x] Public API reference (OpenAPI) — served at `/openapi.json` (single doc, module-namespaced routes)
+- [x] Operator runbook — `docs/RUNBOOK.md` (single doc covering all modules)
+- [ ] "How to add a provider" guide per abstraction category — deferred

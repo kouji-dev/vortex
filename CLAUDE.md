@@ -1,5 +1,33 @@
 # AI Portal — Project Rules for Claude
 
+## Suite Architecture
+
+Five-module suite. Control Plane is substrate; the other four toggle per-org via `module_flags`.
+
+- **Control Plane** (`server/api/src/ai_portal/control_plane/`) — orgs, users, SSO, SCIM, RBAC, API keys, audit, usage, billing, webhooks, settings, module flags
+- **Gateway** (`server/api/src/ai_portal/gateway/`) — provider-compatible APIs (OpenAI/Anthropic/Bedrock), routing, failover, rate limits, prompt caching, guardrails, traces
+- **RAG Management** (`server/api/src/ai_portal/rag/`, `knowledge_base/`) — KBs, connectors, ingestion, embedders, vector stores, hybrid search, rerank, eval
+- **Memories** (`server/api/src/ai_portal/memory/`) — user/conversation/team memories, BYOK encryption (`MEMORY_KEK`), extraction, recall, decay, GDPR cascade
+- **Task Workers** (`server/api/src/ai_portal/workers/`) — sandboxed coding agents, git/issue triggers, live streaming, M-of-N approvals, replay
+
+Suite overview spec: `docs/superpowers/specs/2026-05-28-suite-overview-design.md`.
+Per-module specs: `docs/superpowers/specs/2026-05-28-{control-plane,gateway,rag-management,memories,task-workers}-design.md`.
+
+**Operator runbook:** `docs/RUNBOOK.md` — env vars, bootstrap, failure modes, smoke tests, E2E.
+
+`Pivot.md` is the historical phase plan and is **superseded** by the suite-overview spec. Do not extend `Pivot.md`; update specs instead.
+
+### Pivot recovery (May 2026) — known good state
+
+After the 600-commit pivot recovery (phases 1-5):
+- Alembic chain green from base to head; `alembic_version` widened to varchar(255) in `041`/`042`
+- Backend boots cleanly with `GATEWAY_USE_FAKE_PROVIDER=true` and Fernet `AUDIT_KEK` / `MEMORY_KEK`
+- All five module smoke tests pass against a scratch DB (`server/api/tests/smoke/test_*_smoke.py`)
+- E2E suite: 6 of 9 specs passing on pivot
+- Gateway compat routes require `GATEWAY_USE_FAKE_PROVIDER=true` OR real provider wiring — otherwise raises `no provider configured`
+
+If migrations fail with `type "X" already exists` or `alembic_version too long`, drop and recreate the DB. See `docs/RUNBOOK.md#common-failure-modes`.
+
 ## Testing Workflow (Non-Negotiable)
 
 After implementing any feature or fix, the task is NOT done until:
