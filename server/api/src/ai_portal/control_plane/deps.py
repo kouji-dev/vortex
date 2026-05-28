@@ -115,9 +115,15 @@ def require_permission(perm: str) -> Callable:
     """
 
     def _dep(
+        request: Request,
         actor: Actor = Depends(require_actor),
         rbac: RbacService = Depends(get_rbac_service),
     ) -> Actor:
+        # Dev / owner short-circuit: dev-mode owners bypass RBAC catalog lookups
+        # so local development works without seeding actor_role_assignments rows.
+        app_roles = getattr(request.state, "app_roles", []) or []
+        if "owner" in app_roles:
+            return actor
         try:
             allowed = rbac.has_permission(actor, perm)
         except UnknownPermission as e:
