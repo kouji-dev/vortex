@@ -87,7 +87,21 @@ async def lifespan(_app: FastAPI):
     except Exception as exc:  # noqa: BLE001
         logger.warning("trace_writer_start_failed: %s", exc)
 
+    # Start catalog refresh + health-probe scheduler.
+    from ai_portal.catalog import sync as _catalog_sync  # noqa: PLC0415
+    _catalog_tasks: list = []
+    try:
+        _catalog_tasks = _catalog_sync.start_background_scheduler()
+        logger.info("catalog_scheduler_started")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("catalog_scheduler_start_failed: %s", exc)
+
     yield
+
+    try:
+        await _catalog_sync.stop_background_scheduler(_catalog_tasks)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("catalog_scheduler_stop_failed: %s", exc)
 
     try:
         await _writer.stop()
