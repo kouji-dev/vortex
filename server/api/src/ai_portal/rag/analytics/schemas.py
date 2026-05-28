@@ -38,6 +38,19 @@ class CostSeriesOut(BaseModel):
     total_cents: float = 0.0
 
 
+class CostBreakdownOut(BaseModel):
+    """Per-KB cost breakdown aggregated from ``usage_events``."""
+
+    tokens_cost_usd: float = 0.0
+    storage_cost_usd: float = 0.0
+    query_cost_usd: float = 0.0
+    other_cost_usd: float = 0.0
+    total_cost_usd: float = 0.0
+    tokens_qty: float = 0.0
+    storage_qty: float = 0.0
+    query_qty: float = 0.0
+
+
 class AnalyticsOverview(BaseModel):
     """Top-level dashboard payload."""
 
@@ -46,6 +59,7 @@ class AnalyticsOverview(BaseModel):
     citation_hit_rate: list[CitationHitRateOut] = Field(default_factory=list)
     feedback: FeedbackBreakdown = Field(default_factory=FeedbackBreakdown)
     cost: CostSeriesOut = Field(default_factory=CostSeriesOut)
+    cost_breakdown: CostBreakdownOut = Field(default_factory=CostBreakdownOut)
     total_queries: int = 0
     total_cost_cents: float = 0.0
 
@@ -72,6 +86,7 @@ class QueryLogIn(BaseModel):
 __all__ = [
     "AnalyticsOverview",
     "CitationHitRateOut",
+    "CostBreakdownOut",
     "CostPoint",
     "CostSeriesOut",
     "FeedbackBreakdown",

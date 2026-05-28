@@ -14,9 +14,11 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ai_portal.knowledge_base.model import KbFeedback, KbQuery
+from ai_portal.rag.analytics.cost import fetch_kb_cost_breakdown, to_out
 from ai_portal.rag.analytics.schemas import (
     AnalyticsOverview,
     CitationHitRateOut,
+    CostBreakdownOut,
     CostPoint,
     CostSeriesOut,
     FeedbackBreakdown,
@@ -221,6 +223,9 @@ class KbAnalyticsService:
         cite = compute_citation_hit_rate(q_rows)
         fb = compute_feedback_breakdown(f_rows)
         cost = compute_cost_series(q_rows)
+        breakdown = to_out(
+            fetch_kb_cost_breakdown(self.db, kb_id=kb_id, since=since)
+        )
         total_cost = float(
             self.db.scalar(
                 select(func.coalesce(func.sum(KbQuery.cost_cents), 0.0)).where(
@@ -263,6 +268,7 @@ class KbAnalyticsService:
                 points=cost.points,
                 total_cents=cost.total_cents,
             ),
+            cost_breakdown=breakdown,
             total_queries=len(q_rows),
             total_cost_cents=total_cost,
         )
