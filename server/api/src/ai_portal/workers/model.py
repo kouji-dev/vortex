@@ -242,6 +242,24 @@ class WorkerApproval(Base):
     approver_ids_json: Mapped[list] = mapped_column(
         JSONB, nullable=False, server_default=_EMPTY_LIST
     )
+    # M-of-N runtime state.
+    # ``state`` mirrors ``decision`` for the M-of-N flow: "pending"
+    # | "approved" | "rejected". ``decision`` stays for single-approver
+    # backwards-compat readers.
+    state: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="pending", server_default="pending"
+    )
+    # ``votes_json`` = {approver_id -> "approve"|"reject"} — fast lookup
+    # used by the decision math (idempotent re-vote).
+    votes_json: Mapped[dict] = mapped_column(
+        JSONB, nullable=False, server_default=_EMPTY_OBJ
+    )
+    # ``approvers_decided_json`` = ordered audit trail of every vote:
+    # [{"user_id": str, "decision": "approve"|"reject", "ts": iso8601,
+    # "reason": str|None}, ...]
+    approvers_decided_json: Mapped[list] = mapped_column(
+        JSONB, nullable=False, server_default=_EMPTY_LIST
+    )
 
 
 class WorkerSandboxRow(Base):

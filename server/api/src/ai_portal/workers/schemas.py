@@ -84,6 +84,19 @@ class PoolOut(PoolIn):
     created_at: datetime
 
 
+class PoolPatch(BaseModel):
+    """Partial pool update — every field optional."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=128)
+    template: str | None = Field(default=None, max_length=64)
+    sandbox_provider: str | None = Field(default=None, max_length=32)
+    repo_allow_list: list[str] | None = None
+    budget_cents_per_task: int | None = Field(default=None, ge=0)
+    default_model: str | None = Field(default=None, max_length=128)
+    settings: dict[str, Any] | None = None
+    enabled: bool | None = None
+
+
 # ── artifact ────────────────────────────────────────────────────
 
 
@@ -109,3 +122,7 @@ class ApprovalOut(BaseModel):
     decision: str | None
     reason: str | None
     required_approvers: int
+    state: str = "pending"
+    approve_count: int = 0
+    reject_count: int = 0
+    approvers_decided: list[dict[str, Any]] = []

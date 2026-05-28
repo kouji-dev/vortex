@@ -21,6 +21,12 @@ from ai_portal.workers.model import (
     WorkerRun,
     WorkerTask,
 )
+from ai_portal.workers.approvals.decision import (
+    AlreadyDecided,
+    DecisionResult,
+    NotAuthorized,
+    record_decision,
+)
 from ai_portal.workers.types import TaskStatus, can_transition
 
 
@@ -34,6 +40,10 @@ class NotFound(WorkersError):
 
 class IllegalTransition(WorkersError):
     """Status transition rejected by the state machine."""
+
+
+class ApprovalConflict(WorkersError):
+    """Approval already terminal or approver not authorized."""
 
 
 def _utcnow() -> datetime:
@@ -88,6 +98,40 @@ def create_pool(
         enabled=enabled,
     )
     db.add(row)
+    db.flush()
+    return row
+
+
+def update_pool(
+    db: Session,
+    *,
+    org_id: _uuid.UUID,
+    pool_id: _uuid.UUID,
+    **fields: Any,
+) -> WorkerPool:
+    """Partial update — only keys provided in ``fields`` are written.
+
+    ``settings`` is mapped onto ``settings_json``;
+    ``repo_allow_list`` onto ``repo_allow_list_json`` (mirroring
+    :func:`create_pool`).
+    """
+    row = get_pool(db, org_id=org_id, pool_id=pool_id)
+    if "name" in fields and fields["name"] is not None:
+        row.name = str(fields["name"])
+    if "template" in fields and fields["template"] is not None:
+        row.template = str(fields["template"])
+    if "sandbox_provider" in fields and fields["sandbox_provider"] is not None:
+        row.sandbox_provider = str(fields["sandbox_provider"])
+    if "repo_allow_list" in fields and fields["repo_allow_list"] is not None:
+        row.repo_allow_list_json = list(fields["repo_allow_list"])
+    if "budget_cents_per_task" in fields and fields["budget_cents_per_task"] is not None:
+        row.budget_cents_per_task = int(fields["budget_cents_per_task"])
+    if "default_model" in fields and fields["default_model"] is not None:
+        row.default_model = str(fields["default_model"])
+    if "settings" in fields and fields["settings"] is not None:
+        row.settings_json = dict(fields["settings"])
+    if "enabled" in fields and fields["enabled"] is not None:
+        row.enabled = bool(fields["enabled"])
     db.flush()
     return row
 
@@ -168,6 +212,40 @@ def submit_task(
     db.add(row)
     db.flush()
     return row
+
+
+def replay_task(
+    db: Session,
+    *,
+    org_id: _uuid.UUID,
+    task_id: _uuid.UUID,
+    actor_id: str | None,
+) -> WorkerTask:
+    """Re-submit a historic task as a new task.
+
+    Loads the original row (tenant-scoped), builds a fresh
+    :class:`TaskInput` via :mod:`workers.replay`, then calls
+    :func:`submit_task` so the new task takes the same path as any
+    other submission. Stamps ``replay_of=<orig_id>`` into the trigger
+    payload for audit/correlation.
+    """
+    from ai_portal.workers.replay.service import build_replay_input
+
+    orig = get_task(db, org_id=org_id, task_id=task_id)
+    ri = build_replay_input(task_row=orig, actor_id=actor_id)
+    new = submit_task(
+        db,
+        org_id=org_id,
+        pool_id=_uuid.UUID(ri.pool_id),
+        title=ri.task_input.title,
+        description=ri.task_input.description,
+        repo=ri.task_input.repo,
+        base_branch=ri.task_input.base_branch,
+        trigger_source=ri.trigger_source,
+        trigger_payload=dict(ri.task_input.extra),
+        created_by=actor_id,
+    )
+    return new
 
 
 def transition_task(
@@ -265,6 +343,22 @@ def decide_approval(
     decided_by: str | None,
     reason: str | None = None,
 ) -> WorkerApproval:
+    """Record one approver's vote against an M-of-N approval.
+
+    Behaviour:
+
+    - ``required_approvers`` is the M (NULL or 0 treated as 1 for
+      backward compat with single-approver rows).
+    - ``approver_ids_json`` is the optional N allow-list. Empty list =
+      anyone can vote.
+    - Each vote is appended to ``approvers_decided_json`` with a
+      timestamp. ``votes_json`` keeps the latest vote per approver for
+      fast lookup.
+    - Flips to ``approved`` only when M distinct ``approve`` votes are
+      collected. Any ``reject`` short-circuits to ``rejected``.
+    - Re-voting on a resolved (approved/rejected) approval raises
+      :class:`ApprovalConflict`.
+    """
     row = db.execute(
         select(WorkerApproval).where(WorkerApproval.id == approval_id)
     ).scalar_one_or_none()
@@ -272,9 +366,47 @@ def decide_approval(
         raise NotFound(f"approval {approval_id} not found")
     # tenant-check via the parent task
     get_task(db, org_id=org_id, task_id=row.task_id)
-    row.decision = decision
-    row.decided_at = _utcnow()
-    row.decided_by = decided_by
+
+    if decided_by is None:
+        raise ApprovalConflict("decided_by required to record an M-of-N vote")
+
+    current = DecisionResult(
+        state=row.state or "pending",
+        votes=dict(row.votes_json or {}),
+    )
+    required = int(row.required_approvers or 1) or 1
+    allowed = list(row.approver_ids_json or []) or None
+    try:
+        new = record_decision(
+            current=current,
+            approver_id=decided_by,
+            decision=decision,
+            required_approvers=required,
+            allowed_approver_ids=allowed,
+            reason=reason,
+        )
+    except (AlreadyDecided, NotAuthorized) as e:
+        raise ApprovalConflict(str(e)) from e
+
+    # Persist runtime state.
+    row.state = new.state
+    row.votes_json = dict(new.votes)
+    # Append-only audit trail.
+    trail = list(row.approvers_decided_json or [])
+    trail.append(
+        {
+            "user_id": decided_by,
+            "decision": decision,
+            "ts": _utcnow().isoformat(),
+            "reason": reason,
+        }
+    )
+    row.approvers_decided_json = trail
+    # Single-approver compat fields stay in sync for legacy readers.
     row.reason = reason
+    if new.state != "pending":
+        row.decision = "approve" if new.state == "approved" else "reject"
+        row.decided_at = _utcnow()
+        row.decided_by = decided_by
     db.flush()
     return row

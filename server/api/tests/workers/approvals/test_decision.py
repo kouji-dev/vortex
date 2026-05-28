@@ -103,3 +103,71 @@ def test_invalid_decision_string_raises() -> None:
             current=_empty(), approver_id="a", decision="maybe",
             required_approvers=1, allowed_approver_ids=None,
         )
+
+
+# ── M-of-N scenarios (spec) ────────────────────────────────────
+
+
+def test_1_of_1_resolves_on_first_approve() -> None:
+    s = record_decision(
+        current=_empty(), approver_id="solo", decision="approve",
+        required_approvers=1, allowed_approver_ids=None,
+    )
+    assert s.state == "approved"
+    assert s.approve_count == 1
+    assert s.reject_count == 0
+
+
+def test_2_of_3_approve_path_pending_then_approved() -> None:
+    s = _empty()
+    s = record_decision(
+        current=s, approver_id="a", decision="approve",
+        required_approvers=2, allowed_approver_ids=("a", "b", "c"),
+    )
+    assert s.state == "pending"
+    assert s.approve_count == 1
+    s = record_decision(
+        current=s, approver_id="b", decision="approve",
+        required_approvers=2, allowed_approver_ids=("a", "b", "c"),
+    )
+    assert s.state == "approved"
+    assert s.approve_count == 2
+    # third vote must be rejected — already terminal
+    with pytest.raises(AlreadyDecided):
+        record_decision(
+            current=s, approver_id="c", decision="approve",
+            required_approvers=2, allowed_approver_ids=("a", "b", "c"),
+        )
+
+
+def test_2_of_3_one_reject_short_circuits() -> None:
+    s = _empty()
+    s = record_decision(
+        current=s, approver_id="a", decision="approve",
+        required_approvers=2, allowed_approver_ids=("a", "b", "c"),
+    )
+    assert s.state == "pending"
+    s = record_decision(
+        current=s, approver_id="b", decision="reject",
+        required_approvers=2, allowed_approver_ids=("a", "b", "c"),
+        reason="risk",
+    )
+    assert s.state == "rejected"
+    assert s.reject_count == 1
+    assert s.approve_count == 1
+    assert s.reason == "risk"
+    # further votes blocked
+    with pytest.raises(AlreadyDecided):
+        record_decision(
+            current=s, approver_id="c", decision="approve",
+            required_approvers=2, allowed_approver_ids=("a", "b", "c"),
+        )
+
+
+def test_legacy_required_approvers_zero_treated_as_one() -> None:
+    """Backward compat: NULL/0 required_approvers behaves as 1-of-1."""
+    s = record_decision(
+        current=_empty(), approver_id="a", decision="approve",
+        required_approvers=0, allowed_approver_ids=None,
+    )
+    assert s.state == "approved"

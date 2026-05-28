@@ -71,3 +71,35 @@ def build_replay_input(
         trigger_source=task_row.trigger_source,
         parent_task_id=parent_id,
     )
+
+
+def submit_replay(
+    *,
+    task_row: Any,
+    actor_id: str | None,
+    submit_task: Any,
+) -> ReplayResult:
+    """End-to-end replay: build input + submit via the orchestrator.
+
+    ``submit_task`` is dependency-injected — pass either
+    :func:`ai_portal.workers.service.submit_task` or a test double.
+    The callable must accept the kwargs produced here and return a row
+    whose ``id`` is the new task id.
+    """
+    ri = build_replay_input(task_row=task_row, actor_id=actor_id)
+    new = submit_task(
+        org_id=ri.org_id,
+        pool_id=ri.pool_id,
+        title=ri.task_input.title,
+        description=ri.task_input.description,
+        repo=ri.task_input.repo,
+        base_branch=ri.task_input.base_branch,
+        trigger_source=ri.trigger_source,
+        trigger_payload=dict(ri.task_input.extra),
+        created_by=actor_id,
+    )
+    new_id = getattr(new, "id", None) or new
+    return ReplayResult(
+        new_task_id=str(new_id),
+        parent_task_id=ri.parent_task_id,
+    )

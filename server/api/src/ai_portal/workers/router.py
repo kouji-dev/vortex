@@ -9,6 +9,7 @@ Routes (prefix ``/v1/workers``):
 - ``GET    /tasks/{id}/events``              — SSE live stream (backfill + live)
 - ``GET    /tasks/{id}/artifacts``           — list artifacts
 - ``GET    /tasks/{id}/approvals``           — list approvals
+- ``POST   /tasks/{id}/replay``              — re-submit historic task
 - ``POST   /tasks/{id}/cancel``              — cancel
 - ``POST   /tasks/{id}/pause``               — pause
 - ``POST   /tasks/{id}/resume``              — resume
@@ -16,6 +17,7 @@ Routes (prefix ``/v1/workers``):
 - ``POST   /approvals/{id}/decide``          — approve/reject
 - ``GET    /pools``                          — list pools
 - ``POST   /pools``                          — create pool
+- ``PATCH  /pools/{id}``                     — partial update (template editor)
 - ``DELETE /pools/{id}``                     — delete pool
 """
 
@@ -42,6 +44,7 @@ from ai_portal.workers.schemas import (
     CancelReasonBody,
     PoolIn,
     PoolOut,
+    PoolPatch,
     RunOut,
     SubmitTaskBody,
     TaskOut,
@@ -115,6 +118,7 @@ def _artifact_to_out(a) -> ArtifactOut:
 
 
 def _approval_to_out(a) -> ApprovalOut:
+    votes = dict(getattr(a, "votes_json", None) or {})
     return ApprovalOut(
         id=str(a.id),
         task_id=str(a.task_id),
@@ -125,6 +129,10 @@ def _approval_to_out(a) -> ApprovalOut:
         decision=a.decision,
         reason=a.reason,
         required_approvers=a.required_approvers,
+        state=getattr(a, "state", None) or "pending",
+        approve_count=sum(1 for v in votes.values() if v == "approve"),
+        reject_count=sum(1 for v in votes.values() if v == "reject"),
+        approvers_decided=list(getattr(a, "approvers_decided_json", None) or []),
     )
 
 
@@ -240,6 +248,33 @@ def list_approvals_for_task(
 # ── controls ────────────────────────────────────────────────────
 
 
+@router.post(
+    "/tasks/{task_id}/replay",
+    response_model=TaskOut,
+    status_code=status.HTTP_201_CREATED,
+)
+def replay_task(
+    task_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
+) -> TaskOut:
+    """Re-submit a historic task as a new task (same inputs, fresh run)."""
+    try:
+        new = svc.replay_task(
+            db,
+            org_id=org_id,
+            task_id=_uuid.UUID(task_id),
+            actor_id=str(user.id) if user else None,
+        )
+    except svc.NotFound as e:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(e))
+    except svc.WorkersError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(e))
+    db.commit()
+    return _task_to_out(new)
+
+
 @router.post("/tasks/{task_id}/cancel", response_model=TaskOut)
 async def cancel_task(
     task_id: str,
@@ -341,6 +376,8 @@ def decide_approval(
         )
     except svc.NotFound as e:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(e))
+    except svc.ApprovalConflict as e:
+        raise HTTPException(status.HTTP_409_CONFLICT, detail=str(e))
     db.commit()
     return _approval_to_out(row)
 
@@ -374,6 +411,26 @@ def create_pool(
         settings=body.settings,
         enabled=body.enabled,
     )
+    db.commit()
+    return _pool_to_out(p)
+
+
+@router.patch("/pools/{pool_id}", response_model=PoolOut)
+def update_pool(
+    pool_id: str,
+    body: PoolPatch,
+    db: Session = Depends(get_db),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
+) -> PoolOut:
+    try:
+        p = svc.update_pool(
+            db,
+            org_id=org_id,
+            pool_id=_uuid.UUID(pool_id),
+            **body.model_dump(exclude_unset=True),
+        )
+    except svc.NotFound as e:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(e))
     db.commit()
     return _pool_to_out(p)
 
