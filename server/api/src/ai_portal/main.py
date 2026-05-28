@@ -14,6 +14,7 @@ if sys.platform == "win32":
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
+import ai_portal.auth.idp.providers  # noqa: F401 — register IdP factories on startup
 from ai_portal.api.admin.consumption import router as consumption_router
 from ai_portal.api_keys.router import router as api_keys_router
 from ai_portal.assistant.router import router as assistants_router
@@ -23,44 +24,32 @@ from ai_portal.auth.router import router as auth_router
 from ai_portal.auth.routes_control_plane import router as control_plane_router
 from ai_portal.auth.routes_me import router as me_router
 from ai_portal.auth.routes_mfa import router as auth_mfa_router
-from ai_portal.auth.routes_sso import router as auth_sso_router
-import ai_portal.auth.idp.providers  # noqa: F401 — register IdP factories on startup
-from ai_portal.catalog.router import router as catalog_router
-from ai_portal.chat.router import router as chat_router
-from ai_portal.knowledge_base.router import router as knowledge_base_router
-from ai_portal.assistant.router import router as assistants_router
 from ai_portal.auth.routes_orgs import router as orgs_router
 from ai_portal.auth.routes_setup import router as setup_router
-from ai_portal.memory.router import router as memories_router
-from ai_portal.usage.router import router as usage_router, v1_router as usage_v1_router
-from ai_portal.budgets.router import router as budgets_router
-from ai_portal.rbac.router import router as rbac_router
-from ai_portal.retention.router import router as retention_router
-from ai_portal.api.admin.consumption import router as consumption_router
-from ai_portal.realtime.router import router as realtime_router
-from ai_portal.webhooks.router import router as webhooks_router
+from ai_portal.auth.routes_sso import router as auth_sso_router
 from ai_portal.billing.router import router as billing_router
-from ai_portal.api_keys.router import router as api_keys_router
-from ai_portal.scim.router import admin_router as scim_admin_router
-from ai_portal.scim.router import scim_router
-from ai_portal.settings.router import router as settings_router
+from ai_portal.budgets.router import router as budgets_router
+from ai_portal.catalog.router import router as catalog_router
+from ai_portal.chat.router import router as chat_router
 from ai_portal.core.config import get_settings, settings_log_snapshot
 from ai_portal.core.logging import configure_logging
 from ai_portal.core.middleware.setup_guard import SetupGuardMiddleware
-from ai_portal.middleware.csrf import CsrfMiddleware
 from ai_portal.gateway.evals.router import router as gateway_evals_router
 from ai_portal.gateway.playground.router import router as gateway_playground_router
 from ai_portal.gateway.rate_limits.router import router as gateway_limits_router
 from ai_portal.gateway.traces.metrics_router import router as gateway_metrics_router
-from ai_portal.guardrails.router import router as guardrail_policies_router
 from ai_portal.gdpr.router import router as gdpr_router
+from ai_portal.guardrails.router import router as guardrail_policies_router
 from ai_portal.knowledge_base.router import router as knowledge_base_router
 from ai_portal.memory.router import router as memories_router
+from ai_portal.middleware.csrf import CsrfMiddleware
 from ai_portal.rag.management.router import router as rag_management_router
 from ai_portal.rag.router import router as rag_router
 from ai_portal.rbac.router import router as rbac_router
 from ai_portal.realtime.router import router as realtime_router
 from ai_portal.retention.router import router as retention_router
+from ai_portal.scim.router import admin_router as scim_admin_router
+from ai_portal.scim.router import scim_router
 from ai_portal.settings.router import router as settings_router
 from ai_portal.usage.router import router as usage_router
 from ai_portal.usage.router import v1_router as usage_v1_router
