@@ -345,6 +345,46 @@ def delete_playground_session(
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Session not found")
 
 
+class _SaveAsEvalBody(BaseModel):
+    test_set_id: _uuid.UUID
+
+
+class _SaveAsEvalOut(BaseModel):
+    record_id: str
+    test_set_id: _uuid.UUID
+    query: str
+    expected_doc_ids: list[str]
+
+
+@router.post(
+    "/{kb_id}/playground/sessions/{session_id}/save-as-eval",
+    response_model=_SaveAsEvalOut,
+)
+def save_session_as_eval(
+    kb_id: int,
+    session_id: _uuid.UUID,
+    body: _SaveAsEvalBody,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Append the playground session as a new EvalRecord on ``test_set_id``."""
+    _check_kb_access(db, user, kb_id)
+    svc = KbPlaygroundService(db=db, retrieve=_make_playground_retrieve(db, user))
+    rec = svc.save_as_eval_record(
+        kb_id=kb_id, session_id=session_id, test_set_id=body.test_set_id
+    )
+    if rec is None:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail="Session or test set not found"
+        )
+    return _SaveAsEvalOut(
+        record_id=rec.id,
+        test_set_id=body.test_set_id,
+        query=rec.query,
+        expected_doc_ids=rec.expected_doc_ids,
+    )
+
+
 # ── analytics routes ─────────────────────────────────────────────────────
 
 

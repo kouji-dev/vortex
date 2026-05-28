@@ -115,4 +115,53 @@ class KbPlaygroundService:
         return True
 
 
+    def save_as_eval_record(
+        self,
+        *,
+        kb_id: int,
+        session_id: _uuid.UUID,
+        test_set_id: _uuid.UUID,
+    ) -> "EvalRecord | None":
+        """Append this session as a new EvalRecord on ``test_set_id``.
+
+        Returns the appended record, or ``None`` when either resource is
+        missing or out-of-kb.
+        """
+        from ai_portal.knowledge_base.model import KbEval, KbPlaygroundSession
+        from ai_portal.rag.eval.schemas import EvalRecord
+        from ai_portal.rag.eval.service import _records_from_blob
+
+        session = self.db.get(KbPlaygroundSession, session_id)
+        if session is None or session.kb_id != kb_id:
+            return None
+        eval_row = self.db.get(KbEval, test_set_id)
+        if eval_row is None or eval_row.kb_id != kb_id:
+            return None
+
+        existing = _records_from_blob(eval_row.test_set_json or {})
+        # Synthesize record_id from session id (stable, idempotent).
+        record = EvalRecord(
+            id=f"pg-{session.id.hex[:12]}",
+            query=session.prompt,
+            expected_doc_ids=[
+                str(c.get("document_id"))
+                for c in (session.retrieved_json or [])
+                if c.get("document_id")
+            ],
+            expected_answer=session.answer or "",
+        )
+        if any(r.id == record.id for r in existing):
+            # Idempotent: don't duplicate. Return the same record.
+            return record
+        existing.append(record)
+        eval_row.test_set_json = {"records": [r.model_dump() for r in existing]}
+        # SQLAlchemy doesn't auto-flag JSONB mutations; mark dirty.
+        from sqlalchemy.orm.attributes import flag_modified
+
+        flag_modified(eval_row, "test_set_json")
+        self.db.commit()
+        self.db.refresh(eval_row)
+        return record
+
+
 __all__ = ["AnswerFn", "KbPlaygroundService", "RetrieveFn"]
