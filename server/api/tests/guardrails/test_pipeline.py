@@ -33,7 +33,6 @@ from ai_portal.guardrails import (
 )
 from tests.conftest import requires_postgres
 
-
 # ── fake guardrails ──────────────────────────────────────────────────────
 
 
