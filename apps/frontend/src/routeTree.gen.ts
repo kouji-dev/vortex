@@ -14,11 +14,14 @@ import { Route as RegisterRouteImport } from './routes/register'
 import { Route as MemoriesRouteImport } from './routes/memories'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ChatRouteRouteImport } from './routes/chat/route'
+import { Route as AdminRouteRouteImport } from './routes/admin/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as KnowledgeBasesIndexRouteImport } from './routes/knowledge-bases/index'
+import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as OrgSettingsRouteImport } from './routes/org/settings'
 import { Route as OrgConsumptionRouteImport } from './routes/org/consumption'
 import { Route as KnowledgeBasesIdRouteImport } from './routes/knowledge-bases/$id'
+import { Route as AdminMembersRouteImport } from './routes/admin/members'
 import { Route as ChatConversationsRouteRouteImport } from './routes/chat/conversations/route'
 import { Route as ChatConversationsIndexRouteImport } from './routes/chat/conversations/index'
 import { Route as ChatConversationsIdRouteImport } from './routes/chat/conversations/$id'
@@ -48,6 +51,11 @@ const ChatRouteRoute = ChatRouteRouteImport.update({
   path: '/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRouteRoute = AdminRouteRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -57,6 +65,11 @@ const KnowledgeBasesIndexRoute = KnowledgeBasesIndexRouteImport.update({
   id: '/knowledge-bases/',
   path: '/knowledge-bases/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRouteRoute,
 } as any)
 const OrgSettingsRoute = OrgSettingsRouteImport.update({
   id: '/org/settings',
@@ -72,6 +85,11 @@ const KnowledgeBasesIdRoute = KnowledgeBasesIdRouteImport.update({
   id: '/knowledge-bases/$id',
   path: '/knowledge-bases/$id',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AdminMembersRoute = AdminMembersRouteImport.update({
+  id: '/members',
+  path: '/members',
+  getParentRoute: () => AdminRouteRoute,
 } as any)
 const ChatConversationsRouteRoute = ChatConversationsRouteRouteImport.update({
   id: '/conversations',
@@ -91,15 +109,18 @@ const ChatConversationsIdRoute = ChatConversationsIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteRouteWithChildren
   '/chat': typeof ChatRouteRouteWithChildren
   '/login': typeof LoginRoute
   '/memories': typeof MemoriesRoute
   '/register': typeof RegisterRoute
   '/setup': typeof SetupRoute
   '/chat/conversations': typeof ChatConversationsRouteRouteWithChildren
+  '/admin/members': typeof AdminMembersRoute
   '/knowledge-bases/$id': typeof KnowledgeBasesIdRoute
   '/org/consumption': typeof OrgConsumptionRoute
   '/org/settings': typeof OrgSettingsRoute
+  '/admin/': typeof AdminIndexRoute
   '/knowledge-bases/': typeof KnowledgeBasesIndexRoute
   '/chat/conversations/$id': typeof ChatConversationsIdRoute
   '/chat/conversations/': typeof ChatConversationsIndexRoute
@@ -111,9 +132,11 @@ export interface FileRoutesByTo {
   '/memories': typeof MemoriesRoute
   '/register': typeof RegisterRoute
   '/setup': typeof SetupRoute
+  '/admin/members': typeof AdminMembersRoute
   '/knowledge-bases/$id': typeof KnowledgeBasesIdRoute
   '/org/consumption': typeof OrgConsumptionRoute
   '/org/settings': typeof OrgSettingsRoute
+  '/admin': typeof AdminIndexRoute
   '/knowledge-bases': typeof KnowledgeBasesIndexRoute
   '/chat/conversations/$id': typeof ChatConversationsIdRoute
   '/chat/conversations': typeof ChatConversationsIndexRoute
@@ -121,15 +144,18 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteRouteWithChildren
   '/chat': typeof ChatRouteRouteWithChildren
   '/login': typeof LoginRoute
   '/memories': typeof MemoriesRoute
   '/register': typeof RegisterRoute
   '/setup': typeof SetupRoute
   '/chat/conversations': typeof ChatConversationsRouteRouteWithChildren
+  '/admin/members': typeof AdminMembersRoute
   '/knowledge-bases/$id': typeof KnowledgeBasesIdRoute
   '/org/consumption': typeof OrgConsumptionRoute
   '/org/settings': typeof OrgSettingsRoute
+  '/admin/': typeof AdminIndexRoute
   '/knowledge-bases/': typeof KnowledgeBasesIndexRoute
   '/chat/conversations/$id': typeof ChatConversationsIdRoute
   '/chat/conversations/': typeof ChatConversationsIndexRoute
@@ -138,15 +164,18 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin'
     | '/chat'
     | '/login'
     | '/memories'
     | '/register'
     | '/setup'
     | '/chat/conversations'
+    | '/admin/members'
     | '/knowledge-bases/$id'
     | '/org/consumption'
     | '/org/settings'
+    | '/admin/'
     | '/knowledge-bases/'
     | '/chat/conversations/$id'
     | '/chat/conversations/'
@@ -158,24 +187,29 @@ export interface FileRouteTypes {
     | '/memories'
     | '/register'
     | '/setup'
+    | '/admin/members'
     | '/knowledge-bases/$id'
     | '/org/consumption'
     | '/org/settings'
+    | '/admin'
     | '/knowledge-bases'
     | '/chat/conversations/$id'
     | '/chat/conversations'
   id:
     | '__root__'
     | '/'
+    | '/admin'
     | '/chat'
     | '/login'
     | '/memories'
     | '/register'
     | '/setup'
     | '/chat/conversations'
+    | '/admin/members'
     | '/knowledge-bases/$id'
     | '/org/consumption'
     | '/org/settings'
+    | '/admin/'
     | '/knowledge-bases/'
     | '/chat/conversations/$id'
     | '/chat/conversations/'
@@ -183,6 +217,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRouteRoute: typeof AdminRouteRouteWithChildren
   ChatRouteRoute: typeof ChatRouteRouteWithChildren
   LoginRoute: typeof LoginRoute
   MemoriesRoute: typeof MemoriesRoute
@@ -231,6 +266,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -244,6 +286,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/knowledge-bases/'
       preLoaderRoute: typeof KnowledgeBasesIndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
     }
     '/org/settings': {
       id: '/org/settings'
@@ -265,6 +314,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/knowledge-bases/$id'
       preLoaderRoute: typeof KnowledgeBasesIdRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/admin/members': {
+      id: '/admin/members'
+      path: '/members'
+      fullPath: '/admin/members'
+      preLoaderRoute: typeof AdminMembersRouteImport
+      parentRoute: typeof AdminRouteRoute
     }
     '/chat/conversations': {
       id: '/chat/conversations'
@@ -289,6 +345,20 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface AdminRouteRouteChildren {
+  AdminMembersRoute: typeof AdminMembersRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+}
+
+const AdminRouteRouteChildren: AdminRouteRouteChildren = {
+  AdminMembersRoute: AdminMembersRoute,
+  AdminIndexRoute: AdminIndexRoute,
+}
+
+const AdminRouteRouteWithChildren = AdminRouteRoute._addFileChildren(
+  AdminRouteRouteChildren,
+)
 
 interface ChatConversationsRouteRouteChildren {
   ChatConversationsIdRoute: typeof ChatConversationsIdRoute
@@ -320,6 +390,7 @@ const ChatRouteRouteWithChildren = ChatRouteRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRouteRoute: AdminRouteRouteWithChildren,
   ChatRouteRoute: ChatRouteRouteWithChildren,
   LoginRoute: LoginRoute,
   MemoriesRoute: MemoriesRoute,
