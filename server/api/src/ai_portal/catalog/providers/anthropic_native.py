@@ -24,25 +24,15 @@ from typing import Any
 
 import anthropic
 
-from ai_portal.catalog.providers.events import (
-    CitationEvent,
-    IterationCompleteEvent,
-    ProviderErrorEvent,
-    ProviderStreamEvent,
-    ServerToolUseEvent,
-    TextDeltaEvent,
-    ThinkingDeltaEvent,
-    ToolCallRequestEvent,
-    UsageEvent,
-)
-
-from ai_portal.core.config import Settings
 from ai_portal.catalog.providers.base import BaseLlmProvider
+from ai_portal.catalog.providers.events import (
+    ProviderStreamEvent,
+)
 from ai_portal.catalog.providers.routing import (
     normalize_model_id_for_langchain_chat,
     remap_deprecated_chat_model,
-    _is_anthropic_style_model,
 )
+from ai_portal.core.config import Settings
 
 logger = logging.getLogger(__name__)
 
@@ -144,6 +134,61 @@ def _build_system_blocks(system_text: str) -> list[dict[str, Any]] | str:
             "cache_control": {"type": "ephemeral"},
         }
     ]
+
+
+def _cache_hint_to_anthropic(hint: object) -> dict[str, Any] | None:
+    """Translate a canonical :class:`CacheHint` to Anthropic's wire shape.
+
+    Anthropic exposes only one cache type today (``ephemeral``). The ``ttl``
+    field selects the tier; ``5m`` is the default so we omit it, ``1h``
+    surfaces explicitly.
+    """
+    if hint is None:
+        return None
+    ttl = getattr(hint, "ttl", None)
+    if ttl == "1h":
+        return {"type": "ephemeral", "ttl": "1h"}
+    return {"type": "ephemeral"}
+
+
+def build_system_blocks_from_request(req: object) -> list[dict[str, Any]] | str:
+    """Build the Anthropic ``system`` field from a canonical :class:`LLMRequest`.
+
+    Honors :attr:`LLMRequest.cache_hints` and per-block ``cache_control`` on
+    :class:`TextBlock` instances inside any ``role="system"`` message. The
+    resulting list of dicts is what the Anthropic SDK consumes as
+    ``system=[...]``.
+
+    Returns the empty string when no system content is present (the SDK
+    accepts that as "no system prompt").
+    """
+    # Collect all system text + the strongest cache_control seen.
+    system_text_parts: list[str] = []
+    per_block_hint: object | None = None
+    for msg in getattr(req, "messages", []) or []:
+        if getattr(msg, "role", None) != "system":
+            continue
+        for block in getattr(msg, "content", []) or []:
+            text = getattr(block, "text", None)
+            if text:
+                system_text_parts.append(text)
+            cc = getattr(block, "cache_control", None)
+            if cc is not None:
+                per_block_hint = cc
+
+    if not system_text_parts:
+        return ""
+
+    # Request-level cache_hints win when no per-block hint is set.
+    req_hints = getattr(req, "cache_hints", None) or []
+    effective_hint = per_block_hint or (req_hints[0] if req_hints else None)
+    cache_control = _cache_hint_to_anthropic(effective_hint)
+
+    system_text = "".join(system_text_parts)
+    block: dict[str, Any] = {"type": "text", "text": system_text}
+    if cache_control is not None:
+        block["cache_control"] = cache_control
+    return [block]
 
 
 def _convert_tool(tool: dict[str, Any]) -> dict[str, Any] | None:
