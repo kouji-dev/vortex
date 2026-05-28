@@ -499,3 +499,14 @@ async def analytics_endpoint(
     from ai_portal.memory.analytics import rollup_all
 
     return await rollup_all(session, actor.org_id)
+
+
+@router.get("/analytics/cost")
+async def analytics_cost_endpoint(
+    period: str = Query(default="30d", pattern=r"^\d+[dhw]$"),
+    session: AsyncSession = Depends(_get_session),
+    actor=Depends(_get_actor()),
+) -> dict[str, Any]:
+    from ai_portal.memory.analytics import extraction_token_cost
+
+    return await extraction_token_cost(session, actor.org_id, period=period)
