@@ -34,6 +34,7 @@ from ai_portal.api.admin.consumption import router as consumption_router
 from ai_portal.realtime.router import router as realtime_router
 from ai_portal.webhooks.router import router as webhooks_router
 from ai_portal.billing.router import router as billing_router
+from ai_portal.api_keys.router import router as api_keys_router
 from ai_portal.core.config import get_settings, settings_log_snapshot
 from ai_portal.core.logging import configure_logging
 from ai_portal.core.middleware.setup_guard import SetupGuardMiddleware
@@ -113,4 +114,5 @@ app.include_router(consumption_router)
 app.include_router(realtime_router)
 app.include_router(webhooks_router)
 app.include_router(billing_router)
+app.include_router(api_keys_router)
 
