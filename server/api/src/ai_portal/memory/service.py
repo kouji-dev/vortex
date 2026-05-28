@@ -556,6 +556,17 @@ class MemoryService:
             expires_at=compute_expires_at(type, retention_days=None),
         )
         m = await self.repo.add(m)
+        await _emit_audit_safe(
+            org_id=org_id,
+            event_type="memory.created",
+            resource={
+                "memory_id": str(m.id),
+                "type": type,
+                "source": "manual",
+                "actor_user_id": actor_user_id,
+                "scope_kind": scope_kind,
+            },
+        )
         await _emit_webhook_safe(
             "memory.created", {"memory_id": str(m.id), "type": type, "source": "manual"}, org_id
         )
@@ -587,6 +598,14 @@ class MemoryService:
         await self.repo.patch(memory_id, **fields)
         m = await self.repo.get(memory_id)
         if m is not None:
+            await _emit_audit_safe(
+                org_id=m.org_id,
+                event_type="memory.updated",
+                resource={
+                    "memory_id": str(m.id),
+                    "fields": sorted(fields.keys()),
+                },
+            )
             await _emit_webhook_safe(
                 "memory.updated", {"memory_id": str(m.id)}, m.org_id
             )
@@ -597,6 +616,11 @@ class MemoryService:
         if m is None:
             return
         await self.repo.soft_delete(memory_id)
+        await _emit_audit_safe(
+            org_id=m.org_id,
+            event_type="memory.deleted",
+            resource={"memory_id": str(m.id), "type": m.type.value},
+        )
         await _emit_webhook_safe(
             "memory.deleted", {"memory_id": str(m.id)}, m.org_id
         )
@@ -608,7 +632,16 @@ class MemoryService:
         if m.deleted_at and (datetime.utcnow() - m.deleted_at).days > 30:
             raise ValueError("memory hard-deletion window passed")
         await self.repo.restore(memory_id)
-        return await self.repo.get(memory_id)
+        restored = await self.repo.get(memory_id)
+        await _emit_audit_safe(
+            org_id=m.org_id,
+            event_type="memory.restored",
+            resource={"memory_id": str(m.id)},
+        )
+        await _emit_webhook_safe(
+            "memory.restored", {"memory_id": str(m.id)}, m.org_id
+        )
+        return restored
 
     async def bulk_pin(
         self,
@@ -706,7 +739,19 @@ class MemoryService:
     ) -> int:
         # If explicit ids provided
         if ids:
-            return await self.repo.bulk_soft_delete([_uuid.UUID(str(i)) for i in ids])
+            count = await self.repo.bulk_soft_delete(
+                [_uuid.UUID(str(i)) for i in ids]
+            )
+            await _emit_audit_safe(
+                org_id=org_id,
+                event_type="memory.bulk_deleted",
+                resource={
+                    "count": count,
+                    "by_ids": True,
+                    "actor_user_id": actor_user_id,
+                },
+            )
+            return count
         clauses: list[Any] = [
             Memory.org_id == org_id,
             Memory.deleted_at.is_(None),
@@ -736,7 +781,19 @@ class MemoryService:
             update(Memory).where(and_(*clauses)).values(deleted_at=datetime.utcnow())
         )
         await self.s.flush()
-        return int(res.rowcount or 0)
+        count = int(res.rowcount or 0)
+        await _emit_audit_safe(
+            org_id=org_id,
+            event_type="memory.bulk_deleted",
+            resource={
+                "count": count,
+                "by_ids": False,
+                "type": type,
+                "scope_kind": scope_kind,
+                "actor_user_id": actor_user_id,
+            },
+        )
+        return count
 
     # ── pause / resume ───────────────────────────────────────────────
 
@@ -770,6 +827,15 @@ class MemoryService:
         )
         self.s.add(p)
         await self.s.flush()
+        await _emit_audit_safe(
+            org_id=org_id,
+            event_type="memory.paused",
+            resource={
+                "actor_user_id": actor_user_id,
+                "scope_kind": scope_kind,
+                "scope_id": scope_id,
+            },
+        )
         return p
 
     async def resume(
@@ -793,7 +859,18 @@ class MemoryService:
             .values(resumed_at=datetime.utcnow())
         )
         await self.s.flush()
-        return int(res.rowcount or 0)
+        cleared = int(res.rowcount or 0)
+        await _emit_audit_safe(
+            org_id=org_id,
+            event_type="memory.resumed",
+            resource={
+                "actor_user_id": actor_user_id,
+                "scope_kind": scope_kind,
+                "scope_id": scope_id,
+                "cleared": cleared,
+            },
+        )
+        return cleared
 
     # ── export ───────────────────────────────────────────────────────
 
@@ -815,6 +892,11 @@ class MemoryService:
                 )
             )
         ).scalars().all()
+        await _emit_audit_safe(
+            org_id=org_id,
+            event_type="memory.exported",
+            resource={"user_id": user_id, "count": len(rows)},
+        )
         return {
             "memories": [
                 {

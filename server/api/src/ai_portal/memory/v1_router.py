@@ -408,8 +408,13 @@ async def set_extraction_policy(
     await session.flush()
     await session.commit()
     try:
-        from ai_portal.control_plane import emit_webhook
+        from ai_portal.control_plane import emit_audit, emit_webhook
 
+        emit_audit(
+            org_id=actor.org_id,
+            event_type="memory.policy.changed",
+            resource={"kind": "extraction", "scope_kind": body.scope_kind},
+        )
         emit_webhook(
             "memory.policy.changed",
             {"scope_kind": body.scope_kind, "kind": "extraction"},
@@ -449,8 +454,13 @@ async def set_recall_policy(
     await session.flush()
     await session.commit()
     try:
-        from ai_portal.control_plane import emit_webhook
+        from ai_portal.control_plane import emit_audit, emit_webhook
 
+        emit_audit(
+            org_id=actor.org_id,
+            event_type="memory.policy.changed",
+            resource={"kind": "recall", "scope_kind": body.scope_kind},
+        )
         emit_webhook(
             "memory.policy.changed",
             {"scope_kind": body.scope_kind, "kind": "recall"},
