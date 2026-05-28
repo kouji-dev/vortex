@@ -57,3 +57,51 @@ def test_unknown_visibility_hidden():
     kb = _kb(visibility="weird", owner=1, org="org-a")
     f = VisibilityFilter(user_id=1, org_id="org-a")
     assert not f.applies_to(kb)
+
+
+# ── copy_documents -----------------------------------------------------------
+
+
+from ai_portal.knowledge_base.management import copy_documents
+from ai_portal.knowledge_base.model import Document
+
+
+class _CapturingDB:
+    """Minimal SQLAlchemy session double for copy_documents tests."""
+
+    def __init__(self, src_docs):
+        self._src_docs = list(src_docs)
+        self.added: list = []
+        self.commits = 0
+
+    def scalars(self, stmt):
+        return iter(self._src_docs)
+
+    def add(self, obj):
+        self.added.append(obj)
+
+    def commit(self):
+        self.commits += 1
+
+
+def test_copy_documents_copies_metadata_only():
+    src = [
+        Document(knowledge_base_id=1, filename="a.pdf", storage_path="/s/a"),
+        Document(knowledge_base_id=1, filename="b.pdf", storage_path="/s/b"),
+    ]
+    db = _CapturingDB(src)
+    n = copy_documents(db, src_kb_id=1, dst_kb_id=2)
+    assert n == 2
+    assert len(db.added) == 2
+    for d in db.added:
+        assert d.knowledge_base_id == 2
+        assert d.status == "pending"  # re-ingest, not "ready"
+    assert db.commits == 1
+
+
+def test_copy_documents_no_commit_when_empty():
+    db = _CapturingDB([])
+    n = copy_documents(db, src_kb_id=1, dst_kb_id=2)
+    assert n == 0
+    assert db.added == []
+    assert db.commits == 0

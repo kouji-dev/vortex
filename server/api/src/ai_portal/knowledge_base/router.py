@@ -27,6 +27,7 @@ from ai_portal.knowledge_base.schemas import (
     ConnectorSyncJobRead,
     DocumentRead,
     DocumentsUploadResponseRead,
+    KbCloneRequest,
     KnowledgeBaseConnectorCreate,
     KnowledgeBaseConnectorPatch,
     KnowledgeBaseConnectorRead,
@@ -37,7 +38,13 @@ from ai_portal.knowledge_base.schemas import (
     PermissionTestDocSample,
     PermissionTestRequest,
     PermissionTestResponse,
+    ScopedKbKeyCreate,
+    ScopedKbKeyCreated,
+    ScopedKbKeyOut,
 )
+from ai_portal.knowledge_base import management as mgmt
+from ai_portal.knowledge_base import scoped_keys as scoped
+from ai_portal.api_keys.service import ApiKeyNotFound, ApiKeyService
 from ai_portal.rag.acl.permission_test import run_permission_test
 
 router = APIRouter(prefix="/api/knowledge-bases", tags=["knowledge-bases"])
@@ -328,6 +335,111 @@ def permission_test(
         ],
         resolved_group_ids=outcome.resolved_group_ids,
     )
+
+
+@router.get(
+    "/{knowledge_base_id}/api-keys",
+    response_model=list[ScopedKbKeyOut],
+)
+def list_scoped_keys(
+    knowledge_base_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
+) -> list[ScopedKbKeyOut]:
+    """List active KB-scoped API keys."""
+    svc.get_owned_kb(db, user, knowledge_base_id)
+    keys = scoped.list_scoped_kb_keys(db, org_id=org_id, kb_id=knowledge_base_id)
+    return [
+        ScopedKbKeyOut(
+            id=k.id,
+            name=k.name,
+            prefix=k.prefix,
+            scopes=list(k.scopes_json or []),
+            created_at=k.created_at,
+            last_used_at=k.last_used_at,
+            revoked_at=k.revoked_at,
+        )
+        for k in keys
+    ]
+
+
+@router.post(
+    "/{knowledge_base_id}/api-keys",
+    response_model=ScopedKbKeyCreated,
+    status_code=status.HTTP_201_CREATED,
+)
+def mint_scoped_key(
+    knowledge_base_id: int,
+    body: ScopedKbKeyCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
+) -> ScopedKbKeyCreated:
+    """Mint a read-only API key bound to this KB. Plaintext shown once."""
+    svc.get_owned_kb(db, user, knowledge_base_id)
+    minted = scoped.mint_scoped_kb_key(
+        db,
+        org_id=org_id,
+        kb_id=knowledge_base_id,
+        name=body.name.strip(),
+        actor_user_id=user.id,
+    )
+    key = ApiKeyService(db).get(org_id=org_id, key_id=minted.key_id)
+    return ScopedKbKeyCreated(
+        id=key.id,
+        name=key.name,
+        prefix=key.prefix,
+        scopes=list(key.scopes_json or []),
+        created_at=key.created_at,
+        last_used_at=key.last_used_at,
+        revoked_at=key.revoked_at,
+        plaintext=minted.plaintext,
+    )
+
+
+@router.delete(
+    "/{knowledge_base_id}/api-keys/{key_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def revoke_scoped_key(
+    knowledge_base_id: int,
+    key_id: _uuid.UUID,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
+) -> None:
+    svc.get_owned_kb(db, user, knowledge_base_id)
+    row = scoped.get_scoped_kb_key(
+        db, org_id=org_id, kb_id=knowledge_base_id, key_id=key_id
+    )
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Scoped key not found")
+    try:
+        ApiKeyService(db).revoke(org_id=org_id, key_id=key_id)
+    except ApiKeyNotFound as e:  # pragma: no cover
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Scoped key not found") from e
+
+
+@router.post(
+    "/{knowledge_base_id}/clone",
+    response_model=KnowledgeBaseRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def clone_kb(
+    knowledge_base_id: int,
+    body: KbCloneRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
+) -> KnowledgeBaseRead:
+    """Clone KB settings + connectors. Documents copied only if include_documents=True."""
+    src = svc.get_owned_kb(db, user, knowledge_base_id)
+    dst = mgmt.clone_kb(db, src, new_name=body.name.strip())
+    if body.include_documents:
+        mgmt.copy_documents(db, src_kb_id=src.id, dst_kb_id=dst.id)
+    rows = svc.build_kb_rows(db, [dst])
+    return rows[0]
 
 
 @router.get("/{kb_id}/documents/{doc_id}/progress")

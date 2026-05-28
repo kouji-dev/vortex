@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ai_portal.knowledge_base.model import (
+    Document,
     KbStatus,
     KbVisibility,
     KnowledgeBase,
@@ -113,3 +114,30 @@ def clone_kb(
     db.commit()
     db.refresh(dst)
     return dst
+
+
+def copy_documents(db: Session, *, src_kb_id: int, dst_kb_id: int) -> int:
+    """Copy Document rows from one KB to another. Returns count.
+
+    Copies the metadata row only — re-ingest is the worker's job.
+    Chunks/embeddings are NOT copied (rebuild via ingest).
+    """
+    docs = list(
+        db.scalars(
+            select(Document).where(Document.knowledge_base_id == src_kb_id)
+        )
+    )
+    n = 0
+    for d in docs:
+        db.add(
+            Document(
+                knowledge_base_id=dst_kb_id,
+                filename=d.filename,
+                storage_path=d.storage_path,
+                status="pending",
+            )
+        )
+        n += 1
+    if n:
+        db.commit()
+    return n
