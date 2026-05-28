@@ -87,7 +87,9 @@ class UserManager:
             raise AuthenticationError("Account is disabled")
         return user
 
-    def create_tokens(self, user: User) -> dict[str, str]:
+    def create_tokens(
+        self, user: User, *, session_id: _uuid.UUID | None = None
+    ) -> dict[str, str]:
         """Return {access_token, refresh_token, token_type} for a user."""
         return {
             "access_token": create_access_token(
@@ -95,12 +97,14 @@ class UserManager:
                 org_id=user.org_id,
                 role=user.role,
                 secret=self._secret,
+                session_id=session_id,
             ),
             "refresh_token": create_refresh_token(
                 user_uuid=user.uuid,
                 org_id=user.org_id,
                 role=user.role,
                 secret=self._secret,
+                session_id=session_id,
             ),
             "token_type": "bearer",
         }

@@ -17,9 +17,10 @@ def create_access_token(
     role: str,
     secret: str,
     expires_minutes: int = ACCESS_TOKEN_EXPIRE_MINUTES,
+    session_id: uuid.UUID | None = None,
 ) -> str:
     now = datetime.now(UTC)
-    payload = {
+    payload: dict = {
         "sub": str(user_uuid),
         "org_id": str(org_id),
         "role": role,
@@ -27,6 +28,8 @@ def create_access_token(
         "iat": now,
         "exp": now + timedelta(minutes=expires_minutes),
     }
+    if session_id is not None:
+        payload["sid"] = str(session_id)
     return jwt.encode(payload, secret, algorithm=ALGORITHM)
 
 
@@ -37,9 +40,10 @@ def create_refresh_token(
     role: str,
     secret: str,
     expires_days: int = REFRESH_TOKEN_EXPIRE_DAYS,
+    session_id: uuid.UUID | None = None,
 ) -> str:
     now = datetime.now(UTC)
-    payload = {
+    payload: dict = {
         "sub": str(user_uuid),
         "org_id": str(org_id),
         "role": role,
@@ -47,6 +51,8 @@ def create_refresh_token(
         "iat": now,
         "exp": now + timedelta(days=expires_days),
     }
+    if session_id is not None:
+        payload["sid"] = str(session_id)
     return jwt.encode(payload, secret, algorithm=ALGORITHM)
 
 

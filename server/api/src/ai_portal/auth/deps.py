@@ -84,6 +84,19 @@ def _authenticate(
         user = db.scalars(select(User).where(User.uuid == user_uuid)).first()
         if user is None or not user.is_active:
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="User not found")
+        sid_raw = payload.get("sid")
+        if isinstance(sid_raw, str) and sid_raw:
+            try:
+                sid_uuid = _uuid.UUID(sid_raw)
+                from ai_portal.auth.sessions import is_session_active
+
+                if not is_session_active(db, session_id=sid_uuid):
+                    raise HTTPException(
+                        status.HTTP_401_UNAUTHORIZED, detail="Session revoked"
+                    )
+                request.state.session_id = sid_uuid
+            except ValueError:
+                pass
         return user
 
     if settings.auth_mode == "dev":
