@@ -50,6 +50,7 @@ from ai_portal.gateway.evals.router import router as gateway_evals_router
 from ai_portal.gateway.playground.router import router as gateway_playground_router
 from ai_portal.gateway.rate_limits.router import router as gateway_limits_router
 from ai_portal.gateway.traces.metrics_router import router as gateway_metrics_router
+from ai_portal.guardrails.router import router as guardrail_policies_router
 from ai_portal.gdpr.router import router as gdpr_router
 from ai_portal.knowledge_base.router import router as knowledge_base_router
 from ai_portal.memory.router import router as memories_router
@@ -185,5 +186,6 @@ app.include_router(gateway_limits_router)
 app.include_router(gateway_playground_router)
 app.include_router(gateway_evals_router)
 app.include_router(gateway_metrics_router)
+app.include_router(guardrail_policies_router)
 app.include_router(workers_router)
 
