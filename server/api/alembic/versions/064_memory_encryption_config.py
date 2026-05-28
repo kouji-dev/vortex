@@ -7,8 +7,8 @@ to transparently encrypt/decrypt ``memories.text`` when ``enabled = true``.
 All columns additive; ``memories`` table untouched (ciphertext is stored
 in the same ``text`` column, prefixed with ``enc:v1:``).
 
-Revision ID: 063_memory_encryption_config
-Revises: 062_workers_approvals_mn
+Revision ID: 064_memory_encryption_config
+Revises: 063_audit_usage_encryption_at_rest
 """
 from __future__ import annotations
 
@@ -16,8 +16,8 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects.postgresql import UUID
 
-revision = "063_memory_encryption_config"
-down_revision = "062_workers_approvals_mn"
+revision = "064_memory_encryption_config"
+down_revision = "063_audit_usage_encryption_at_rest"
 branch_labels = None
 depends_on = None
 
