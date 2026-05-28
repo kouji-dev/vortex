@@ -3,9 +3,14 @@
 Translation layer:
 
 - OpenAI request (single string | list[str] | token-id arrays) → ``list[str]``
-  + canonical ``embed()`` call
+  + canonical embed dispatch via :class:`EmbeddingRouter`
 - :class:`Embeddings` → OpenAI ``list`` envelope with
   ``data: [{object, index, embedding}]``
+
+Routing model → provider, batched dispatch (chunked at the provider's
+``max_batch``), and ``dimensions`` passthrough all live in
+:class:`EmbeddingRouter`. The legacy single-provider path is preserved
+through a fallback adapter when no router is bound.
 
 Honored request headers:
 
@@ -27,6 +32,8 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from ai_portal.gateway import service as gateway_service
+from ai_portal.gateway.embeddings import EmbeddingRouter
+from ai_portal.gateway.types import Embeddings
 
 router = APIRouter(tags=["gateway-openai-compat"])
 
@@ -69,11 +76,28 @@ def _encode_vector(vec: list[float], fmt: str) -> Any:
     return [float(x) for x in vec]
 
 
+# ── DI: embedding router ─────────────────────────────────────────────────
+
+
+def get_embedding_router() -> EmbeddingRouter | None:
+    """FastAPI dep — yields the multi-provider router, or ``None`` to fall
+    back to the single-provider legacy path.
+
+    Default returns ``None`` so existing single-provider tests keep working.
+    Production startup overrides this dep with a fully-populated router.
+    """
+    return None
+
+
+# ── route ────────────────────────────────────────────────────────────────
+
+
 @router.post("/v1/embeddings")
 async def create_embeddings(
     body: OpenAIEmbeddingsRequest,
     response: Response,
     provider=Depends(gateway_service.get_llm_provider),
+    embedding_router: EmbeddingRouter | None = Depends(get_embedding_router),
     x_request_id: Annotated[str | None, Header(alias="x-request-id")] = None,
     traceparent: Annotated[str | None, Header(alias="traceparent")] = None,
     openai_organization: Annotated[
@@ -87,11 +111,23 @@ async def create_embeddings(
             status.HTTP_422_UNPROCESSABLE_ENTITY, detail="input must not be empty"
         )
 
+    emb: Embeddings
     try:
-        emb = await gateway_service.embed(texts, body.model, provider)
+        if embedding_router is not None:
+            emb = await embedding_router.embed(
+                texts, body.model, dimensions=body.dimensions
+            )
+        else:
+            # Legacy: single provider, no batching, no dimension passthrough.
+            emb = await gateway_service.embed(texts, body.model, provider)
     except NotImplementedError as e:
         raise HTTPException(
             status.HTTP_501_NOT_IMPLEMENTED, detail=str(e)
+        ) from e
+    except KeyError as e:
+        # Unknown provider for model.
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, detail=str(e)
         ) from e
 
     data: list[dict[str, Any]] = []
@@ -122,4 +158,4 @@ async def create_embeddings(
     }
 
 
-__all__ = ["router"]
+__all__ = ["get_embedding_router", "router"]
