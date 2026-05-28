@@ -1,4 +1,5 @@
 """Bundled routing strategies (Phase C1)."""
+
 from __future__ import annotations
 
 from ai_portal.gateway.routing.strategies.capability_match import (

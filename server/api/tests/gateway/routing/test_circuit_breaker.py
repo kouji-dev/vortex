@@ -5,6 +5,7 @@ Three states: ``closed`` (normal), ``open`` (deny without trying), and
 failures, stays open for ``recovery_seconds``, then admits a single probe;
 success closes, failure re-opens.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -50,9 +51,7 @@ def test_success_resets_failure_count():
 
 def test_recovery_window_transitions_to_half_open():
     clock = [0.0]
-    cb = CircuitBreaker(
-        failure_threshold=2, recovery_seconds=10, now=lambda: clock[0]
-    )
+    cb = CircuitBreaker(failure_threshold=2, recovery_seconds=10, now=lambda: clock[0])
     cb.record_failure("k")
     cb.record_failure("k")
     assert cb.state("k") is CircuitState.OPEN
@@ -72,9 +71,7 @@ def test_recovery_window_transitions_to_half_open():
 
 def test_half_open_success_closes_breaker():
     clock = [0.0]
-    cb = CircuitBreaker(
-        failure_threshold=2, recovery_seconds=10, now=lambda: clock[0]
-    )
+    cb = CircuitBreaker(failure_threshold=2, recovery_seconds=10, now=lambda: clock[0])
     cb.record_failure("k")
     cb.record_failure("k")
     clock[0] = 20.0
@@ -85,9 +82,7 @@ def test_half_open_success_closes_breaker():
 
 def test_half_open_failure_reopens_breaker():
     clock = [0.0]
-    cb = CircuitBreaker(
-        failure_threshold=2, recovery_seconds=10, now=lambda: clock[0]
-    )
+    cb = CircuitBreaker(failure_threshold=2, recovery_seconds=10, now=lambda: clock[0])
     cb.record_failure("k")
     cb.record_failure("k")
     clock[0] = 20.0

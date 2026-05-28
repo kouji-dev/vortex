@@ -11,6 +11,7 @@ each concrete provider-model pair independently. State machine:
 The breaker is *consecutive-failure based* — a single success resets the
 counter. Time is injected via the ``now`` callable so tests pin it.
 """
+
 from __future__ import annotations
 
 import enum

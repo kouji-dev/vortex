@@ -9,6 +9,7 @@ Rules shape (optional):
 When ``rules.weights`` is absent the strategy uses each candidate's
 ``weight`` attribute. Weight 0 (or negative) disables that candidate.
 """
+
 from __future__ import annotations
 
 import random

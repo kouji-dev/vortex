@@ -12,6 +12,7 @@ The failover loop also drives a :class:`CircuitBreaker`: each candidate's
 ``(provider, model_id)`` key is checked before the attempt and updated
 based on outcome.
 """
+
 from __future__ import annotations
 
 import asyncio

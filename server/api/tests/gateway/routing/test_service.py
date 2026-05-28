@@ -3,11 +3,13 @@
 End-to-end through :class:`RoutingService.resolve` (the pure-Python wiring;
 no provider invocation here — that's exercised in compat-endpoint tests).
 """
+
 from __future__ import annotations
 
 import uuid
 
 import pytest
+from sqlalchemy import text
 
 import ai_portal.auth.model  # noqa: F401 — register Org for FK
 import ai_portal.gateway.routing.model  # noqa: F401 — register tables
@@ -17,8 +19,6 @@ from ai_portal.gateway.routing.service import (
     RoutingService,
 )
 from ai_portal.gateway.types import LLMRequest, Message, TextBlock
-from sqlalchemy import text
-
 from tests.conftest import requires_postgres
 
 

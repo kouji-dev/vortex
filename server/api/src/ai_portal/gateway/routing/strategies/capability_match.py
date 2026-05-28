@@ -12,6 +12,7 @@ Rules shape:
 - ``"cost"`` — cheapest qualifier (input+output).
 - ``"latency"`` — lowest known p95 latency.
 """
+
 from __future__ import annotations
 
 import math
@@ -38,9 +39,7 @@ class CapabilityMatchStrategy(RoutingStrategy):
             raise RoutingError("no candidates")
         required = set(ctx.rules.get("require") or [])
         qualifiers = [
-            c
-            for c in candidates
-            if c.healthy and required.issubset(c.capabilities)
+            c for c in candidates if c.healthy and required.issubset(c.capabilities)
         ]
         if not qualifiers:
             raise RoutingError(f"no candidate matches required capabilities {required}")
@@ -48,14 +47,13 @@ class CapabilityMatchStrategy(RoutingStrategy):
         if tie == "cost":
             return min(
                 qualifiers,
-                key=lambda c: c.price_input_per_1k_cents
-                + c.price_output_per_1k_cents,
+                key=lambda c: c.price_input_per_1k_cents + c.price_output_per_1k_cents,
             )
         if tie == "latency":
             return min(
                 qualifiers,
-                key=lambda c: c.p95_latency_ms
-                if c.p95_latency_ms is not None
-                else math.inf,
+                key=lambda c: (
+                    c.p95_latency_ms if c.p95_latency_ms is not None else math.inf
+                ),
             )
         return qualifiers[0]

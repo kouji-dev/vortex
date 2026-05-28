@@ -28,6 +28,7 @@ The service is intentionally stateless — :meth:`resolve` is the only
 public entry. A request-id-bound trace logger should call this in the
 hot path and record ``RoutingResolution`` into the trace row.
 """
+
 from __future__ import annotations
 
 import uuid as _uuid
@@ -120,9 +121,7 @@ class RoutingService:
             if alias is not None:
                 policy = self.db.get(RoutingPolicy, alias.routing_policy_id)
                 if policy is None or policy.org_id != org_id:
-                    raise RoutingError(
-                        f"alias {req.model!r} points to missing policy"
-                    )
+                    raise RoutingError(f"alias {req.model!r} points to missing policy")
                 return self._run_strategy(
                     req=req,
                     policy=policy,
@@ -173,9 +172,7 @@ class RoutingService:
         metrics: dict[tuple[str, str], float] | None,
     ) -> RoutingResolution:
         if self.db is None:
-            raise RoutingError(
-                "routing policy override requires a DB session"
-            )
+            raise RoutingError("routing policy override requires a DB session")
         policy = self.db.scalar(
             select(RoutingPolicy).where(
                 RoutingPolicy.org_id == org_id,
@@ -183,9 +180,7 @@ class RoutingService:
             )
         )
         if policy is None:
-            raise RoutingError(
-                f"routing policy {policy_name!r} not found for org"
-            )
+            raise RoutingError(f"routing policy {policy_name!r} not found for org")
         return self._run_strategy(
             req=req,
             policy=policy,

@@ -15,6 +15,7 @@ provider/model pairs the org has credentials for that satisfy the request's
 capability; that is the service's job (capability_match is the one
 exception — it filters by extra capabilities encoded in the policy rules).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

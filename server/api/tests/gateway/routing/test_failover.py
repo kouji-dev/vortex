@@ -5,6 +5,7 @@ and a list of candidates produced by the routing strategy. It retries on
 known transient errors (5xx, 429, timeout) with exponential backoff +
 jitter and updates the circuit breaker for the failing provider.
 """
+
 from __future__ import annotations
 
 import asyncio

@@ -27,6 +27,7 @@ Supported predicates inside ``if``:
 ``then`` follows the same shape as :class:`StaticStrategy.rules` — a
 concrete ``(provider, model_id)`` pair that must exist in candidates.
 """
+
 from __future__ import annotations
 
 from typing import Any

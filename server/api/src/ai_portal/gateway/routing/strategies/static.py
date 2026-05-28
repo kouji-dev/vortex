@@ -8,6 +8,7 @@ Rules shape:
 
 Raises :class:`RoutingError` if the target isn't in the candidate list.
 """
+
 from __future__ import annotations
 
 from ai_portal.gateway.routing.protocol import (

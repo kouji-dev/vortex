@@ -10,6 +10,7 @@ Rules shape (optional):
 
     {"input_output_ratio": [1.0, 5.0]}
 """
+
 from __future__ import annotations
 
 from ai_portal.gateway.routing.protocol import (
@@ -22,7 +23,9 @@ from ai_portal.gateway.types import LLMRequest
 
 
 def _score(c: ProviderModel, ratio: tuple[float, float]) -> float:
-    return c.price_input_per_1k_cents * ratio[0] + c.price_output_per_1k_cents * ratio[1]
+    return (
+        c.price_input_per_1k_cents * ratio[0] + c.price_output_per_1k_cents * ratio[1]
+    )
 
 
 class CostOptimizedStrategy(RoutingStrategy):

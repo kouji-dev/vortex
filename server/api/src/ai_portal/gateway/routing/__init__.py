@@ -9,6 +9,7 @@ Phase C of the Gateway plan. Surfaces:
 - :class:`RoutingService` — resolves alias → policy → strategy.pick →
   provider invocation; honors the ``x-gateway-routing-policy`` header.
 """
+
 from __future__ import annotations
 
 from ai_portal.gateway.routing.circuit_breaker import (

@@ -4,6 +4,7 @@ Pure-Python — no DB. Each strategy is exercised against a small candidate
 list to verify it picks the expected route given a representative
 ``rules_json`` payload.
 """
+
 from __future__ import annotations
 
 import pytest

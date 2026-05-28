@@ -8,6 +8,7 @@ Lookup order per candidate:
 
 If every candidate is unknown the first healthy one is returned.
 """
+
 from __future__ import annotations
 
 import math

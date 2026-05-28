@@ -3,6 +3,7 @@
 The :class:`RoutingPolicy.strategy` column stores the string name; the
 service uses :func:`get_strategy` to resolve it at request time.
 """
+
 from __future__ import annotations
 
 from ai_portal.gateway.routing.protocol import RoutingStrategy
@@ -36,8 +37,7 @@ def get_strategy(name: str) -> RoutingStrategy:
         return STRATEGY_REGISTRY[name]
     except KeyError as exc:
         raise KeyError(
-            f"unknown routing strategy {name!r}; "
-            f"known: {sorted(STRATEGY_REGISTRY)}"
+            f"unknown routing strategy {name!r}; known: {sorted(STRATEGY_REGISTRY)}"
         ) from exc
 
 

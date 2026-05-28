@@ -9,6 +9,7 @@
 Both are org-scoped with row-level security; the alembic revision installs
 the RLS policy.
 """
+
 from __future__ import annotations
 
 import uuid as _uuid

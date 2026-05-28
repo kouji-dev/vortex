@@ -13,6 +13,7 @@ Walks ``order`` top-to-bottom and returns the first match that is healthy
 and present in ``candidates``. Falls back to the first candidate when the
 order is empty / no entry matched.
 """
+
 from __future__ import annotations
 
 from ai_portal.gateway.routing.protocol import (

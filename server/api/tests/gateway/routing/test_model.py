@@ -2,6 +2,7 @@
 
 Pure import + registry shape — no DB required.
 """
+
 from __future__ import annotations
 
 import uuid

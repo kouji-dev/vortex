@@ -2,6 +2,7 @@
 
 Pure-Python — no DB.
 """
+
 from __future__ import annotations
 
 from ai_portal.gateway.routing.service import (
@@ -20,15 +21,9 @@ def test_returns_none_for_empty_headers():
 
 
 def test_returns_value_case_insensitive():
-    assert (
-        extract_policy_override({"x-gateway-routing-policy": "cheap"}) == "cheap"
-    )
-    assert (
-        extract_policy_override({"X-Gateway-Routing-Policy": "cheap"}) == "cheap"
-    )
-    assert (
-        extract_policy_override({"X-GATEWAY-ROUTING-POLICY": "cheap"}) == "cheap"
-    )
+    assert extract_policy_override({"x-gateway-routing-policy": "cheap"}) == "cheap"
+    assert extract_policy_override({"X-Gateway-Routing-Policy": "cheap"}) == "cheap"
+    assert extract_policy_override({"X-GATEWAY-ROUTING-POLICY": "cheap"}) == "cheap"
 
 
 def test_strips_whitespace():
@@ -41,7 +36,4 @@ def test_empty_value_returns_none():
 
 
 def test_other_headers_ignored():
-    assert (
-        extract_policy_override({"x-other": "policy-name", "x-foo": "bar"})
-        is None
-    )
+    assert extract_policy_override({"x-other": "policy-name", "x-foo": "bar"}) is None
