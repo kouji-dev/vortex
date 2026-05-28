@@ -21,8 +21,8 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
-revision = "046_control_plane_gdpr"
-down_revision = "045_control_plane_settings"
+revision = "047_control_plane_gdpr"
+down_revision = "046_control_plane_scim"
 branch_labels = None
 depends_on = None
 
