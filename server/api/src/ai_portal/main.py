@@ -52,6 +52,7 @@ from ai_portal.gateway.rate_limits.router import router as gateway_limits_router
 from ai_portal.gdpr.router import router as gdpr_router
 from ai_portal.knowledge_base.router import router as knowledge_base_router
 from ai_portal.memory.router import router as memories_router
+from ai_portal.rag.management.router import router as rag_management_router
 from ai_portal.rag.router import router as rag_router
 from ai_portal.rbac.router import router as rbac_router
 from ai_portal.realtime.router import router as realtime_router
@@ -146,6 +147,7 @@ app.include_router(chat_router)
 app.include_router(memories_router)
 app.include_router(knowledge_base_router)
 app.include_router(rag_router)
+app.include_router(rag_management_router)
 app.include_router(setup_router)
 app.include_router(orgs_router)
 app.include_router(control_plane_router)

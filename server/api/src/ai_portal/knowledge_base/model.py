@@ -8,6 +8,7 @@ from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     Boolean,
     DateTime,
+    Float,
     ForeignKey,
     Integer,
     String,
@@ -323,6 +324,158 @@ class KbAcl(Base):
     )
     subject_kind: Mapped[str] = mapped_column(String(16))  # user | group | public
     subject_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+# ── Phase M/N/P: eval framework + analytics + playground ─────────────────
+
+
+class KbEval(Base):
+    """Named test set scoped to a knowledge base.
+
+    ``test_set_json`` shape:
+
+    .. code-block:: json
+
+        {"records": [
+            {"id": "q1", "query": "...", "expected_doc_ids": ["d1","d2"],
+             "expected_answer": "...", "judges": ["recall@5","mrr","faithfulness"]},
+        ]}
+    """
+
+    __tablename__ = "kb_evals"
+
+    id: Mapped[_uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    )
+    kb_id: Mapped[int] = mapped_column(
+        ForeignKey("knowledge_bases.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(255))
+    test_set_json: Mapped[dict] = mapped_column(
+        JSONB, default=dict, server_default=text("'{}'::jsonb")
+    )
+    judge_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    judge_temperature: Mapped[float] = mapped_column(
+        Float, default=0.0, server_default="0.0"
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class KbEvalRun(Base):
+    """One execution of a KbEval against a snapshot of the KB."""
+
+    __tablename__ = "kb_eval_runs"
+
+    id: Mapped[_uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    )
+    eval_id: Mapped[_uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("kb_evals.id", ondelete="CASCADE"),
+        index=True,
+    )
+    snapshot_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    metrics_json: Mapped[dict] = mapped_column(
+        JSONB, default=dict, server_default=text("'{}'::jsonb")
+    )
+    results_json: Mapped[list] = mapped_column(
+        JSONB, default=list, server_default=text("'[]'::jsonb")
+    )
+    regression: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    ran_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class KbQuery(Base):
+    """One retrieval/answer query against a KB (for analytics rollups)."""
+
+    __tablename__ = "kb_queries"
+
+    id: Mapped[_uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    )
+    kb_id: Mapped[int] = mapped_column(
+        ForeignKey("knowledge_bases.id", ondelete="CASCADE"), index=True
+    )
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    query: Mapped[str] = mapped_column(Text)
+    hits_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    citations_json: Mapped[list] = mapped_column(
+        JSONB, default=list, server_default=text("'[]'::jsonb")
+    )
+    latency_ms: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    cost_cents: Mapped[float] = mapped_column(Float, default=0.0, server_default="0")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class KbFeedback(Base):
+    """Per-citation thumbs up/down + optional comment."""
+
+    __tablename__ = "kb_feedback"
+
+    id: Mapped[_uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    )
+    kb_id: Mapped[int] = mapped_column(
+        ForeignKey("knowledge_bases.id", ondelete="CASCADE"), index=True
+    )
+    query_id: Mapped[_uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), nullable=True
+    )
+    chunk_id: Mapped[_uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), nullable=True
+    )
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    rating: Mapped[str] = mapped_column(String(8))  # up | down
+    comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class KbPlaygroundSession(Base):
+    """Saved playground prompt + settings + retrieved chunks (deterministic replay)."""
+
+    __tablename__ = "kb_playground_sessions"
+
+    id: Mapped[_uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    )
+    kb_id: Mapped[int] = mapped_column(
+        ForeignKey("knowledge_bases.id", ondelete="CASCADE"), index=True
+    )
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    prompt: Mapped[str] = mapped_column(Text)
+    settings_json: Mapped[dict] = mapped_column(
+        JSONB, default=dict, server_default=text("'{}'::jsonb")
+    )
+    retrieved_json: Mapped[list] = mapped_column(
+        JSONB, default=list, server_default=text("'[]'::jsonb")
+    )
+    answer: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
