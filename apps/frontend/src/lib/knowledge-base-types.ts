@@ -23,6 +23,12 @@ export type KnowledgeBaseDocument = {
   status: string
   /** Present when ingest failed (embedding API, etc.). */
   ingest_error?: string | null
+  /** Optional richer error from kb_sync_errors (matched via source_uri). */
+  quarantine_reason?: string | null
+  /** Optional UUID of the most recent sync run that produced the error. */
+  sync_run_id?: string | null
+  /** Optional message of the last sync error attached to this document. */
+  last_error?: string | null
   created_at: string
 }
 

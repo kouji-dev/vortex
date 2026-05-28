@@ -34,6 +34,7 @@ from ai_portal.rag.analytics.schemas import (
     AnalyticsOverview,
     FeedbackIn,
 )
+from ai_portal.rag.management.doc_detail import DocDetailOut, fetch_doc_detail
 from ai_portal.rag.eval.runner import RetrieveFn
 from ai_portal.rag.eval.schemas import (
     EvalRecord,
@@ -385,6 +386,26 @@ def submit_feedback(
         comment=body.comment,
     )
     return FeedbackOut(id=fid)
+
+
+# ── document detail (enriched with last sync error) ──────────────────────
+
+
+@router.get(
+    "/{kb_id}/documents/{doc_id}",
+    response_model=DocDetailOut,
+)
+def get_document_detail(
+    kb_id: int,
+    doc_id: _uuid.UUID,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> DocDetailOut:
+    _check_kb_access(db, user, kb_id)
+    out = fetch_doc_detail(db, kb_id=kb_id, doc_id=doc_id)
+    if out is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Document not found")
+    return out
 
 
 __all__ = ["router"]

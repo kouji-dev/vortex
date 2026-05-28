@@ -64,7 +64,8 @@ function QuarantinePage() {
           <thead>
             <tr>
               <th>Filename</th>
-              <th>Error</th>
+              <th>Reason</th>
+              <th>Last sync error</th>
               <th>Failed at</th>
               <th />
             </tr>
@@ -73,8 +74,19 @@ function QuarantinePage() {
             {failed.map((d) => (
               <tr key={d.id} data-testid={`rag-quarantine-row-${d.id}`}>
                 <td>{d.filename}</td>
-                <td style={{ fontSize: 11, color: 'var(--ink-3)' }}>
-                  {d.ingest_error ?? '—'}
+                <td
+                  style={{ fontSize: 11, color: 'var(--ink-3)' }}
+                  data-testid={`rag-quarantine-reason-${d.id}`}
+                >
+                  {d.quarantine_reason ?? d.ingest_error ?? '—'}
+                </td>
+                <td
+                  style={{ fontSize: 11, color: 'var(--ink-3)' }}
+                  data-testid={`rag-quarantine-last-error-${d.id}`}
+                >
+                  {d.last_error
+                    ? `${d.last_error}${d.sync_run_id ? ` (run ${d.sync_run_id.slice(0, 8)})` : ''}`
+                    : '—'}
                 </td>
                 <td>{new Date(d.created_at).toLocaleString()}</td>
                 <td>
