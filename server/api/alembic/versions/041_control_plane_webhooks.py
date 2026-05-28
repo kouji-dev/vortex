@@ -38,6 +38,11 @@ _SEED_EVENT_TYPES: list[tuple[str, str, str]] = [
 
 
 def upgrade() -> None:
+    # Widen alembic_version — control-plane revision ids from 043 onward
+    # exceed the default 32-char limit.
+    op.execute(
+        "ALTER TABLE alembic_version ALTER COLUMN version_num TYPE VARCHAR(255)"
+    )
     # ── webhooks ────────────────────────────────────────────────────────────
     op.create_table(
         "webhooks",
