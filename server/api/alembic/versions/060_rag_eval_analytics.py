@@ -61,7 +61,7 @@ def upgrade() -> None:
             nullable=False,
         ),
     )
-    op.create_index("ix_kb_evals_kb_id", "kb_evals", ["kb_id"])
+    # `kb_id` column already has `index=True` → autogen creates `ix_kb_evals_kb_id`.
 
     # ── kb_eval_runs ───────────────────────────────────────────────────────
     op.create_table(
@@ -166,7 +166,7 @@ def upgrade() -> None:
             nullable=False,
         ),
     )
-    op.create_index("ix_kb_feedback_kb_id", "kb_feedback", ["kb_id"])
+    # `kb_id` column already has `index=True` → autogen creates `ix_kb_feedback_kb_id`.
 
     # ── kb_playground_sessions ─────────────────────────────────────────────
     op.create_table(
@@ -210,13 +210,11 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index("ix_kb_playground_kb_id", table_name="kb_playground_sessions")
+    op.execute("DROP INDEX IF EXISTS ix_kb_playground_kb_id")
     op.drop_table("kb_playground_sessions")
-    op.drop_index("ix_kb_feedback_kb_id", table_name="kb_feedback")
     op.drop_table("kb_feedback")
-    op.drop_index("ix_kb_queries_kb_created", table_name="kb_queries")
+    op.execute("DROP INDEX IF EXISTS ix_kb_queries_kb_created")
     op.drop_table("kb_queries")
-    op.drop_index("ix_kb_eval_runs_eval_id_ran_at", table_name="kb_eval_runs")
+    op.execute("DROP INDEX IF EXISTS ix_kb_eval_runs_eval_id_ran_at")
     op.drop_table("kb_eval_runs")
-    op.drop_index("ix_kb_evals_kb_id", table_name="kb_evals")
     op.drop_table("kb_evals")
