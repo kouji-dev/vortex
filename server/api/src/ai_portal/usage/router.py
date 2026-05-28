@@ -40,6 +40,11 @@ _GRAIN_FOR_PERIOD: dict[str, Grain] = {
 }
 
 
+def _require_admin(user: User = Depends(get_current_user)) -> User:
+    _require_role(user, ("admin", "owner"))
+    return user
+
+
 @v1_router.get("", response_model=UsageDashboardResponse)
 def get_usage_dashboard(
     dim: str = Query("model", pattern=r"^(user|team|key|model|module|unit)$"),
@@ -100,11 +105,6 @@ def get_usage_dashboard(
         total_cost_usd=total_cost,
         total_qty=total_qty,
     )
-
-
-def _require_admin(user: User = Depends(get_current_user)) -> User:
-    _require_role(user, ("admin", "owner"))
-    return user
 
 
 @router.get("/summary", response_model=UsageSummaryResponse, deprecated=True)

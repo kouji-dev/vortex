@@ -28,6 +28,7 @@ from ai_portal.audit.chain import compute_hash
 from ai_portal.audit.model import AuditEvent, AuditRetentionConfig
 from ai_portal.audit.protocol import AuditEventPayload
 from ai_portal.audit.registry import resolve_sinks_for_org
+from ai_portal.core.crypto import encrypt_json
 
 logger = logging.getLogger(__name__)
 
@@ -98,18 +99,21 @@ def emit_audit(
                     prev_hash=prev_hash,
                 )
 
+                actor_dict = actor or None
                 row = AuditEvent(
                     event_id=event_id,
                     org_id=org_uuid,
                     actor_user_id=actor_user_id,
                     actor_type=actor_type,
-                    actor_json=actor or None,
+                    actor_json=None,
+                    actor_enc=encrypt_json(actor_dict),
                     event_type=event_type,
                     resource_type=resource_type,
                     resource_id=str(resource_id) if resource_id is not None else None,
                     action=action,
-                    payload_json=payload,
-                    metadata_=payload,
+                    payload_json=None,
+                    payload_enc=encrypt_json(payload),
+                    metadata_=None,
                     request_id=request_id,
                     ip_address=ip_address,
                     user_agent=user_agent,
@@ -126,13 +130,13 @@ def emit_audit(
             org_id=row.org_id,
             actor_user_id=row.actor_user_id,
             actor_type=row.actor_type,
-            actor_json=row.actor_json,
+            actor_json=actor_dict,
             event_type=row.event_type,
             resource_type=row.resource_type,
             resource_id=row.resource_id,
             action=row.action,
-            payload=row.payload_json,
-            metadata=row.metadata_,
+            payload=payload,
+            metadata=payload,
             request_id=row.request_id,
             ip_address=str(row.ip_address) if row.ip_address else None,
             user_agent=row.user_agent,
@@ -169,12 +173,20 @@ def _fanout_sinks(org_id: uuid.UUID, event: AuditEventPayload) -> None:
     if not sinks:
         return
 
+    from ai_portal.audit.sinks_metrics import record_write  # noqa: PLC0415
+
     async def _run_all() -> None:
         for s in sinks:
+            import time  # noqa: PLC0415
+
+            started_at = time.perf_counter()
+            sink_name = getattr(s, "name", "?")
             try:
                 await s.write(event)
+                record_write(org_id, sink_name, started_at=started_at, error=None)
             except Exception as exc:  # noqa: BLE001
-                logger.warning("audit sink %s.write failed: %s", getattr(s, "name", "?"), exc)
+                record_write(org_id, sink_name, started_at=started_at, error=exc)
+                logger.warning("audit sink %s.write failed: %s", sink_name, exc)
 
     # Run synchronously from a thread so the caller (possibly sync) is not blocked
     # on the event loop and we don't crash when there is no running loop.

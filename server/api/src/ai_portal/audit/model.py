@@ -14,7 +14,7 @@ from __future__ import annotations
 import uuid as _uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, LargeBinary, String, Text, func
 from sqlalchemy.dialects.postgresql import INET, JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -36,6 +36,8 @@ class AuditEvent(Base):
     resource_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     action: Mapped[str] = mapped_column(String(32), nullable=False)
     payload_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    payload_enc: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    actor_enc: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
     metadata_: Mapped[dict | None] = mapped_column("metadata", JSONB, nullable=True)
     request_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     ip_address: Mapped[str | None] = mapped_column(INET, nullable=True)

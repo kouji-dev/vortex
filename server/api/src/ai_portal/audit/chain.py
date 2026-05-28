@@ -49,6 +49,17 @@ def compute_hash(
     return h.hexdigest()
 
 
+def _chain_payload(ev: Any) -> Any:
+    """Return the cleartext payload for hash computation.
+
+    Prefers ``payload_enc`` (decrypted) so chain verification continues to
+    work after encryption-at-rest is enabled.
+    """
+    from ai_portal.audit.event_view import decrypt_payload  # noqa: PLC0415
+
+    return decrypt_payload(ev)
+
+
 def verify_chain(events: list[Any]) -> tuple[bool, int | None]:
     """Walk events in order, recompute each hash, compare against stored.
 
@@ -66,7 +77,7 @@ def verify_chain(events: list[Any]) -> tuple[bool, int | None]:
             action=ev.action,
             resource_type=ev.resource_type,
             resource_id=ev.resource_id,
-            payload=ev.payload_json,
+            payload=_chain_payload(ev),
             created_at=ev.created_at,
             prev_hash=prev,
         )

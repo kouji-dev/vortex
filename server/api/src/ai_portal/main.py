@@ -18,6 +18,7 @@ from ai_portal.api.admin.consumption import router as consumption_router
 from ai_portal.api_keys.router import router as api_keys_router
 from ai_portal.assistant.router import router as assistants_router
 from ai_portal.audit.router import router as audit_router
+from ai_portal.audit.sinks_router import router as audit_sinks_router
 from ai_portal.auth.router import router as auth_router
 from ai_portal.auth.routes_control_plane import router as control_plane_router
 from ai_portal.auth.routes_me import router as me_router
@@ -46,6 +47,7 @@ from ai_portal.settings.router import router as settings_router
 from ai_portal.core.config import get_settings, settings_log_snapshot
 from ai_portal.core.logging import configure_logging
 from ai_portal.core.middleware.setup_guard import SetupGuardMiddleware
+from ai_portal.middleware.csrf import CsrfMiddleware
 from ai_portal.gateway.evals.router import router as gateway_evals_router
 from ai_portal.gateway.playground.router import router as gateway_playground_router
 from ai_portal.gateway.rate_limits.router import router as gateway_limits_router
@@ -87,6 +89,23 @@ async def lifespan(_app: FastAPI):
     except Exception as exc:  # noqa: BLE001
         logger.warning("trace_writer_start_failed: %s", exc)
 
+    # Wire the new-device login alert through NotifyService — skip cleanly
+    # when no notification transport is configured.
+    try:
+        from ai_portal.auth.new_device_notify import (  # noqa: PLC0415
+            install_new_device_notifier,
+        )
+        from ai_portal.notify.bootstrap import build_notify_service  # noqa: PLC0415
+
+        notify_svc = build_notify_service(st)
+        if notify_svc is not None:
+            install_new_device_notifier(notify_svc)
+            logger.info("new_device_notifier_installed")
+        else:
+            logger.info("new_device_notifier_skipped notify_not_configured")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("new_device_notifier_install_failed: %s", exc)
+
     yield
 
     try:
@@ -107,6 +126,7 @@ app.add_middleware(
 )
 
 app.add_middleware(SetupGuardMiddleware)
+app.add_middleware(CsrfMiddleware)
 
 
 @app.middleware("http")
@@ -155,6 +175,7 @@ app.include_router(usage_router)
 app.include_router(usage_v1_router)
 app.include_router(budgets_router)
 app.include_router(audit_router)
+app.include_router(audit_sinks_router)
 app.include_router(rbac_router)
 app.include_router(retention_router)
 app.include_router(consumption_router)
