@@ -16,5 +16,6 @@ from ai_portal.rag.connectors.adapters import (  # noqa: F401
     notion,
     onedrive_sharepoint,
     s3_bucket,
+    slack,
     web_crawler,
 )
