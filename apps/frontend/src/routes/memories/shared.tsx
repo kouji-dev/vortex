@@ -12,9 +12,12 @@ import { useMeQuery } from '~/hooks/useMeQuery'
 import { useDeleteMemoryV1, useMemoriesV1Query, usePatchMemoryV1 } from '~/hooks/useMemoriesV1Query'
 import { isAdminActor } from '~/lib/admin-permissions'
 import {
+  MEMORY_TYPES,
   SHARED_SCOPES,
   filterMemories,
   isShared,
+  type MemorySource,
+  type MemoryType,
   type MemoryV1,
   type ScopeKind,
 } from '~/lib/memories-types'
@@ -30,12 +33,14 @@ function SharedMemoriesPage() {
   const del = useDeleteMemoryV1()
 
   const [scope, setScope] = React.useState<ScopeKind | 'all'>('all')
+  const [type, setType] = React.useState<MemoryType | 'all'>('all')
+  const [source, setSource] = React.useState<MemorySource>('all')
   const isAdmin = me.isSuccess && isAdminActor(me.data?.roles)
 
   const sharedOnly = React.useMemo(() => (list.data ?? []).filter(isShared), [list.data])
   const filtered = React.useMemo(
-    () => filterMemories(sharedOnly, { scope }),
-    [sharedOnly, scope],
+    () => filterMemories(sharedOnly, { scope, type, source }),
+    [sharedOnly, scope, type, source],
   )
 
   return (
@@ -47,7 +52,7 @@ function SharedMemoriesPage() {
             {isAdmin ? 'Admin edit enabled' : 'Read-only'} · {filtered.length} shown
           </span>
         </div>
-        <div style={{ padding: 12, display: 'flex', gap: 8 }}>
+        <div style={{ padding: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <select
             value={scope}
             onChange={(e) => setScope(e.target.value as ScopeKind | 'all')}
@@ -58,6 +63,27 @@ function SharedMemoriesPage() {
             {SHARED_SCOPES.map((s) => (
               <option key={s} value={s}>{s}</option>
             ))}
+          </select>
+          <select
+            value={type}
+            onChange={(e) => setType(e.target.value as MemoryType | 'all')}
+            data-testid="mem-shared-type"
+            style={selectStyle}
+          >
+            <option value="all">all types</option>
+            {MEMORY_TYPES.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+          <select
+            value={source}
+            onChange={(e) => setSource(e.target.value as MemorySource)}
+            data-testid="mem-shared-source"
+            style={selectStyle}
+          >
+            <option value="all">all sources</option>
+            <option value="auto">auto (extracted)</option>
+            <option value="manual">manual</option>
           </select>
         </div>
       </div>

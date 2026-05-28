@@ -16,6 +16,8 @@ export type MemoryType =
 
 export type ConflictStrategy = 'newer_wins' | 'keep_both' | 'prompt_user'
 
+export type MemorySource = 'auto' | 'manual' | 'all'
+
 export interface MemoryV1 {
   id: string
   type: MemoryType
@@ -27,6 +29,10 @@ export interface MemoryV1 {
   tags: string[]
   pinned: boolean
   created_at: string | null
+  /** When set, "auto" means LLM-extracted, "manual" means user-added. */
+  source?: MemorySource | null
+  /** Optional name of the extractor model that produced this memory. */
+  extractor_model?: string | null
 }
 
 export interface MemoryUse {
@@ -153,18 +159,33 @@ export function quantizeImportance(v: number, step = 0.05): number {
   return Math.round(c / step) * step
 }
 
-/** Filter by type + scope + free-text. Pure. */
+/** Filter by type + scope + source + free-text. Pure. */
 export function filterMemories(
   memories: readonly MemoryV1[],
-  opts: { type?: MemoryType | 'all'; scope?: ScopeKind | 'all'; q?: string },
+  opts: {
+    type?: MemoryType | 'all'
+    scope?: ScopeKind | 'all'
+    source?: MemorySource
+    q?: string
+  },
 ): MemoryV1[] {
   const q = (opts.q ?? '').trim().toLowerCase()
   return memories.filter((m) => {
     if (opts.type && opts.type !== 'all' && m.type !== opts.type) return false
     if (opts.scope && opts.scope !== 'all' && m.scope_kind !== opts.scope) return false
+    if (opts.source && opts.source !== 'all') {
+      const src = deriveSource(m)
+      if (src !== opts.source) return false
+    }
     if (q && !m.text.toLowerCase().includes(q)) return false
     return true
   })
+}
+
+/** Infer the source bucket for a memory ("auto" when an extractor stamped it). */
+export function deriveSource(m: MemoryV1): MemorySource {
+  if (m.source && m.source !== 'all') return m.source
+  return m.extractor_model ? 'auto' : 'manual'
 }
 
 /** "Shared" = team/org/assistant scope. */

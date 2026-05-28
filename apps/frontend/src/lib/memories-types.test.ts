@@ -3,6 +3,7 @@ import { test } from 'node:test'
 import {
   clampImportance,
   countByType,
+  deriveSource,
   filterMemories,
   isShared,
   normaliseRecallWeights,
@@ -102,6 +103,40 @@ test('parseRetentionDays: blank → null; numeric floored', () => {
   assert.equal(parseRetentionDays('never'), null)
   assert.equal(parseRetentionDays('90.7'), 90)
   assert.equal(parseRetentionDays('-3'), 0)
+})
+
+test('deriveSource: extractor_model → auto, else manual', () => {
+  assert.equal(deriveSource(m({ extractor_model: 'claude-sonnet-4-6' })), 'auto')
+  assert.equal(deriveSource(m({ extractor_model: null })), 'manual')
+  assert.equal(deriveSource(m({})), 'manual')
+  assert.equal(deriveSource(m({ source: 'manual', extractor_model: 'foo' })), 'manual')
+})
+
+test('filterMemories: source filter (auto)', () => {
+  const list = [
+    m({ id: '1', extractor_model: 'claude-sonnet-4-6' }),
+    m({ id: '2', extractor_model: null }),
+    m({ id: '3', source: 'manual' }),
+  ]
+  assert.equal(filterMemories(list, { source: 'auto' }).length, 1)
+  assert.equal(filterMemories(list, { source: 'manual' }).length, 2)
+  assert.equal(filterMemories(list, { source: 'all' }).length, 3)
+})
+
+test('filterMemories: combined type+scope+source+q', () => {
+  const list = [
+    m({ id: '1', type: 'fact', scope_kind: 'team', extractor_model: 'x', text: 'vim user' }),
+    m({ id: '2', type: 'fact', scope_kind: 'team', extractor_model: null, text: 'vim user' }),
+    m({ id: '3', type: 'preference', scope_kind: 'team', extractor_model: 'x', text: 'vim user' }),
+  ]
+  const out = filterMemories(list, {
+    type: 'fact',
+    scope: 'team',
+    source: 'auto',
+    q: 'vim',
+  })
+  assert.equal(out.length, 1)
+  assert.equal(out[0].id, '1')
 })
 
 test('countByType: sums per type', () => {
