@@ -11,6 +11,8 @@ import * as React from 'react'
 
 import {
   useBulkDeleteMemoriesV1,
+  useBulkPinMemoriesV1,
+  useBulkTagMemoriesV1,
   useDeleteMemoryV1,
   useMemoriesV1Query,
   usePatchMemoryV1,
@@ -45,6 +47,8 @@ function MyMemoriesPage() {
   const patch = usePatchMemoryV1()
   const del = useDeleteMemoryV1()
   const bulk = useBulkDeleteMemoriesV1()
+  const bulkPin = useBulkPinMemoriesV1()
+  const bulkTag = useBulkTagMemoriesV1()
 
   const memories = list.data ?? []
   const filtered = React.useMemo(
@@ -84,6 +88,27 @@ function MyMemoriesPage() {
       { ids: Array.from(selected) },
       { onSuccess: () => clearSelection() },
     )
+  }
+
+  function bulkPinSet(pinned: boolean) {
+    if (selected.size === 0) return
+    bulkPin.mutate({ ids: Array.from(selected), pinned })
+  }
+
+  function bulkTagPrompt(mode: 'add' | 'remove') {
+    if (selected.size === 0) return
+    const raw = window.prompt(
+      mode === 'add' ? 'Tags to add (comma-separated):' : 'Tags to remove (comma-separated):',
+      '',
+    )
+    if (!raw) return
+    const tags = raw.split(',').map((t) => t.trim()).filter(Boolean)
+    if (!tags.length) return
+    bulkTag.mutate({
+      ids: Array.from(selected),
+      add: mode === 'add' ? tags : [],
+      remove: mode === 'remove' ? tags : [],
+    })
   }
 
   return (
@@ -130,6 +155,46 @@ function MyMemoriesPage() {
           {selected.size > 0 && (
             <>
               <span className="meta" data-testid="mem-my-selected-count">{selected.size} selected</span>
+              <button
+                type="button"
+                className="btn btn-sm"
+                onClick={() => bulkPinSet(true)}
+                disabled={bulkPin.isPending}
+                data-testid="mem-my-bulk-pin"
+                title="Pin selected"
+              >
+                <Pin style={{ width: 11, height: 11 }} aria-hidden /> Pin
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm"
+                onClick={() => bulkPinSet(false)}
+                disabled={bulkPin.isPending}
+                data-testid="mem-my-bulk-unpin"
+                title="Unpin selected"
+              >
+                Unpin
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm"
+                onClick={() => bulkTagPrompt('add')}
+                disabled={bulkTag.isPending}
+                data-testid="mem-my-bulk-tag-add"
+                title="Add tags to selection"
+              >
+                Tag +
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm"
+                onClick={() => bulkTagPrompt('remove')}
+                disabled={bulkTag.isPending}
+                data-testid="mem-my-bulk-tag-remove"
+                title="Remove tags from selection"
+              >
+                Tag −
+              </button>
               <button
                 type="button"
                 className="btn btn-sm"

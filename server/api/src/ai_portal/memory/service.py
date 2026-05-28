@@ -610,6 +610,89 @@ class MemoryService:
         await self.repo.restore(memory_id)
         return await self.repo.get(memory_id)
 
+    async def bulk_pin(
+        self,
+        *,
+        org_id: _uuid.UUID,
+        actor_user_id: int,
+        ids: list[_uuid.UUID | str],
+        pinned: bool,
+    ) -> int:
+        if not ids:
+            return 0
+        uuids = [_uuid.UUID(str(i)) for i in ids]
+        res = await self.s.execute(
+            update(Memory)
+            .where(
+                Memory.id.in_(uuids),
+                Memory.org_id == org_id,
+                Memory.deleted_at.is_(None),
+            )
+            .values(pinned=pinned)
+        )
+        await self.s.flush()
+        count = int(res.rowcount or 0)
+        await _emit_audit_safe(
+            org_id=org_id,
+            event_type="memory.bulk_pin",
+            resource={"count": count, "pinned": pinned, "actor_user_id": actor_user_id},
+        )
+        return count
+
+    async def bulk_tag(
+        self,
+        *,
+        org_id: _uuid.UUID,
+        actor_user_id: int,
+        ids: list[_uuid.UUID | str],
+        add: list[str] | None = None,
+        remove: list[str] | None = None,
+    ) -> int:
+        """Add and/or remove tag values across multiple memories.
+
+        Tags are stored in ``tags_json``. We load each row, dedupe the new
+        list, and persist via ``patch``. Inefficient at scale but correct
+        for any JSONB driver — bulk JSONB array mutation in pure SQL is
+        error-prone with ON CONFLICT/DISTINCT semantics.
+        """
+        if not ids:
+            return 0
+        add_set = set(add or [])
+        remove_set = set(remove or [])
+        if not (add_set or remove_set):
+            return 0
+        uuids = [_uuid.UUID(str(i)) for i in ids]
+        rows = (
+            await self.s.execute(
+                select(Memory).where(
+                    Memory.id.in_(uuids),
+                    Memory.org_id == org_id,
+                    Memory.deleted_at.is_(None),
+                )
+            )
+        ).scalars().all()
+        touched = 0
+        for m in rows:
+            existing = list(m.tags_json or [])
+            new = [t for t in existing if t not in remove_set]
+            for t in add_set:
+                if t not in new:
+                    new.append(t)
+            if new != existing:
+                await self.repo.patch(m.id, tags_json=new)
+                touched += 1
+        await _emit_audit_safe(
+            org_id=org_id,
+            event_type="memory.bulk_tag",
+            resource={
+                "count": touched,
+                "add": list(add_set),
+                "remove": list(remove_set),
+                "actor_user_id": actor_user_id,
+            },
+        )
+        return touched
+
     async def bulk_delete(
         self,
         *,

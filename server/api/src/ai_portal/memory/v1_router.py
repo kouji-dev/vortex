@@ -23,6 +23,8 @@ from ai_portal.memory.model import (
 from ai_portal.memory.recallers.protocol import RecallOpts, RecallScope
 from ai_portal.memory.schemas import (
     BulkDeleteRequest,
+    BulkPinRequest,
+    BulkTagRequest,
     ExtractionPolicyDTO,
     ExtractRequest,
     MemoryCreate,
@@ -172,6 +174,43 @@ async def bulk_delete(
     )
     await session.commit()
     return {"deleted": count}
+
+
+@router.post("/bulk-pin")
+async def bulk_pin(
+    body: BulkPinRequest,
+    session: AsyncSession = Depends(_get_session),
+    actor=Depends(_get_actor()),
+) -> dict[str, int]:
+    svc = MemoryService(session)
+    count = await svc.bulk_pin(
+        org_id=actor.org_id,
+        actor_user_id=int(actor.user_id) if actor.user_id is not None else 0,
+        ids=list(body.ids),
+        pinned=body.pinned,
+    )
+    await session.commit()
+    return {"updated": count}
+
+
+@router.post("/bulk-tag")
+async def bulk_tag(
+    body: BulkTagRequest,
+    session: AsyncSession = Depends(_get_session),
+    actor=Depends(_get_actor()),
+) -> dict[str, int]:
+    if not (body.add or body.remove):
+        raise HTTPException(400, "add and/or remove required")
+    svc = MemoryService(session)
+    count = await svc.bulk_tag(
+        org_id=actor.org_id,
+        actor_user_id=int(actor.user_id) if actor.user_id is not None else 0,
+        ids=list(body.ids),
+        add=list(body.add),
+        remove=list(body.remove),
+    )
+    await session.commit()
+    return {"updated": count}
 
 
 @router.post("/extract")

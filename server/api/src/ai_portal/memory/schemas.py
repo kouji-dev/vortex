@@ -142,3 +142,14 @@ class RecallPolicyDTO(BaseModel):
 class PauseRequest(BaseModel):
     scope_kind: ScopeKindLiteral | None = None
     scope_id: str | None = None
+
+
+class BulkPinRequest(BaseModel):
+    ids: list[_uuid.UUID] = Field(min_length=1)
+    pinned: bool
+
+
+class BulkTagRequest(BaseModel):
+    ids: list[_uuid.UUID] = Field(min_length=1)
+    add: list[str] = Field(default_factory=list)
+    remove: list[str] = Field(default_factory=list)
