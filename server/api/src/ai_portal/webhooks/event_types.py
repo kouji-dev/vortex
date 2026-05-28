@@ -108,3 +108,18 @@ register_event_type(
     "An API key was revoked",
     module="api_keys",
 )
+register_event_type(
+    "billing.subscription.updated",
+    "An org subscription changed plan or status",
+    module="billing",
+)
+register_event_type(
+    "billing.invoice.paid",
+    "An invoice was paid",
+    module="billing",
+)
+register_event_type(
+    "billing.invoice.failed",
+    "An invoice payment failed",
+    module="billing",
+)
