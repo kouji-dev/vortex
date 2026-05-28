@@ -24,7 +24,7 @@ from alembic import op
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 revision = "057_memory_pluggable"
-down_revision = "056_rag_management"
+down_revision = "056_rag_connectors"
 branch_labels = None
 depends_on = None
 
