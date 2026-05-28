@@ -28,6 +28,8 @@ import { Route as WorkersSettingsRouteImport } from './routes/workers/settings'
 import { Route as WorkersPoolsRouteImport } from './routes/workers/pools'
 import { Route as WorkersIntegrationsRouteImport } from './routes/workers/integrations'
 import { Route as WorkersAnalyticsRouteImport } from './routes/workers/analytics'
+import { Route as RagSearchProvidersRouteImport } from './routes/rag/search-providers'
+import { Route as RagMarketplaceRouteImport } from './routes/rag/marketplace'
 import { Route as OrgSettingsRouteImport } from './routes/org/settings'
 import { Route as OrgConsumptionRouteImport } from './routes/org/consumption'
 import { Route as MemoriesSharedRouteImport } from './routes/memories/shared'
@@ -57,9 +59,19 @@ import { Route as AdminBillingRouteImport } from './routes/admin/billing'
 import { Route as AdminAuditRouteImport } from './routes/admin/audit'
 import { Route as AdminApiKeysRouteImport } from './routes/admin/api-keys'
 import { Route as ChatConversationsRouteRouteImport } from './routes/chat/conversations/route'
+import { Route as RagKbsIndexRouteImport } from './routes/rag/kbs.index'
 import { Route as ChatConversationsIndexRouteImport } from './routes/chat/conversations/index'
 import { Route as WorkersTasksTaskIdRouteImport } from './routes/workers/tasks.$taskId'
 import { Route as ChatConversationsIdRouteImport } from './routes/chat/conversations/$id'
+import { Route as RagKbsIdSettingsRouteImport } from './routes/rag/kbs.$id.settings'
+import { Route as RagKbsIdQuarantineRouteImport } from './routes/rag/kbs.$id.quarantine'
+import { Route as RagKbsIdPlaygroundRouteImport } from './routes/rag/kbs.$id.playground'
+import { Route as RagKbsIdPermissionsRouteImport } from './routes/rag/kbs.$id.permissions'
+import { Route as RagKbsIdOverviewRouteImport } from './routes/rag/kbs.$id.overview'
+import { Route as RagKbsIdEvalsRouteImport } from './routes/rag/kbs.$id.evals'
+import { Route as RagKbsIdDocumentsRouteImport } from './routes/rag/kbs.$id.documents'
+import { Route as RagKbsIdConnectorsRouteImport } from './routes/rag/kbs.$id.connectors'
+import { Route as RagKbsIdAnalyticsRouteImport } from './routes/rag/kbs.$id.analytics'
 
 const SetupRoute = SetupRouteImport.update({
   id: '/setup',
@@ -155,6 +167,16 @@ const WorkersAnalyticsRoute = WorkersAnalyticsRouteImport.update({
   id: '/analytics',
   path: '/analytics',
   getParentRoute: () => WorkersRouteRoute,
+} as any)
+const RagSearchProvidersRoute = RagSearchProvidersRouteImport.update({
+  id: '/search-providers',
+  path: '/search-providers',
+  getParentRoute: () => RagRouteRoute,
+} as any)
+const RagMarketplaceRoute = RagMarketplaceRouteImport.update({
+  id: '/marketplace',
+  path: '/marketplace',
+  getParentRoute: () => RagRouteRoute,
 } as any)
 const OrgSettingsRoute = OrgSettingsRouteImport.update({
   id: '/org/settings',
@@ -301,6 +323,11 @@ const ChatConversationsRouteRoute = ChatConversationsRouteRouteImport.update({
   path: '/conversations',
   getParentRoute: () => ChatRouteRoute,
 } as any)
+const RagKbsIndexRoute = RagKbsIndexRouteImport.update({
+  id: '/kbs/',
+  path: '/kbs/',
+  getParentRoute: () => RagRouteRoute,
+} as any)
 const ChatConversationsIndexRoute = ChatConversationsIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -316,13 +343,58 @@ const ChatConversationsIdRoute = ChatConversationsIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => ChatConversationsRouteRoute,
 } as any)
+const RagKbsIdSettingsRoute = RagKbsIdSettingsRouteImport.update({
+  id: '/kbs/$id/settings',
+  path: '/kbs/$id/settings',
+  getParentRoute: () => RagRouteRoute,
+} as any)
+const RagKbsIdQuarantineRoute = RagKbsIdQuarantineRouteImport.update({
+  id: '/kbs/$id/quarantine',
+  path: '/kbs/$id/quarantine',
+  getParentRoute: () => RagRouteRoute,
+} as any)
+const RagKbsIdPlaygroundRoute = RagKbsIdPlaygroundRouteImport.update({
+  id: '/kbs/$id/playground',
+  path: '/kbs/$id/playground',
+  getParentRoute: () => RagRouteRoute,
+} as any)
+const RagKbsIdPermissionsRoute = RagKbsIdPermissionsRouteImport.update({
+  id: '/kbs/$id/permissions',
+  path: '/kbs/$id/permissions',
+  getParentRoute: () => RagRouteRoute,
+} as any)
+const RagKbsIdOverviewRoute = RagKbsIdOverviewRouteImport.update({
+  id: '/kbs/$id/overview',
+  path: '/kbs/$id/overview',
+  getParentRoute: () => RagRouteRoute,
+} as any)
+const RagKbsIdEvalsRoute = RagKbsIdEvalsRouteImport.update({
+  id: '/kbs/$id/evals',
+  path: '/kbs/$id/evals',
+  getParentRoute: () => RagRouteRoute,
+} as any)
+const RagKbsIdDocumentsRoute = RagKbsIdDocumentsRouteImport.update({
+  id: '/kbs/$id/documents',
+  path: '/kbs/$id/documents',
+  getParentRoute: () => RagRouteRoute,
+} as any)
+const RagKbsIdConnectorsRoute = RagKbsIdConnectorsRouteImport.update({
+  id: '/kbs/$id/connectors',
+  path: '/kbs/$id/connectors',
+  getParentRoute: () => RagRouteRoute,
+} as any)
+const RagKbsIdAnalyticsRoute = RagKbsIdAnalyticsRouteImport.update({
+  id: '/kbs/$id/analytics',
+  path: '/kbs/$id/analytics',
+  getParentRoute: () => RagRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteRouteWithChildren
   '/chat': typeof ChatRouteRouteWithChildren
   '/gateway': typeof GatewayRouteRouteWithChildren
-  '/rag': typeof RagRouteRoute
+  '/rag': typeof RagRouteRouteWithChildren
   '/workers': typeof WorkersRouteRouteWithChildren
   '/login': typeof LoginRoute
   '/memories': typeof MemoriesRouteWithChildren
@@ -357,6 +429,8 @@ export interface FileRoutesByFullPath {
   '/memories/shared': typeof MemoriesSharedRoute
   '/org/consumption': typeof OrgConsumptionRoute
   '/org/settings': typeof OrgSettingsRoute
+  '/rag/marketplace': typeof RagMarketplaceRoute
+  '/rag/search-providers': typeof RagSearchProvidersRoute
   '/workers/analytics': typeof WorkersAnalyticsRoute
   '/workers/integrations': typeof WorkersIntegrationsRoute
   '/workers/pools': typeof WorkersPoolsRoute
@@ -369,11 +443,21 @@ export interface FileRoutesByFullPath {
   '/chat/conversations/$id': typeof ChatConversationsIdRoute
   '/workers/tasks/$taskId': typeof WorkersTasksTaskIdRoute
   '/chat/conversations/': typeof ChatConversationsIndexRoute
+  '/rag/kbs/': typeof RagKbsIndexRoute
+  '/rag/kbs/$id/analytics': typeof RagKbsIdAnalyticsRoute
+  '/rag/kbs/$id/connectors': typeof RagKbsIdConnectorsRoute
+  '/rag/kbs/$id/documents': typeof RagKbsIdDocumentsRoute
+  '/rag/kbs/$id/evals': typeof RagKbsIdEvalsRoute
+  '/rag/kbs/$id/overview': typeof RagKbsIdOverviewRoute
+  '/rag/kbs/$id/permissions': typeof RagKbsIdPermissionsRoute
+  '/rag/kbs/$id/playground': typeof RagKbsIdPlaygroundRoute
+  '/rag/kbs/$id/quarantine': typeof RagKbsIdQuarantineRoute
+  '/rag/kbs/$id/settings': typeof RagKbsIdSettingsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/chat': typeof ChatRouteRouteWithChildren
-  '/rag': typeof RagRouteRoute
+  '/rag': typeof RagRouteRouteWithChildren
   '/login': typeof LoginRoute
   '/memories': typeof MemoriesRouteWithChildren
   '/register': typeof RegisterRoute
@@ -406,6 +490,8 @@ export interface FileRoutesByTo {
   '/memories/shared': typeof MemoriesSharedRoute
   '/org/consumption': typeof OrgConsumptionRoute
   '/org/settings': typeof OrgSettingsRoute
+  '/rag/marketplace': typeof RagMarketplaceRoute
+  '/rag/search-providers': typeof RagSearchProvidersRoute
   '/workers/analytics': typeof WorkersAnalyticsRoute
   '/workers/integrations': typeof WorkersIntegrationsRoute
   '/workers/pools': typeof WorkersPoolsRoute
@@ -418,6 +504,16 @@ export interface FileRoutesByTo {
   '/chat/conversations/$id': typeof ChatConversationsIdRoute
   '/workers/tasks/$taskId': typeof WorkersTasksTaskIdRoute
   '/chat/conversations': typeof ChatConversationsIndexRoute
+  '/rag/kbs': typeof RagKbsIndexRoute
+  '/rag/kbs/$id/analytics': typeof RagKbsIdAnalyticsRoute
+  '/rag/kbs/$id/connectors': typeof RagKbsIdConnectorsRoute
+  '/rag/kbs/$id/documents': typeof RagKbsIdDocumentsRoute
+  '/rag/kbs/$id/evals': typeof RagKbsIdEvalsRoute
+  '/rag/kbs/$id/overview': typeof RagKbsIdOverviewRoute
+  '/rag/kbs/$id/permissions': typeof RagKbsIdPermissionsRoute
+  '/rag/kbs/$id/playground': typeof RagKbsIdPlaygroundRoute
+  '/rag/kbs/$id/quarantine': typeof RagKbsIdQuarantineRoute
+  '/rag/kbs/$id/settings': typeof RagKbsIdSettingsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -425,7 +521,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteRouteWithChildren
   '/chat': typeof ChatRouteRouteWithChildren
   '/gateway': typeof GatewayRouteRouteWithChildren
-  '/rag': typeof RagRouteRoute
+  '/rag': typeof RagRouteRouteWithChildren
   '/workers': typeof WorkersRouteRouteWithChildren
   '/login': typeof LoginRoute
   '/memories': typeof MemoriesRouteWithChildren
@@ -460,6 +556,8 @@ export interface FileRoutesById {
   '/memories/shared': typeof MemoriesSharedRoute
   '/org/consumption': typeof OrgConsumptionRoute
   '/org/settings': typeof OrgSettingsRoute
+  '/rag/marketplace': typeof RagMarketplaceRoute
+  '/rag/search-providers': typeof RagSearchProvidersRoute
   '/workers/analytics': typeof WorkersAnalyticsRoute
   '/workers/integrations': typeof WorkersIntegrationsRoute
   '/workers/pools': typeof WorkersPoolsRoute
@@ -472,6 +570,16 @@ export interface FileRoutesById {
   '/chat/conversations/$id': typeof ChatConversationsIdRoute
   '/workers/tasks/$taskId': typeof WorkersTasksTaskIdRoute
   '/chat/conversations/': typeof ChatConversationsIndexRoute
+  '/rag/kbs/': typeof RagKbsIndexRoute
+  '/rag/kbs/$id/analytics': typeof RagKbsIdAnalyticsRoute
+  '/rag/kbs/$id/connectors': typeof RagKbsIdConnectorsRoute
+  '/rag/kbs/$id/documents': typeof RagKbsIdDocumentsRoute
+  '/rag/kbs/$id/evals': typeof RagKbsIdEvalsRoute
+  '/rag/kbs/$id/overview': typeof RagKbsIdOverviewRoute
+  '/rag/kbs/$id/permissions': typeof RagKbsIdPermissionsRoute
+  '/rag/kbs/$id/playground': typeof RagKbsIdPlaygroundRoute
+  '/rag/kbs/$id/quarantine': typeof RagKbsIdQuarantineRoute
+  '/rag/kbs/$id/settings': typeof RagKbsIdSettingsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -515,6 +623,8 @@ export interface FileRouteTypes {
     | '/memories/shared'
     | '/org/consumption'
     | '/org/settings'
+    | '/rag/marketplace'
+    | '/rag/search-providers'
     | '/workers/analytics'
     | '/workers/integrations'
     | '/workers/pools'
@@ -527,6 +637,16 @@ export interface FileRouteTypes {
     | '/chat/conversations/$id'
     | '/workers/tasks/$taskId'
     | '/chat/conversations/'
+    | '/rag/kbs/'
+    | '/rag/kbs/$id/analytics'
+    | '/rag/kbs/$id/connectors'
+    | '/rag/kbs/$id/documents'
+    | '/rag/kbs/$id/evals'
+    | '/rag/kbs/$id/overview'
+    | '/rag/kbs/$id/permissions'
+    | '/rag/kbs/$id/playground'
+    | '/rag/kbs/$id/quarantine'
+    | '/rag/kbs/$id/settings'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -564,6 +684,8 @@ export interface FileRouteTypes {
     | '/memories/shared'
     | '/org/consumption'
     | '/org/settings'
+    | '/rag/marketplace'
+    | '/rag/search-providers'
     | '/workers/analytics'
     | '/workers/integrations'
     | '/workers/pools'
@@ -576,6 +698,16 @@ export interface FileRouteTypes {
     | '/chat/conversations/$id'
     | '/workers/tasks/$taskId'
     | '/chat/conversations'
+    | '/rag/kbs'
+    | '/rag/kbs/$id/analytics'
+    | '/rag/kbs/$id/connectors'
+    | '/rag/kbs/$id/documents'
+    | '/rag/kbs/$id/evals'
+    | '/rag/kbs/$id/overview'
+    | '/rag/kbs/$id/permissions'
+    | '/rag/kbs/$id/playground'
+    | '/rag/kbs/$id/quarantine'
+    | '/rag/kbs/$id/settings'
   id:
     | '__root__'
     | '/'
@@ -617,6 +749,8 @@ export interface FileRouteTypes {
     | '/memories/shared'
     | '/org/consumption'
     | '/org/settings'
+    | '/rag/marketplace'
+    | '/rag/search-providers'
     | '/workers/analytics'
     | '/workers/integrations'
     | '/workers/pools'
@@ -629,6 +763,16 @@ export interface FileRouteTypes {
     | '/chat/conversations/$id'
     | '/workers/tasks/$taskId'
     | '/chat/conversations/'
+    | '/rag/kbs/'
+    | '/rag/kbs/$id/analytics'
+    | '/rag/kbs/$id/connectors'
+    | '/rag/kbs/$id/documents'
+    | '/rag/kbs/$id/evals'
+    | '/rag/kbs/$id/overview'
+    | '/rag/kbs/$id/permissions'
+    | '/rag/kbs/$id/playground'
+    | '/rag/kbs/$id/quarantine'
+    | '/rag/kbs/$id/settings'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -636,7 +780,7 @@ export interface RootRouteChildren {
   AdminRouteRoute: typeof AdminRouteRouteWithChildren
   ChatRouteRoute: typeof ChatRouteRouteWithChildren
   GatewayRouteRoute: typeof GatewayRouteRouteWithChildren
-  RagRouteRoute: typeof RagRouteRoute
+  RagRouteRoute: typeof RagRouteRouteWithChildren
   WorkersRouteRoute: typeof WorkersRouteRouteWithChildren
   LoginRoute: typeof LoginRoute
   MemoriesRoute: typeof MemoriesRouteWithChildren
@@ -782,6 +926,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/workers/analytics'
       preLoaderRoute: typeof WorkersAnalyticsRouteImport
       parentRoute: typeof WorkersRouteRoute
+    }
+    '/rag/search-providers': {
+      id: '/rag/search-providers'
+      path: '/search-providers'
+      fullPath: '/rag/search-providers'
+      preLoaderRoute: typeof RagSearchProvidersRouteImport
+      parentRoute: typeof RagRouteRoute
+    }
+    '/rag/marketplace': {
+      id: '/rag/marketplace'
+      path: '/marketplace'
+      fullPath: '/rag/marketplace'
+      preLoaderRoute: typeof RagMarketplaceRouteImport
+      parentRoute: typeof RagRouteRoute
     }
     '/org/settings': {
       id: '/org/settings'
@@ -986,6 +1144,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatConversationsRouteRouteImport
       parentRoute: typeof ChatRouteRoute
     }
+    '/rag/kbs/': {
+      id: '/rag/kbs/'
+      path: '/kbs'
+      fullPath: '/rag/kbs/'
+      preLoaderRoute: typeof RagKbsIndexRouteImport
+      parentRoute: typeof RagRouteRoute
+    }
     '/chat/conversations/': {
       id: '/chat/conversations/'
       path: '/'
@@ -1006,6 +1171,69 @@ declare module '@tanstack/react-router' {
       fullPath: '/chat/conversations/$id'
       preLoaderRoute: typeof ChatConversationsIdRouteImport
       parentRoute: typeof ChatConversationsRouteRoute
+    }
+    '/rag/kbs/$id/settings': {
+      id: '/rag/kbs/$id/settings'
+      path: '/kbs/$id/settings'
+      fullPath: '/rag/kbs/$id/settings'
+      preLoaderRoute: typeof RagKbsIdSettingsRouteImport
+      parentRoute: typeof RagRouteRoute
+    }
+    '/rag/kbs/$id/quarantine': {
+      id: '/rag/kbs/$id/quarantine'
+      path: '/kbs/$id/quarantine'
+      fullPath: '/rag/kbs/$id/quarantine'
+      preLoaderRoute: typeof RagKbsIdQuarantineRouteImport
+      parentRoute: typeof RagRouteRoute
+    }
+    '/rag/kbs/$id/playground': {
+      id: '/rag/kbs/$id/playground'
+      path: '/kbs/$id/playground'
+      fullPath: '/rag/kbs/$id/playground'
+      preLoaderRoute: typeof RagKbsIdPlaygroundRouteImport
+      parentRoute: typeof RagRouteRoute
+    }
+    '/rag/kbs/$id/permissions': {
+      id: '/rag/kbs/$id/permissions'
+      path: '/kbs/$id/permissions'
+      fullPath: '/rag/kbs/$id/permissions'
+      preLoaderRoute: typeof RagKbsIdPermissionsRouteImport
+      parentRoute: typeof RagRouteRoute
+    }
+    '/rag/kbs/$id/overview': {
+      id: '/rag/kbs/$id/overview'
+      path: '/kbs/$id/overview'
+      fullPath: '/rag/kbs/$id/overview'
+      preLoaderRoute: typeof RagKbsIdOverviewRouteImport
+      parentRoute: typeof RagRouteRoute
+    }
+    '/rag/kbs/$id/evals': {
+      id: '/rag/kbs/$id/evals'
+      path: '/kbs/$id/evals'
+      fullPath: '/rag/kbs/$id/evals'
+      preLoaderRoute: typeof RagKbsIdEvalsRouteImport
+      parentRoute: typeof RagRouteRoute
+    }
+    '/rag/kbs/$id/documents': {
+      id: '/rag/kbs/$id/documents'
+      path: '/kbs/$id/documents'
+      fullPath: '/rag/kbs/$id/documents'
+      preLoaderRoute: typeof RagKbsIdDocumentsRouteImport
+      parentRoute: typeof RagRouteRoute
+    }
+    '/rag/kbs/$id/connectors': {
+      id: '/rag/kbs/$id/connectors'
+      path: '/kbs/$id/connectors'
+      fullPath: '/rag/kbs/$id/connectors'
+      preLoaderRoute: typeof RagKbsIdConnectorsRouteImport
+      parentRoute: typeof RagRouteRoute
+    }
+    '/rag/kbs/$id/analytics': {
+      id: '/rag/kbs/$id/analytics'
+      path: '/kbs/$id/analytics'
+      fullPath: '/rag/kbs/$id/analytics'
+      preLoaderRoute: typeof RagKbsIdAnalyticsRouteImport
+      parentRoute: typeof RagRouteRoute
     }
   }
 }
@@ -1106,6 +1334,40 @@ const GatewayRouteRouteWithChildren = GatewayRouteRoute._addFileChildren(
   GatewayRouteRouteChildren,
 )
 
+interface RagRouteRouteChildren {
+  RagMarketplaceRoute: typeof RagMarketplaceRoute
+  RagSearchProvidersRoute: typeof RagSearchProvidersRoute
+  RagKbsIndexRoute: typeof RagKbsIndexRoute
+  RagKbsIdAnalyticsRoute: typeof RagKbsIdAnalyticsRoute
+  RagKbsIdConnectorsRoute: typeof RagKbsIdConnectorsRoute
+  RagKbsIdDocumentsRoute: typeof RagKbsIdDocumentsRoute
+  RagKbsIdEvalsRoute: typeof RagKbsIdEvalsRoute
+  RagKbsIdOverviewRoute: typeof RagKbsIdOverviewRoute
+  RagKbsIdPermissionsRoute: typeof RagKbsIdPermissionsRoute
+  RagKbsIdPlaygroundRoute: typeof RagKbsIdPlaygroundRoute
+  RagKbsIdQuarantineRoute: typeof RagKbsIdQuarantineRoute
+  RagKbsIdSettingsRoute: typeof RagKbsIdSettingsRoute
+}
+
+const RagRouteRouteChildren: RagRouteRouteChildren = {
+  RagMarketplaceRoute: RagMarketplaceRoute,
+  RagSearchProvidersRoute: RagSearchProvidersRoute,
+  RagKbsIndexRoute: RagKbsIndexRoute,
+  RagKbsIdAnalyticsRoute: RagKbsIdAnalyticsRoute,
+  RagKbsIdConnectorsRoute: RagKbsIdConnectorsRoute,
+  RagKbsIdDocumentsRoute: RagKbsIdDocumentsRoute,
+  RagKbsIdEvalsRoute: RagKbsIdEvalsRoute,
+  RagKbsIdOverviewRoute: RagKbsIdOverviewRoute,
+  RagKbsIdPermissionsRoute: RagKbsIdPermissionsRoute,
+  RagKbsIdPlaygroundRoute: RagKbsIdPlaygroundRoute,
+  RagKbsIdQuarantineRoute: RagKbsIdQuarantineRoute,
+  RagKbsIdSettingsRoute: RagKbsIdSettingsRoute,
+}
+
+const RagRouteRouteWithChildren = RagRouteRoute._addFileChildren(
+  RagRouteRouteChildren,
+)
+
 interface WorkersTasksRouteChildren {
   WorkersTasksTaskIdRoute: typeof WorkersTasksTaskIdRoute
 }
@@ -1161,7 +1423,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRouteRoute: AdminRouteRouteWithChildren,
   ChatRouteRoute: ChatRouteRouteWithChildren,
   GatewayRouteRoute: GatewayRouteRouteWithChildren,
-  RagRouteRoute: RagRouteRoute,
+  RagRouteRoute: RagRouteRouteWithChildren,
   WorkersRouteRoute: WorkersRouteRouteWithChildren,
   LoginRoute: LoginRoute,
   MemoriesRoute: MemoriesRouteWithChildren,
