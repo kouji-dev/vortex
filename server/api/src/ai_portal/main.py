@@ -36,6 +36,7 @@ from ai_portal.core.config import get_settings, settings_log_snapshot
 from ai_portal.gateway.compat.openai import router as gateway_openai_compat_router
 from ai_portal.core.logging import configure_logging
 from ai_portal.core.middleware.setup_guard import SetupGuardMiddleware
+from ai_portal.gateway.admin_routes import router as gateway_admin_router
 from ai_portal.gateway.evals.router import router as gateway_evals_router
 from ai_portal.gateway.playground.router import router as gateway_playground_router
 from ai_portal.gateway.rate_limits.router import router as gateway_limits_router
@@ -305,6 +306,7 @@ app.include_router(gdpr_router)
 app.include_router(gateway_limits_router)
 app.include_router(gateway_playground_router)
 app.include_router(gateway_evals_router)
+app.include_router(gateway_admin_router)
 app.include_router(gateway_metrics_router)
 app.include_router(guardrail_policies_router)
 app.include_router(workers_router)
