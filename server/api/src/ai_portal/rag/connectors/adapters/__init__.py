@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from ai_portal.rag.connectors.adapters import (  # noqa: F401
     azure_blob,
+    confluence,
     file_upload,
     gcs_bucket,
     google_drive,
