@@ -46,6 +46,7 @@ from ai_portal.settings.router import router as settings_router
 from ai_portal.core.config import get_settings, settings_log_snapshot
 from ai_portal.core.logging import configure_logging
 from ai_portal.core.middleware.setup_guard import SetupGuardMiddleware
+from ai_portal.gateway.playground.router import router as gateway_playground_router
 from ai_portal.gateway.rate_limits.router import router as gateway_limits_router
 from ai_portal.gdpr.router import router as gdpr_router
 from ai_portal.knowledge_base.router import router as knowledge_base_router
@@ -160,4 +161,5 @@ app.include_router(scim_router)
 app.include_router(settings_router)
 app.include_router(gdpr_router)
 app.include_router(gateway_limits_router)
+app.include_router(gateway_playground_router)
 
