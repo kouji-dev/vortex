@@ -67,7 +67,27 @@ async def lifespan(_app: FastAPI):
     configure_logging()
     st = get_settings()
     logger.info("app_startup %s", settings_log_snapshot(st))
+
+    # OTEL — install only when OTEL_ENABLED is truthy.
+    from ai_portal.gateway.traces import otel as _otel  # noqa: PLC0415
+    if _otel.is_enabled():
+        _otel.install()
+        logger.info("otel_installed")
+
+    # Start TraceWriter background drain.
+    from ai_portal.gateway.traces import get_writer as _get_writer  # noqa: PLC0415
+    _writer = _get_writer()
+    try:
+        await _writer.start()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("trace_writer_start_failed: %s", exc)
+
     yield
+
+    try:
+        await _writer.stop()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("trace_writer_stop_failed: %s", exc)
     logger.info("app_shutdown")
 
 

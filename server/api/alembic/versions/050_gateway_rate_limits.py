@@ -20,8 +20,8 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
-revision = "048_gateway_rate_limits"
-down_revision = "047_control_plane_gdpr"
+revision = "050_gateway_rate_limits"
+down_revision = "049_gateway_prompt_cache"
 branch_labels = None
 depends_on = None
 

@@ -45,6 +45,9 @@ dependencies = [
   "pyotp>=2.9",
   "scim2-models>=0.3",
   "cryptography>=43.0",
+  "opentelemetry-api>=1.27",
+  "opentelemetry-sdk>=1.27",
+  "opentelemetry-exporter-otlp>=1.27",
 ]
 
 [project.optional-dependencies]

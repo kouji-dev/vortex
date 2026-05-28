@@ -21,8 +21,8 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
-revision = "048_gateway_prompt_cache"
-down_revision = "047_control_plane_gdpr"
+revision = "049_gateway_prompt_cache"
+down_revision = "048_gateway_catalog_credentials"
 branch_labels = None
 depends_on = None
 
