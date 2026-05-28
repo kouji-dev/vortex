@@ -88,6 +88,23 @@ async def lifespan(_app: FastAPI):
     except Exception as exc:  # noqa: BLE001
         logger.warning("trace_writer_start_failed: %s", exc)
 
+    # Wire the new-device login alert through NotifyService — skip cleanly
+    # when no notification transport is configured.
+    try:
+        from ai_portal.auth.new_device_notify import (  # noqa: PLC0415
+            install_new_device_notifier,
+        )
+        from ai_portal.notify.bootstrap import build_notify_service  # noqa: PLC0415
+
+        notify_svc = build_notify_service(st)
+        if notify_svc is not None:
+            install_new_device_notifier(notify_svc)
+            logger.info("new_device_notifier_installed")
+        else:
+            logger.info("new_device_notifier_skipped notify_not_configured")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("new_device_notifier_install_failed: %s", exc)
+
     yield
 
     try:
