@@ -267,6 +267,31 @@ async def list_uses(
     }
 
 
+# ── graph traversal ─────────────────────────────────────────────────
+
+
+@router.get("/{memory_id}/related")
+async def get_related(
+    memory_id: _uuid.UUID,
+    depth: int = Query(default=2, ge=0, le=5),
+    session: AsyncSession = Depends(_get_session),
+    actor=Depends(_get_actor()),
+) -> dict[str, Any]:
+    from ai_portal.memory.graph import traverse
+
+    g = await traverse(session, org_id=actor.org_id, seed_id=memory_id, depth=depth)
+    return {
+        "nodes": [
+            {"memory_id": n.memory_id, "text": n.text, "type": n.type, "depth": n.depth}
+            for n in g.nodes
+        ],
+        "edges": [
+            {"relation_id": e.relation_id, "text": e.text, "src": e.src, "dst": e.dst}
+            for e in g.edges
+        ],
+    }
+
+
 # ── policies ────────────────────────────────────────────────────────
 
 
