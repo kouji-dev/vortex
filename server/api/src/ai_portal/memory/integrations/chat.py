@@ -142,3 +142,40 @@ async def extract_on_close(
         scope_kind="conversation",
         payload=payload,
     )
+
+
+async def on_conversation_close(
+    session: AsyncSession,
+    *,
+    org_id,
+    actor_user_id: str,
+    conversation_id: int | str,
+    transcript: list[dict[str, Any]],
+    assistant_id: str | None = None,
+    model: str = "claude-sonnet-4-6",
+) -> None:
+    """Public close hook — enqueues a batched summarization MemoryJob.
+
+    Worker ``memory/workers/conversation_close.py`` drains the queue and calls
+    the extractor with the full conversation history.
+    """
+    import uuid as _uuid
+
+    org_uuid = org_id if isinstance(org_id, _uuid.UUID) else _uuid.UUID(str(org_id))
+    payload = {
+        "actor_user_id": str(actor_user_id),
+        "conversation_id": conversation_id,
+        "assistant_id": assistant_id,
+        "scope_id": str(actor_user_id),
+        "model": model,
+        "turns": transcript,
+        "batched": True,
+        "trigger": "conversation_close",
+    }
+    await _jobs.enqueue(
+        session,
+        org_id=org_uuid,
+        kind="conversation_close",
+        scope_kind="conversation",
+        payload=payload,
+    )
