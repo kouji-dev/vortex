@@ -21,6 +21,7 @@ import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as OrgSettingsRouteImport } from './routes/org/settings'
 import { Route as OrgConsumptionRouteImport } from './routes/org/consumption'
 import { Route as KnowledgeBasesIdRouteImport } from './routes/knowledge-bases/$id'
+import { Route as AdminUsageRouteImport } from './routes/admin/usage'
 import { Route as AdminSsoRouteImport } from './routes/admin/sso'
 import { Route as AdminMembersRouteImport } from './routes/admin/members'
 import { Route as AdminAuditRouteImport } from './routes/admin/audit'
@@ -89,6 +90,11 @@ const KnowledgeBasesIdRoute = KnowledgeBasesIdRouteImport.update({
   path: '/knowledge-bases/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminUsageRoute = AdminUsageRouteImport.update({
+  id: '/usage',
+  path: '/usage',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
 const AdminSsoRoute = AdminSsoRouteImport.update({
   id: '/sso',
   path: '/sso',
@@ -138,6 +144,7 @@ export interface FileRoutesByFullPath {
   '/admin/audit': typeof AdminAuditRoute
   '/admin/members': typeof AdminMembersRoute
   '/admin/sso': typeof AdminSsoRoute
+  '/admin/usage': typeof AdminUsageRoute
   '/knowledge-bases/$id': typeof KnowledgeBasesIdRoute
   '/org/consumption': typeof OrgConsumptionRoute
   '/org/settings': typeof OrgSettingsRoute
@@ -157,6 +164,7 @@ export interface FileRoutesByTo {
   '/admin/audit': typeof AdminAuditRoute
   '/admin/members': typeof AdminMembersRoute
   '/admin/sso': typeof AdminSsoRoute
+  '/admin/usage': typeof AdminUsageRoute
   '/knowledge-bases/$id': typeof KnowledgeBasesIdRoute
   '/org/consumption': typeof OrgConsumptionRoute
   '/org/settings': typeof OrgSettingsRoute
@@ -179,6 +187,7 @@ export interface FileRoutesById {
   '/admin/audit': typeof AdminAuditRoute
   '/admin/members': typeof AdminMembersRoute
   '/admin/sso': typeof AdminSsoRoute
+  '/admin/usage': typeof AdminUsageRoute
   '/knowledge-bases/$id': typeof KnowledgeBasesIdRoute
   '/org/consumption': typeof OrgConsumptionRoute
   '/org/settings': typeof OrgSettingsRoute
@@ -202,6 +211,7 @@ export interface FileRouteTypes {
     | '/admin/audit'
     | '/admin/members'
     | '/admin/sso'
+    | '/admin/usage'
     | '/knowledge-bases/$id'
     | '/org/consumption'
     | '/org/settings'
@@ -221,6 +231,7 @@ export interface FileRouteTypes {
     | '/admin/audit'
     | '/admin/members'
     | '/admin/sso'
+    | '/admin/usage'
     | '/knowledge-bases/$id'
     | '/org/consumption'
     | '/org/settings'
@@ -242,6 +253,7 @@ export interface FileRouteTypes {
     | '/admin/audit'
     | '/admin/members'
     | '/admin/sso'
+    | '/admin/usage'
     | '/knowledge-bases/$id'
     | '/org/consumption'
     | '/org/settings'
@@ -351,6 +363,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof KnowledgeBasesIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/usage': {
+      id: '/admin/usage'
+      path: '/usage'
+      fullPath: '/admin/usage'
+      preLoaderRoute: typeof AdminUsageRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/admin/sso': {
       id: '/admin/sso'
       path: '/sso'
@@ -408,6 +427,7 @@ interface AdminRouteRouteChildren {
   AdminAuditRoute: typeof AdminAuditRoute
   AdminMembersRoute: typeof AdminMembersRoute
   AdminSsoRoute: typeof AdminSsoRoute
+  AdminUsageRoute: typeof AdminUsageRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
@@ -416,6 +436,7 @@ const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminAuditRoute: AdminAuditRoute,
   AdminMembersRoute: AdminMembersRoute,
   AdminSsoRoute: AdminSsoRoute,
+  AdminUsageRoute: AdminUsageRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
 
