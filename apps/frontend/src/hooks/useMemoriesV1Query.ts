@@ -65,7 +65,7 @@ export function useMemoriesV1Query(filters: ListMemoriesFilters = {}) {
       if (filters.scope) qs.set('scope', filters.scope)
       if (filters.q) qs.set('q', filters.q)
       if (filters.limit) qs.set('limit', String(filters.limit))
-      const res = await fetch(`${apiBase}/v1/memories?${qs.toString()}`, {
+      const res = await fetch(`${apiBase}/api/v1/memories?${qs.toString()}`, {
         headers: await getAuthHeaders(),
       })
       return jsonOrThrow<MemoryV1[]>(res)
@@ -91,7 +91,7 @@ export function useCreateMemoryV1() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (body: CreateMemoryV1Body) => {
-      const res = await fetch(`${apiBase}/v1/memories`, {
+      const res = await fetch(`${apiBase}/api/v1/memories`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
         body: JSON.stringify(body),
@@ -119,7 +119,7 @@ export function usePatchMemoryV1() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ id, body }: { id: string; body: PatchMemoryBody }) => {
-      const res = await fetch(`${apiBase}/v1/memories/${id}`, {
+      const res = await fetch(`${apiBase}/api/v1/memories/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
         body: JSON.stringify(body),
@@ -139,7 +139,7 @@ export function useDeleteMemoryV1() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`${apiBase}/v1/memories/${id}`, {
+      const res = await fetch(`${apiBase}/api/v1/memories/${id}`, {
         method: 'DELETE',
         headers: await getAuthHeaders(),
       })
@@ -166,7 +166,7 @@ export function useBulkDeleteMemoriesV1() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (filter: BulkDeleteFilter) => {
-      const res = await fetch(`${apiBase}/v1/memories/bulk-delete`, {
+      const res = await fetch(`${apiBase}/api/v1/memories/bulk-delete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
         body: JSON.stringify(filter),
@@ -186,7 +186,7 @@ export function useBulkPinMemoriesV1() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ ids, pinned }: { ids: string[]; pinned: boolean }) => {
-      const res = await fetch(`${apiBase}/v1/memories/bulk-pin`, {
+      const res = await fetch(`${apiBase}/api/v1/memories/bulk-pin`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
         body: JSON.stringify({ ids, pinned }),
@@ -212,7 +212,7 @@ export function useBulkTagMemoriesV1() {
       add?: string[]
       remove?: string[]
     }) => {
-      const res = await fetch(`${apiBase}/v1/memories/bulk-tag`, {
+      const res = await fetch(`${apiBase}/api/v1/memories/bulk-tag`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
         body: JSON.stringify({ ids, add: add ?? [], remove: remove ?? [] }),
@@ -233,7 +233,7 @@ export function useMemoryUsesQuery(id: string | null) {
     queryKey: v1QK.uses(id ?? ''),
     enabled: !!id,
     queryFn: async (): Promise<MemoryProvenance> => {
-      const res = await fetch(`${apiBase}/v1/memories/${id}/uses`, {
+      const res = await fetch(`${apiBase}/api/v1/memories/${id}/uses`, {
         headers: await getAuthHeaders(),
       })
       return jsonOrThrow<MemoryProvenance>(res)
@@ -256,7 +256,7 @@ export function useRecallMemories() {
   const apiBase = getApiBase()
   return useMutation({
     mutationFn: async (body: RecallRequestBody) => {
-      const res = await fetch(`${apiBase}/v1/memories/recall`, {
+      const res = await fetch(`${apiBase}/api/v1/memories/recall`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
         body: JSON.stringify(body),
@@ -273,7 +273,7 @@ export function useMemoryPoliciesQuery() {
   return useQuery({
     queryKey: v1QK.policies(),
     queryFn: async (): Promise<MemoryPoliciesPayload> => {
-      const res = await fetch(`${apiBase}/v1/memories/policies`, {
+      const res = await fetch(`${apiBase}/api/v1/memories/policies`, {
         headers: await getAuthHeaders(),
       })
       return jsonOrThrow<MemoryPoliciesPayload>(res)
@@ -286,7 +286,7 @@ export function useSaveExtractionPolicy() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (p: ExtractionPolicy) => {
-      const res = await fetch(`${apiBase}/v1/memories/policies/extraction`, {
+      const res = await fetch(`${apiBase}/api/v1/memories/policies/extraction`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
         body: JSON.stringify(p),
@@ -304,7 +304,7 @@ export function useSaveRecallPolicy() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (p: RecallPolicy) => {
-      const res = await fetch(`${apiBase}/v1/memories/policies/recall`, {
+      const res = await fetch(`${apiBase}/api/v1/memories/policies/recall`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
         body: JSON.stringify(p),
@@ -329,7 +329,7 @@ export function usePauseMemoriesV1() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (body: PauseBody) => {
-      const res = await fetch(`${apiBase}/v1/memories/pause`, {
+      const res = await fetch(`${apiBase}/api/v1/memories/pause`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
         body: JSON.stringify(body),
@@ -347,7 +347,7 @@ export function useResumeMemoriesV1() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (body: PauseBody) => {
-      const res = await fetch(`${apiBase}/v1/memories/resume`, {
+      const res = await fetch(`${apiBase}/api/v1/memories/resume`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
         body: JSON.stringify(body),
@@ -366,7 +366,7 @@ export function useExportMemoriesV1() {
   const apiBase = getApiBase()
   return useMutation({
     mutationFn: async (): Promise<Record<string, unknown>> => {
-      const res = await fetch(`${apiBase}/v1/memories/export`, {
+      const res = await fetch(`${apiBase}/api/v1/memories/export`, {
         headers: await getAuthHeaders(),
       })
       return jsonOrThrow(res)
@@ -381,7 +381,7 @@ export function useMemoryAnalyticsQuery() {
   return useQuery({
     queryKey: v1QK.analytics(),
     queryFn: async (): Promise<MemoryAnalytics> => {
-      const res = await fetch(`${apiBase}/v1/memories/analytics`, {
+      const res = await fetch(`${apiBase}/api/v1/memories/analytics`, {
         headers: await getAuthHeaders(),
       })
       return jsonOrThrow<MemoryAnalytics>(res)
