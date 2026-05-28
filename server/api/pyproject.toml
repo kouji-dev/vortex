@@ -61,6 +61,9 @@ dependencies = [
   "langchain-text-splitters>=0.3",
   "unstructured>=0.15",
   "langdetect>=1.0",
+  # RAG search (Phase I)
+  "rank-bm25>=0.2",
+  "tavily-python>=0.4",
 ]
 
 [project.optional-dependencies]
