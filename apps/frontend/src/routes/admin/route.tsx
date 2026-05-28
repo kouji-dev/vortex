@@ -36,6 +36,8 @@ const SECTIONS: readonly Section[] = [
   { to: '/admin/billing', label: 'Billing', enabled: true, testId: 'admin-nav-billing' },
   { to: '/admin/settings', label: 'Settings', enabled: true, testId: 'admin-nav-settings' },
   { to: '/admin/data', label: 'Data', enabled: true, testId: 'admin-nav-data' },
+  { to: '/admin/memory-policies', label: 'Memory Policies', enabled: true, testId: 'admin-nav-memory-policies' },
+  { to: '/admin/memory-analytics', label: 'Memory Analytics', enabled: true, testId: 'admin-nav-memory-analytics' },
 ] as const
 
 function AdminLayout() {
