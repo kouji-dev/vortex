@@ -30,6 +30,12 @@ from ai_portal.gateway.routing.protocol import (
     RoutingStrategy,
 )
 from ai_portal.gateway.routing.registry import STRATEGY_REGISTRY, get_strategy
+from ai_portal.gateway.routing.service import (
+    ROUTING_POLICY_HEADER,
+    RoutingResolution,
+    RoutingService,
+    extract_policy_override,
+)
 
 __all__ = [
     "CircuitBreaker",
@@ -41,10 +47,14 @@ __all__ = [
     "ProviderHTTPError",
     "ProviderModel",
     "ProviderTimeoutError",
+    "ROUTING_POLICY_HEADER",
     "RoutingCtx",
     "RoutingError",
     "RoutingPolicy",
+    "RoutingResolution",
+    "RoutingService",
     "RoutingStrategy",
     "STRATEGY_REGISTRY",
+    "extract_policy_override",
     "get_strategy",
 ]
