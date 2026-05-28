@@ -17,6 +17,20 @@ from ai_portal.knowledge_base.model import (  # noqa: F401
     KnowledgeBaseConnector,
 )
 from ai_portal.auth.model import Org, OrgInvite, User, UserPortalApiKey  # noqa: F401
+from ai_portal.workers.model import (  # noqa: F401
+    GitIntegration,
+    IssueTrackerIntegration,
+    WorkerApproval,
+    WorkerArtifact,
+    WorkerBranchLock,
+    WorkerEgressRule,
+    WorkerEvent,
+    WorkerPool,
+    WorkerRun,
+    WorkerSandboxRow,
+    WorkerSecretGrant,
+    WorkerTask,
+)
 
 __all__ = [
     "Assistant",
