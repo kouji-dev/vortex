@@ -9,7 +9,7 @@ import uuid as _uuid
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,6 +23,8 @@ from ai_portal.memory.model import (
 from ai_portal.memory.recallers.protocol import RecallOpts, RecallScope
 from ai_portal.memory.schemas import (
     BulkDeleteRequest,
+    BulkPinRequest,
+    BulkTagRequest,
     ExtractionPolicyDTO,
     ExtractRequest,
     MemoryCreate,
@@ -174,6 +176,43 @@ async def bulk_delete(
     return {"deleted": count}
 
 
+@router.post("/bulk-pin")
+async def bulk_pin(
+    body: BulkPinRequest,
+    session: AsyncSession = Depends(_get_session),
+    actor=Depends(_get_actor()),
+) -> dict[str, int]:
+    svc = MemoryService(session)
+    count = await svc.bulk_pin(
+        org_id=actor.org_id,
+        actor_user_id=int(actor.user_id) if actor.user_id is not None else 0,
+        ids=list(body.ids),
+        pinned=body.pinned,
+    )
+    await session.commit()
+    return {"updated": count}
+
+
+@router.post("/bulk-tag")
+async def bulk_tag(
+    body: BulkTagRequest,
+    session: AsyncSession = Depends(_get_session),
+    actor=Depends(_get_actor()),
+) -> dict[str, int]:
+    if not (body.add or body.remove):
+        raise HTTPException(400, "add and/or remove required")
+    svc = MemoryService(session)
+    count = await svc.bulk_tag(
+        org_id=actor.org_id,
+        actor_user_id=int(actor.user_id) if actor.user_id is not None else 0,
+        ids=list(body.ids),
+        add=list(body.add),
+        remove=list(body.remove),
+    )
+    await session.commit()
+    return {"updated": count}
+
+
 @router.post("/extract")
 async def extract_endpoint(
     body: ExtractRequest,
@@ -267,6 +306,31 @@ async def list_uses(
     }
 
 
+# ── graph traversal ─────────────────────────────────────────────────
+
+
+@router.get("/{memory_id}/related")
+async def get_related(
+    memory_id: _uuid.UUID,
+    depth: int = Query(default=2, ge=0, le=5),
+    session: AsyncSession = Depends(_get_session),
+    actor=Depends(_get_actor()),
+) -> dict[str, Any]:
+    from ai_portal.memory.graph import traverse
+
+    g = await traverse(session, org_id=actor.org_id, seed_id=memory_id, depth=depth)
+    return {
+        "nodes": [
+            {"memory_id": n.memory_id, "text": n.text, "type": n.type, "depth": n.depth}
+            for n in g.nodes
+        ],
+        "edges": [
+            {"relation_id": e.relation_id, "text": e.text, "src": e.src, "dst": e.dst}
+            for e in g.edges
+        ],
+    }
+
+
 # ── policies ────────────────────────────────────────────────────────
 
 
@@ -344,8 +408,13 @@ async def set_extraction_policy(
     await session.flush()
     await session.commit()
     try:
-        from ai_portal.control_plane import emit_webhook
+        from ai_portal.control_plane import emit_audit, emit_webhook
 
+        emit_audit(
+            org_id=actor.org_id,
+            event_type="memory.policy.changed",
+            resource={"kind": "extraction", "scope_kind": body.scope_kind},
+        )
         emit_webhook(
             "memory.policy.changed",
             {"scope_kind": body.scope_kind, "kind": "extraction"},
@@ -385,8 +454,13 @@ async def set_recall_policy(
     await session.flush()
     await session.commit()
     try:
-        from ai_portal.control_plane import emit_webhook
+        from ai_portal.control_plane import emit_audit, emit_webhook
 
+        emit_audit(
+            org_id=actor.org_id,
+            event_type="memory.policy.changed",
+            resource={"kind": "recall", "scope_kind": body.scope_kind},
+        )
         emit_webhook(
             "memory.policy.changed",
             {"scope_kind": body.scope_kind, "kind": "recall"},
@@ -436,15 +510,31 @@ async def resume_endpoint(
 
 @router.get("/export")
 async def export_endpoint(
+    format: str = Query(default="json", pattern="^(json|jsonl|csv|md)$"),
     session: AsyncSession = Depends(_get_session),
     actor=Depends(_get_actor()),
-) -> dict[str, Any]:
+):
+    from ai_portal.memory.export_formats import (
+        content_type,
+        file_ext,
+        render,
+    )
+
     svc = MemoryService(session)
     payload = await svc.export_for_user(
         org_id=actor.org_id,
         user_id=int(actor.user_id) if actor.user_id is not None else 0,
     )
-    return payload
+    if format == "json":
+        return payload
+    body = render(format, payload)
+    return Response(
+        content=body,
+        media_type=content_type(format),
+        headers={
+            "Content-Disposition": f'attachment; filename="memories.{file_ext(format)}"'
+        },
+    )
 
 
 # ── analytics ───────────────────────────────────────────────────────
@@ -458,3 +548,14 @@ async def analytics_endpoint(
     from ai_portal.memory.analytics import rollup_all
 
     return await rollup_all(session, actor.org_id)
+
+
+@router.get("/analytics/cost")
+async def analytics_cost_endpoint(
+    period: str = Query(default="30d", pattern=r"^\d+[dhw]$"),
+    session: AsyncSession = Depends(_get_session),
+    actor=Depends(_get_actor()),
+) -> dict[str, Any]:
+    from ai_portal.memory.analytics import extraction_token_cost
+
+    return await extraction_token_cost(session, actor.org_id, period=period)

@@ -179,6 +179,52 @@ export function useBulkDeleteMemoriesV1() {
   })
 }
 
+// ── bulk pin / tag ───────────────────────────────────────────────────
+
+export function useBulkPinMemoriesV1() {
+  const apiBase = getApiBase()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ ids, pinned }: { ids: string[]; pinned: boolean }) => {
+      const res = await fetch(`${apiBase}/v1/memories/bulk-pin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
+        body: JSON.stringify({ ids, pinned }),
+      })
+      return jsonOrThrow<{ updated: number }>(res)
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['memories-v1'] })
+    },
+  })
+}
+
+export function useBulkTagMemoriesV1() {
+  const apiBase = getApiBase()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      ids,
+      add,
+      remove,
+    }: {
+      ids: string[]
+      add?: string[]
+      remove?: string[]
+    }) => {
+      const res = await fetch(`${apiBase}/v1/memories/bulk-tag`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
+        body: JSON.stringify({ ids, add: add ?? [], remove: remove ?? [] }),
+      })
+      return jsonOrThrow<{ updated: number }>(res)
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['memories-v1'] })
+    },
+  })
+}
+
 // ── provenance (uses) ────────────────────────────────────────────────
 
 export function useMemoryUsesQuery(id: string | null) {

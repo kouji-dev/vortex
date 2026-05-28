@@ -14,6 +14,7 @@ from sqlalchemy import and_, delete, or_, select, update
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ai_portal.memory.encryption import MemoryEncryption, is_ciphertext
 from ai_portal.memory.model import (
     Memory,
     MemoryScope,
@@ -26,21 +27,48 @@ from ai_portal.memory.model import (
 class MemoryRepo:
     """Scope-aware memory persistence."""
 
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(
+        self, session: AsyncSession, *, encryption: MemoryEncryption | None = None
+    ) -> None:
         self.s = session
+        self.encryption = encryption or MemoryEncryption(session)
+
+    async def _maybe_encrypt(self, m: Memory) -> None:
+        """In-place encrypt ``m.text`` when the org has BYOK enabled."""
+        if m.text is None or is_ciphertext(m.text):
+            return
+        if await self.encryption.is_enabled(m.org_id):
+            m.text = await self.encryption.encrypt(m.org_id, m.text)
+
+    async def _maybe_decrypt(self, m: Memory | None) -> Memory | None:
+        if m is None:
+            return None
+        if is_ciphertext(m.text):
+            m.text = await self.encryption.decrypt(m.org_id, m.text)
+        return m
+
+    async def _decrypt_many(self, rows: list[Memory]) -> list[Memory]:
+        for r in rows:
+            await self._maybe_decrypt(r)
+        return rows
 
     # ── core CRUD ────────────────────────────────────────────────────
 
     async def add(self, m: Memory) -> Memory:
+        await self._maybe_encrypt(m)
         self.s.add(m)
         await self.s.flush()
+        # Return a decrypted view to callers
+        if is_ciphertext(m.text):
+            # store ciphertext in DB but show plaintext via attribute mirror
+            m.text = await self.encryption.decrypt(m.org_id, m.text)
         return m
 
     async def get(self, mid: _uuid.UUID | str) -> Memory | None:
         if isinstance(mid, str):
             mid = _uuid.UUID(mid)
         res = await self.s.execute(select(Memory).where(Memory.id == mid))
-        return res.scalar_one_or_none()
+        return await self._maybe_decrypt(res.scalar_one_or_none())
 
     async def soft_delete(self, mid: _uuid.UUID | str) -> None:
         if isinstance(mid, str):
@@ -63,6 +91,13 @@ class MemoryRepo:
             return
         if isinstance(mid, str):
             mid = _uuid.UUID(mid)
+        if "text" in fields and fields["text"] is not None:
+            # find owning org first to know whether to encrypt
+            existing = await self.get(mid)
+            if existing is not None and await self.encryption.is_enabled(existing.org_id):
+                fields["text"] = await self.encryption.encrypt(
+                    existing.org_id, fields["text"]
+                )
         await self.s.execute(update(Memory).where(Memory.id == mid).values(**fields))
         await self.s.flush()
 
@@ -127,7 +162,7 @@ class MemoryRepo:
 
         stmt = select(Memory).where(and_(*clauses)).limit(limit)
         rows = await self.s.execute(stmt)
-        return list(rows.scalars())
+        return await self._decrypt_many(list(rows.scalars()))
 
     # ── vector search ────────────────────────────────────────────────
 
