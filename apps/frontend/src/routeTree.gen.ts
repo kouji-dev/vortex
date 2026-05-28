@@ -24,9 +24,11 @@ import { Route as OrgSettingsRouteImport } from './routes/org/settings'
 import { Route as OrgConsumptionRouteImport } from './routes/org/consumption'
 import { Route as KnowledgeBasesIdRouteImport } from './routes/knowledge-bases/$id'
 import { Route as GatewayTracesRouteImport } from './routes/gateway/traces'
+import { Route as GatewayProvidersRouteImport } from './routes/gateway/providers'
 import { Route as GatewayPlaygroundRouteImport } from './routes/gateway/playground'
 import { Route as GatewayOverviewRouteImport } from './routes/gateway/overview'
 import { Route as GatewayGuardrailsRouteImport } from './routes/gateway/guardrails'
+import { Route as GatewayEvalsRouteImport } from './routes/gateway/evals'
 import { Route as AdminWebhooksRouteImport } from './routes/admin/webhooks'
 import { Route as AdminUsageRouteImport } from './routes/admin/usage'
 import { Route as AdminSsoRouteImport } from './routes/admin/sso'
@@ -117,6 +119,11 @@ const GatewayTracesRoute = GatewayTracesRouteImport.update({
   path: '/traces',
   getParentRoute: () => GatewayRouteRoute,
 } as any)
+const GatewayProvidersRoute = GatewayProvidersRouteImport.update({
+  id: '/providers',
+  path: '/providers',
+  getParentRoute: () => GatewayRouteRoute,
+} as any)
 const GatewayPlaygroundRoute = GatewayPlaygroundRouteImport.update({
   id: '/playground',
   path: '/playground',
@@ -130,6 +137,11 @@ const GatewayOverviewRoute = GatewayOverviewRouteImport.update({
 const GatewayGuardrailsRoute = GatewayGuardrailsRouteImport.update({
   id: '/guardrails',
   path: '/guardrails',
+  getParentRoute: () => GatewayRouteRoute,
+} as any)
+const GatewayEvalsRoute = GatewayEvalsRouteImport.update({
+  id: '/evals',
+  path: '/evals',
   getParentRoute: () => GatewayRouteRoute,
 } as any)
 const AdminWebhooksRoute = AdminWebhooksRouteImport.update({
@@ -224,9 +236,11 @@ export interface FileRoutesByFullPath {
   '/admin/sso': typeof AdminSsoRoute
   '/admin/usage': typeof AdminUsageRoute
   '/admin/webhooks': typeof AdminWebhooksRoute
+  '/gateway/evals': typeof GatewayEvalsRoute
   '/gateway/guardrails': typeof GatewayGuardrailsRoute
   '/gateway/overview': typeof GatewayOverviewRoute
   '/gateway/playground': typeof GatewayPlaygroundRoute
+  '/gateway/providers': typeof GatewayProvidersRoute
   '/gateway/traces': typeof GatewayTracesRoute
   '/knowledge-bases/$id': typeof KnowledgeBasesIdRoute
   '/org/consumption': typeof OrgConsumptionRoute
@@ -255,9 +269,11 @@ export interface FileRoutesByTo {
   '/admin/sso': typeof AdminSsoRoute
   '/admin/usage': typeof AdminUsageRoute
   '/admin/webhooks': typeof AdminWebhooksRoute
+  '/gateway/evals': typeof GatewayEvalsRoute
   '/gateway/guardrails': typeof GatewayGuardrailsRoute
   '/gateway/overview': typeof GatewayOverviewRoute
   '/gateway/playground': typeof GatewayPlaygroundRoute
+  '/gateway/providers': typeof GatewayProvidersRoute
   '/gateway/traces': typeof GatewayTracesRoute
   '/knowledge-bases/$id': typeof KnowledgeBasesIdRoute
   '/org/consumption': typeof OrgConsumptionRoute
@@ -290,9 +306,11 @@ export interface FileRoutesById {
   '/admin/sso': typeof AdminSsoRoute
   '/admin/usage': typeof AdminUsageRoute
   '/admin/webhooks': typeof AdminWebhooksRoute
+  '/gateway/evals': typeof GatewayEvalsRoute
   '/gateway/guardrails': typeof GatewayGuardrailsRoute
   '/gateway/overview': typeof GatewayOverviewRoute
   '/gateway/playground': typeof GatewayPlaygroundRoute
+  '/gateway/providers': typeof GatewayProvidersRoute
   '/gateway/traces': typeof GatewayTracesRoute
   '/knowledge-bases/$id': typeof KnowledgeBasesIdRoute
   '/org/consumption': typeof OrgConsumptionRoute
@@ -326,9 +344,11 @@ export interface FileRouteTypes {
     | '/admin/sso'
     | '/admin/usage'
     | '/admin/webhooks'
+    | '/gateway/evals'
     | '/gateway/guardrails'
     | '/gateway/overview'
     | '/gateway/playground'
+    | '/gateway/providers'
     | '/gateway/traces'
     | '/knowledge-bases/$id'
     | '/org/consumption'
@@ -357,9 +377,11 @@ export interface FileRouteTypes {
     | '/admin/sso'
     | '/admin/usage'
     | '/admin/webhooks'
+    | '/gateway/evals'
     | '/gateway/guardrails'
     | '/gateway/overview'
     | '/gateway/playground'
+    | '/gateway/providers'
     | '/gateway/traces'
     | '/knowledge-bases/$id'
     | '/org/consumption'
@@ -391,9 +413,11 @@ export interface FileRouteTypes {
     | '/admin/sso'
     | '/admin/usage'
     | '/admin/webhooks'
+    | '/gateway/evals'
     | '/gateway/guardrails'
     | '/gateway/overview'
     | '/gateway/playground'
+    | '/gateway/providers'
     | '/gateway/traces'
     | '/knowledge-bases/$id'
     | '/org/consumption'
@@ -527,6 +551,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GatewayTracesRouteImport
       parentRoute: typeof GatewayRouteRoute
     }
+    '/gateway/providers': {
+      id: '/gateway/providers'
+      path: '/providers'
+      fullPath: '/gateway/providers'
+      preLoaderRoute: typeof GatewayProvidersRouteImport
+      parentRoute: typeof GatewayRouteRoute
+    }
     '/gateway/playground': {
       id: '/gateway/playground'
       path: '/playground'
@@ -546,6 +577,13 @@ declare module '@tanstack/react-router' {
       path: '/guardrails'
       fullPath: '/gateway/guardrails'
       preLoaderRoute: typeof GatewayGuardrailsRouteImport
+      parentRoute: typeof GatewayRouteRoute
+    }
+    '/gateway/evals': {
+      id: '/gateway/evals'
+      path: '/evals'
+      fullPath: '/gateway/evals'
+      preLoaderRoute: typeof GatewayEvalsRouteImport
       parentRoute: typeof GatewayRouteRoute
     }
     '/admin/webhooks': {
@@ -712,17 +750,21 @@ const ChatRouteRouteWithChildren = ChatRouteRoute._addFileChildren(
 )
 
 interface GatewayRouteRouteChildren {
+  GatewayEvalsRoute: typeof GatewayEvalsRoute
   GatewayGuardrailsRoute: typeof GatewayGuardrailsRoute
   GatewayOverviewRoute: typeof GatewayOverviewRoute
   GatewayPlaygroundRoute: typeof GatewayPlaygroundRoute
+  GatewayProvidersRoute: typeof GatewayProvidersRoute
   GatewayTracesRoute: typeof GatewayTracesRoute
   GatewayIndexRoute: typeof GatewayIndexRoute
 }
 
 const GatewayRouteRouteChildren: GatewayRouteRouteChildren = {
+  GatewayEvalsRoute: GatewayEvalsRoute,
   GatewayGuardrailsRoute: GatewayGuardrailsRoute,
   GatewayOverviewRoute: GatewayOverviewRoute,
   GatewayPlaygroundRoute: GatewayPlaygroundRoute,
+  GatewayProvidersRoute: GatewayProvidersRoute,
   GatewayTracesRoute: GatewayTracesRoute,
   GatewayIndexRoute: GatewayIndexRoute,
 }
