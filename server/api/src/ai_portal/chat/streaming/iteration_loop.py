@@ -6,6 +6,7 @@ This is an async generator: callers do ``async for event in run(...): ...``.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import uuid
@@ -35,6 +36,7 @@ from ai_portal.chat.streaming.sse_emitter import encode
 from ai_portal.chat.tool_outcome import ToolCallOutcome
 from ai_portal.chat.tool_service import dispatch_tool
 from ai_portal.control_plane import emit_audit, emit_usage
+from ai_portal.gateway.chat_bridge import stream_chat_legacy
 
 logger = logging.getLogger(__name__)
 
@@ -250,52 +252,60 @@ async def run(
         citations: list[CitationEvent] = []
         had_error = False
 
+        # ``aclosing`` guarantees the bridge's ``finally`` block runs even
+        # when we raise out of the loop body — chat_bridge needs that to
+        # emit a trace row on provider_error.
+        bridge = stream_chat_legacy(
+            provider=provider,
+            messages=messages,
+            model=model,
+            settings=settings or {},
+            tools=tool_schemas if tool_schemas else None,
+            org_id=org_id,
+            user_id=user_id,
+        )
         try:
-            async for ev_wrapper in provider.stream(
-                messages=messages,
-                model=model,
-                settings=settings or {},
-                tools=tool_schemas if tool_schemas else None,
-            ):
-                # Unwrap the discriminated-union root
-                ev = ev_wrapper.root if hasattr(ev_wrapper, "root") else ev_wrapper
+            async with contextlib.aclosing(bridge) as bridge_stream:
+                async for ev_wrapper in bridge_stream:
+                    # Unwrap the discriminated-union root
+                    ev = ev_wrapper.root if hasattr(ev_wrapper, "root") else ev_wrapper
 
-                # Check cancellation inside the stream
-                if cancel_token and cancel_token.cancelled:
-                    logger.info("iteration_loop: cancelled mid-stream at iteration=%d", iteration)
-                    break
+                    # Check cancellation inside the stream
+                    if cancel_token and cancel_token.cancelled:
+                        logger.info("iteration_loop: cancelled mid-stream at iteration=%d", iteration)
+                        break
 
-                if isinstance(ev, TextDeltaEvent):
-                    if text_item_id is None:
-                        text_item = writer.start_text(turn_id=turn_id)
-                        text_item_id = text_item.id
-                        yield _emit(text_item)
-                    writer.append_text_delta(text_item_id, ev.text)
+                    if isinstance(ev, TextDeltaEvent):
+                        if text_item_id is None:
+                            text_item = writer.start_text(turn_id=turn_id)
+                            text_item_id = text_item.id
+                            yield _emit(text_item)
+                        writer.append_text_delta(text_item_id, ev.text)
 
-                elif isinstance(ev, ThinkingDeltaEvent):
-                    if thinking_item_id is None:
-                        think_item = writer.start_thinking(turn_id=turn_id)
-                        thinking_item_id = think_item.id
-                        yield _emit(think_item)
-                    writer.append_text_delta(thinking_item_id, ev.text)
+                    elif isinstance(ev, ThinkingDeltaEvent):
+                        if thinking_item_id is None:
+                            think_item = writer.start_thinking(turn_id=turn_id)
+                            thinking_item_id = think_item.id
+                            yield _emit(think_item)
+                        writer.append_text_delta(thinking_item_id, ev.text)
 
-                elif isinstance(ev, ToolCallRequestEvent):
-                    tool_request = ev
+                    elif isinstance(ev, ToolCallRequestEvent):
+                        tool_request = ev
 
-                elif isinstance(ev, ServerToolUseEvent):
-                    server_tool = ev
+                    elif isinstance(ev, ServerToolUseEvent):
+                        server_tool = ev
 
-                elif isinstance(ev, CitationEvent):
-                    citations.append(ev)
+                    elif isinstance(ev, CitationEvent):
+                        citations.append(ev)
 
-                elif isinstance(ev, UsageEvent):
-                    usage = ev
+                    elif isinstance(ev, UsageEvent):
+                        usage = ev
 
-                elif isinstance(ev, IterationCompleteEvent):
-                    stop_reason = ev.stop_reason
+                    elif isinstance(ev, IterationCompleteEvent):
+                        stop_reason = ev.stop_reason
 
-                elif isinstance(ev, ProviderErrorEvent):
-                    raise RuntimeError(f"{ev.code}: {ev.message}")
+                    elif isinstance(ev, ProviderErrorEvent):
+                        raise RuntimeError(f"{ev.code}: {ev.message}")
 
         except Exception as exc:
             logger.exception("iteration_loop: error at iteration=%d", iteration)
