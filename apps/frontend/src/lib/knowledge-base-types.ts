@@ -12,6 +12,8 @@ export type KnowledgeBaseSummary = {
   chunks_count?: number
   /** Total byte size across stored files (if available). */
   size_bytes?: number
+  /** Free-form labels (e.g. ["legal","public"]). Optional. */
+  tags?: string[] | null
 }
 
 export type KnowledgeBaseDocument = {

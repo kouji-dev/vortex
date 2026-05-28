@@ -3,6 +3,7 @@
  *
  * Mirrors the existing `/knowledge-bases` list but lives under `/rag` so the
  * sidebar navigation works. Click a KB → drills into per-KB sub-pages.
+ * Tag chips above the table AND-filter the listing.
  */
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { Link, createFileRoute } from '@tanstack/react-router'
@@ -10,6 +11,7 @@ import * as React from 'react'
 
 import { getApiBase } from '~/lib/api-base'
 import { getAuthHeaders } from '~/lib/authorizedFetch'
+import { collectAllTags, filterByTags, toggleTag } from '~/lib/kb-tags'
 import type { KnowledgeBaseSummary } from '~/lib/knowledge-base-types'
 import { queryKeys } from '~/lib/queryKeys'
 
@@ -20,6 +22,7 @@ export const Route = createFileRoute('/rag/kbs/')({
 function KbsPage() {
   const apiBase = getApiBase()
   const [search, setSearch] = React.useState('')
+  const [activeTags, setActiveTags] = React.useState<string[]>([])
 
   const listQ = useInfiniteQuery({
     queryKey: queryKeys.knowledgeBasesPage(),
@@ -40,9 +43,14 @@ function KbsPage() {
   })
 
   const all = (listQ.data?.pages ?? []).flatMap((p) => p.items)
+  const allTags = React.useMemo(() => collectAllTags(all), [all])
+  const tagFiltered = React.useMemo(
+    () => filterByTags(all, activeTags),
+    [all, activeTags],
+  )
   const filtered = search
-    ? all.filter((kb) => kb.name.toLowerCase().includes(search.toLowerCase()))
-    : all
+    ? tagFiltered.filter((kb) => kb.name.toLowerCase().includes(search.toLowerCase()))
+    : tagFiltered
 
   return (
     <div className="panel" data-testid="rag-kbs">
@@ -59,6 +67,53 @@ function KbsPage() {
           style={{ marginBottom: 8 }}
           data-testid="rag-kbs-search"
         />
+        {allTags.length > 0 && (
+          <div
+            style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}
+            data-testid="rag-kbs-tag-filters"
+          >
+            {allTags.map((t) => {
+              const active = activeTags.includes(t)
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  className={`pill ${active ? 'pill-active' : ''}`}
+                  onClick={() => setActiveTags((cur) => toggleTag(cur, t))}
+                  data-testid={`rag-kbs-tag-${t}`}
+                  data-active={active ? 'true' : 'false'}
+                  style={{
+                    fontSize: 11,
+                    cursor: 'pointer',
+                    background: active ? 'var(--ink)' : 'var(--bg-2, transparent)',
+                    color: active ? 'var(--bg)' : 'var(--ink-2)',
+                    border: '1px solid var(--line)',
+                    padding: '2px 8px',
+                    borderRadius: 999,
+                  }}
+                >
+                  {t}
+                </button>
+              )
+            })}
+            {activeTags.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setActiveTags([])}
+                data-testid="rag-kbs-tag-clear"
+                style={{
+                  fontSize: 11,
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--ink-3)',
+                  cursor: 'pointer',
+                }}
+              >
+                clear ({activeTags.length})
+              </button>
+            )}
+          </div>
+        )}
         {listQ.isPending && (
           <p style={{ fontSize: 12, color: 'var(--ink-3)' }}>Loading…</p>
         )}
@@ -66,6 +121,7 @@ function KbsPage() {
           <thead>
             <tr>
               <th>Name</th>
+              <th>Tags</th>
               <th>Docs</th>
               <th>Chunks</th>
               <th>Created</th>
@@ -76,6 +132,9 @@ function KbsPage() {
             {filtered.map((kb) => (
               <tr key={kb.id} data-testid={`rag-kbs-row-${kb.id}`}>
                 <td>{kb.name}</td>
+                <td style={{ fontSize: 11, color: 'var(--ink-3)' }}>
+                  {(kb.tags ?? []).join(', ') || '—'}
+                </td>
                 <td>{kb.document_count ?? '—'}</td>
                 <td>{kb.chunks_count ?? '—'}</td>
                 <td>{new Date(kb.created_at).toLocaleDateString()}</td>
