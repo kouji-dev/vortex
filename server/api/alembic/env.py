@@ -21,6 +21,13 @@ settings = get_settings()
 target_metadata = Base.metadata
 
 
+def _version_column_type():
+    # Revision IDs include the control-plane / gateway / etc. prefixes and
+    # exceed the default 32-char alembic_version width. Bump to 255.
+    from sqlalchemy.types import String  # noqa: PLC0415
+    return String(255)
+
+
 def run_migrations_offline() -> None:
     url = settings.database_url
     context.configure(
@@ -28,6 +35,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        version_table_column_type=_version_column_type(),
     )
 
     with context.begin_transaction():
@@ -38,7 +46,11 @@ def run_migrations_online() -> None:
     connectable = create_engine(settings.database_url, poolclass=pool.NullPool)
 
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            version_table_column_type=_version_column_type(),
+        )
 
         with context.begin_transaction():
             context.run_migrations()
