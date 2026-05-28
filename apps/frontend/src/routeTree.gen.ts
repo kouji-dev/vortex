@@ -26,6 +26,12 @@ import { Route as AdminSsoRouteImport } from './routes/admin/sso'
 import { Route as AdminMembersRouteImport } from './routes/admin/members'
 import { Route as AdminAuditRouteImport } from './routes/admin/audit'
 import { Route as AdminApiKeysRouteImport } from './routes/admin/api-keys'
+import { Route as AdminBudgetsRouteImport } from './routes/admin/budgets'
+import { Route as AdminWebhooksRouteImport } from './routes/admin/webhooks'
+import { Route as AdminBillingRouteImport } from './routes/admin/billing'
+import { Route as AdminScimRouteImport } from './routes/admin/scim'
+import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
+import { Route as AdminDataRouteImport } from './routes/admin/data'
 import { Route as ChatConversationsRouteRouteImport } from './routes/chat/conversations/route'
 import { Route as ChatConversationsIndexRouteImport } from './routes/chat/conversations/index'
 import { Route as ChatConversationsIdRouteImport } from './routes/chat/conversations/$id'
@@ -115,6 +121,36 @@ const AdminApiKeysRoute = AdminApiKeysRouteImport.update({
   path: '/api-keys',
   getParentRoute: () => AdminRouteRoute,
 } as any)
+const AdminBudgetsRoute = AdminBudgetsRouteImport.update({
+  id: '/budgets',
+  path: '/budgets',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminWebhooksRoute = AdminWebhooksRouteImport.update({
+  id: '/webhooks',
+  path: '/webhooks',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminBillingRoute = AdminBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminScimRoute = AdminScimRouteImport.update({
+  id: '/scim',
+  path: '/scim',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminSettingsRoute = AdminSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminDataRoute = AdminDataRouteImport.update({
+  id: '/data',
+  path: '/data',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
 const ChatConversationsRouteRoute = ChatConversationsRouteRouteImport.update({
   id: '/conversations',
   path: '/conversations',
@@ -142,6 +178,12 @@ export interface FileRoutesByFullPath {
   '/chat/conversations': typeof ChatConversationsRouteRouteWithChildren
   '/admin/api-keys': typeof AdminApiKeysRoute
   '/admin/audit': typeof AdminAuditRoute
+  '/admin/budgets': typeof AdminBudgetsRoute
+  '/admin/webhooks': typeof AdminWebhooksRoute
+  '/admin/billing': typeof AdminBillingRoute
+  '/admin/scim': typeof AdminScimRoute
+  '/admin/settings': typeof AdminSettingsRoute
+  '/admin/data': typeof AdminDataRoute
   '/admin/members': typeof AdminMembersRoute
   '/admin/sso': typeof AdminSsoRoute
   '/admin/usage': typeof AdminUsageRoute
@@ -162,6 +204,12 @@ export interface FileRoutesByTo {
   '/setup': typeof SetupRoute
   '/admin/api-keys': typeof AdminApiKeysRoute
   '/admin/audit': typeof AdminAuditRoute
+  '/admin/budgets': typeof AdminBudgetsRoute
+  '/admin/webhooks': typeof AdminWebhooksRoute
+  '/admin/billing': typeof AdminBillingRoute
+  '/admin/scim': typeof AdminScimRoute
+  '/admin/settings': typeof AdminSettingsRoute
+  '/admin/data': typeof AdminDataRoute
   '/admin/members': typeof AdminMembersRoute
   '/admin/sso': typeof AdminSsoRoute
   '/admin/usage': typeof AdminUsageRoute
@@ -185,6 +233,12 @@ export interface FileRoutesById {
   '/chat/conversations': typeof ChatConversationsRouteRouteWithChildren
   '/admin/api-keys': typeof AdminApiKeysRoute
   '/admin/audit': typeof AdminAuditRoute
+  '/admin/budgets': typeof AdminBudgetsRoute
+  '/admin/webhooks': typeof AdminWebhooksRoute
+  '/admin/billing': typeof AdminBillingRoute
+  '/admin/scim': typeof AdminScimRoute
+  '/admin/settings': typeof AdminSettingsRoute
+  '/admin/data': typeof AdminDataRoute
   '/admin/members': typeof AdminMembersRoute
   '/admin/sso': typeof AdminSsoRoute
   '/admin/usage': typeof AdminUsageRoute
@@ -209,6 +263,12 @@ export interface FileRouteTypes {
     | '/chat/conversations'
     | '/admin/api-keys'
     | '/admin/audit'
+    | '/admin/budgets'
+    | '/admin/webhooks'
+    | '/admin/billing'
+    | '/admin/scim'
+    | '/admin/settings'
+    | '/admin/data'
     | '/admin/members'
     | '/admin/sso'
     | '/admin/usage'
@@ -229,6 +289,12 @@ export interface FileRouteTypes {
     | '/setup'
     | '/admin/api-keys'
     | '/admin/audit'
+    | '/admin/budgets'
+    | '/admin/webhooks'
+    | '/admin/billing'
+    | '/admin/scim'
+    | '/admin/settings'
+    | '/admin/data'
     | '/admin/members'
     | '/admin/sso'
     | '/admin/usage'
@@ -251,6 +317,12 @@ export interface FileRouteTypes {
     | '/chat/conversations'
     | '/admin/api-keys'
     | '/admin/audit'
+    | '/admin/budgets'
+    | '/admin/webhooks'
+    | '/admin/billing'
+    | '/admin/scim'
+    | '/admin/settings'
+    | '/admin/data'
     | '/admin/members'
     | '/admin/sso'
     | '/admin/usage'
@@ -398,6 +470,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminApiKeysRouteImport
       parentRoute: typeof AdminRouteRoute
     }
+    '/admin/budgets': {
+      id: '/admin/budgets'
+      path: '/budgets'
+      fullPath: '/admin/budgets'
+      preLoaderRoute: typeof AdminBudgetsRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/webhooks': {
+      id: '/admin/webhooks'
+      path: '/webhooks'
+      fullPath: '/admin/webhooks'
+      preLoaderRoute: typeof AdminWebhooksRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/billing': {
+      id: '/admin/billing'
+      path: '/billing'
+      fullPath: '/admin/billing'
+      preLoaderRoute: typeof AdminBillingRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/scim': {
+      id: '/admin/scim'
+      path: '/scim'
+      fullPath: '/admin/scim'
+      preLoaderRoute: typeof AdminScimRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/settings': {
+      id: '/admin/settings'
+      path: '/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AdminSettingsRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/data': {
+      id: '/admin/data'
+      path: '/data'
+      fullPath: '/admin/data'
+      preLoaderRoute: typeof AdminDataRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/chat/conversations': {
       id: '/chat/conversations'
       path: '/conversations'
@@ -425,6 +539,12 @@ declare module '@tanstack/react-router' {
 interface AdminRouteRouteChildren {
   AdminApiKeysRoute: typeof AdminApiKeysRoute
   AdminAuditRoute: typeof AdminAuditRoute
+  AdminBudgetsRoute: typeof AdminBudgetsRoute
+  AdminWebhooksRoute: typeof AdminWebhooksRoute
+  AdminBillingRoute: typeof AdminBillingRoute
+  AdminScimRoute: typeof AdminScimRoute
+  AdminSettingsRoute: typeof AdminSettingsRoute
+  AdminDataRoute: typeof AdminDataRoute
   AdminMembersRoute: typeof AdminMembersRoute
   AdminSsoRoute: typeof AdminSsoRoute
   AdminUsageRoute: typeof AdminUsageRoute
@@ -434,6 +554,12 @@ interface AdminRouteRouteChildren {
 const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminApiKeysRoute: AdminApiKeysRoute,
   AdminAuditRoute: AdminAuditRoute,
+  AdminBudgetsRoute: AdminBudgetsRoute,
+  AdminWebhooksRoute: AdminWebhooksRoute,
+  AdminBillingRoute: AdminBillingRoute,
+  AdminScimRoute: AdminScimRoute,
+  AdminSettingsRoute: AdminSettingsRoute,
+  AdminDataRoute: AdminDataRoute,
   AdminMembersRoute: AdminMembersRoute,
   AdminSsoRoute: AdminSsoRoute,
   AdminUsageRoute: AdminUsageRoute,

@@ -23,19 +23,19 @@ type Section = {
   testId: string
 }
 
-// O1-O5 enabled in this slice. Remaining sections shown but inert.
+// All admin sections enabled (O1-O10 + SCIM).
 const SECTIONS: readonly Section[] = [
   { to: '/admin/members', label: 'Members', enabled: true, testId: 'admin-nav-members' },
   { to: '/admin/sso', label: 'SSO', enabled: true, testId: 'admin-nav-sso' },
-  { to: '/admin/scim', label: 'SCIM', enabled: false, testId: 'admin-nav-scim' },
+  { to: '/admin/scim', label: 'SCIM', enabled: true, testId: 'admin-nav-scim' },
   { to: '/admin/api-keys', label: 'API Keys', enabled: true, testId: 'admin-nav-api-keys' },
   { to: '/admin/audit', label: 'Audit', enabled: true, testId: 'admin-nav-audit' },
   { to: '/admin/usage', label: 'Usage', enabled: true, testId: 'admin-nav-usage' },
-  { to: '/admin/budgets', label: 'Budgets', enabled: false, testId: 'admin-nav-budgets' },
-  { to: '/admin/webhooks', label: 'Webhooks', enabled: false, testId: 'admin-nav-webhooks' },
-  { to: '/admin/billing', label: 'Billing', enabled: false, testId: 'admin-nav-billing' },
-  { to: '/admin/settings', label: 'Settings', enabled: false, testId: 'admin-nav-settings' },
-  { to: '/admin/data', label: 'Data', enabled: false, testId: 'admin-nav-data' },
+  { to: '/admin/budgets', label: 'Budgets', enabled: true, testId: 'admin-nav-budgets' },
+  { to: '/admin/webhooks', label: 'Webhooks', enabled: true, testId: 'admin-nav-webhooks' },
+  { to: '/admin/billing', label: 'Billing', enabled: true, testId: 'admin-nav-billing' },
+  { to: '/admin/settings', label: 'Settings', enabled: true, testId: 'admin-nav-settings' },
+  { to: '/admin/data', label: 'Data', enabled: true, testId: 'admin-nav-data' },
 ] as const
 
 function AdminLayout() {
