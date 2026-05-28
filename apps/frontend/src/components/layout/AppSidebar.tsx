@@ -1,18 +1,25 @@
 import { Link, useRouterState } from '@tanstack/react-router'
-import { BarChart2, Brain, ChevronUp, Library, LogOut, MessageSquare } from 'lucide-react'
+import { BarChart2, Brain, ChevronUp, Library, LogOut, MessageSquare, Router as RouterIcon } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import * as React from 'react'
 
 import { useConversationsListQuery } from '~/hooks/useConversationsListQuery'
 import { useMeQuery } from '~/hooks/useMeQuery'
+import { isAdminActor } from '~/lib/admin-permissions'
 
 const LANDING_URL = import.meta.env.VITE_LANDING_URL ?? '/'
 
 type NavItem = {
-  to: '/chat/conversations' | '/knowledge-bases' | '/memories' | '/org/consumption'
+  to:
+    | '/chat/conversations'
+    | '/knowledge-bases'
+    | '/memories'
+    | '/org/consumption'
+    | '/gateway/overview'
   Icon: LucideIcon
   label: string
   testId: string
+  adminOnly?: boolean
 }
 
 const NAV: readonly NavItem[] = [
@@ -20,6 +27,7 @@ const NAV: readonly NavItem[] = [
   { to: '/knowledge-bases', Icon: Library, label: 'Knowledge', testId: 'nav-knowledge' },
   { to: '/memories', Icon: Brain, label: 'Memories', testId: 'nav-memories' },
   { to: '/org/consumption', Icon: BarChart2, label: 'Consumption', testId: 'nav-consumption' },
+  { to: '/gateway/overview', Icon: RouterIcon, label: 'Gateway', testId: 'nav-gateway', adminOnly: true },
 ] as const
 
 function relativeTime(iso?: string | null): string {
@@ -63,6 +71,7 @@ export function AppSidebar() {
   const user = me.data
   const convList = conversations.data ?? []
   const isOnChat = path.startsWith('/chat')
+  const isAdmin = isAdminActor(user?.roles)
 
   return (
     <aside
@@ -73,12 +82,15 @@ export function AppSidebar() {
       {/* Primary nav */}
       <nav className="side-section" aria-label="Primary">
         <div className="side-label">Workspace</div>
-        {NAV.map(({ to, Icon, label, testId }) => {
+        {NAV.map(({ to, Icon, label, testId, adminOnly }) => {
+          if (adminOnly && !isAdmin) return null
           // Match /chat/conversations when on any /chat sub-route
           const active =
             to === '/chat/conversations'
               ? path.startsWith('/chat')
-              : path.startsWith(to)
+              : to === '/gateway/overview'
+                ? path.startsWith('/gateway')
+                : path.startsWith(to)
           return (
             <Link
               key={to}

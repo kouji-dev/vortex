@@ -13,25 +13,31 @@ import { Route as SetupRouteImport } from './routes/setup'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as MemoriesRouteImport } from './routes/memories'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as GatewayRouteRouteImport } from './routes/gateway/route'
 import { Route as ChatRouteRouteImport } from './routes/chat/route'
 import { Route as AdminRouteRouteImport } from './routes/admin/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as KnowledgeBasesIndexRouteImport } from './routes/knowledge-bases/index'
+import { Route as GatewayIndexRouteImport } from './routes/gateway/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as OrgSettingsRouteImport } from './routes/org/settings'
 import { Route as OrgConsumptionRouteImport } from './routes/org/consumption'
 import { Route as KnowledgeBasesIdRouteImport } from './routes/knowledge-bases/$id'
+import { Route as GatewayTracesRouteImport } from './routes/gateway/traces'
+import { Route as GatewayPlaygroundRouteImport } from './routes/gateway/playground'
+import { Route as GatewayOverviewRouteImport } from './routes/gateway/overview'
+import { Route as GatewayGuardrailsRouteImport } from './routes/gateway/guardrails'
+import { Route as AdminWebhooksRouteImport } from './routes/admin/webhooks'
 import { Route as AdminUsageRouteImport } from './routes/admin/usage'
 import { Route as AdminSsoRouteImport } from './routes/admin/sso'
+import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
+import { Route as AdminScimRouteImport } from './routes/admin/scim'
 import { Route as AdminMembersRouteImport } from './routes/admin/members'
+import { Route as AdminDataRouteImport } from './routes/admin/data'
+import { Route as AdminBudgetsRouteImport } from './routes/admin/budgets'
+import { Route as AdminBillingRouteImport } from './routes/admin/billing'
 import { Route as AdminAuditRouteImport } from './routes/admin/audit'
 import { Route as AdminApiKeysRouteImport } from './routes/admin/api-keys'
-import { Route as AdminBudgetsRouteImport } from './routes/admin/budgets'
-import { Route as AdminWebhooksRouteImport } from './routes/admin/webhooks'
-import { Route as AdminBillingRouteImport } from './routes/admin/billing'
-import { Route as AdminScimRouteImport } from './routes/admin/scim'
-import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
-import { Route as AdminDataRouteImport } from './routes/admin/data'
 import { Route as ChatConversationsRouteRouteImport } from './routes/chat/conversations/route'
 import { Route as ChatConversationsIndexRouteImport } from './routes/chat/conversations/index'
 import { Route as ChatConversationsIdRouteImport } from './routes/chat/conversations/$id'
@@ -56,6 +62,11 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GatewayRouteRoute = GatewayRouteRouteImport.update({
+  id: '/gateway',
+  path: '/gateway',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ChatRouteRoute = ChatRouteRouteImport.update({
   id: '/chat',
   path: '/chat',
@@ -75,6 +86,11 @@ const KnowledgeBasesIndexRoute = KnowledgeBasesIndexRouteImport.update({
   id: '/knowledge-bases/',
   path: '/knowledge-bases/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const GatewayIndexRoute = GatewayIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => GatewayRouteRoute,
 } as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/',
@@ -96,6 +112,31 @@ const KnowledgeBasesIdRoute = KnowledgeBasesIdRouteImport.update({
   path: '/knowledge-bases/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GatewayTracesRoute = GatewayTracesRouteImport.update({
+  id: '/traces',
+  path: '/traces',
+  getParentRoute: () => GatewayRouteRoute,
+} as any)
+const GatewayPlaygroundRoute = GatewayPlaygroundRouteImport.update({
+  id: '/playground',
+  path: '/playground',
+  getParentRoute: () => GatewayRouteRoute,
+} as any)
+const GatewayOverviewRoute = GatewayOverviewRouteImport.update({
+  id: '/overview',
+  path: '/overview',
+  getParentRoute: () => GatewayRouteRoute,
+} as any)
+const GatewayGuardrailsRoute = GatewayGuardrailsRouteImport.update({
+  id: '/guardrails',
+  path: '/guardrails',
+  getParentRoute: () => GatewayRouteRoute,
+} as any)
+const AdminWebhooksRoute = AdminWebhooksRouteImport.update({
+  id: '/webhooks',
+  path: '/webhooks',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
 const AdminUsageRoute = AdminUsageRouteImport.update({
   id: '/usage',
   path: '/usage',
@@ -106,9 +147,34 @@ const AdminSsoRoute = AdminSsoRouteImport.update({
   path: '/sso',
   getParentRoute: () => AdminRouteRoute,
 } as any)
+const AdminSettingsRoute = AdminSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminScimRoute = AdminScimRouteImport.update({
+  id: '/scim',
+  path: '/scim',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
 const AdminMembersRoute = AdminMembersRouteImport.update({
   id: '/members',
   path: '/members',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminDataRoute = AdminDataRouteImport.update({
+  id: '/data',
+  path: '/data',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminBudgetsRoute = AdminBudgetsRouteImport.update({
+  id: '/budgets',
+  path: '/budgets',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminBillingRoute = AdminBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
   getParentRoute: () => AdminRouteRoute,
 } as any)
 const AdminAuditRoute = AdminAuditRouteImport.update({
@@ -119,36 +185,6 @@ const AdminAuditRoute = AdminAuditRouteImport.update({
 const AdminApiKeysRoute = AdminApiKeysRouteImport.update({
   id: '/api-keys',
   path: '/api-keys',
-  getParentRoute: () => AdminRouteRoute,
-} as any)
-const AdminBudgetsRoute = AdminBudgetsRouteImport.update({
-  id: '/budgets',
-  path: '/budgets',
-  getParentRoute: () => AdminRouteRoute,
-} as any)
-const AdminWebhooksRoute = AdminWebhooksRouteImport.update({
-  id: '/webhooks',
-  path: '/webhooks',
-  getParentRoute: () => AdminRouteRoute,
-} as any)
-const AdminBillingRoute = AdminBillingRouteImport.update({
-  id: '/billing',
-  path: '/billing',
-  getParentRoute: () => AdminRouteRoute,
-} as any)
-const AdminScimRoute = AdminScimRouteImport.update({
-  id: '/scim',
-  path: '/scim',
-  getParentRoute: () => AdminRouteRoute,
-} as any)
-const AdminSettingsRoute = AdminSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => AdminRouteRoute,
-} as any)
-const AdminDataRoute = AdminDataRouteImport.update({
-  id: '/data',
-  path: '/data',
   getParentRoute: () => AdminRouteRoute,
 } as any)
 const ChatConversationsRouteRoute = ChatConversationsRouteRouteImport.update({
@@ -171,6 +207,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteRouteWithChildren
   '/chat': typeof ChatRouteRouteWithChildren
+  '/gateway': typeof GatewayRouteRouteWithChildren
   '/login': typeof LoginRoute
   '/memories': typeof MemoriesRoute
   '/register': typeof RegisterRoute
@@ -178,19 +215,24 @@ export interface FileRoutesByFullPath {
   '/chat/conversations': typeof ChatConversationsRouteRouteWithChildren
   '/admin/api-keys': typeof AdminApiKeysRoute
   '/admin/audit': typeof AdminAuditRoute
-  '/admin/budgets': typeof AdminBudgetsRoute
-  '/admin/webhooks': typeof AdminWebhooksRoute
   '/admin/billing': typeof AdminBillingRoute
-  '/admin/scim': typeof AdminScimRoute
-  '/admin/settings': typeof AdminSettingsRoute
+  '/admin/budgets': typeof AdminBudgetsRoute
   '/admin/data': typeof AdminDataRoute
   '/admin/members': typeof AdminMembersRoute
+  '/admin/scim': typeof AdminScimRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/admin/sso': typeof AdminSsoRoute
   '/admin/usage': typeof AdminUsageRoute
+  '/admin/webhooks': typeof AdminWebhooksRoute
+  '/gateway/guardrails': typeof GatewayGuardrailsRoute
+  '/gateway/overview': typeof GatewayOverviewRoute
+  '/gateway/playground': typeof GatewayPlaygroundRoute
+  '/gateway/traces': typeof GatewayTracesRoute
   '/knowledge-bases/$id': typeof KnowledgeBasesIdRoute
   '/org/consumption': typeof OrgConsumptionRoute
   '/org/settings': typeof OrgSettingsRoute
   '/admin/': typeof AdminIndexRoute
+  '/gateway/': typeof GatewayIndexRoute
   '/knowledge-bases/': typeof KnowledgeBasesIndexRoute
   '/chat/conversations/$id': typeof ChatConversationsIdRoute
   '/chat/conversations/': typeof ChatConversationsIndexRoute
@@ -204,19 +246,24 @@ export interface FileRoutesByTo {
   '/setup': typeof SetupRoute
   '/admin/api-keys': typeof AdminApiKeysRoute
   '/admin/audit': typeof AdminAuditRoute
-  '/admin/budgets': typeof AdminBudgetsRoute
-  '/admin/webhooks': typeof AdminWebhooksRoute
   '/admin/billing': typeof AdminBillingRoute
-  '/admin/scim': typeof AdminScimRoute
-  '/admin/settings': typeof AdminSettingsRoute
+  '/admin/budgets': typeof AdminBudgetsRoute
   '/admin/data': typeof AdminDataRoute
   '/admin/members': typeof AdminMembersRoute
+  '/admin/scim': typeof AdminScimRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/admin/sso': typeof AdminSsoRoute
   '/admin/usage': typeof AdminUsageRoute
+  '/admin/webhooks': typeof AdminWebhooksRoute
+  '/gateway/guardrails': typeof GatewayGuardrailsRoute
+  '/gateway/overview': typeof GatewayOverviewRoute
+  '/gateway/playground': typeof GatewayPlaygroundRoute
+  '/gateway/traces': typeof GatewayTracesRoute
   '/knowledge-bases/$id': typeof KnowledgeBasesIdRoute
   '/org/consumption': typeof OrgConsumptionRoute
   '/org/settings': typeof OrgSettingsRoute
   '/admin': typeof AdminIndexRoute
+  '/gateway': typeof GatewayIndexRoute
   '/knowledge-bases': typeof KnowledgeBasesIndexRoute
   '/chat/conversations/$id': typeof ChatConversationsIdRoute
   '/chat/conversations': typeof ChatConversationsIndexRoute
@@ -226,6 +273,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteRouteWithChildren
   '/chat': typeof ChatRouteRouteWithChildren
+  '/gateway': typeof GatewayRouteRouteWithChildren
   '/login': typeof LoginRoute
   '/memories': typeof MemoriesRoute
   '/register': typeof RegisterRoute
@@ -233,19 +281,24 @@ export interface FileRoutesById {
   '/chat/conversations': typeof ChatConversationsRouteRouteWithChildren
   '/admin/api-keys': typeof AdminApiKeysRoute
   '/admin/audit': typeof AdminAuditRoute
-  '/admin/budgets': typeof AdminBudgetsRoute
-  '/admin/webhooks': typeof AdminWebhooksRoute
   '/admin/billing': typeof AdminBillingRoute
-  '/admin/scim': typeof AdminScimRoute
-  '/admin/settings': typeof AdminSettingsRoute
+  '/admin/budgets': typeof AdminBudgetsRoute
   '/admin/data': typeof AdminDataRoute
   '/admin/members': typeof AdminMembersRoute
+  '/admin/scim': typeof AdminScimRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/admin/sso': typeof AdminSsoRoute
   '/admin/usage': typeof AdminUsageRoute
+  '/admin/webhooks': typeof AdminWebhooksRoute
+  '/gateway/guardrails': typeof GatewayGuardrailsRoute
+  '/gateway/overview': typeof GatewayOverviewRoute
+  '/gateway/playground': typeof GatewayPlaygroundRoute
+  '/gateway/traces': typeof GatewayTracesRoute
   '/knowledge-bases/$id': typeof KnowledgeBasesIdRoute
   '/org/consumption': typeof OrgConsumptionRoute
   '/org/settings': typeof OrgSettingsRoute
   '/admin/': typeof AdminIndexRoute
+  '/gateway/': typeof GatewayIndexRoute
   '/knowledge-bases/': typeof KnowledgeBasesIndexRoute
   '/chat/conversations/$id': typeof ChatConversationsIdRoute
   '/chat/conversations/': typeof ChatConversationsIndexRoute
@@ -256,6 +309,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/chat'
+    | '/gateway'
     | '/login'
     | '/memories'
     | '/register'
@@ -263,19 +317,24 @@ export interface FileRouteTypes {
     | '/chat/conversations'
     | '/admin/api-keys'
     | '/admin/audit'
-    | '/admin/budgets'
-    | '/admin/webhooks'
     | '/admin/billing'
-    | '/admin/scim'
-    | '/admin/settings'
+    | '/admin/budgets'
     | '/admin/data'
     | '/admin/members'
+    | '/admin/scim'
+    | '/admin/settings'
     | '/admin/sso'
     | '/admin/usage'
+    | '/admin/webhooks'
+    | '/gateway/guardrails'
+    | '/gateway/overview'
+    | '/gateway/playground'
+    | '/gateway/traces'
     | '/knowledge-bases/$id'
     | '/org/consumption'
     | '/org/settings'
     | '/admin/'
+    | '/gateway/'
     | '/knowledge-bases/'
     | '/chat/conversations/$id'
     | '/chat/conversations/'
@@ -289,19 +348,24 @@ export interface FileRouteTypes {
     | '/setup'
     | '/admin/api-keys'
     | '/admin/audit'
-    | '/admin/budgets'
-    | '/admin/webhooks'
     | '/admin/billing'
-    | '/admin/scim'
-    | '/admin/settings'
+    | '/admin/budgets'
     | '/admin/data'
     | '/admin/members'
+    | '/admin/scim'
+    | '/admin/settings'
     | '/admin/sso'
     | '/admin/usage'
+    | '/admin/webhooks'
+    | '/gateway/guardrails'
+    | '/gateway/overview'
+    | '/gateway/playground'
+    | '/gateway/traces'
     | '/knowledge-bases/$id'
     | '/org/consumption'
     | '/org/settings'
     | '/admin'
+    | '/gateway'
     | '/knowledge-bases'
     | '/chat/conversations/$id'
     | '/chat/conversations'
@@ -310,6 +374,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/chat'
+    | '/gateway'
     | '/login'
     | '/memories'
     | '/register'
@@ -317,19 +382,24 @@ export interface FileRouteTypes {
     | '/chat/conversations'
     | '/admin/api-keys'
     | '/admin/audit'
-    | '/admin/budgets'
-    | '/admin/webhooks'
     | '/admin/billing'
-    | '/admin/scim'
-    | '/admin/settings'
+    | '/admin/budgets'
     | '/admin/data'
     | '/admin/members'
+    | '/admin/scim'
+    | '/admin/settings'
     | '/admin/sso'
     | '/admin/usage'
+    | '/admin/webhooks'
+    | '/gateway/guardrails'
+    | '/gateway/overview'
+    | '/gateway/playground'
+    | '/gateway/traces'
     | '/knowledge-bases/$id'
     | '/org/consumption'
     | '/org/settings'
     | '/admin/'
+    | '/gateway/'
     | '/knowledge-bases/'
     | '/chat/conversations/$id'
     | '/chat/conversations/'
@@ -339,6 +409,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRouteRoute: typeof AdminRouteRouteWithChildren
   ChatRouteRoute: typeof ChatRouteRouteWithChildren
+  GatewayRouteRoute: typeof GatewayRouteRouteWithChildren
   LoginRoute: typeof LoginRoute
   MemoriesRoute: typeof MemoriesRoute
   RegisterRoute: typeof RegisterRoute
@@ -379,6 +450,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/gateway': {
+      id: '/gateway'
+      path: '/gateway'
+      fullPath: '/gateway'
+      preLoaderRoute: typeof GatewayRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/chat': {
       id: '/chat'
       path: '/chat'
@@ -406,6 +484,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/knowledge-bases/'
       preLoaderRoute: typeof KnowledgeBasesIndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/gateway/': {
+      id: '/gateway/'
+      path: '/'
+      fullPath: '/gateway/'
+      preLoaderRoute: typeof GatewayIndexRouteImport
+      parentRoute: typeof GatewayRouteRoute
     }
     '/admin/': {
       id: '/admin/'
@@ -435,6 +520,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof KnowledgeBasesIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/gateway/traces': {
+      id: '/gateway/traces'
+      path: '/traces'
+      fullPath: '/gateway/traces'
+      preLoaderRoute: typeof GatewayTracesRouteImport
+      parentRoute: typeof GatewayRouteRoute
+    }
+    '/gateway/playground': {
+      id: '/gateway/playground'
+      path: '/playground'
+      fullPath: '/gateway/playground'
+      preLoaderRoute: typeof GatewayPlaygroundRouteImport
+      parentRoute: typeof GatewayRouteRoute
+    }
+    '/gateway/overview': {
+      id: '/gateway/overview'
+      path: '/overview'
+      fullPath: '/gateway/overview'
+      preLoaderRoute: typeof GatewayOverviewRouteImport
+      parentRoute: typeof GatewayRouteRoute
+    }
+    '/gateway/guardrails': {
+      id: '/gateway/guardrails'
+      path: '/guardrails'
+      fullPath: '/gateway/guardrails'
+      preLoaderRoute: typeof GatewayGuardrailsRouteImport
+      parentRoute: typeof GatewayRouteRoute
+    }
+    '/admin/webhooks': {
+      id: '/admin/webhooks'
+      path: '/webhooks'
+      fullPath: '/admin/webhooks'
+      preLoaderRoute: typeof AdminWebhooksRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/admin/usage': {
       id: '/admin/usage'
       path: '/usage'
@@ -449,11 +569,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSsoRouteImport
       parentRoute: typeof AdminRouteRoute
     }
+    '/admin/settings': {
+      id: '/admin/settings'
+      path: '/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AdminSettingsRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/scim': {
+      id: '/admin/scim'
+      path: '/scim'
+      fullPath: '/admin/scim'
+      preLoaderRoute: typeof AdminScimRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/admin/members': {
       id: '/admin/members'
       path: '/members'
       fullPath: '/admin/members'
       preLoaderRoute: typeof AdminMembersRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/data': {
+      id: '/admin/data'
+      path: '/data'
+      fullPath: '/admin/data'
+      preLoaderRoute: typeof AdminDataRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/budgets': {
+      id: '/admin/budgets'
+      path: '/budgets'
+      fullPath: '/admin/budgets'
+      preLoaderRoute: typeof AdminBudgetsRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/billing': {
+      id: '/admin/billing'
+      path: '/billing'
+      fullPath: '/admin/billing'
+      preLoaderRoute: typeof AdminBillingRouteImport
       parentRoute: typeof AdminRouteRoute
     }
     '/admin/audit': {
@@ -468,48 +623,6 @@ declare module '@tanstack/react-router' {
       path: '/api-keys'
       fullPath: '/admin/api-keys'
       preLoaderRoute: typeof AdminApiKeysRouteImport
-      parentRoute: typeof AdminRouteRoute
-    }
-    '/admin/budgets': {
-      id: '/admin/budgets'
-      path: '/budgets'
-      fullPath: '/admin/budgets'
-      preLoaderRoute: typeof AdminBudgetsRouteImport
-      parentRoute: typeof AdminRouteRoute
-    }
-    '/admin/webhooks': {
-      id: '/admin/webhooks'
-      path: '/webhooks'
-      fullPath: '/admin/webhooks'
-      preLoaderRoute: typeof AdminWebhooksRouteImport
-      parentRoute: typeof AdminRouteRoute
-    }
-    '/admin/billing': {
-      id: '/admin/billing'
-      path: '/billing'
-      fullPath: '/admin/billing'
-      preLoaderRoute: typeof AdminBillingRouteImport
-      parentRoute: typeof AdminRouteRoute
-    }
-    '/admin/scim': {
-      id: '/admin/scim'
-      path: '/scim'
-      fullPath: '/admin/scim'
-      preLoaderRoute: typeof AdminScimRouteImport
-      parentRoute: typeof AdminRouteRoute
-    }
-    '/admin/settings': {
-      id: '/admin/settings'
-      path: '/settings'
-      fullPath: '/admin/settings'
-      preLoaderRoute: typeof AdminSettingsRouteImport
-      parentRoute: typeof AdminRouteRoute
-    }
-    '/admin/data': {
-      id: '/admin/data'
-      path: '/data'
-      fullPath: '/admin/data'
-      preLoaderRoute: typeof AdminDataRouteImport
       parentRoute: typeof AdminRouteRoute
     }
     '/chat/conversations': {
@@ -539,30 +652,30 @@ declare module '@tanstack/react-router' {
 interface AdminRouteRouteChildren {
   AdminApiKeysRoute: typeof AdminApiKeysRoute
   AdminAuditRoute: typeof AdminAuditRoute
-  AdminBudgetsRoute: typeof AdminBudgetsRoute
-  AdminWebhooksRoute: typeof AdminWebhooksRoute
   AdminBillingRoute: typeof AdminBillingRoute
-  AdminScimRoute: typeof AdminScimRoute
-  AdminSettingsRoute: typeof AdminSettingsRoute
+  AdminBudgetsRoute: typeof AdminBudgetsRoute
   AdminDataRoute: typeof AdminDataRoute
   AdminMembersRoute: typeof AdminMembersRoute
+  AdminScimRoute: typeof AdminScimRoute
+  AdminSettingsRoute: typeof AdminSettingsRoute
   AdminSsoRoute: typeof AdminSsoRoute
   AdminUsageRoute: typeof AdminUsageRoute
+  AdminWebhooksRoute: typeof AdminWebhooksRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminApiKeysRoute: AdminApiKeysRoute,
   AdminAuditRoute: AdminAuditRoute,
-  AdminBudgetsRoute: AdminBudgetsRoute,
-  AdminWebhooksRoute: AdminWebhooksRoute,
   AdminBillingRoute: AdminBillingRoute,
-  AdminScimRoute: AdminScimRoute,
-  AdminSettingsRoute: AdminSettingsRoute,
+  AdminBudgetsRoute: AdminBudgetsRoute,
   AdminDataRoute: AdminDataRoute,
   AdminMembersRoute: AdminMembersRoute,
+  AdminScimRoute: AdminScimRoute,
+  AdminSettingsRoute: AdminSettingsRoute,
   AdminSsoRoute: AdminSsoRoute,
   AdminUsageRoute: AdminUsageRoute,
+  AdminWebhooksRoute: AdminWebhooksRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
 
@@ -598,10 +711,31 @@ const ChatRouteRouteWithChildren = ChatRouteRoute._addFileChildren(
   ChatRouteRouteChildren,
 )
 
+interface GatewayRouteRouteChildren {
+  GatewayGuardrailsRoute: typeof GatewayGuardrailsRoute
+  GatewayOverviewRoute: typeof GatewayOverviewRoute
+  GatewayPlaygroundRoute: typeof GatewayPlaygroundRoute
+  GatewayTracesRoute: typeof GatewayTracesRoute
+  GatewayIndexRoute: typeof GatewayIndexRoute
+}
+
+const GatewayRouteRouteChildren: GatewayRouteRouteChildren = {
+  GatewayGuardrailsRoute: GatewayGuardrailsRoute,
+  GatewayOverviewRoute: GatewayOverviewRoute,
+  GatewayPlaygroundRoute: GatewayPlaygroundRoute,
+  GatewayTracesRoute: GatewayTracesRoute,
+  GatewayIndexRoute: GatewayIndexRoute,
+}
+
+const GatewayRouteRouteWithChildren = GatewayRouteRoute._addFileChildren(
+  GatewayRouteRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRouteRoute: AdminRouteRouteWithChildren,
   ChatRouteRoute: ChatRouteRouteWithChildren,
+  GatewayRouteRoute: GatewayRouteRouteWithChildren,
   LoginRoute: LoginRoute,
   MemoriesRoute: MemoriesRoute,
   RegisterRoute: RegisterRoute,
@@ -614,12 +748,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}
