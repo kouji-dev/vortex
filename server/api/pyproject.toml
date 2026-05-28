@@ -44,6 +44,7 @@ dependencies = [
   "stripe>=10.0",
   "pyotp>=2.9",
   "scim2-models>=0.3",
+  "cryptography>=43.0",
 ]
 
 [project.optional-dependencies]

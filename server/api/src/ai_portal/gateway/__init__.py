@@ -9,7 +9,9 @@ Public surface (canonical types only at this stage):
 - :class:`Usage`, :class:`StreamChunk`, :class:`Embeddings`, :class:`ModelInfo`,
   :class:`HealthStatus`, :class:`Capability`
 
-Routing / cache / guardrail / trace sub-packages land in later phases.
+Sub-packages (routing / cache / guardrails / traces / providers credentials)
+land as they ship. The :func:`gateway.complete` / :func:`gateway.stream` /
+:func:`gateway.embed` facade is added in Task K1.
 """
 from __future__ import annotations
 

@@ -4,7 +4,8 @@
 #   from ai_portal.chat.model import Thread
 from ai_portal.core.db.base import Base  # noqa: F401
 from ai_portal.assistant.model import Assistant, AssistantAcl  # noqa: F401
-from ai_portal.catalog.model import CatalogModel  # noqa: F401
+from ai_portal.catalog.model import CatalogModel, GatewayModel  # noqa: F401
+from ai_portal.gateway.provider_credentials.model import ProviderCredential  # noqa: F401
 from ai_portal.chat.model import Thread, ThreadItem  # noqa: F401
 from ai_portal.memory.model import UserMemory  # noqa: F401
 from ai_portal.knowledge_base.model import (  # noqa: F401
@@ -22,6 +23,8 @@ __all__ = [
     "AssistantAcl",
     "Base",
     "CatalogModel",
+    "GatewayModel",
+    "ProviderCredential",
     "Thread",
     "ThreadItem",
     "ConnectorSyncJob",
