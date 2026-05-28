@@ -4,7 +4,7 @@
  * Pools own: sandbox template, repo allow-list, budget, approval policy,
  * default model. The drawer lets admins edit the template + budget inline.
  */
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as React from 'react'
 import * as api from '~/lib/workers-api'
@@ -73,7 +73,16 @@ function PoolsPage() {
                 <td>{p.default_model}</td>
                 <td>{formatCents(p.budget_cents_per_task)}/task</td>
                 <td>{p.enabled ? 'yes' : 'no'}</td>
-                <td style={{ textAlign: 'right' }}>
+                <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                  <Link
+                    to="/workers/pools/$id/template"
+                    params={{ id: p.id }}
+                    className="btn btn-sm"
+                    style={{ marginRight: 6 }}
+                    data-testid={`wk-pool-template-${p.id}`}
+                  >
+                    Template
+                  </Link>
                   <button
                     className="btn btn-sm btn-danger"
                     onClick={() => {

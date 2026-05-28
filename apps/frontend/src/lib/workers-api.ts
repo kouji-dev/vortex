@@ -141,6 +141,27 @@ export async function deletePool(id: string): Promise<void> {
   await asOk(await authorizedFetch(v1(`/v1/workers/pools/${id}`), { method: 'DELETE' }))
 }
 
+export async function updatePool(
+  id: string,
+  patch: Partial<CreatePoolRequest>,
+): Promise<WorkerPool> {
+  return asJson(
+    await authorizedFetch(v1(`/v1/workers/pools/${id}`), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    }),
+  )
+}
+
+// ── replay ──────────────────────────────────────────────────────
+
+export async function replayTask(id: string): Promise<WorkerTask> {
+  return asJson(
+    await authorizedFetch(v1(`/v1/workers/tasks/${id}/replay`), { method: 'POST' }),
+  )
+}
+
 // ── SSE URL ─────────────────────────────────────────────────────
 
 /** Build the SSE URL for a task's event stream. */
