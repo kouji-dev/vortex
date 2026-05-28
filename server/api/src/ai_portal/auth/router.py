@@ -127,6 +127,20 @@ def login(
         login_limiter.record_failure(ip, body.email)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=str(e))
 
+    # SSO-required gate (Phase G6): if the user's org enforces SSO, password
+    # login is forbidden — they must complete /v1/auth/sso/start instead.
+    if user.org_id is not None:
+        from ai_portal.auth.sso import is_sso_required
+
+        if is_sso_required(db, org_id=user.org_id):
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error": "sso_required",
+                    "message": "this organization requires SSO login",
+                },
+            )
+
     # MFA gate: confirmed TOTP factor → require totp_code.
     if user_has_confirmed_totp(db, user.id):
         if not body.totp_code:

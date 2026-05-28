@@ -16,6 +16,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from ai_portal.auth.router import router as auth_router
 from ai_portal.auth.routes_mfa import router as auth_mfa_router
+from ai_portal.auth.routes_sso import router as auth_sso_router
+import ai_portal.auth.idp.providers  # noqa: F401 — register IdP factories on startup
 from ai_portal.catalog.router import router as catalog_router
 from ai_portal.chat.router import router as chat_router
 from ai_portal.knowledge_base.router import router as knowledge_base_router
@@ -98,6 +100,7 @@ def health() -> dict[str, Any]:
 
 app.include_router(auth_router)
 app.include_router(auth_mfa_router)
+app.include_router(auth_sso_router)
 app.include_router(catalog_router)
 app.include_router(me_router)
 app.include_router(assistants_router)
