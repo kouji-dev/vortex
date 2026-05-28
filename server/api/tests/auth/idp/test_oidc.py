@@ -65,9 +65,10 @@ def test_from_config_builds_instance():
 
 
 def test_registry_resolves_oidc_kind():
-    # importing the providers module triggers self-registration
-    import ai_portal.auth.idp.providers.oidc  # noqa: F401
+    # Re-register (idempotent) — another test file may have cleared the registry.
+    from ai_portal.auth.idp.registry import register_provider as _reg
 
+    _reg("oidc", OidcProvider.from_config)
     inst = get_provider(
         "oidc",
         {"client_id": "cid", "discovery_url": DISCOVERY_URL},
