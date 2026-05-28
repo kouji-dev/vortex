@@ -13,8 +13,8 @@ Phase A adds the enterprise RAG data model layered on top of the existing
 - ``kb_acls``              — denormalized doc/chunk allow set.
 - ``kb_chunk_embeddings``  — per-namespace pgvector store (default backend).
 
-Revision ID: 056_rag_management
-Revises: 055_gateway_playground_evals
+Revision ID: 057_rag_management
+Revises: 056_rag_connectors
 """
 from __future__ import annotations
 
@@ -22,8 +22,8 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
-revision = "056_rag_management"
-down_revision = "055_gateway_playground_evals"
+revision = "057_rag_management"
+down_revision = "056_rag_connectors"
 branch_labels = None
 depends_on = None
 
