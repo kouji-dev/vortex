@@ -51,6 +51,8 @@ from ai_portal.middleware.csrf import CsrfMiddleware
 from ai_portal.gateway.evals.router import router as gateway_evals_router
 from ai_portal.gateway.playground.router import router as gateway_playground_router
 from ai_portal.gateway.rate_limits.router import router as gateway_limits_router
+from ai_portal.gateway.traces.metrics_router import router as gateway_metrics_router
+from ai_portal.guardrails.router import router as guardrail_policies_router
 from ai_portal.gdpr.router import router as gdpr_router
 from ai_portal.knowledge_base.router import router as knowledge_base_router
 from ai_portal.memory.router import router as memories_router
@@ -106,7 +108,21 @@ async def lifespan(_app: FastAPI):
     except Exception as exc:  # noqa: BLE001
         logger.warning("new_device_notifier_install_failed: %s", exc)
 
+    # Start catalog refresh + health-probe scheduler.
+    from ai_portal.catalog import sync as _catalog_sync  # noqa: PLC0415
+    _catalog_tasks: list = []
+    try:
+        _catalog_tasks = _catalog_sync.start_background_scheduler()
+        logger.info("catalog_scheduler_started")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("catalog_scheduler_start_failed: %s", exc)
+
     yield
+
+    try:
+        await _catalog_sync.stop_background_scheduler(_catalog_tasks)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("catalog_scheduler_stop_failed: %s", exc)
 
     try:
         await _writer.stop()
@@ -190,5 +206,7 @@ app.include_router(gdpr_router)
 app.include_router(gateway_limits_router)
 app.include_router(gateway_playground_router)
 app.include_router(gateway_evals_router)
+app.include_router(gateway_metrics_router)
+app.include_router(guardrail_policies_router)
 app.include_router(workers_router)
 

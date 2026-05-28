@@ -1,14 +1,13 @@
-"""Guardrails — pre/post-LLM scans (prompt injection, moderation, PII, …).
+"""Backward-compat shim — guardrails now live under
+:mod:`ai_portal.guardrails.gateway_shape`.
 
-Public surface:
-
-- :class:`Guardrail` (Protocol)
-- :class:`Verdict` — outcome of a scan
-- :class:`Hit` — one detection
-- Bundled providers live in :mod:`.providers`
+Re-exports the gateway-shape protocol (``Verdict``/``Hit``/``Action``/
+``Guardrail``/``clean``) from the consolidated location so existing
+imports keep working. New code should import from
+:mod:`ai_portal.guardrails.gateway_shape` directly.
 """
 
-from ai_portal.gateway.guardrails.protocol import (
+from ai_portal.guardrails.gateway_shape import (
     Action,
     Guardrail,
     Hit,
