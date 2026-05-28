@@ -72,6 +72,20 @@ def _authenticate(
             )
         return user
 
+    # Dev bearer short-circuit: when auth_mode=dev, the dev bearer is accepted
+    # regardless of deployment_mode (so local development against a SaaS-mode
+    # backend keeps working without minting JWTs).
+    if settings.auth_mode == "dev" and token == settings.dev_bearer_token:
+        user = db.scalars(
+            select(User).where(User.email == settings.dev_seed_user_email)
+        ).first()
+        if user is None:
+            raise HTTPException(
+                status.HTTP_401_UNAUTHORIZED,
+                detail="Dev user not found; run alembic upgrade head",
+            )
+        return user
+
     # New local auth: deployment_mode=saas|selfhosted uses JWT with uuid sub
     if settings.deployment_mode in ("saas", "selfhosted"):
         try:
