@@ -7,8 +7,10 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from ai_portal.auth.model import User as UserModel
-from ai_portal.rbac.evaluator import evaluate as rbac_evaluate
-from ai_portal.usage.service import check_quota
+from ai_portal.control_plane import (
+    check_quota,
+    rbac_evaluate,
+)
 
 
 @dataclass(frozen=True, slots=True)

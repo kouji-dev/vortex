@@ -34,6 +34,7 @@ from ai_portal.chat.streaming.item_writer import ItemWriter
 from ai_portal.chat.streaming.sse_emitter import encode
 from ai_portal.chat.tool_outcome import ToolCallOutcome
 from ai_portal.chat.tool_service import dispatch_tool
+from ai_portal.control_plane import emit_audit, emit_usage
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +97,107 @@ def _emit(item: ThreadItem) -> SseEvent:
     item_dict = _row_to_dict(item)
     item_model = ThreadItemModel.model_validate(item_dict)
     return SseEvent.model_validate({"event_type": "item", "item": item_model})
+
+
+def _record_llm_call_to_control_plane(
+    *,
+    writer: ItemWriter,
+    org_id: uuid.UUID | None,
+    user_id: int | None,
+    model: str,
+    turn_id: uuid.UUID,
+    iteration: int,
+    usage: UsageEvent | None,
+    cost_usd: Decimal,
+    cost_estimated: bool,
+) -> None:
+    """Route per-iteration LLM call into control_plane.emit_usage + emit_audit.
+
+    Best-effort: never raises into the stream. Skipped when org_id is missing
+    (e.g. unit tests that don't set up a tenant).
+    """
+    if org_id is None:
+        return
+    # emit_usage uses a synchronous SQLAlchemy Session; if the writer holds
+    # an async session (unit-test fixture) we skip usage but still audit.
+    session_is_sync = not type(writer.session).__name__.startswith("Async")
+    try:
+        if session_is_sync and usage is not None:
+            if usage.input_tokens:
+                emit_usage(
+                    writer.session,
+                    org_id=org_id,
+                    unit="tokens_in",
+                    qty=usage.input_tokens,
+                    actor_kind="user",
+                    module="chat",
+                    actor_user_id=user_id,
+                    model=model,
+                    resource_kind="thread_turn",
+                    resource_id=str(turn_id),
+                )
+            if usage.output_tokens:
+                emit_usage(
+                    writer.session,
+                    org_id=org_id,
+                    unit="tokens_out",
+                    qty=usage.output_tokens,
+                    actor_kind="user",
+                    module="chat",
+                    actor_user_id=user_id,
+                    model=model,
+                    resource_kind="thread_turn",
+                    resource_id=str(turn_id),
+                )
+            if getattr(usage, "cached_input_tokens", 0):
+                emit_usage(
+                    writer.session,
+                    org_id=org_id,
+                    unit="tokens_cache_read",
+                    qty=usage.cached_input_tokens,
+                    actor_kind="user",
+                    module="chat",
+                    actor_user_id=user_id,
+                    model=model,
+                    resource_kind="thread_turn",
+                    resource_id=str(turn_id),
+                )
+            if getattr(usage, "cache_creation_input_tokens", 0):
+                emit_usage(
+                    writer.session,
+                    org_id=org_id,
+                    unit="tokens_cache_write",
+                    qty=usage.cache_creation_input_tokens,
+                    actor_kind="user",
+                    module="chat",
+                    actor_user_id=user_id,
+                    model=model,
+                    resource_kind="thread_turn",
+                    resource_id=str(turn_id),
+                )
+    except Exception:  # noqa: BLE001
+        logger.exception("emit_usage failed for chat iteration")
+
+    try:
+        emit_audit(
+            org_id=org_id,
+            event_type="chat.llm_call.completed",
+            actor={"user_id": user_id, "type": "user"} if user_id else None,
+            actor_user_id=user_id,
+            actor_type="user",
+            resource={"type": "thread_turn", "id": str(turn_id)},
+            payload={
+                "model": model,
+                "iteration": iteration,
+                "input_tokens": getattr(usage, "input_tokens", 0) if usage else 0,
+                "output_tokens": getattr(usage, "output_tokens", 0) if usage else 0,
+                "cost_usd": str(cost_usd),
+                "cost_estimated": cost_estimated,
+            },
+            action="llm_call.completed",
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception("emit_audit failed for chat iteration")
 
 
 async def run(
@@ -249,6 +351,20 @@ async def run(
                 cost_estimated=cost_estimated,
             )
             yield _emit(done_llm)
+
+            # Route per-iteration LLM call through control_plane facade so
+            # audit + usage are unified across modules.
+            _record_llm_call_to_control_plane(
+                writer=writer,
+                org_id=org_id,
+                user_id=user_id,
+                model=model,
+                turn_id=turn_id,
+                iteration=iteration,
+                usage=usage,
+                cost_usd=cost_usd,
+                cost_estimated=cost_estimated,
+            )
 
         # Server tool use — just record and emit (provider executed it)
         if server_tool is not None:
