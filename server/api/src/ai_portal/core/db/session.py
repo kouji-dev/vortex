@@ -11,10 +11,17 @@ engine = create_engine(settings.database_url, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # Async engine for streaming endpoints.
-# psycopg v3 handles async via the same driver URL (postgresql+psycopg://).
+# Prefer asyncpg on Windows because psycopg async refuses ProactorEventLoop.
+# Fall back to psycopg async elsewhere (same URL works for both).
 _async_db_url = settings.database_url
-if _async_db_url.startswith("postgresql://"):
-    _async_db_url = _async_db_url.replace("postgresql://", "postgresql+psycopg://", 1)
+if _async_db_url.startswith("postgresql+psycopg://"):
+    _async_db_url = _async_db_url.replace(
+        "postgresql+psycopg://", "postgresql+asyncpg://", 1
+    )
+elif _async_db_url.startswith("postgresql://"):
+    _async_db_url = _async_db_url.replace(
+        "postgresql://", "postgresql+asyncpg://", 1
+    )
 
 async_engine = create_async_engine(_async_db_url, pool_pre_ping=True)
 AsyncSessionLocal = async_sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False)
