@@ -23,6 +23,7 @@ import { Route as OrgConsumptionRouteImport } from './routes/org/consumption'
 import { Route as KnowledgeBasesIdRouteImport } from './routes/knowledge-bases/$id'
 import { Route as AdminSsoRouteImport } from './routes/admin/sso'
 import { Route as AdminMembersRouteImport } from './routes/admin/members'
+import { Route as AdminApiKeysRouteImport } from './routes/admin/api-keys'
 import { Route as ChatConversationsRouteRouteImport } from './routes/chat/conversations/route'
 import { Route as ChatConversationsIndexRouteImport } from './routes/chat/conversations/index'
 import { Route as ChatConversationsIdRouteImport } from './routes/chat/conversations/$id'
@@ -97,6 +98,11 @@ const AdminMembersRoute = AdminMembersRouteImport.update({
   path: '/members',
   getParentRoute: () => AdminRouteRoute,
 } as any)
+const AdminApiKeysRoute = AdminApiKeysRouteImport.update({
+  id: '/api-keys',
+  path: '/api-keys',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
 const ChatConversationsRouteRoute = ChatConversationsRouteRouteImport.update({
   id: '/conversations',
   path: '/conversations',
@@ -122,6 +128,7 @@ export interface FileRoutesByFullPath {
   '/register': typeof RegisterRoute
   '/setup': typeof SetupRoute
   '/chat/conversations': typeof ChatConversationsRouteRouteWithChildren
+  '/admin/api-keys': typeof AdminApiKeysRoute
   '/admin/members': typeof AdminMembersRoute
   '/admin/sso': typeof AdminSsoRoute
   '/knowledge-bases/$id': typeof KnowledgeBasesIdRoute
@@ -139,6 +146,7 @@ export interface FileRoutesByTo {
   '/memories': typeof MemoriesRoute
   '/register': typeof RegisterRoute
   '/setup': typeof SetupRoute
+  '/admin/api-keys': typeof AdminApiKeysRoute
   '/admin/members': typeof AdminMembersRoute
   '/admin/sso': typeof AdminSsoRoute
   '/knowledge-bases/$id': typeof KnowledgeBasesIdRoute
@@ -159,6 +167,7 @@ export interface FileRoutesById {
   '/register': typeof RegisterRoute
   '/setup': typeof SetupRoute
   '/chat/conversations': typeof ChatConversationsRouteRouteWithChildren
+  '/admin/api-keys': typeof AdminApiKeysRoute
   '/admin/members': typeof AdminMembersRoute
   '/admin/sso': typeof AdminSsoRoute
   '/knowledge-bases/$id': typeof KnowledgeBasesIdRoute
@@ -180,6 +189,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/setup'
     | '/chat/conversations'
+    | '/admin/api-keys'
     | '/admin/members'
     | '/admin/sso'
     | '/knowledge-bases/$id'
@@ -197,6 +207,7 @@ export interface FileRouteTypes {
     | '/memories'
     | '/register'
     | '/setup'
+    | '/admin/api-keys'
     | '/admin/members'
     | '/admin/sso'
     | '/knowledge-bases/$id'
@@ -216,6 +227,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/setup'
     | '/chat/conversations'
+    | '/admin/api-keys'
     | '/admin/members'
     | '/admin/sso'
     | '/knowledge-bases/$id'
@@ -341,6 +353,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminMembersRouteImport
       parentRoute: typeof AdminRouteRoute
     }
+    '/admin/api-keys': {
+      id: '/admin/api-keys'
+      path: '/api-keys'
+      fullPath: '/admin/api-keys'
+      preLoaderRoute: typeof AdminApiKeysRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/chat/conversations': {
       id: '/chat/conversations'
       path: '/conversations'
@@ -366,12 +385,14 @@ declare module '@tanstack/react-router' {
 }
 
 interface AdminRouteRouteChildren {
+  AdminApiKeysRoute: typeof AdminApiKeysRoute
   AdminMembersRoute: typeof AdminMembersRoute
   AdminSsoRoute: typeof AdminSsoRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const AdminRouteRouteChildren: AdminRouteRouteChildren = {
+  AdminApiKeysRoute: AdminApiKeysRoute,
   AdminMembersRoute: AdminMembersRoute,
   AdminSsoRoute: AdminSsoRoute,
   AdminIndexRoute: AdminIndexRoute,
