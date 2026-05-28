@@ -46,6 +46,7 @@ from ai_portal.settings.router import router as settings_router
 from ai_portal.core.config import get_settings, settings_log_snapshot
 from ai_portal.core.logging import configure_logging
 from ai_portal.core.middleware.setup_guard import SetupGuardMiddleware
+from ai_portal.middleware.csrf import CsrfMiddleware
 from ai_portal.gateway.evals.router import router as gateway_evals_router
 from ai_portal.gateway.playground.router import router as gateway_playground_router
 from ai_portal.gateway.rate_limits.router import router as gateway_limits_router
@@ -107,6 +108,7 @@ app.add_middleware(
 )
 
 app.add_middleware(SetupGuardMiddleware)
+app.add_middleware(CsrfMiddleware)
 
 
 @app.middleware("http")
