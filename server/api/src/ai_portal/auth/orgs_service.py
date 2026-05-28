@@ -24,6 +24,7 @@ from ai_portal.auth.orgs_repository import OrgRepo
 from ai_portal.auth.orgs_schemas import OrgCreate, OrgInviteCreate, OrgUpdate
 
 INVITE_EXPIRY_DAYS = 7
+ORG_RESTORE_WINDOW_DAYS = 30
 
 
 class OrgSlugTaken(Exception):
@@ -32,6 +33,14 @@ class OrgSlugTaken(Exception):
 
 class OrgNotFound(Exception):
     """Raised when an org id/slug lookup misses."""
+
+
+class OrgNotArchived(Exception):
+    """Raised when restoring an org that is not currently archived."""
+
+
+class OrgRestoreWindowExpired(Exception):
+    """Raised when attempting to restore an org archived more than 30 days ago."""
 
 
 class InviteNotFound(Exception):
@@ -93,6 +102,41 @@ class OrgService:
         org = self.repo.by_id(org_id)
         if org is None:
             raise OrgNotFound(str(org_id))
+        return org
+
+    def archive(self, org_id: _uuid.UUID) -> Org:
+        """Soft-delete an org by stamping ``archived_at`` to now."""
+        org = self.repo.by_id(org_id)
+        if org is None:
+            raise OrgNotFound(str(org_id))
+        if org.archived_at is None:
+            org.archived_at = datetime.now(UTC)
+            self.db.commit()
+            self.db.refresh(org)
+        return org
+
+    def restore(self, org_id: _uuid.UUID) -> Org:
+        """Restore a soft-deleted org if within the 30-day recovery window.
+
+        Raises:
+            OrgNotFound: org id does not exist.
+            OrgNotArchived: org is not currently archived.
+            OrgRestoreWindowExpired: archived_at is older than ``ORG_RESTORE_WINDOW_DAYS``.
+        """
+        org = self.repo.by_id(org_id)
+        if org is None:
+            raise OrgNotFound(str(org_id))
+        if org.archived_at is None:
+            raise OrgNotArchived(str(org_id))
+        archived_at = org.archived_at
+        if archived_at.tzinfo is None:
+            archived_at = archived_at.replace(tzinfo=UTC)
+        cutoff = datetime.now(UTC) - timedelta(days=ORG_RESTORE_WINDOW_DAYS)
+        if archived_at < cutoff:
+            raise OrgRestoreWindowExpired(str(org_id))
+        org.archived_at = None
+        self.db.commit()
+        self.db.refresh(org)
         return org
 
     # ── invitations ──────────────────────────────────────────────────────────

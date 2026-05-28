@@ -26,7 +26,9 @@ from ai_portal.auth.orgs_service import (
     InviteExpired,
     InviteNotFound,
     NotAMember,
+    OrgNotArchived,
     OrgNotFound,
+    OrgRestoreWindowExpired,
     OrgService,
     OrgSlugTaken,
 )
@@ -267,6 +269,37 @@ def get_org(
         org = OrgService(db).get(org_id)
     except OrgNotFound:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Org not found") from None
+    return _org_out(org)
+
+
+@router.post("/orgs/{org_id}/restore", response_model=OrgOut)
+def restore_org(
+    org_id: _uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> OrgOut:
+    """Restore a soft-deleted org if within the 30-day recovery window.
+
+    Returns:
+        200 + org payload — restoration succeeded.
+        404 — org id unknown.
+        409 — org is not archived (nothing to restore).
+        410 Gone — archived more than 30 days ago, retention window closed.
+    """
+    _require_role(user, "owner", "admin")
+    try:
+        org = OrgService(db).restore(org_id)
+    except OrgNotFound:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Org not found") from None
+    except OrgNotArchived:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, detail="Org is not archived"
+        ) from None
+    except OrgRestoreWindowExpired:
+        raise HTTPException(
+            status.HTTP_410_GONE,
+            detail="Org restore window (30 days) has expired",
+        ) from None
     return _org_out(org)
 
 
