@@ -15,11 +15,12 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator
 from typing import Any
 
+from ai_portal.catalog.providers.canonical_adapter import CanonicalProviderMixin
 from ai_portal.catalog.providers.routing import remap_deprecated_chat_model
 from ai_portal.core.config import Settings
 
 
-class BaseLlmProvider(ABC):
+class BaseLlmProvider(CanonicalProviderMixin, ABC):
     """Abstract base for native LLM providers.
 
     Concrete subclasses wire up a vendor SDK and implement ``complete`` +

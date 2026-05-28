@@ -173,6 +173,12 @@ def _convert_tool(tool: dict[str, Any]) -> dict[str, Any] | None:
 class AnthropicNativeChatProvider(BaseLlmProvider):
     """Streaming chat provider using the Anthropic SDK directly."""
 
+    name = "anthropic"
+    capabilities = {
+        "chat", "streaming", "tools", "vision", "thinking",
+        "cache", "json_mode", "parallel_tools", "web_search", "pdf",
+    }
+
     _normalize_model_id = staticmethod(
         lambda m: normalize_model_id_for_langchain_chat(remap_deprecated_chat_model(m))
     )

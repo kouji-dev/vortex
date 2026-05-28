@@ -1,15 +1,47 @@
-"""Provider interface for chat completions (multi-vendor: Anthropic, OpenAI, …)."""
+"""Provider protocol(s) for chat completions + embeddings + introspection.
+
+Two surfaces live here:
+
+1. :class:`ChatProvider` — **legacy** vendor-shaped protocol. Existing chat
+   module (`chat/streaming/orchestrator.py`, memory workers, …) consumes
+   this. Methods return vendor-shaped dicts and ``Iterator``\\s. Kept intact
+   to avoid a Big Bang refactor of every caller.
+
+2. :class:`LLMProvider` — **canonical** gateway protocol. New, vendor-neutral.
+   Methods accept :class:`ai_portal.gateway.LLMRequest` and return
+   :class:`LLMResponse` / :class:`StreamChunk`. All bundled providers
+   (Anthropic native, Gemini native, LangChain) implement both.
+
+Bundled providers should also expose:
+
+- ``name: str`` — short identifier (``"anthropic"``, ``"gemini"``, …)
+- ``capabilities: set[Capability]`` — declared feature set
+"""
 
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Iterator
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 
 from ai_portal.catalog.providers.events import ProviderStreamEvent
+from ai_portal.gateway.types import (
+    Capability,
+    Embeddings,
+    HealthStatus,
+    LLMRequest,
+    LLMResponse,
+    ModelInfo,
+    StreamChunk,
+)
 
 
+@runtime_checkable
 class ChatProvider(Protocol):
-    """One vendor/backend behind a stable portal API shape."""
+    """One vendor/backend behind a stable portal API shape.
+
+    Legacy protocol — kept for backward compatibility with the chat module.
+    New code should target :class:`LLMProvider` instead.
+    """
 
     def complete(
         self,
@@ -77,3 +109,56 @@ class ChatProvider(Protocol):
     ) -> AsyncIterator[ProviderStreamEvent]:
         """Async typed stream yielding ``ProviderStreamEvent`` discriminated-union values."""
         ...
+
+
+@runtime_checkable
+class LLMProvider(Protocol):
+    """Canonical gateway protocol — vendor-neutral.
+
+    Adapters wrap one vendor SDK and translate the canonical
+    :class:`LLMRequest` to its native format on the way in, and the native
+    response back to :class:`LLMResponse` on the way out.
+
+    Every bundled provider declares its :attr:`name` + :attr:`capabilities`
+    so the router can pick a candidate that satisfies a request's
+    requirements (vision, tools, thinking, cache, …).
+    """
+
+    name: str
+    capabilities: set[Capability]
+
+    async def complete_canonical(self, req: LLMRequest) -> LLMResponse:
+        """Non-streaming completion (canonical types).
+
+        Named ``complete_canonical`` (not just ``complete``) because the
+        legacy :class:`ChatProvider` already owns ``complete()`` with a
+        vendor-shaped signature. The gateway service calls this method;
+        existing chat code keeps calling the legacy ``complete``.
+        """
+        ...
+
+    async def stream_canonical(self, req: LLMRequest) -> AsyncIterator[StreamChunk]:
+        """Streaming completion (canonical chunks)."""
+        ...
+
+    async def embed(self, texts: list[str], model: str) -> Embeddings:
+        """Embed one or more texts. Raises if the provider has no embedder."""
+        ...
+
+    def count_tokens(self, text: str, model: str) -> int:
+        """Approximate token count for *text* on *model*."""
+        ...
+
+    async def list_models(self) -> list[ModelInfo]:
+        """Discover models exposed by this provider."""
+        ...
+
+    async def health(self) -> HealthStatus:
+        """Lightweight probe — does the provider answer?"""
+        ...
+
+
+__all__ = [
+    "ChatProvider",
+    "LLMProvider",
+]

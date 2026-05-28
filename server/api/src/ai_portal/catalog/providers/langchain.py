@@ -9,6 +9,7 @@ from typing import Any
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 
+from ai_portal.catalog.providers.canonical_adapter import CanonicalProviderMixin
 from ai_portal.catalog.providers.events import (
     IterationCompleteEvent,
     ProviderErrorEvent,
@@ -108,8 +109,14 @@ def _flush_pending_srv(pending_srv: list[dict[str, Any]]) -> Iterator[dict[str, 
     pending_srv.clear()
 
 
-class LangChainChatProvider:
+class LangChainChatProvider(CanonicalProviderMixin):
     """Chat via LangChain using Anthropic or OpenAI-compatible endpoints."""
+
+    name = "langchain"
+    capabilities = {
+        "chat", "streaming", "tools", "vision",
+        "json_mode", "json_schema", "parallel_tools",
+    }
 
     def __init__(self, settings: Settings) -> None:
         self._settings = settings

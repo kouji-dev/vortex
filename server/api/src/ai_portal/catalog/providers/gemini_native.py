@@ -161,6 +161,12 @@ def _build_tools(
 class GeminiNativeChatProvider(BaseLlmProvider):
     """Streaming chat provider using the Google Gemini SDK directly."""
 
+    name = "gemini"
+    capabilities = {
+        "chat", "streaming", "tools", "vision", "thinking",
+        "json_mode", "parallel_tools", "web_search",
+    }
+
     _normalize_model_id = staticmethod(
         lambda m: normalize_model_id_for_gemini(remap_deprecated_chat_model(m))
     )
