@@ -18,6 +18,7 @@ from ai_portal.api.admin.consumption import router as consumption_router
 from ai_portal.api_keys.router import router as api_keys_router
 from ai_portal.assistant.router import router as assistants_router
 from ai_portal.audit.router import router as audit_router
+from ai_portal.audit.sinks_router import router as audit_sinks_router
 from ai_portal.auth.router import router as auth_router
 from ai_portal.auth.routes_control_plane import router as control_plane_router
 from ai_portal.auth.routes_me import router as me_router
@@ -174,6 +175,7 @@ app.include_router(usage_router)
 app.include_router(usage_v1_router)
 app.include_router(budgets_router)
 app.include_router(audit_router)
+app.include_router(audit_sinks_router)
 app.include_router(rbac_router)
 app.include_router(retention_router)
 app.include_router(consumption_router)

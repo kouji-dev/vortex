@@ -173,12 +173,20 @@ def _fanout_sinks(org_id: uuid.UUID, event: AuditEventPayload) -> None:
     if not sinks:
         return
 
+    from ai_portal.audit.sinks_metrics import record_write  # noqa: PLC0415
+
     async def _run_all() -> None:
         for s in sinks:
+            import time  # noqa: PLC0415
+
+            started_at = time.perf_counter()
+            sink_name = getattr(s, "name", "?")
             try:
                 await s.write(event)
+                record_write(org_id, sink_name, started_at=started_at, error=None)
             except Exception as exc:  # noqa: BLE001
-                logger.warning("audit sink %s.write failed: %s", getattr(s, "name", "?"), exc)
+                record_write(org_id, sink_name, started_at=started_at, error=exc)
+                logger.warning("audit sink %s.write failed: %s", sink_name, exc)
 
     # Run synchronously from a thread so the caller (possibly sync) is not blocked
     # on the event loop and we don't crash when there is no running loop.
