@@ -13,18 +13,25 @@ import { Route as SetupRouteImport } from './routes/setup'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as MemoriesRouteImport } from './routes/memories'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as WorkersRouteRouteImport } from './routes/workers/route'
 import { Route as GatewayRouteRouteImport } from './routes/gateway/route'
 import { Route as ChatRouteRouteImport } from './routes/chat/route'
 import { Route as AdminRouteRouteImport } from './routes/admin/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as WorkersIndexRouteImport } from './routes/workers/index'
 import { Route as KnowledgeBasesIndexRouteImport } from './routes/knowledge-bases/index'
 import { Route as GatewayIndexRouteImport } from './routes/gateway/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
+import { Route as WorkersTasksRouteImport } from './routes/workers/tasks'
 import { Route as OrgSettingsRouteImport } from './routes/org/settings'
 import { Route as OrgConsumptionRouteImport } from './routes/org/consumption'
+import { Route as MemoriesSharedRouteImport } from './routes/memories/shared'
+import { Route as MemoriesSettingsRouteImport } from './routes/memories/settings'
+import { Route as MemoriesMyRouteImport } from './routes/memories/my'
 import { Route as KnowledgeBasesIdRouteImport } from './routes/knowledge-bases/$id'
 import { Route as GatewayTracesRouteImport } from './routes/gateway/traces'
 import { Route as GatewaySnippetsRouteImport } from './routes/gateway/snippets'
+import { Route as GatewayRoutingRouteImport } from './routes/gateway/routing'
 import { Route as GatewayProvidersRouteImport } from './routes/gateway/providers'
 import { Route as GatewayPlaygroundRouteImport } from './routes/gateway/playground'
 import { Route as GatewayOverviewRouteImport } from './routes/gateway/overview'
@@ -36,6 +43,8 @@ import { Route as AdminUsageRouteImport } from './routes/admin/usage'
 import { Route as AdminSsoRouteImport } from './routes/admin/sso'
 import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
 import { Route as AdminScimRouteImport } from './routes/admin/scim'
+import { Route as AdminMemoryPoliciesRouteImport } from './routes/admin/memory-policies'
+import { Route as AdminMemoryAnalyticsRouteImport } from './routes/admin/memory-analytics'
 import { Route as AdminMembersRouteImport } from './routes/admin/members'
 import { Route as AdminDataRouteImport } from './routes/admin/data'
 import { Route as AdminBudgetsRouteImport } from './routes/admin/budgets'
@@ -66,6 +75,11 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WorkersRouteRoute = WorkersRouteRouteImport.update({
+  id: '/workers',
+  path: '/workers',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GatewayRouteRoute = GatewayRouteRouteImport.update({
   id: '/gateway',
   path: '/gateway',
@@ -86,6 +100,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WorkersIndexRoute = WorkersIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => WorkersRouteRoute,
+} as any)
 const KnowledgeBasesIndexRoute = KnowledgeBasesIndexRouteImport.update({
   id: '/knowledge-bases/',
   path: '/knowledge-bases/',
@@ -101,6 +120,11 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdminRouteRoute,
 } as any)
+const WorkersTasksRoute = WorkersTasksRouteImport.update({
+  id: '/tasks',
+  path: '/tasks',
+  getParentRoute: () => WorkersRouteRoute,
+} as any)
 const OrgSettingsRoute = OrgSettingsRouteImport.update({
   id: '/org/settings',
   path: '/org/settings',
@@ -110,6 +134,21 @@ const OrgConsumptionRoute = OrgConsumptionRouteImport.update({
   id: '/org/consumption',
   path: '/org/consumption',
   getParentRoute: () => rootRouteImport,
+} as any)
+const MemoriesSharedRoute = MemoriesSharedRouteImport.update({
+  id: '/shared',
+  path: '/shared',
+  getParentRoute: () => MemoriesRoute,
+} as any)
+const MemoriesSettingsRoute = MemoriesSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => MemoriesRoute,
+} as any)
+const MemoriesMyRoute = MemoriesMyRouteImport.update({
+  id: '/my',
+  path: '/my',
+  getParentRoute: () => MemoriesRoute,
 } as any)
 const KnowledgeBasesIdRoute = KnowledgeBasesIdRouteImport.update({
   id: '/knowledge-bases/$id',
@@ -124,6 +163,11 @@ const GatewayTracesRoute = GatewayTracesRouteImport.update({
 const GatewaySnippetsRoute = GatewaySnippetsRouteImport.update({
   id: '/snippets',
   path: '/snippets',
+  getParentRoute: () => GatewayRouteRoute,
+} as any)
+const GatewayRoutingRoute = GatewayRoutingRouteImport.update({
+  id: '/routing',
+  path: '/routing',
   getParentRoute: () => GatewayRouteRoute,
 } as any)
 const GatewayProvidersRoute = GatewayProvidersRouteImport.update({
@@ -181,6 +225,16 @@ const AdminScimRoute = AdminScimRouteImport.update({
   path: '/scim',
   getParentRoute: () => AdminRouteRoute,
 } as any)
+const AdminMemoryPoliciesRoute = AdminMemoryPoliciesRouteImport.update({
+  id: '/memory-policies',
+  path: '/memory-policies',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminMemoryAnalyticsRoute = AdminMemoryAnalyticsRouteImport.update({
+  id: '/memory-analytics',
+  path: '/memory-analytics',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
 const AdminMembersRoute = AdminMembersRouteImport.update({
   id: '/members',
   path: '/members',
@@ -232,8 +286,9 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRouteRouteWithChildren
   '/chat': typeof ChatRouteRouteWithChildren
   '/gateway': typeof GatewayRouteRouteWithChildren
+  '/workers': typeof WorkersRouteRouteWithChildren
   '/login': typeof LoginRoute
-  '/memories': typeof MemoriesRoute
+  '/memories': typeof MemoriesRouteWithChildren
   '/register': typeof RegisterRoute
   '/setup': typeof SetupRoute
   '/chat/conversations': typeof ChatConversationsRouteRouteWithChildren
@@ -243,6 +298,8 @@ export interface FileRoutesByFullPath {
   '/admin/budgets': typeof AdminBudgetsRoute
   '/admin/data': typeof AdminDataRoute
   '/admin/members': typeof AdminMembersRoute
+  '/admin/memory-analytics': typeof AdminMemoryAnalyticsRoute
+  '/admin/memory-policies': typeof AdminMemoryPoliciesRoute
   '/admin/scim': typeof AdminScimRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/sso': typeof AdminSsoRoute
@@ -254,14 +311,20 @@ export interface FileRoutesByFullPath {
   '/gateway/overview': typeof GatewayOverviewRoute
   '/gateway/playground': typeof GatewayPlaygroundRoute
   '/gateway/providers': typeof GatewayProvidersRoute
+  '/gateway/routing': typeof GatewayRoutingRoute
   '/gateway/snippets': typeof GatewaySnippetsRoute
   '/gateway/traces': typeof GatewayTracesRoute
   '/knowledge-bases/$id': typeof KnowledgeBasesIdRoute
+  '/memories/my': typeof MemoriesMyRoute
+  '/memories/settings': typeof MemoriesSettingsRoute
+  '/memories/shared': typeof MemoriesSharedRoute
   '/org/consumption': typeof OrgConsumptionRoute
   '/org/settings': typeof OrgSettingsRoute
+  '/workers/tasks': typeof WorkersTasksRoute
   '/admin/': typeof AdminIndexRoute
   '/gateway/': typeof GatewayIndexRoute
   '/knowledge-bases/': typeof KnowledgeBasesIndexRoute
+  '/workers/': typeof WorkersIndexRoute
   '/chat/conversations/$id': typeof ChatConversationsIdRoute
   '/chat/conversations/': typeof ChatConversationsIndexRoute
 }
@@ -269,7 +332,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/chat': typeof ChatRouteRouteWithChildren
   '/login': typeof LoginRoute
-  '/memories': typeof MemoriesRoute
+  '/memories': typeof MemoriesRouteWithChildren
   '/register': typeof RegisterRoute
   '/setup': typeof SetupRoute
   '/admin/api-keys': typeof AdminApiKeysRoute
@@ -278,6 +341,8 @@ export interface FileRoutesByTo {
   '/admin/budgets': typeof AdminBudgetsRoute
   '/admin/data': typeof AdminDataRoute
   '/admin/members': typeof AdminMembersRoute
+  '/admin/memory-analytics': typeof AdminMemoryAnalyticsRoute
+  '/admin/memory-policies': typeof AdminMemoryPoliciesRoute
   '/admin/scim': typeof AdminScimRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/sso': typeof AdminSsoRoute
@@ -289,14 +354,20 @@ export interface FileRoutesByTo {
   '/gateway/overview': typeof GatewayOverviewRoute
   '/gateway/playground': typeof GatewayPlaygroundRoute
   '/gateway/providers': typeof GatewayProvidersRoute
+  '/gateway/routing': typeof GatewayRoutingRoute
   '/gateway/snippets': typeof GatewaySnippetsRoute
   '/gateway/traces': typeof GatewayTracesRoute
   '/knowledge-bases/$id': typeof KnowledgeBasesIdRoute
+  '/memories/my': typeof MemoriesMyRoute
+  '/memories/settings': typeof MemoriesSettingsRoute
+  '/memories/shared': typeof MemoriesSharedRoute
   '/org/consumption': typeof OrgConsumptionRoute
   '/org/settings': typeof OrgSettingsRoute
+  '/workers/tasks': typeof WorkersTasksRoute
   '/admin': typeof AdminIndexRoute
   '/gateway': typeof GatewayIndexRoute
   '/knowledge-bases': typeof KnowledgeBasesIndexRoute
+  '/workers': typeof WorkersIndexRoute
   '/chat/conversations/$id': typeof ChatConversationsIdRoute
   '/chat/conversations': typeof ChatConversationsIndexRoute
 }
@@ -306,8 +377,9 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteRouteWithChildren
   '/chat': typeof ChatRouteRouteWithChildren
   '/gateway': typeof GatewayRouteRouteWithChildren
+  '/workers': typeof WorkersRouteRouteWithChildren
   '/login': typeof LoginRoute
-  '/memories': typeof MemoriesRoute
+  '/memories': typeof MemoriesRouteWithChildren
   '/register': typeof RegisterRoute
   '/setup': typeof SetupRoute
   '/chat/conversations': typeof ChatConversationsRouteRouteWithChildren
@@ -317,6 +389,8 @@ export interface FileRoutesById {
   '/admin/budgets': typeof AdminBudgetsRoute
   '/admin/data': typeof AdminDataRoute
   '/admin/members': typeof AdminMembersRoute
+  '/admin/memory-analytics': typeof AdminMemoryAnalyticsRoute
+  '/admin/memory-policies': typeof AdminMemoryPoliciesRoute
   '/admin/scim': typeof AdminScimRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/sso': typeof AdminSsoRoute
@@ -328,14 +402,20 @@ export interface FileRoutesById {
   '/gateway/overview': typeof GatewayOverviewRoute
   '/gateway/playground': typeof GatewayPlaygroundRoute
   '/gateway/providers': typeof GatewayProvidersRoute
+  '/gateway/routing': typeof GatewayRoutingRoute
   '/gateway/snippets': typeof GatewaySnippetsRoute
   '/gateway/traces': typeof GatewayTracesRoute
   '/knowledge-bases/$id': typeof KnowledgeBasesIdRoute
+  '/memories/my': typeof MemoriesMyRoute
+  '/memories/settings': typeof MemoriesSettingsRoute
+  '/memories/shared': typeof MemoriesSharedRoute
   '/org/consumption': typeof OrgConsumptionRoute
   '/org/settings': typeof OrgSettingsRoute
+  '/workers/tasks': typeof WorkersTasksRoute
   '/admin/': typeof AdminIndexRoute
   '/gateway/': typeof GatewayIndexRoute
   '/knowledge-bases/': typeof KnowledgeBasesIndexRoute
+  '/workers/': typeof WorkersIndexRoute
   '/chat/conversations/$id': typeof ChatConversationsIdRoute
   '/chat/conversations/': typeof ChatConversationsIndexRoute
 }
@@ -346,6 +426,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/chat'
     | '/gateway'
+    | '/workers'
     | '/login'
     | '/memories'
     | '/register'
@@ -357,6 +438,8 @@ export interface FileRouteTypes {
     | '/admin/budgets'
     | '/admin/data'
     | '/admin/members'
+    | '/admin/memory-analytics'
+    | '/admin/memory-policies'
     | '/admin/scim'
     | '/admin/settings'
     | '/admin/sso'
@@ -368,14 +451,20 @@ export interface FileRouteTypes {
     | '/gateway/overview'
     | '/gateway/playground'
     | '/gateway/providers'
+    | '/gateway/routing'
     | '/gateway/snippets'
     | '/gateway/traces'
     | '/knowledge-bases/$id'
+    | '/memories/my'
+    | '/memories/settings'
+    | '/memories/shared'
     | '/org/consumption'
     | '/org/settings'
+    | '/workers/tasks'
     | '/admin/'
     | '/gateway/'
     | '/knowledge-bases/'
+    | '/workers/'
     | '/chat/conversations/$id'
     | '/chat/conversations/'
   fileRoutesByTo: FileRoutesByTo
@@ -392,6 +481,8 @@ export interface FileRouteTypes {
     | '/admin/budgets'
     | '/admin/data'
     | '/admin/members'
+    | '/admin/memory-analytics'
+    | '/admin/memory-policies'
     | '/admin/scim'
     | '/admin/settings'
     | '/admin/sso'
@@ -403,14 +494,20 @@ export interface FileRouteTypes {
     | '/gateway/overview'
     | '/gateway/playground'
     | '/gateway/providers'
+    | '/gateway/routing'
     | '/gateway/snippets'
     | '/gateway/traces'
     | '/knowledge-bases/$id'
+    | '/memories/my'
+    | '/memories/settings'
+    | '/memories/shared'
     | '/org/consumption'
     | '/org/settings'
+    | '/workers/tasks'
     | '/admin'
     | '/gateway'
     | '/knowledge-bases'
+    | '/workers'
     | '/chat/conversations/$id'
     | '/chat/conversations'
   id:
@@ -419,6 +516,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/chat'
     | '/gateway'
+    | '/workers'
     | '/login'
     | '/memories'
     | '/register'
@@ -430,6 +528,8 @@ export interface FileRouteTypes {
     | '/admin/budgets'
     | '/admin/data'
     | '/admin/members'
+    | '/admin/memory-analytics'
+    | '/admin/memory-policies'
     | '/admin/scim'
     | '/admin/settings'
     | '/admin/sso'
@@ -441,14 +541,20 @@ export interface FileRouteTypes {
     | '/gateway/overview'
     | '/gateway/playground'
     | '/gateway/providers'
+    | '/gateway/routing'
     | '/gateway/snippets'
     | '/gateway/traces'
     | '/knowledge-bases/$id'
+    | '/memories/my'
+    | '/memories/settings'
+    | '/memories/shared'
     | '/org/consumption'
     | '/org/settings'
+    | '/workers/tasks'
     | '/admin/'
     | '/gateway/'
     | '/knowledge-bases/'
+    | '/workers/'
     | '/chat/conversations/$id'
     | '/chat/conversations/'
   fileRoutesById: FileRoutesById
@@ -458,8 +564,9 @@ export interface RootRouteChildren {
   AdminRouteRoute: typeof AdminRouteRouteWithChildren
   ChatRouteRoute: typeof ChatRouteRouteWithChildren
   GatewayRouteRoute: typeof GatewayRouteRouteWithChildren
+  WorkersRouteRoute: typeof WorkersRouteRouteWithChildren
   LoginRoute: typeof LoginRoute
-  MemoriesRoute: typeof MemoriesRoute
+  MemoriesRoute: typeof MemoriesRouteWithChildren
   RegisterRoute: typeof RegisterRoute
   SetupRoute: typeof SetupRoute
   KnowledgeBasesIdRoute: typeof KnowledgeBasesIdRoute
@@ -498,6 +605,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/workers': {
+      id: '/workers'
+      path: '/workers'
+      fullPath: '/workers'
+      preLoaderRoute: typeof WorkersRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/gateway': {
       id: '/gateway'
       path: '/gateway'
@@ -526,6 +640,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/workers/': {
+      id: '/workers/'
+      path: '/'
+      fullPath: '/workers/'
+      preLoaderRoute: typeof WorkersIndexRouteImport
+      parentRoute: typeof WorkersRouteRoute
+    }
     '/knowledge-bases/': {
       id: '/knowledge-bases/'
       path: '/knowledge-bases'
@@ -547,6 +668,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRouteRoute
     }
+    '/workers/tasks': {
+      id: '/workers/tasks'
+      path: '/tasks'
+      fullPath: '/workers/tasks'
+      preLoaderRoute: typeof WorkersTasksRouteImport
+      parentRoute: typeof WorkersRouteRoute
+    }
     '/org/settings': {
       id: '/org/settings'
       path: '/org/settings'
@@ -560,6 +688,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/org/consumption'
       preLoaderRoute: typeof OrgConsumptionRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/memories/shared': {
+      id: '/memories/shared'
+      path: '/shared'
+      fullPath: '/memories/shared'
+      preLoaderRoute: typeof MemoriesSharedRouteImport
+      parentRoute: typeof MemoriesRoute
+    }
+    '/memories/settings': {
+      id: '/memories/settings'
+      path: '/settings'
+      fullPath: '/memories/settings'
+      preLoaderRoute: typeof MemoriesSettingsRouteImport
+      parentRoute: typeof MemoriesRoute
+    }
+    '/memories/my': {
+      id: '/memories/my'
+      path: '/my'
+      fullPath: '/memories/my'
+      preLoaderRoute: typeof MemoriesMyRouteImport
+      parentRoute: typeof MemoriesRoute
     }
     '/knowledge-bases/$id': {
       id: '/knowledge-bases/$id'
@@ -580,6 +729,13 @@ declare module '@tanstack/react-router' {
       path: '/snippets'
       fullPath: '/gateway/snippets'
       preLoaderRoute: typeof GatewaySnippetsRouteImport
+      parentRoute: typeof GatewayRouteRoute
+    }
+    '/gateway/routing': {
+      id: '/gateway/routing'
+      path: '/routing'
+      fullPath: '/gateway/routing'
+      preLoaderRoute: typeof GatewayRoutingRouteImport
       parentRoute: typeof GatewayRouteRoute
     }
     '/gateway/providers': {
@@ -659,6 +815,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminScimRouteImport
       parentRoute: typeof AdminRouteRoute
     }
+    '/admin/memory-policies': {
+      id: '/admin/memory-policies'
+      path: '/memory-policies'
+      fullPath: '/admin/memory-policies'
+      preLoaderRoute: typeof AdminMemoryPoliciesRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/memory-analytics': {
+      id: '/admin/memory-analytics'
+      path: '/memory-analytics'
+      fullPath: '/admin/memory-analytics'
+      preLoaderRoute: typeof AdminMemoryAnalyticsRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/admin/members': {
       id: '/admin/members'
       path: '/members'
@@ -732,6 +902,8 @@ interface AdminRouteRouteChildren {
   AdminBudgetsRoute: typeof AdminBudgetsRoute
   AdminDataRoute: typeof AdminDataRoute
   AdminMembersRoute: typeof AdminMembersRoute
+  AdminMemoryAnalyticsRoute: typeof AdminMemoryAnalyticsRoute
+  AdminMemoryPoliciesRoute: typeof AdminMemoryPoliciesRoute
   AdminScimRoute: typeof AdminScimRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminSsoRoute: typeof AdminSsoRoute
@@ -747,6 +919,8 @@ const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminBudgetsRoute: AdminBudgetsRoute,
   AdminDataRoute: AdminDataRoute,
   AdminMembersRoute: AdminMembersRoute,
+  AdminMemoryAnalyticsRoute: AdminMemoryAnalyticsRoute,
+  AdminMemoryPoliciesRoute: AdminMemoryPoliciesRoute,
   AdminScimRoute: AdminScimRoute,
   AdminSettingsRoute: AdminSettingsRoute,
   AdminSsoRoute: AdminSsoRoute,
@@ -794,6 +968,7 @@ interface GatewayRouteRouteChildren {
   GatewayOverviewRoute: typeof GatewayOverviewRoute
   GatewayPlaygroundRoute: typeof GatewayPlaygroundRoute
   GatewayProvidersRoute: typeof GatewayProvidersRoute
+  GatewayRoutingRoute: typeof GatewayRoutingRoute
   GatewaySnippetsRoute: typeof GatewaySnippetsRoute
   GatewayTracesRoute: typeof GatewayTracesRoute
   GatewayIndexRoute: typeof GatewayIndexRoute
@@ -806,6 +981,7 @@ const GatewayRouteRouteChildren: GatewayRouteRouteChildren = {
   GatewayOverviewRoute: GatewayOverviewRoute,
   GatewayPlaygroundRoute: GatewayPlaygroundRoute,
   GatewayProvidersRoute: GatewayProvidersRoute,
+  GatewayRoutingRoute: GatewayRoutingRoute,
   GatewaySnippetsRoute: GatewaySnippetsRoute,
   GatewayTracesRoute: GatewayTracesRoute,
   GatewayIndexRoute: GatewayIndexRoute,
@@ -815,13 +991,44 @@ const GatewayRouteRouteWithChildren = GatewayRouteRoute._addFileChildren(
   GatewayRouteRouteChildren,
 )
 
+interface WorkersRouteRouteChildren {
+  WorkersTasksRoute: typeof WorkersTasksRoute
+  WorkersIndexRoute: typeof WorkersIndexRoute
+}
+
+const WorkersRouteRouteChildren: WorkersRouteRouteChildren = {
+  WorkersTasksRoute: WorkersTasksRoute,
+  WorkersIndexRoute: WorkersIndexRoute,
+}
+
+const WorkersRouteRouteWithChildren = WorkersRouteRoute._addFileChildren(
+  WorkersRouteRouteChildren,
+)
+
+interface MemoriesRouteChildren {
+  MemoriesMyRoute: typeof MemoriesMyRoute
+  MemoriesSettingsRoute: typeof MemoriesSettingsRoute
+  MemoriesSharedRoute: typeof MemoriesSharedRoute
+}
+
+const MemoriesRouteChildren: MemoriesRouteChildren = {
+  MemoriesMyRoute: MemoriesMyRoute,
+  MemoriesSettingsRoute: MemoriesSettingsRoute,
+  MemoriesSharedRoute: MemoriesSharedRoute,
+}
+
+const MemoriesRouteWithChildren = MemoriesRoute._addFileChildren(
+  MemoriesRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRouteRoute: AdminRouteRouteWithChildren,
   ChatRouteRoute: ChatRouteRouteWithChildren,
   GatewayRouteRoute: GatewayRouteRouteWithChildren,
+  WorkersRouteRoute: WorkersRouteRouteWithChildren,
   LoginRoute: LoginRoute,
-  MemoriesRoute: MemoriesRoute,
+  MemoriesRoute: MemoriesRouteWithChildren,
   RegisterRoute: RegisterRoute,
   SetupRoute: SetupRoute,
   KnowledgeBasesIdRoute: KnowledgeBasesIdRoute,
@@ -832,3 +1039,12 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}

@@ -1,7 +1,14 @@
 import { useConversationsOutlet } from '~/contexts/ConversationsOutletContext'
+import { MemoriesUsedPanel } from '~/components/chat/MemoriesUsedPanel'
+import {
+  memoryIdsFromMessage,
+  sourceConversationIdFromMessage,
+} from '~/lib/memory-message-refs'
 
 export function ConversationInspectorPanel() {
   const { activeMessage } = useConversationsOutlet()
+  const memoryIds = memoryIdsFromMessage(activeMessage)
+  const sourceConvId = sourceConversationIdFromMessage(activeMessage)
 
   const isLlmCall = activeMessage?.kind === 'llm_call'
   const totalTokens =
@@ -43,6 +50,7 @@ export function ConversationInspectorPanel() {
         {/* Wire to KB hit data once API exposes it per message */}
         <p className="text-xs" style={{ color: 'var(--ink-3)' }}>No retrieval data exposed yet.</p>
       </div>
+      <MemoriesUsedPanel memoryIds={memoryIds} conversationId={sourceConvId} />
     </aside>
   )
 }
