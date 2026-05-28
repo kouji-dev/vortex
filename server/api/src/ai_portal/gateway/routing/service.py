@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import uuid as _uuid
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -63,6 +64,54 @@ class RoutingResolution:
     policy_name: str | None
     strategy: str | None
     alias: str | None
+    # When the request used ``model@DATE`` pinning syntax, the parsed
+    # datetime. ``None`` for unpinned requests.
+    pin_date: datetime | None = None
+
+
+# ── model pinning helpers ─────────────────────────────────────────────────
+
+
+def parse_pinned_model(model: str) -> tuple[str, datetime | None]:
+    """Split ``"alias@DATE"`` into ``(alias, pin_date)``.
+
+    Returns ``(model, None)`` when no ``@`` is present. Raises
+    :class:`ValueError` when the date suffix is malformed so callers can
+    surface a 400.
+
+    The date is parsed with :func:`datetime.fromisoformat`; bare dates
+    (``2026-05-01``) are accepted and normalised to UTC midnight.
+    """
+    if "@" not in model:
+        return model, None
+    base, _, suffix = model.partition("@")
+    if not suffix:
+        raise ValueError(f"empty pin date in {model!r}")
+    try:
+        dt = datetime.fromisoformat(suffix)
+    except ValueError as exc:
+        raise ValueError(f"invalid pin date in {model!r}: {suffix}") from exc
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=UTC)
+    return base, dt
+
+
+def filter_candidates_by_pin_date(
+    candidates: list[ProviderModel], pin_date: datetime | None
+) -> list[ProviderModel]:
+    """Keep candidates active at ``pin_date``.
+
+    A model is considered active when ``deprecated_at`` is ``None`` or
+    strictly after ``pin_date``. ``pin_date=None`` returns the input
+    unchanged.
+    """
+    if pin_date is None:
+        return list(candidates)
+    return [
+        c
+        for c in candidates
+        if c.deprecated_at is None or c.deprecated_at > pin_date
+    ]
 
 
 class RoutingService:
@@ -93,9 +142,18 @@ class RoutingService:
         if not candidates:
             raise RoutingError("no candidates supplied")
 
+        # 0. Strip pin-date suffix if present (``"smart@2026-05-01"``).
+        base_model, pin_date = parse_pinned_model(req.model)
+        if pin_date is not None:
+            candidates = filter_candidates_by_pin_date(candidates, pin_date)
+            if not candidates:
+                raise RoutingError(
+                    f"no candidates active at pin date {pin_date.isoformat()}"
+                )
+
         # 1. Header override wins, regardless of alias.
         if policy_override:
-            return self._resolve_via_policy_name(
+            res = self._resolve_via_policy_name(
                 req=req,
                 org_id=org_id,
                 policy_name=policy_override,
@@ -103,9 +161,10 @@ class RoutingService:
                 alias=None,
                 metrics=metrics,
             )
+            return _with_pin(res, pin_date)
 
         # 2. Concrete model match — fast path, no DB.
-        concrete = self._concrete_match(req.model, candidates)
+        concrete = self._concrete_match(base_model, candidates)
         if concrete is not None:
             return RoutingResolution(
                 candidate=concrete,
@@ -113,22 +172,26 @@ class RoutingService:
                 policy_name=None,
                 strategy=None,
                 alias=None,
+                pin_date=pin_date,
             )
 
         # 3. Alias lookup.
         if self.db is not None:
-            alias = self._lookup_alias(org_id=org_id, name=req.model)
+            alias = self._lookup_alias(org_id=org_id, name=base_model)
             if alias is not None:
                 policy = self.db.get(RoutingPolicy, alias.routing_policy_id)
                 if policy is None or policy.org_id != org_id:
-                    raise RoutingError(f"alias {req.model!r} points to missing policy")
-                return self._run_strategy(
+                    raise RoutingError(
+                        f"alias {base_model!r} points to missing policy"
+                    )
+                res = self._run_strategy(
                     req=req,
                     policy=policy,
                     candidates=candidates,
                     alias=alias.alias,
                     metrics=metrics,
                 )
+                return _with_pin(res, pin_date)
 
         # 4. Nothing matched.
         raise RoutingError(
@@ -216,6 +279,20 @@ class RoutingService:
         )
 
 
+def _with_pin(res: RoutingResolution, pin_date: datetime | None) -> RoutingResolution:
+    """Attach a ``pin_date`` to an existing :class:`RoutingResolution`."""
+    if pin_date is None:
+        return res
+    return RoutingResolution(
+        candidate=res.candidate,
+        policy_id=res.policy_id,
+        policy_name=res.policy_name,
+        strategy=res.strategy,
+        alias=res.alias,
+        pin_date=pin_date,
+    )
+
+
 def extract_policy_override(headers: dict[str, str] | None) -> str | None:
     """Return the policy-override name from request headers, or ``None``.
 
@@ -237,4 +314,6 @@ __all__ = [
     "RoutingResolution",
     "RoutingService",
     "extract_policy_override",
+    "filter_candidates_by_pin_date",
+    "parse_pinned_model",
 ]

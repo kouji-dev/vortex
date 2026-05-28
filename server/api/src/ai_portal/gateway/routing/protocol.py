@@ -19,6 +19,7 @@ exception — it filters by extra capabilities encoded in the policy rules).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any, Protocol, runtime_checkable
 
 from ai_portal.gateway.types import LLMRequest
@@ -43,6 +44,9 @@ class ProviderModel:
     # Recent observed p95 latency in milliseconds (None if unknown).
     p95_latency_ms: float | None = None
     healthy: bool = True
+    # When the model was deprecated by its provider; ``None`` = still active.
+    # Used by pin-date filtering (``model: "smart@2026-05-01"``).
+    deprecated_at: datetime | None = None
 
 
 @dataclass(frozen=True)
