@@ -49,6 +49,7 @@ dependencies = [
   "opentelemetry-sdk>=1.27",
   "opentelemetry-exporter-otlp>=1.27",
   "presidio-analyzer>=2.2",
+  "jsonschema>=4",
 ]
 
 [project.optional-dependencies]
