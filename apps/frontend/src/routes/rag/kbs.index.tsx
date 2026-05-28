@@ -5,7 +5,7 @@
  * sidebar navigation works. Click a KB → drills into per-KB sub-pages.
  * Tag chips above the table AND-filter the listing.
  */
-import { useInfiniteQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import * as React from 'react'
 
@@ -21,8 +21,33 @@ export const Route = createFileRoute('/rag/kbs/')({
 
 function KbsPage() {
   const apiBase = getApiBase()
+  const qc = useQueryClient()
   const [search, setSearch] = React.useState('')
   const [activeTags, setActiveTags] = React.useState<string[]>([])
+  const [cloneTarget, setCloneTarget] = React.useState<KnowledgeBaseSummary | null>(null)
+  const [cloneName, setCloneName] = React.useState('')
+  const [cloneIncludeDocs, setCloneIncludeDocs] = React.useState(false)
+
+  const clone = useMutation({
+    mutationFn: async (args: { srcId: number; name: string; includeDocs: boolean }) => {
+      const res = await fetch(`${apiBase}/api/knowledge-bases/${args.srcId}/clone`, {
+        method: 'POST',
+        headers: {
+          ...(await getAuthHeaders()),
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ name: args.name, include_documents: args.includeDocs }),
+      })
+      if (!res.ok) throw new Error(await res.text())
+      return res.json()
+    },
+    onSuccess: () => {
+      setCloneTarget(null)
+      setCloneName('')
+      setCloneIncludeDocs(false)
+      void qc.invalidateQueries({ queryKey: queryKeys.knowledgeBasesPage() })
+    },
+  })
 
   const listQ = useInfiniteQuery({
     queryKey: queryKeys.knowledgeBasesPage(),
@@ -138,10 +163,21 @@ function KbsPage() {
                 <td>{kb.document_count ?? '—'}</td>
                 <td>{kb.chunks_count ?? '—'}</td>
                 <td>{new Date(kb.created_at).toLocaleDateString()}</td>
-                <td>
+                <td style={{ display: 'flex', gap: 8 }}>
                   <Link to="/rag/kbs/$id/overview" params={{ id: String(kb.id) }}>
                     Open
                   </Link>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCloneTarget(kb)
+                      setCloneName(`${kb.name} (copy)`)
+                    }}
+                    data-testid={`rag-kbs-clone-${kb.id}`}
+                    style={{ fontSize: 11 }}
+                  >
+                    Clone
+                  </button>
                 </td>
               </tr>
             ))}
@@ -163,6 +199,82 @@ function KbsPage() {
           </button>
         )}
       </div>
+      {cloneTarget && (
+        <div
+          role="dialog"
+          aria-label="Clone knowledge base"
+          data-testid="rag-kbs-clone-dialog"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.4)',
+            display: 'grid',
+            placeItems: 'center',
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              background: 'var(--bg)',
+              border: '1px solid var(--line)',
+              borderRadius: 8,
+              padding: 20,
+              minWidth: 360,
+              display: 'grid',
+              gap: 12,
+            }}
+          >
+            <h3 style={{ margin: 0 }}>Clone {cloneTarget.name}</h3>
+            <label style={{ fontSize: 12, display: 'grid', gap: 4 }}>
+              New name
+              <input
+                className="rag-input"
+                value={cloneName}
+                onChange={(e) => setCloneName(e.target.value)}
+                data-testid="rag-kbs-clone-name"
+              />
+            </label>
+            <label style={{ fontSize: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input
+                type="checkbox"
+                checked={cloneIncludeDocs}
+                onChange={(e) => setCloneIncludeDocs(e.target.checked)}
+                data-testid="rag-kbs-clone-include-docs"
+              />
+              Include documents (re-ingest as pending)
+            </label>
+            {clone.isError && (
+              <p style={{ color: 'var(--err)', fontSize: 11 }}>
+                {(clone.error as Error).message}
+              </p>
+            )}
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setCloneTarget(null)}
+                disabled={clone.isPending}
+                data-testid="rag-kbs-clone-cancel"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!cloneName.trim() || clone.isPending}
+                onClick={() =>
+                  clone.mutate({
+                    srcId: cloneTarget.id,
+                    name: cloneName.trim(),
+                    includeDocs: cloneIncludeDocs,
+                  })
+                }
+                data-testid="rag-kbs-clone-submit"
+              >
+                {clone.isPending ? 'Cloning…' : 'Clone'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

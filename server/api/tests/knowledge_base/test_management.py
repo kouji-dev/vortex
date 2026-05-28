@@ -105,3 +105,18 @@ def test_copy_documents_no_commit_when_empty():
     assert n == 0
     assert db.added == []
     assert db.commits == 0
+
+
+def test_copy_documents_default_status_is_pending_not_ready():
+    """Cloned documents must re-ingest. Carrying over 'indexed' would expose stale chunks."""
+    src = [
+        Document(
+            knowledge_base_id=1,
+            filename="a.pdf",
+            storage_path="/s/a",
+            status="indexed",
+        )
+    ]
+    db = _CapturingDB(src)
+    copy_documents(db, src_kb_id=1, dst_kb_id=2)
+    assert db.added[0].status == "pending"
