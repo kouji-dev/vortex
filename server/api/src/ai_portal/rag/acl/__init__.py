@@ -16,6 +16,11 @@ Modules:
 - :mod:`resync` — re-apply ACLs on connector ACL-change events.
 """
 
+from ai_portal.rag.acl.filter import (
+    build_allow_predicate,
+    filter_hits,
+    filter_hits_multi_kb,
+)
 from ai_portal.rag.acl.protocol import (
     AclProvider,
     ResolvedAcl,
@@ -27,13 +32,30 @@ from ai_portal.rag.acl.registry import (
     register as register_provider,
     registered_kinds,
 )
+from ai_portal.rag.acl.service import (
+    capture_acls,
+    delete_acl_for_document,
+    fanout_to_chunks,
+    store_document_acl,
+    visible_chunk_ids,
+    visible_document_ids,
+)
 
 __all__ = [
     "AclProvider",
     "DuplicateAclProvider",
     "ResolvedAcl",
     "UnknownAclProvider",
+    "build_allow_predicate",
+    "capture_acls",
+    "delete_acl_for_document",
+    "fanout_to_chunks",
+    "filter_hits",
+    "filter_hits_multi_kb",
     "get_provider",
     "register_provider",
     "registered_kinds",
+    "store_document_acl",
+    "visible_chunk_ids",
+    "visible_document_ids",
 ]
