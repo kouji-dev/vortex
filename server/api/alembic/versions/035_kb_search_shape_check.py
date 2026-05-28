@@ -28,6 +28,11 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # New enum values from 034 must be COMMITted before they can be referenced
+    # in a CHECK constraint. Alembic wraps the upgrade chain in a single
+    # transaction by default, so we explicitly commit here before adding the
+    # constraint that uses the new 'kb_search' enum value.
+    op.execute("COMMIT")
     op.execute(
         """
         ALTER TABLE thread_items ADD CONSTRAINT ck_thread_items_kb_search_shape
