@@ -41,7 +41,7 @@ _GRAIN_FOR_PERIOD: dict[str, Grain] = {
 
 
 def _require_admin(user: User = Depends(get_current_user)) -> User:
-    _require_role(user, ("admin", "owner"))
+    _require_role(user, "admin", "owner")
     return user
 
 

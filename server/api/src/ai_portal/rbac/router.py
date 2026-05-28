@@ -19,7 +19,7 @@ router = APIRouter(prefix="/api/admin/rbac", tags=["rbac"])
 
 
 def _require_admin(user: User = Depends(get_current_user)) -> User:
-    _require_role(user, ("admin", "owner"))
+    _require_role(user, "admin", "owner")
     return user
 
 
