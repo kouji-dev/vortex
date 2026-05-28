@@ -345,6 +345,81 @@ def delete_playground_session(
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Session not found")
 
 
+class _SaveAsEvalBody(BaseModel):
+    test_set_id: _uuid.UUID
+
+
+class _SaveAsEvalOut(BaseModel):
+    record_id: str
+    test_set_id: _uuid.UUID
+    query: str
+    expected_doc_ids: list[str]
+
+
+@router.post(
+    "/{kb_id}/playground/sessions/{session_id}/save-as-eval",
+    response_model=_SaveAsEvalOut,
+)
+def save_session_as_eval(
+    kb_id: int,
+    session_id: _uuid.UUID,
+    body: _SaveAsEvalBody,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Append the playground session as a new EvalRecord on ``test_set_id``."""
+    _check_kb_access(db, user, kb_id)
+    svc = KbPlaygroundService(db=db, retrieve=_make_playground_retrieve(db, user))
+    rec = svc.save_as_eval_record(
+        kb_id=kb_id, session_id=session_id, test_set_id=body.test_set_id
+    )
+    if rec is None:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail="Session or test set not found"
+        )
+    return _SaveAsEvalOut(
+        record_id=rec.id,
+        test_set_id=body.test_set_id,
+        query=rec.query,
+        expected_doc_ids=rec.expected_doc_ids,
+    )
+
+
+# ── version retention cleanup ────────────────────────────────────────────────
+
+
+class _CleanupOut(BaseModel):
+    kbs_processed: int
+    documents_processed: int
+    versions_deleted: int
+
+
+@router.post(
+    "/{kb_id}/maintenance/cleanup-versions",
+    response_model=_CleanupOut,
+)
+def cleanup_versions(
+    kb_id: int,
+    keep_n: int | None = None,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Drop document versions older than the most recent ``keep_n``.
+
+    When ``keep_n`` is omitted, falls back to the KB's
+    ``settings_json.version_retention`` then the global default (10).
+    """
+    _check_kb_access(db, user, kb_id)
+    from ai_portal.rag.workers.version_cleanup import cleanup_versions_for_kb
+
+    rep = cleanup_versions_for_kb(db, kb_id=kb_id, keep_n=keep_n)
+    return _CleanupOut(
+        kbs_processed=rep.kbs_processed,
+        documents_processed=rep.documents_processed,
+        versions_deleted=rep.versions_deleted,
+    )
+
+
 # ── analytics routes ─────────────────────────────────────────────────────
 
 

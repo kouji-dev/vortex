@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import uuid as _uuid
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -116,6 +118,39 @@ class PermissionTestDocSample(BaseModel):
     document_id: str
     title: str
     source_uri: str
+
+
+class ScopedKbKeyCreate(BaseModel):
+    name: str = Field(default="", max_length=128)
+
+
+class ScopedKbKeyOut(BaseModel):
+    """KB-scoped API key — public shape (no plaintext)."""
+
+    id: _uuid.UUID
+    name: str
+    prefix: str
+    scopes: list[str]
+    created_at: datetime
+    last_used_at: datetime | None = None
+    revoked_at: datetime | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class ScopedKbKeyCreated(ScopedKbKeyOut):
+    """Returned once on mint. Carries plaintext."""
+
+    plaintext: str
+
+
+class KbCloneRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    include_documents: bool = False
+
+
+class PlaygroundSaveAsEvalRequest(BaseModel):
+    test_set_id: _uuid.UUID
 
 
 class PermissionTestResponse(BaseModel):

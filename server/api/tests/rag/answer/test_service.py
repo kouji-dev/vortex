@@ -165,3 +165,77 @@ def test_options_propagate_to_stream_fn():
 
     assert "formal" in captured["system"]
     assert captured["opts"].model == "gpt-9"
+
+
+def test_long_history_triggers_compression_before_rewrite():
+    """When prior_turns > threshold, summarize_fn is invoked and the summary is
+    injected as a synthetic system turn before rewrite."""
+    db = MagicMock()
+    from ai_portal.rag.answer.rewrite import ChatTurn
+
+    long_history = [
+        ChatTurn(role="user" if i % 2 == 0 else "assistant", text=f"turn-{i}")
+        for i in range(12)
+    ]
+    req = AnswerRequest(
+        query="latest q",
+        kb_ids=[1],
+        prior_turns=long_history,
+        options=AnswerOptions(history_threshold_turns=6, history_keep_recent=4),
+    )
+    hits = [_hit("c1", "d1")]
+
+    summarize_calls: list[str] = []
+    rewrite_inputs: list[str] = []
+
+    def summarize_fn(system, user, model):
+        summarize_calls.append(user)
+        return "Summarized older turns."
+
+    def rewrite_fn(system, user, model):
+        rewrite_inputs.append(user)
+        return "rewritten question"
+
+    with patch("ai_portal.rag.answer.service.hybrid_search", return_value=hits):
+        _run(answer_stream(
+            db, req,
+            stream_fn=lambda s, u, o: ["x"],
+            rewrite_fn=rewrite_fn,
+            summarize_fn=summarize_fn,
+        ))
+
+    # Compression ran on older turns.
+    assert summarize_calls, "summarize_fn must be called once"
+    assert "turn-0" in summarize_calls[0]
+    # The summary becomes a synthetic "system" turn fed into rewrite.
+    assert rewrite_inputs and "Summarized older turns" in rewrite_inputs[0]
+    # Recent turns remain verbatim in the rewrite prompt.
+    assert "turn-11" in rewrite_inputs[0]
+
+
+def test_short_history_skips_compression():
+    db = MagicMock()
+    from ai_portal.rag.answer.rewrite import ChatTurn
+
+    req = AnswerRequest(
+        query="q",
+        kb_ids=[1],
+        prior_turns=[ChatTurn("user", "hi")],
+        options=AnswerOptions(history_threshold_turns=6),
+    )
+    hits = [_hit("c1", "d1")]
+
+    summarize_calls = []
+
+    def summarize_fn(*a, **k):
+        summarize_calls.append(a)
+        return "should-not-be-called"
+
+    with patch("ai_portal.rag.answer.service.hybrid_search", return_value=hits):
+        _run(answer_stream(
+            db, req,
+            stream_fn=lambda s, u, o: ["x"],
+            summarize_fn=summarize_fn,
+        ))
+
+    assert summarize_calls == [], "short history must not trigger summarizer"

@@ -24,6 +24,7 @@ from ai_portal.rag.answer.citations import (
 )
 from ai_portal.rag.answer.refusal import RefusalPolicy, should_refuse
 from ai_portal.rag.answer.rewrite import ChatTurn, rewrite_question
+from ai_portal.rag.answer.summarize import compress_history
 from ai_portal.rag.search.federated import FederatedRequest, federated_search
 from ai_portal.rag.search.hybrid import hybrid_search
 from ai_portal.rag.search.types import SearchFilter, SearchHit, SearchRequest
@@ -39,6 +40,10 @@ class AnswerOptions:
     language: str | None = None
     answer_length: str = "medium"  # short | medium | long
     model: str = "gpt-4o-mini"
+    # Multi-turn history compression
+    history_threshold_turns: int = 6
+    history_keep_recent: int = 4
+    history_budget_tokens: int = 4_000
 
 
 @dataclass
@@ -179,15 +184,32 @@ def answer_stream(
     *,
     stream_fn: StreamFn | None = None,
     rewrite_fn: Any | None = None,
+    summarize_fn: Any | None = None,
 ) -> Iterator[AnswerEvent]:
     """Generator yielding answer events.
 
-    Caller is responsible for adapting this to SSE/HTTP. `stream_fn` and
-    `rewrite_fn` are injectable for tests.
+    Caller is responsible for adapting this to SSE/HTTP. `stream_fn`,
+    `rewrite_fn`, and `summarize_fn` are injectable for tests.
     """
+    # 0. Compress older turns when history exceeds threshold.
+    compressed = compress_history(
+        req.prior_turns,
+        threshold_turns=req.options.history_threshold_turns,
+        keep_recent=req.options.history_keep_recent,
+        budget_tokens=req.options.history_budget_tokens,
+        model=req.options.model,
+        complete_fn=summarize_fn,
+    )
+    # The rewrite stage only needs the recent verbatim turns; the summary
+    # is injected as a synthetic "system" turn so coreferences still resolve.
+    rewrite_turns: list[ChatTurn] = []
+    if compressed.compressed and compressed.summary:
+        rewrite_turns.append(ChatTurn(role="system", text=f"prior_summary: {compressed.summary}"))
+    rewrite_turns.extend(compressed.recent)
+
     # 1. Rewrite for multi-turn context.
     rewritten = rewrite_question(
-        req.query, req.prior_turns, model=req.options.model, complete_fn=rewrite_fn
+        req.query, rewrite_turns, model=req.options.model, complete_fn=rewrite_fn
     )
 
     # 2. Retrieval.

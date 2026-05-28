@@ -8,8 +8,10 @@ back to the KB it can operate on.
 from __future__ import annotations
 
 import uuid as _uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ai_portal.api_keys.model import ApiKey
@@ -79,3 +81,43 @@ def key_permits(key: ApiKey, scope: str, *, kb_id: int) -> bool:
     """Permission check: scope present AND key bound to ``kb_id``."""
     scopes = set(key.scopes_json or ())
     return scope in scopes and _kb_resource_token(kb_id) in scopes
+
+
+def list_scoped_kb_keys(
+    db: Session,
+    *,
+    org_id: _uuid.UUID,
+    kb_id: int,
+    include_revoked: bool = False,
+) -> Sequence[ApiKey]:
+    """List API keys bound to ``kb_id`` within ``org_id``."""
+    stmt = select(ApiKey).where(ApiKey.org_id == org_id).order_by(ApiKey.created_at.desc())
+    rows = list(db.scalars(stmt))
+    token = _kb_resource_token(kb_id)
+    out: list[ApiKey] = []
+    for r in rows:
+        scopes = r.scopes_json or []
+        if token not in scopes:
+            continue
+        if not include_revoked and r.revoked_at is not None:
+            continue
+        out.append(r)
+    return out
+
+
+def get_scoped_kb_key(
+    db: Session,
+    *,
+    org_id: _uuid.UUID,
+    kb_id: int,
+    key_id: _uuid.UUID,
+) -> ApiKey | None:
+    """Return a single KB-scoped key or ``None`` if not bound to ``kb_id``."""
+    row = db.scalars(
+        select(ApiKey).where(ApiKey.id == key_id, ApiKey.org_id == org_id)
+    ).first()
+    if row is None:
+        return None
+    if _kb_resource_token(kb_id) not in (row.scopes_json or ()):
+        return None
+    return row

@@ -99,6 +99,27 @@ export function deletePlaygroundSession(kbId: number, sessionId: string): Promis
   return ragFetch(`/api/kbs/${kbId}/playground/sessions/${sessionId}`, { method: 'DELETE' })
 }
 
+export type SaveAsEvalOut = {
+  record_id: string
+  test_set_id: string
+  query: string
+  expected_doc_ids: string[]
+}
+
+export function savePlaygroundSessionAsEval(
+  kbId: number,
+  sessionId: string,
+  testSetId: string,
+): Promise<SaveAsEvalOut> {
+  return ragFetch(
+    `/api/kbs/${kbId}/playground/sessions/${sessionId}/save-as-eval`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ test_set_id: testSetId }),
+    },
+  )
+}
+
 // ── analytics ──────────────────────────────────────────────────────────
 
 export function getAnalytics(kbId: number, windowDays = 30): Promise<AnalyticsOverview> {

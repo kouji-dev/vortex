@@ -5,11 +5,11 @@
  * retrieved chunks + answer side-by-side. Stores every run as a session so
  * the user can replay it deterministically or promote it to an eval case.
  */
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import * as React from 'react'
 
-import { runPlayground } from '~/lib/rag-api'
+import { listEvals, runPlayground, savePlaygroundSessionAsEval } from '~/lib/rag-api'
 import type { PlaygroundResponse } from '~/lib/rag-types'
 
 export const Route = createFileRoute('/rag/kbs/$id/playground')({
@@ -32,6 +32,20 @@ function PlaygroundPage() {
         save: true,
       }),
     onSuccess: (r) => setLast(r),
+  })
+
+  const evalsQ = useQuery({
+    queryKey: ['rag', 'evals', kbId],
+    queryFn: () => listEvals(kbId),
+  })
+  const [savedRecordId, setSavedRecordId] = React.useState<string | null>(null)
+
+  const saveEval = useMutation({
+    mutationFn: (testSetId: string) => {
+      if (!last?.session_id) throw new Error('No session to save')
+      return savePlaygroundSessionAsEval(kbId, last.session_id, testSetId)
+    },
+    onSuccess: (out) => setSavedRecordId(out.record_id),
   })
 
   return (
@@ -88,8 +102,18 @@ function PlaygroundPage() {
       </div>
 
       <div className="panel">
-        <div className="panel-head">
+        <div className="panel-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span>Retrieved chunks</span>
+          {last?.session_id && (
+            <SaveAsEvalPicker
+              evals={evalsQ.data ?? []}
+              loading={evalsQ.isPending}
+              onSave={(eid) => saveEval.mutate(eid)}
+              saving={saveEval.isPending}
+              savedRecordId={savedRecordId}
+              error={saveEval.error as Error | null}
+            />
+          )}
         </div>
         <div className="panel-body" style={{ padding: 12 }}>
           {last?.retrieved.length ? (
@@ -112,6 +136,89 @@ function PlaygroundPage() {
           )}
         </div>
       </div>
+    </div>
+  )
+}
+
+function SaveAsEvalPicker({
+  evals,
+  loading,
+  onSave,
+  saving,
+  savedRecordId,
+  error,
+}: {
+  evals: { id: string; name: string }[]
+  loading: boolean
+  onSave: (evalId: string) => void
+  saving: boolean
+  savedRecordId: string | null
+  error: Error | null
+}) {
+  const [open, setOpen] = React.useState(false)
+  const [chosen, setChosen] = React.useState<string>('')
+
+  React.useEffect(() => {
+    if (!chosen && evals.length > 0) setChosen(evals[0].id)
+  }, [evals, chosen])
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        data-testid="rag-playground-save-as-eval"
+        style={{ fontSize: 11 }}
+      >
+        Save as eval
+      </button>
+    )
+  }
+  return (
+    <div data-testid="rag-playground-save-as-eval-picker" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+      {loading ? (
+        <span style={{ fontSize: 11, color: 'var(--ink-3)' }}>Loading test sets…</span>
+      ) : evals.length === 0 ? (
+        <span style={{ fontSize: 11, color: 'var(--ink-3)' }}>No test sets — create one first.</span>
+      ) : (
+        <>
+          <select
+            value={chosen}
+            onChange={(e) => setChosen(e.target.value)}
+            data-testid="rag-playground-save-as-eval-select"
+            style={{ fontSize: 11 }}
+          >
+            {evals.map((e) => (
+              <option key={e.id} value={e.id}>{e.name}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => onSave(chosen)}
+            disabled={!chosen || saving}
+            data-testid="rag-playground-save-as-eval-submit"
+            style={{ fontSize: 11 }}
+          >
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+        </>
+      )}
+      <button
+        type="button"
+        onClick={() => setOpen(false)}
+        data-testid="rag-playground-save-as-eval-cancel"
+        style={{ fontSize: 11 }}
+      >
+        Cancel
+      </button>
+      {savedRecordId && (
+        <span data-testid="rag-playground-save-as-eval-ok" style={{ fontSize: 11, color: 'var(--ok, green)' }}>
+          Saved {savedRecordId}
+        </span>
+      )}
+      {error && (
+        <span style={{ fontSize: 11, color: 'var(--err, red)' }}>{error.message}</span>
+      )}
     </div>
   )
 }
