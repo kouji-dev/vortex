@@ -63,6 +63,7 @@ import { Route as RagKbsIndexRouteImport } from './routes/rag/kbs.index'
 import { Route as ChatConversationsIndexRouteImport } from './routes/chat/conversations/index'
 import { Route as WorkersTasksTaskIdRouteImport } from './routes/workers/tasks.$taskId'
 import { Route as ChatConversationsIdRouteImport } from './routes/chat/conversations/$id'
+import { Route as WorkersPoolsIdTemplateRouteImport } from './routes/workers/pools.$id.template'
 import { Route as RagKbsIdSettingsRouteImport } from './routes/rag/kbs.$id.settings'
 import { Route as RagKbsIdQuarantineRouteImport } from './routes/rag/kbs.$id.quarantine'
 import { Route as RagKbsIdPlaygroundRouteImport } from './routes/rag/kbs.$id.playground'
@@ -343,6 +344,11 @@ const ChatConversationsIdRoute = ChatConversationsIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => ChatConversationsRouteRoute,
 } as any)
+const WorkersPoolsIdTemplateRoute = WorkersPoolsIdTemplateRouteImport.update({
+  id: '/$id/template',
+  path: '/$id/template',
+  getParentRoute: () => WorkersPoolsRoute,
+} as any)
 const RagKbsIdSettingsRoute = RagKbsIdSettingsRouteImport.update({
   id: '/kbs/$id/settings',
   path: '/kbs/$id/settings',
@@ -433,7 +439,7 @@ export interface FileRoutesByFullPath {
   '/rag/search-providers': typeof RagSearchProvidersRoute
   '/workers/analytics': typeof WorkersAnalyticsRoute
   '/workers/integrations': typeof WorkersIntegrationsRoute
-  '/workers/pools': typeof WorkersPoolsRoute
+  '/workers/pools': typeof WorkersPoolsRouteWithChildren
   '/workers/settings': typeof WorkersSettingsRoute
   '/workers/tasks': typeof WorkersTasksRouteWithChildren
   '/admin/': typeof AdminIndexRoute
@@ -453,6 +459,7 @@ export interface FileRoutesByFullPath {
   '/rag/kbs/$id/playground': typeof RagKbsIdPlaygroundRoute
   '/rag/kbs/$id/quarantine': typeof RagKbsIdQuarantineRoute
   '/rag/kbs/$id/settings': typeof RagKbsIdSettingsRoute
+  '/workers/pools/$id/template': typeof WorkersPoolsIdTemplateRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -494,7 +501,7 @@ export interface FileRoutesByTo {
   '/rag/search-providers': typeof RagSearchProvidersRoute
   '/workers/analytics': typeof WorkersAnalyticsRoute
   '/workers/integrations': typeof WorkersIntegrationsRoute
-  '/workers/pools': typeof WorkersPoolsRoute
+  '/workers/pools': typeof WorkersPoolsRouteWithChildren
   '/workers/settings': typeof WorkersSettingsRoute
   '/workers/tasks': typeof WorkersTasksRouteWithChildren
   '/admin': typeof AdminIndexRoute
@@ -514,6 +521,7 @@ export interface FileRoutesByTo {
   '/rag/kbs/$id/playground': typeof RagKbsIdPlaygroundRoute
   '/rag/kbs/$id/quarantine': typeof RagKbsIdQuarantineRoute
   '/rag/kbs/$id/settings': typeof RagKbsIdSettingsRoute
+  '/workers/pools/$id/template': typeof WorkersPoolsIdTemplateRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -560,7 +568,7 @@ export interface FileRoutesById {
   '/rag/search-providers': typeof RagSearchProvidersRoute
   '/workers/analytics': typeof WorkersAnalyticsRoute
   '/workers/integrations': typeof WorkersIntegrationsRoute
-  '/workers/pools': typeof WorkersPoolsRoute
+  '/workers/pools': typeof WorkersPoolsRouteWithChildren
   '/workers/settings': typeof WorkersSettingsRoute
   '/workers/tasks': typeof WorkersTasksRouteWithChildren
   '/admin/': typeof AdminIndexRoute
@@ -580,6 +588,7 @@ export interface FileRoutesById {
   '/rag/kbs/$id/playground': typeof RagKbsIdPlaygroundRoute
   '/rag/kbs/$id/quarantine': typeof RagKbsIdQuarantineRoute
   '/rag/kbs/$id/settings': typeof RagKbsIdSettingsRoute
+  '/workers/pools/$id/template': typeof WorkersPoolsIdTemplateRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -647,6 +656,7 @@ export interface FileRouteTypes {
     | '/rag/kbs/$id/playground'
     | '/rag/kbs/$id/quarantine'
     | '/rag/kbs/$id/settings'
+    | '/workers/pools/$id/template'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -708,6 +718,7 @@ export interface FileRouteTypes {
     | '/rag/kbs/$id/playground'
     | '/rag/kbs/$id/quarantine'
     | '/rag/kbs/$id/settings'
+    | '/workers/pools/$id/template'
   id:
     | '__root__'
     | '/'
@@ -773,6 +784,7 @@ export interface FileRouteTypes {
     | '/rag/kbs/$id/playground'
     | '/rag/kbs/$id/quarantine'
     | '/rag/kbs/$id/settings'
+    | '/workers/pools/$id/template'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -1172,6 +1184,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatConversationsIdRouteImport
       parentRoute: typeof ChatConversationsRouteRoute
     }
+    '/workers/pools/$id/template': {
+      id: '/workers/pools/$id/template'
+      path: '/$id/template'
+      fullPath: '/workers/pools/$id/template'
+      preLoaderRoute: typeof WorkersPoolsIdTemplateRouteImport
+      parentRoute: typeof WorkersPoolsRoute
+    }
     '/rag/kbs/$id/settings': {
       id: '/rag/kbs/$id/settings'
       path: '/kbs/$id/settings'
@@ -1368,6 +1387,18 @@ const RagRouteRouteWithChildren = RagRouteRoute._addFileChildren(
   RagRouteRouteChildren,
 )
 
+interface WorkersPoolsRouteChildren {
+  WorkersPoolsIdTemplateRoute: typeof WorkersPoolsIdTemplateRoute
+}
+
+const WorkersPoolsRouteChildren: WorkersPoolsRouteChildren = {
+  WorkersPoolsIdTemplateRoute: WorkersPoolsIdTemplateRoute,
+}
+
+const WorkersPoolsRouteWithChildren = WorkersPoolsRoute._addFileChildren(
+  WorkersPoolsRouteChildren,
+)
+
 interface WorkersTasksRouteChildren {
   WorkersTasksTaskIdRoute: typeof WorkersTasksTaskIdRoute
 }
@@ -1383,7 +1414,7 @@ const WorkersTasksRouteWithChildren = WorkersTasksRoute._addFileChildren(
 interface WorkersRouteRouteChildren {
   WorkersAnalyticsRoute: typeof WorkersAnalyticsRoute
   WorkersIntegrationsRoute: typeof WorkersIntegrationsRoute
-  WorkersPoolsRoute: typeof WorkersPoolsRoute
+  WorkersPoolsRoute: typeof WorkersPoolsRouteWithChildren
   WorkersSettingsRoute: typeof WorkersSettingsRoute
   WorkersTasksRoute: typeof WorkersTasksRouteWithChildren
   WorkersIndexRoute: typeof WorkersIndexRoute
@@ -1392,7 +1423,7 @@ interface WorkersRouteRouteChildren {
 const WorkersRouteRouteChildren: WorkersRouteRouteChildren = {
   WorkersAnalyticsRoute: WorkersAnalyticsRoute,
   WorkersIntegrationsRoute: WorkersIntegrationsRoute,
-  WorkersPoolsRoute: WorkersPoolsRoute,
+  WorkersPoolsRoute: WorkersPoolsRouteWithChildren,
   WorkersSettingsRoute: WorkersSettingsRoute,
   WorkersTasksRoute: WorkersTasksRouteWithChildren,
   WorkersIndexRoute: WorkersIndexRoute,
