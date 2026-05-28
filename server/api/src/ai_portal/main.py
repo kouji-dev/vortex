@@ -35,6 +35,8 @@ from ai_portal.realtime.router import router as realtime_router
 from ai_portal.webhooks.router import router as webhooks_router
 from ai_portal.billing.router import router as billing_router
 from ai_portal.api_keys.router import router as api_keys_router
+from ai_portal.scim.router import admin_router as scim_admin_router
+from ai_portal.scim.router import scim_router
 from ai_portal.settings.router import router as settings_router
 from ai_portal.core.config import get_settings, settings_log_snapshot
 from ai_portal.core.logging import configure_logging
@@ -116,5 +118,7 @@ app.include_router(realtime_router)
 app.include_router(webhooks_router)
 app.include_router(billing_router)
 app.include_router(api_keys_router)
+app.include_router(scim_admin_router)
+app.include_router(scim_router)
 app.include_router(settings_router)
 
