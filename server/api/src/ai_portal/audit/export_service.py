@@ -21,6 +21,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ai_portal.audit.event_view import decrypt_actor, decrypt_payload
 from ai_portal.audit.model import AuditEvent, AuditExportJob
 from ai_portal.audit.protocol import AuditFilter
 
@@ -38,7 +39,7 @@ def event_to_dict(e: AuditEvent) -> dict:
         "resource_type": e.resource_type,
         "resource_id": e.resource_id,
         "action": e.action,
-        "payload_json": e.payload_json,
+        "payload_json": decrypt_payload(e),
         "request_id": e.request_id,
         "ip_address": str(e.ip_address) if e.ip_address else None,
         "user_agent": e.user_agent,
@@ -161,13 +162,13 @@ def run_siem_export(
                 org_id=e.org_id,
                 actor_user_id=e.actor_user_id,
                 actor_type=e.actor_type,
-                actor_json=e.actor_json,
+                actor_json=decrypt_actor(e),
                 event_type=e.event_type,
                 resource_type=e.resource_type,
                 resource_id=e.resource_id,
                 action=e.action,
-                payload=e.payload_json,
-                metadata=e.metadata_,
+                payload=decrypt_payload(e),
+                metadata=decrypt_payload(e),
                 request_id=e.request_id,
                 ip_address=str(e.ip_address) if e.ip_address else None,
                 user_agent=e.user_agent,

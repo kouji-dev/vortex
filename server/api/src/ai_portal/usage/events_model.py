@@ -10,7 +10,7 @@ import uuid as _uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, Numeric, String
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, LargeBinary, Numeric, String
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -31,6 +31,7 @@ class UsageEvent(Base):
     qty: Mapped[Decimal] = mapped_column(Numeric(20, 6), nullable=False, default=Decimal("0"))
     cost_usd: Mapped[Decimal] = mapped_column(Numeric(14, 6), nullable=False, default=Decimal("0"))
     pricing_snapshot: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    pricing_snapshot_enc: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
     actor_kind: Mapped[str] = mapped_column(String(16), nullable=False)
     actor_user_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
@@ -44,3 +45,4 @@ class UsageEvent(Base):
     request_id: Mapped[_uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), nullable=True)
     idempotency_key: Mapped[str | None] = mapped_column(String(128), nullable=True)
     meta: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    meta_enc: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)

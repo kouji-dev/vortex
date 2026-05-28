@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from ai_portal.audit.chain import verify_chain
+from ai_portal.audit.event_view import decrypt_metadata
 from ai_portal.audit.export_service import (
     count_events,
     query_events,
@@ -113,7 +114,7 @@ def list_audit_events(
                 resource_type=e.resource_type,
                 resource_id=e.resource_id,
                 action=e.action,
-                metadata=e.payload_json or e.metadata_,
+                metadata=decrypt_metadata(e),
                 request_id=e.request_id,
                 ip_address=str(e.ip_address) if e.ip_address else None,
                 user_agent=e.user_agent,

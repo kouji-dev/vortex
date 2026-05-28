@@ -20,6 +20,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from ai_portal.chat.llm_pricing import get_llm_rates
+from ai_portal.core.crypto import encrypt_json
 from ai_portal.usage.events_model import UsageEvent
 from ai_portal.usage.units import UsageUnit, default_unit_price_usd
 
@@ -124,7 +125,8 @@ def emit_usage(
         unit=unit,
         qty=qty_dec,
         cost_usd=cost,
-        pricing_snapshot=snapshot,
+        pricing_snapshot=None,
+        pricing_snapshot_enc=encrypt_json(snapshot),
         actor_kind=actor_kind,
         actor_user_id=actor_user_id,
         actor_api_key_id=actor_api_key_id,
@@ -135,7 +137,8 @@ def emit_usage(
         resource_id=resource_id,
         request_id=request_id,
         idempotency_key=idempotency_key,
-        meta=meta,
+        meta=None,
+        meta_enc=encrypt_json(meta),
     )
     db.add(row)
     db.flush()

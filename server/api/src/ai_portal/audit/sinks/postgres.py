@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from sqlalchemy import select
 
+from ai_portal.audit.event_view import decrypt_actor as _decrypt_actor
+from ai_portal.audit.event_view import decrypt_payload as _decrypt_payload
 from ai_portal.audit.model import AuditEvent
 from ai_portal.audit.protocol import AuditEventPayload, AuditFilter
 from ai_portal.core.db.rls import bypass_rls
@@ -53,13 +55,13 @@ class PostgresAuditSink:
                 org_id=r.org_id,
                 actor_user_id=r.actor_user_id,
                 actor_type=r.actor_type,
-                actor_json=r.actor_json,
+                actor_json=_decrypt_actor(r),
                 event_type=r.event_type,
                 resource_type=r.resource_type,
                 resource_id=r.resource_id,
                 action=r.action,
-                payload=r.payload_json,
-                metadata=r.metadata_,
+                payload=_decrypt_payload(r),
+                metadata=_decrypt_payload(r),
                 request_id=r.request_id,
                 ip_address=str(r.ip_address) if r.ip_address else None,
                 user_agent=r.user_agent,
