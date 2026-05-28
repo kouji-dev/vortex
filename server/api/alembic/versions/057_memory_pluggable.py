@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import sqlalchemy as sa
 from alembic import op
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import ENUM as PG_ENUM, JSONB, UUID
 
 revision = "057_memory_pluggable"
 down_revision = "056_rag_connectors"
@@ -53,12 +53,26 @@ def _drop_rls(table: str) -> None:
 def upgrade() -> None:
     op.execute("CREATE EXTENSION IF NOT EXISTS vector")
 
-    scope_kind = sa.Enum(*_SCOPE_KINDS, name="memory_scope_kind")
-    mem_type = sa.Enum(*_TYPES, name="memory_type")
-    conflict = sa.Enum(*_CONFLICT, name="memory_conflict_strategy")
-    scope_kind.create(op.get_bind(), checkfirst=True)
-    mem_type.create(op.get_bind(), checkfirst=True)
-    conflict.create(op.get_bind(), checkfirst=True)
+    # Idempotent enum creation. `sa.Enum(...).create(checkfirst=True)` is
+    # unreliable inside a migration transaction; use DO blocks instead.
+    op.execute(
+        "DO $$ BEGIN "
+        "CREATE TYPE memory_scope_kind AS ENUM "
+        "('user','conversation','assistant','team','org'); "
+        "EXCEPTION WHEN duplicate_object THEN NULL; END $$;"
+    )
+    op.execute(
+        "DO $$ BEGIN "
+        "CREATE TYPE memory_type AS ENUM "
+        "('fact','preference','entity','relation','episode','procedure'); "
+        "EXCEPTION WHEN duplicate_object THEN NULL; END $$;"
+    )
+    op.execute(
+        "DO $$ BEGIN "
+        "CREATE TYPE memory_conflict_strategy AS ENUM "
+        "('newer_wins','keep_both','prompt_user'); "
+        "EXCEPTION WHEN duplicate_object THEN NULL; END $$;"
+    )
 
     # ── memories ─────────────────────────────────────────────────────────
     op.create_table(
@@ -73,13 +87,13 @@ def upgrade() -> None:
         sa.Column("actor_owner_json", JSONB, nullable=False),
         sa.Column(
             "scope_kind",
-            sa.Enum(*_SCOPE_KINDS, name="memory_scope_kind", create_type=False),
+            PG_ENUM(*_SCOPE_KINDS, name="memory_scope_kind", create_type=False),
             nullable=False,
         ),
         sa.Column("scope_ids_json", JSONB, nullable=False, server_default="[]"),
         sa.Column(
             "type",
-            sa.Enum(*_TYPES, name="memory_type", create_type=False),
+            PG_ENUM(*_TYPES, name="memory_type", create_type=False),
             nullable=False,
         ),
         sa.Column("text", sa.String(4096), nullable=False),
@@ -134,7 +148,7 @@ def upgrade() -> None:
         ),
         sa.Column(
             "scope_kind",
-            sa.Enum(*_SCOPE_KINDS, name="memory_scope_kind", create_type=False),
+            PG_ENUM(*_SCOPE_KINDS, name="memory_scope_kind", create_type=False),
             nullable=False,
         ),
         sa.Column("scope_id", sa.String(64), nullable=False),
@@ -154,7 +168,7 @@ def upgrade() -> None:
         ),
         sa.Column(
             "scope_kind",
-            sa.Enum(*_SCOPE_KINDS, name="memory_scope_kind", create_type=False),
+            PG_ENUM(*_SCOPE_KINDS, name="memory_scope_kind", create_type=False),
             nullable=False,
         ),
         sa.Column("triggers_json", JSONB, nullable=False, server_default="{}"),
@@ -162,7 +176,7 @@ def upgrade() -> None:
         sa.Column("model_allow_json", JSONB, nullable=False, server_default="[]"),
         sa.Column(
             "conflict_strategy",
-            sa.Enum(*_CONFLICT, name="memory_conflict_strategy", create_type=False),
+            PG_ENUM(*_CONFLICT, name="memory_conflict_strategy", create_type=False),
             nullable=False,
             server_default="newer_wins",
         ),
@@ -187,7 +201,7 @@ def upgrade() -> None:
         ),
         sa.Column(
             "scope_kind",
-            sa.Enum(*_SCOPE_KINDS, name="memory_scope_kind", create_type=False),
+            PG_ENUM(*_SCOPE_KINDS, name="memory_scope_kind", create_type=False),
             nullable=False,
         ),
         sa.Column("top_k", sa.Integer, nullable=False, server_default="8"),
@@ -213,7 +227,7 @@ def upgrade() -> None:
         sa.Column("kind", sa.String(32), nullable=False),
         sa.Column(
             "scope_kind",
-            sa.Enum(*_SCOPE_KINDS, name="memory_scope_kind", create_type=False),
+            PG_ENUM(*_SCOPE_KINDS, name="memory_scope_kind", create_type=False),
             nullable=False,
         ),
         sa.Column("payload_json", JSONB, nullable=False, server_default="{}"),
@@ -263,7 +277,7 @@ def upgrade() -> None:
         sa.Column("actor_user_id", sa.Integer, nullable=False),
         sa.Column(
             "scope_kind",
-            sa.Enum(*_SCOPE_KINDS, name="memory_scope_kind", create_type=False),
+            PG_ENUM(*_SCOPE_KINDS, name="memory_scope_kind", create_type=False),
             nullable=True,
         ),
         sa.Column("scope_id", sa.String(64), nullable=True),
@@ -297,6 +311,6 @@ def downgrade() -> None:
     op.execute("DROP INDEX IF EXISTS ix_memories_embedding_hnsw")
     op.drop_table("memories")
 
-    sa.Enum(name="memory_conflict_strategy").drop(op.get_bind(), checkfirst=True)
-    sa.Enum(name="memory_type").drop(op.get_bind(), checkfirst=True)
-    sa.Enum(name="memory_scope_kind").drop(op.get_bind(), checkfirst=True)
+    op.execute("DROP TYPE IF EXISTS memory_conflict_strategy")
+    op.execute("DROP TYPE IF EXISTS memory_type")
+    op.execute("DROP TYPE IF EXISTS memory_scope_kind")
