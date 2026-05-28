@@ -24,11 +24,15 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, Header, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from ai_portal.auth.deps import get_current_user, get_db
 from ai_portal.auth.model import User
+from ai_portal.auth.strategies.api_key import (
+    actor_for_api_key_token,
+    looks_like_api_key_token,
+)
 from ai_portal.rbac.service import Actor, RbacService, UnknownPermission
 
 
@@ -56,6 +60,48 @@ def require_actor(user: User = Depends(get_current_user)) -> Actor:
         raise HTTPException(
             status.HTTP_403_FORBIDDEN, detail="actor has no org"
         ) from e
+
+
+def _extract_bearer(authorization: str | None) -> str | None:
+    if not authorization or not authorization.lower().startswith("bearer "):
+        return None
+    return authorization.split(" ", 1)[1].strip()
+
+
+def current_actor(
+    request: Request,
+    authorization: str | None = Header(None),
+    db: Session = Depends(get_db),
+) -> Actor:
+    """Resolve the caller as an :class:`Actor` (api_key | user).
+
+    Resolution order:
+
+    1. If ``Authorization: Bearer ap_xxx`` → control-plane API key. Returns
+       ``Actor(kind="api_key", ...)`` with org + scopes attached.
+    2. Otherwise → fall back to :func:`require_actor` (user-bearer flow).
+
+    Invalid api-key tokens raise 401; missing org on a user raises 403
+    (same semantics as :func:`require_actor`).
+    """
+    token = _extract_bearer(authorization)
+    if token and looks_like_api_key_token(token):
+        actor = actor_for_api_key_token(db, token)
+        if actor is None:
+            raise HTTPException(
+                status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or revoked API key",
+            )
+        # Mirror the user-flow side-effect: bind tenant context so any
+        # downstream RLS-protected query is scoped to the key's org.
+        from ai_portal.core.db.rls import set_org_context
+
+        set_org_context(db, actor.org_id)
+        request.state.org_id = actor.org_id
+        return actor
+
+    # Fall through to user-bearer flow.
+    return require_actor(user=get_current_user(request=request, authorization=authorization, db=db))
 
 
 def get_rbac_service(db: Session = Depends(get_db)) -> RbacService:
