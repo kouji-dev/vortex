@@ -18,6 +18,8 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from typing import Protocol, runtime_checkable
 
+from ai_portal.gateway.cache.protocol import Cache
+from ai_portal.gateway.pricing import PricingSnapshot
 from ai_portal.gateway.types import (
     Capability,
     Embeddings,
@@ -76,9 +78,59 @@ async def embed(
     return await provider.embed(texts, model)
 
 
+# ── policy context (G1/G2/E2) ───────────────────────────────────────────────
+
+
+class PolicyContext:
+    """Bundle of optional cross-cutting policy hooks applied to every call.
+
+    Attached via the :func:`get_policy_context` FastAPI dep. The default
+    instance (returned when no override is registered) is a no-op: no
+    pricing, no budget check, no cache. Production wiring overrides the dep
+    in ``main.py``; tests override per-suite.
+    """
+
+    __slots__ = (
+        "budget_check",
+        "cache",
+        "cache_ttl_seconds",
+        "estimated_cost_usd",
+        "on_cache_hit_usage",
+        "pricing",
+    )
+
+    def __init__(
+        self,
+        *,
+        pricing: PricingSnapshot | None = None,
+        cache: Cache | None = None,
+        cache_ttl_seconds: int = 300,
+        budget_check: object | None = None,
+        estimated_cost_usd: float = 0.0,
+        on_cache_hit_usage: object | None = None,
+    ) -> None:
+        self.pricing = pricing
+        self.cache = cache
+        self.cache_ttl_seconds = cache_ttl_seconds
+        self.budget_check = budget_check
+        self.estimated_cost_usd = estimated_cost_usd
+        self.on_cache_hit_usage = on_cache_hit_usage
+
+
+def get_policy_context() -> PolicyContext:
+    """FastAPI dep — yields the active :class:`PolicyContext`.
+
+    Default returns an empty context (no policies). Tests / production
+    override this dep to inject pricing / cache / budget hooks.
+    """
+    return PolicyContext()
+
+
 __all__ = [
+    "PolicyContext",
     "complete",
     "embed",
     "get_llm_provider",
+    "get_policy_context",
     "stream",
 ]

@@ -32,6 +32,10 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from ai_portal.gateway import service as gateway_service
+from ai_portal.gateway.policies import (
+    BudgetExceeded,
+    complete_with_policies,
+)
 from ai_portal.gateway.types import (
     LLMRequest,
     LLMResponse,
@@ -373,6 +377,9 @@ async def create_chat_completion(
     body: OpenAIChatCompletionsRequest,
     response: Response,
     provider=Depends(gateway_service.get_llm_provider),
+    policy_ctx: gateway_service.PolicyContext = Depends(
+        gateway_service.get_policy_context
+    ),
     x_request_id: Annotated[str | None, Header(alias="x-request-id")] = None,
     traceparent: Annotated[str | None, Header(alias="traceparent")] = None,
     openai_organization: Annotated[
@@ -382,6 +389,8 @@ async def create_chat_completion(
     """OpenAI-compatible chat completions.
 
     Honors ``stream=true`` via SSE; otherwise returns a single JSON response.
+    Applies the active :class:`PolicyContext`: cost calculation (cost
+    header), budget cutoff (402), prompt cache (cache_hit header).
     """
     req = request_to_canonical(
         body, traceparent=traceparent, organization=openai_organization
@@ -405,7 +414,22 @@ async def create_chat_completion(
         )
 
     try:
-        resp = await gateway_service.complete(req, provider)
+        result = await complete_with_policies(
+            req,
+            provider,
+            pricing=policy_ctx.pricing,
+            cache=policy_ctx.cache,
+            cache_ttl_seconds=policy_ctx.cache_ttl_seconds,
+            budget_check=policy_ctx.budget_check,  # type: ignore[arg-type]
+            estimated_cost_usd=policy_ctx.estimated_cost_usd,
+            on_cache_hit_usage=policy_ctx.on_cache_hit_usage,  # type: ignore[arg-type]
+        )
+    except BudgetExceeded as e:
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail=e.reason,
+            headers=e.headers,
+        ) from e
     except NotImplementedError as e:
         raise HTTPException(
             status.HTTP_501_NOT_IMPLEMENTED, detail=str(e)
@@ -413,7 +437,9 @@ async def create_chat_completion(
 
     if x_request_id:
         response.headers["x-request-id"] = x_request_id
-    return response_to_openai(resp, model=body.model)
+    for k, v in result.headers.items():
+        response.headers[k] = v
+    return response_to_openai(result.response, model=body.model)
 
 
 __all__ = [
