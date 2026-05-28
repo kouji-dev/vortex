@@ -9,7 +9,7 @@ import uuid as _uuid
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -461,15 +461,31 @@ async def resume_endpoint(
 
 @router.get("/export")
 async def export_endpoint(
+    format: str = Query(default="json", pattern="^(json|jsonl|csv|md)$"),
     session: AsyncSession = Depends(_get_session),
     actor=Depends(_get_actor()),
-) -> dict[str, Any]:
+):
+    from ai_portal.memory.export_formats import (
+        content_type,
+        file_ext,
+        render,
+    )
+
     svc = MemoryService(session)
     payload = await svc.export_for_user(
         org_id=actor.org_id,
         user_id=int(actor.user_id) if actor.user_id is not None else 0,
     )
-    return payload
+    if format == "json":
+        return payload
+    body = render(format, payload)
+    return Response(
+        content=body,
+        media_type=content_type(format),
+        headers={
+            "Content-Disposition": f'attachment; filename="memories.{file_ext(format)}"'
+        },
+    )
 
 
 # ── analytics ───────────────────────────────────────────────────────
