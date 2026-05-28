@@ -26,6 +26,11 @@ const SECTIONS: readonly Section[] = [
   { to: '/gateway/models', label: 'Models', testId: 'gw-nav-models' },
   { to: '/gateway/routing', label: 'Routing', testId: 'gw-nav-routing' },
   { to: '/gateway/rate-limits', label: 'Rate Limits', testId: 'gw-nav-rate-limits' },
+  { to: '/gateway/guardrails', label: 'Guardrails', testId: 'gw-nav-guardrails' },
+  { to: '/gateway/traces', label: 'Traces', testId: 'gw-nav-traces' },
+  { to: '/gateway/playground', label: 'Playground', testId: 'gw-nav-playground' },
+  { to: '/gateway/evals', label: 'Evals', testId: 'gw-nav-evals' },
+  { to: '/gateway/snippets', label: 'Snippets', testId: 'gw-nav-snippets' },
 ] as const
 
 function GatewayLayout() {
