@@ -35,6 +35,7 @@ class TraceRecord:
     cache_hit: bool = False
     error: str | None = None
     request_hash: str | None = None
+    request_json: dict[str, Any] | None = None
     ts: datetime = field(default_factory=lambda: datetime.now(UTC))
     id: uuid.UUID = field(default_factory=uuid.uuid4)
 

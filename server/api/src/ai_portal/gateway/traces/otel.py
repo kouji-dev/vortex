@@ -66,7 +66,11 @@ def install(
             )
 
             otlp_endpoint = endpoint or os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT")
-            exporter = OTLPSpanExporter(endpoint=otlp_endpoint) if otlp_endpoint else OTLPSpanExporter()
+            exporter = (
+                OTLPSpanExporter(endpoint=otlp_endpoint)
+                if otlp_endpoint
+                else OTLPSpanExporter()
+            )
             provider.add_span_processor(BatchSpanProcessor(exporter))
         except Exception as exc:  # noqa: BLE001
             logger.warning("otel_otlp_exporter_unavailable: %s", exc)
