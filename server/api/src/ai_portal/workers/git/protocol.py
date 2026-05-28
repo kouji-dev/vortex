@@ -71,6 +71,9 @@ class GitProvider(Protocol):
         title: str,
         body: str,
         draft: bool = True,
+        template: Any | None = None,
+        task_id: str = "",
+        summary: str = "",
     ) -> PullRequest: ...
 
     async def comment_pr(

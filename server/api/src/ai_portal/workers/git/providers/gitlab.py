@@ -11,6 +11,7 @@ from urllib.parse import quote
 
 import httpx
 
+from ai_portal.workers.git.pr_templates import PrTemplate, apply_template
 from ai_portal.workers.git.protocol import (
     PrEventParsed,
     PullRequest,
@@ -103,9 +104,23 @@ class GitLabProvider:
         title: str,
         body: str,
         draft: bool = True,
+        template: PrTemplate | None = None,
+        task_id: str = "",
+        summary: str = "",
     ) -> PullRequest:
         if head in _DEFAULT_BRANCHES:
             raise DefaultBranchPushBlocked(head)
+        formatted = apply_template(
+            template,
+            title=title,
+            body=body,
+            task_id=task_id,
+            branch=head,
+            repo=repo.full_name,
+            summary=summary or body,
+        )
+        out_title = formatted["title"]
+        out_body = formatted["body"]
         async with self._ctx() as c:
             r = await c.post(
                 f"{self._base}/api/v4/projects/{self._proj(repo)}/merge_requests",
@@ -113,8 +128,8 @@ class GitLabProvider:
                 json={
                     "source_branch": head,
                     "target_branch": base,
-                    "title": ("Draft: " + title) if draft else title,
-                    "description": body,
+                    "title": ("Draft: " + out_title) if draft else out_title,
+                    "description": out_body,
                     "draft": draft,
                 },
             )

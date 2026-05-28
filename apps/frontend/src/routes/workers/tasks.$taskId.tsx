@@ -29,6 +29,7 @@ import {
   formatTs,
   statusBadgeClass,
 } from '~/lib/workers-logic'
+import { filterReasoning, filterToolLog } from '~/lib/workers-panels'
 import { useWorkerEvents } from '~/lib/workers-sse'
 import type { WorkerEvent } from '~/lib/workers-types'
 
@@ -63,6 +64,8 @@ function TaskDetailPage() {
   const terminal = React.useMemo(() => buildTerminalLog(events), [events])
   const files = React.useMemo(() => fileTreeFromEvents(events), [events])
   const cost = React.useMemo(() => aggregateCostCents(events), [events])
+  const reasoning = React.useMemo(() => filterReasoning(events), [events])
+  const toolLog = React.useMemo(() => filterToolLog(events), [events])
 
   if (taskQ.isPending) {
     return (
@@ -110,24 +113,130 @@ function TaskDetailPage() {
         </span>
       </div>
 
-      <div className="wk-detail-grid">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <EventsPane events={events} />
+      <div
+        className="wk-live-grid"
+        data-testid="wk-live-grid"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr 1fr',
+          gridTemplateRows: 'auto auto',
+          gap: 12,
+        }}
+      >
+        <div style={{ gridColumn: '1', gridRow: '1 / span 2' }}>
+          <TerminalPane log={terminal} />
+        </div>
+        <div style={{ gridColumn: '2', gridRow: '1 / span 2' }}>
           <FilesPane files={files} />
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <TerminalPane log={terminal} />
-          <ControlsPane
-            taskId={t.id}
-            status={t.status}
-            onChanged={() => {
-              qc.invalidateQueries({ queryKey: ['workers', 'task', taskId] })
-              qc.invalidateQueries({ queryKey: ['workers', 'tasks'] })
-            }}
-          />
-          <ApprovalsPane taskId={taskId} approvals={approvalsQ.data ?? []} />
-          <ArtifactsPane artifacts={artifactsQ.data ?? []} />
+        <div style={{ gridColumn: '3', gridRow: '1' }}>
+          <ReasoningPane entries={reasoning} />
         </div>
+        <div style={{ gridColumn: '3', gridRow: '2' }}>
+          <ToolLogPane entries={toolLog} />
+        </div>
+      </div>
+      <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <ControlsPane
+          taskId={t.id}
+          status={t.status}
+          onChanged={() => {
+            qc.invalidateQueries({ queryKey: ['workers', 'task', taskId] })
+            qc.invalidateQueries({ queryKey: ['workers', 'tasks'] })
+          }}
+        />
+        <ApprovalsPane taskId={taskId} approvals={approvalsQ.data ?? []} />
+        <ArtifactsPane artifacts={artifactsQ.data ?? []} />
+        <EventsPane events={events} />
+      </div>
+    </div>
+  )
+}
+
+function ReasoningPane({
+  entries,
+}: {
+  entries: ReturnType<typeof filterReasoning>
+}) {
+  const scrollerRef = React.useRef<HTMLDivElement | null>(null)
+  React.useEffect(() => {
+    const el = scrollerRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [entries.length])
+  return (
+    <div className="wk-pane">
+      <div className="wk-pane-head">
+        <span>Agent reasoning</span>
+        <span>{entries.length}</span>
+      </div>
+      <div
+        ref={scrollerRef}
+        className="wk-pane-body"
+        style={{ maxHeight: 240, overflow: 'auto', fontSize: 12 }}
+        data-testid="wk-reasoning-pane"
+      >
+        {entries.length === 0 ? (
+          <div style={{ color: 'var(--ink-3)' }}>No reasoning yet.</div>
+        ) : (
+          entries.map((r) => (
+            <div
+              key={r.id}
+              className="wk-event-row"
+              data-testid={`wk-reasoning-${r.id}`}
+            >
+              <span className="wk-event-ts">{formatTs(r.ts)}</span>
+              <span style={{ whiteSpace: 'pre-wrap' }}>{r.text}</span>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  )
+}
+
+function ToolLogPane({
+  entries,
+}: {
+  entries: ReturnType<typeof filterToolLog>
+}) {
+  const scrollerRef = React.useRef<HTMLDivElement | null>(null)
+  React.useEffect(() => {
+    const el = scrollerRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [entries.length])
+  return (
+    <div className="wk-pane">
+      <div className="wk-pane-head">
+        <span>Tool log</span>
+        <span>{entries.length}</span>
+      </div>
+      <div
+        ref={scrollerRef}
+        className="wk-pane-body"
+        style={{ maxHeight: 240, overflow: 'auto', fontSize: 11 }}
+        data-testid="wk-tool-log-pane"
+      >
+        {entries.length === 0 ? (
+          <div style={{ color: 'var(--ink-3)' }}>No tool calls yet.</div>
+        ) : (
+          entries.map((e) => (
+            <div
+              key={e.id}
+              className="wk-event-row"
+              data-testid={`wk-tool-log-${e.id}`}
+            >
+              <span className="wk-event-ts">{formatTs(e.ts)}</span>
+              <span className="wk-event-kind">{e.tool}</span>
+              <span style={{ color: 'var(--ink-3)' }}>
+                {e.ok === null
+                  ? '… pending'
+                  : e.ok
+                    ? 'ok'
+                    : `err: ${e.error ?? ''}`}
+              </span>
+            </div>
+          ))
+        )}
       </div>
     </div>
   )

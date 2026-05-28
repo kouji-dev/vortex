@@ -20,7 +20,11 @@ import re
 from datetime import datetime
 from typing import AsyncIterator
 
-from ai_portal.workers.agent_loops.protocol import AgentRunCtx
+from ai_portal.workers.agent_loops.protocol import (
+    AgentRunCtx,
+    Phase,
+    ReflectDecision,
+)
 from ai_portal.workers.agent_loops.providers.react import _build_tool_ctx
 from ai_portal.workers.types import EventKind, WorkerEvent
 
@@ -128,6 +132,15 @@ class OpenHandsStyleLoop:
                 ts=_now(),
             )
             if "<finish>" in content or stop_reason == "end_turn":
+                yield WorkerEvent(
+                    run_id=ctx.run.id,
+                    kind=EventKind.phase_changed,
+                    payload={
+                        "phase": Phase.REFLECT.value,
+                        "decision": ReflectDecision.DONE.value,
+                    },
+                    ts=_now(),
+                )
                 return
             messages.append({"role": "assistant", "content": content})
 
@@ -174,6 +187,18 @@ class OpenHandsStyleLoop:
                 "ok": result.ok,
                 "output": result.output,
                 "error": result.error,
+            },
+            ts=_now(),
+        )
+        decision = ReflectDecision.RETRY if result.ok else ReflectDecision.ESCALATE
+        yield WorkerEvent(
+            run_id=ctx.run.id,
+            kind=EventKind.phase_changed,
+            payload={
+                "phase": Phase.REFLECT.value,
+                "decision": decision.value,
+                "tool": tc_name,
+                "ok": result.ok,
             },
             ts=_now(),
         )

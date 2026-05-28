@@ -66,6 +66,7 @@ from ai_portal.usage.router import router as usage_router
 from ai_portal.usage.router import v1_router as usage_v1_router
 from ai_portal.webhooks.router import router as webhooks_router
 from ai_portal.workers.router import router as workers_router
+from ai_portal.workers.triggers.webhook_router import router as workers_webhook_router
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -209,4 +210,5 @@ app.include_router(gateway_evals_router)
 app.include_router(gateway_metrics_router)
 app.include_router(guardrail_policies_router)
 app.include_router(workers_router)
+app.include_router(workers_webhook_router)
 
