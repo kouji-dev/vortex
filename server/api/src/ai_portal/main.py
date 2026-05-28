@@ -231,6 +231,26 @@ async def request_id_middleware(request: Request, call_next):
     return response
 
 
+@app.middleware("http")
+async def api_v1_prefix_compat(request: Request, call_next):
+    """Frontend's authorizedFetch hits `/api/v1/...`; many backend routers are
+    mounted at `/v1/...`. Strip the `/api` prefix so both conventions resolve.
+    Same for `/api/scim/...` → `/scim/...`.
+    """
+    path = request.scope.get("path", "")
+    if path.startswith("/api/v1/") or path == "/api/v1":
+        request.scope["path"] = path[4:] or "/"
+        raw = request.scope.get("raw_path")
+        if isinstance(raw, bytes) and raw.startswith(b"/api/v1"):
+            request.scope["raw_path"] = raw[4:] or b"/"
+    elif path.startswith("/api/scim/"):
+        request.scope["path"] = path[4:]
+        raw = request.scope.get("raw_path")
+        if isinstance(raw, bytes) and raw.startswith(b"/api/scim/"):
+            request.scope["raw_path"] = raw[4:]
+    return await call_next(request)
+
+
 def _app_has_post_knowledge_bases_create() -> bool:
     for route in app.routes:
         if getattr(route, "path", None) != "/api/knowledge-bases":

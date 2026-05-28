@@ -34,7 +34,7 @@ from ai_portal.guardrails.service import GuardrailService
 from ai_portal.rbac.service import Actor
 
 router = APIRouter(
-    prefix="/api/v1/gateway/guardrail-policies",
+    prefix="/v1/gateway/guardrail-policies",
     tags=["gateway-guardrail-policies"],
 )
 
