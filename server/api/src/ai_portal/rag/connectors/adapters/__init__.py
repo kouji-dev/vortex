@@ -12,6 +12,8 @@ from ai_portal.rag.connectors.adapters import (  # noqa: F401
     confluence,
     file_upload,
     gcs_bucket,
+    github,
+    gitlab,
     google_drive,
     notion,
     onedrive_sharepoint,
