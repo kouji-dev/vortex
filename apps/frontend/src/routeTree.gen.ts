@@ -21,6 +21,7 @@ import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as OrgSettingsRouteImport } from './routes/org/settings'
 import { Route as OrgConsumptionRouteImport } from './routes/org/consumption'
 import { Route as KnowledgeBasesIdRouteImport } from './routes/knowledge-bases/$id'
+import { Route as AdminSsoRouteImport } from './routes/admin/sso'
 import { Route as AdminMembersRouteImport } from './routes/admin/members'
 import { Route as ChatConversationsRouteRouteImport } from './routes/chat/conversations/route'
 import { Route as ChatConversationsIndexRouteImport } from './routes/chat/conversations/index'
@@ -86,6 +87,11 @@ const KnowledgeBasesIdRoute = KnowledgeBasesIdRouteImport.update({
   path: '/knowledge-bases/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminSsoRoute = AdminSsoRouteImport.update({
+  id: '/sso',
+  path: '/sso',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
 const AdminMembersRoute = AdminMembersRouteImport.update({
   id: '/members',
   path: '/members',
@@ -117,6 +123,7 @@ export interface FileRoutesByFullPath {
   '/setup': typeof SetupRoute
   '/chat/conversations': typeof ChatConversationsRouteRouteWithChildren
   '/admin/members': typeof AdminMembersRoute
+  '/admin/sso': typeof AdminSsoRoute
   '/knowledge-bases/$id': typeof KnowledgeBasesIdRoute
   '/org/consumption': typeof OrgConsumptionRoute
   '/org/settings': typeof OrgSettingsRoute
@@ -133,6 +140,7 @@ export interface FileRoutesByTo {
   '/register': typeof RegisterRoute
   '/setup': typeof SetupRoute
   '/admin/members': typeof AdminMembersRoute
+  '/admin/sso': typeof AdminSsoRoute
   '/knowledge-bases/$id': typeof KnowledgeBasesIdRoute
   '/org/consumption': typeof OrgConsumptionRoute
   '/org/settings': typeof OrgSettingsRoute
@@ -152,6 +160,7 @@ export interface FileRoutesById {
   '/setup': typeof SetupRoute
   '/chat/conversations': typeof ChatConversationsRouteRouteWithChildren
   '/admin/members': typeof AdminMembersRoute
+  '/admin/sso': typeof AdminSsoRoute
   '/knowledge-bases/$id': typeof KnowledgeBasesIdRoute
   '/org/consumption': typeof OrgConsumptionRoute
   '/org/settings': typeof OrgSettingsRoute
@@ -172,6 +181,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/chat/conversations'
     | '/admin/members'
+    | '/admin/sso'
     | '/knowledge-bases/$id'
     | '/org/consumption'
     | '/org/settings'
@@ -188,6 +198,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/setup'
     | '/admin/members'
+    | '/admin/sso'
     | '/knowledge-bases/$id'
     | '/org/consumption'
     | '/org/settings'
@@ -206,6 +217,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/chat/conversations'
     | '/admin/members'
+    | '/admin/sso'
     | '/knowledge-bases/$id'
     | '/org/consumption'
     | '/org/settings'
@@ -315,6 +327,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof KnowledgeBasesIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/sso': {
+      id: '/admin/sso'
+      path: '/sso'
+      fullPath: '/admin/sso'
+      preLoaderRoute: typeof AdminSsoRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/admin/members': {
       id: '/admin/members'
       path: '/members'
@@ -348,11 +367,13 @@ declare module '@tanstack/react-router' {
 
 interface AdminRouteRouteChildren {
   AdminMembersRoute: typeof AdminMembersRoute
+  AdminSsoRoute: typeof AdminSsoRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminMembersRoute: AdminMembersRoute,
+  AdminSsoRoute: AdminSsoRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
 
