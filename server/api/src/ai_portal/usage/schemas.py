@@ -45,3 +45,20 @@ class MyUsageResponse(BaseModel):
     message_count: int
     quota_max_cost_usd: Decimal | None = None
     quota_pct: float | None = None
+
+
+class UsageDashboardRow(BaseModel):
+    dim_value: str
+    qty: Decimal
+    cost_usd: Decimal
+    event_count: int
+
+
+class UsageDashboardResponse(BaseModel):
+    dim: str
+    grain: str
+    period_start: datetime
+    period_end: datetime
+    rows: list[UsageDashboardRow]
+    total_cost_usd: Decimal
+    total_qty: Decimal
