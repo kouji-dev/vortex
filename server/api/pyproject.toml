@@ -61,6 +61,12 @@ dependencies = [
   "langchain-text-splitters>=0.3",
   "unstructured>=0.15",
   "langdetect>=1.0",
+  # Workers — sandbox + git + issue tracker providers
+  "docker>=7.1",
+  "kubernetes>=31",
+  "PyGithub>=2.4",
+  "python-gitlab>=4.13",
+  "atlassian-python-api>=3.41",
 ]
 
 [project.optional-dependencies]
