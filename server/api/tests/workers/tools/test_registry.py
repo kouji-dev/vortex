@@ -64,8 +64,9 @@ def test_resolve_respects_allow_list() -> None:
         registry.resolve("shell", ["read_file"])
 
 
-def test_bundled_registers_nine_tools() -> None:
+def test_bundled_registers_ten_tools() -> None:
     _reset()
     bundled.register_bundled()
     assert sorted(registry.all_tools()) == sorted(bundled.BUNDLED_TOOL_NAMES)
-    assert len(bundled.BUNDLED_TOOL_NAMES) == 9
+    assert len(bundled.BUNDLED_TOOL_NAMES) == 10
+    assert "verify" in bundled.BUNDLED_TOOL_NAMES
