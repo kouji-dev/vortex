@@ -17,6 +17,7 @@ from ai_portal.control_plane.deps import (  # noqa: F401
     require_permission_scoped,
 )
 from ai_portal.control_plane.webhook_stub import emit_webhook  # noqa: F401
+from ai_portal.gdpr.registry import register_exporter  # noqa: F401
 from ai_portal.settings import (  # noqa: F401
     assert_module_enabled,
     get_feature_gate,
@@ -38,6 +39,7 @@ __all__ = [
     "get_org_setting",
     "get_rbac_service",
     "is_module_enabled",
+    "register_exporter",
     "require_actor",
     "require_permission",
     "require_permission_scoped",
