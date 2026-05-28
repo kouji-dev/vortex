@@ -34,7 +34,11 @@ from ai_portal.knowledge_base.schemas import (
     KnowledgeBasePage,
     KnowledgeBasePatch,
     KnowledgeBaseRead,
+    PermissionTestDocSample,
+    PermissionTestRequest,
+    PermissionTestResponse,
 )
+from ai_portal.rag.acl.permission_test import run_permission_test
 
 router = APIRouter(prefix="/api/knowledge-bases", tags=["knowledge-bases"])
 
@@ -288,6 +292,42 @@ async def upload_document(
             await ingest_svc.store_and_queue_kb_upload(kb, part, db, settings, background_tasks)
         )
     return DocumentsUploadResponseRead(results=results)
+
+
+@router.post(
+    "/{knowledge_base_id}/permission-test",
+    response_model=PermissionTestResponse,
+)
+def permission_test(
+    knowledge_base_id: int,
+    body: PermissionTestRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
+) -> PermissionTestResponse:
+    """Probe which documents in the KB a given user could retrieve."""
+    svc.get_owned_kb(db, user, knowledge_base_id)
+    outcome = run_permission_test(
+        db,
+        kb_id=knowledge_base_id,
+        user_id=body.user_id,
+        group_ids_override=body.group_ids,
+        sample_limit=body.sample_limit,
+    )
+    return PermissionTestResponse(
+        user_id=outcome.user_id,
+        kb_id=outcome.kb_id,
+        visible_document_count=outcome.visible_document_count,
+        sample=[
+            PermissionTestDocSample(
+                document_id=str(s.document_id),
+                title=s.title,
+                source_uri=s.source_uri,
+            )
+            for s in outcome.sample
+        ],
+        resolved_group_ids=outcome.resolved_group_ids,
+    )
 
 
 @router.get("/{kb_id}/documents/{doc_id}/progress")
