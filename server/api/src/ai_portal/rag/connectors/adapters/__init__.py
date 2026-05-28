@@ -13,6 +13,7 @@ from ai_portal.rag.connectors.adapters import (  # noqa: F401
     file_upload,
     gcs_bucket,
     google_drive,
+    notion,
     onedrive_sharepoint,
     s3_bucket,
     web_crawler,
