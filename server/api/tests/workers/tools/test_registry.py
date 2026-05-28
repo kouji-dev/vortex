@@ -64,9 +64,20 @@ def test_resolve_respects_allow_list() -> None:
         registry.resolve("shell", ["read_file"])
 
 
-def test_bundled_registers_ten_tools() -> None:
+def test_bundled_registers_all_tools() -> None:
     _reset()
     bundled.register_bundled()
     assert sorted(registry.all_tools()) == sorted(bundled.BUNDLED_TOOL_NAMES)
-    assert len(bundled.BUNDLED_TOOL_NAMES) == 10
-    assert "verify" in bundled.BUNDLED_TOOL_NAMES
+    # v1 tool count includes the gap-fill set (web/kb/memory/browser/mcp).
+    assert len(bundled.BUNDLED_TOOL_NAMES) == 17
+    for expected in (
+        "verify",
+        "web_fetch",
+        "web_search",
+        "kb_search",
+        "memory_recall",
+        "memory_remember",
+        "browser",
+        "mcp_bridge",
+    ):
+        assert expected in bundled.BUNDLED_TOOL_NAMES
