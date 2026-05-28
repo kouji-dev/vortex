@@ -44,7 +44,12 @@ class MemoryRepo:
         if m is None:
             return None
         if is_ciphertext(m.text):
-            m.text = await self.encryption.decrypt(m.org_id, m.text)
+            plain = await self.encryption.decrypt(m.org_id, m.text)
+            from sqlalchemy.orm.attributes import set_committed_value
+
+            # Use set_committed_value so the in-memory plaintext does not
+            # mark the row dirty (which would persist plaintext on commit).
+            set_committed_value(m, "text", plain)
         return m
 
     async def _decrypt_many(self, rows: list[Memory]) -> list[Memory]:
@@ -58,10 +63,14 @@ class MemoryRepo:
         await self._maybe_encrypt(m)
         self.s.add(m)
         await self.s.flush()
-        # Return a decrypted view to callers
+        # Return a decrypted view to callers WITHOUT marking the row dirty —
+        # a plain attribute assignment would trigger another UPDATE on commit
+        # that overwrites the ciphertext with plaintext.
         if is_ciphertext(m.text):
-            # store ciphertext in DB but show plaintext via attribute mirror
-            m.text = await self.encryption.decrypt(m.org_id, m.text)
+            plain = await self.encryption.decrypt(m.org_id, m.text)
+            from sqlalchemy.orm.attributes import set_committed_value
+
+            set_committed_value(m, "text", plain)
         return m
 
     async def get(self, mid: _uuid.UUID | str) -> Memory | None:
