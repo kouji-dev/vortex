@@ -10,7 +10,6 @@ from ai_portal.guardrails.providers.custom_classifier import (
     CustomClassifier,
 )
 
-
 # ── fakes ───────────────────────────────────────────────────────────────────
 
 

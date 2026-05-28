@@ -15,14 +15,11 @@ from __future__ import annotations
 
 import uuid
 
-import pytest
-
 from ai_portal.gateway.service import (
     PolicyResolutionRequest,
     PolicyResolver,
     PolicySource,
 )
-
 
 # ── fakes ───────────────────────────────────────────────────────────────────
 

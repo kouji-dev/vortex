@@ -21,7 +21,6 @@ from __future__ import annotations
 import json
 from typing import Any, Literal
 
-import jsonschema
 from jsonschema import Draft202012Validator
 
 from ai_portal.guardrails.protocol import (
