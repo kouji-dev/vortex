@@ -11,18 +11,38 @@ Phase C of the Gateway plan. Surfaces:
 """
 from __future__ import annotations
 
+from ai_portal.gateway.routing.circuit_breaker import (
+    CircuitBreaker,
+    CircuitOpen,
+    CircuitState,
+)
+from ai_portal.gateway.routing.failover import (
+    Failover,
+    FailoverExhausted,
+    ProviderHTTPError,
+    ProviderTimeoutError,
+)
 from ai_portal.gateway.routing.model import ModelAlias, RoutingPolicy
 from ai_portal.gateway.routing.protocol import (
     ProviderModel,
     RoutingCtx,
+    RoutingError,
     RoutingStrategy,
 )
 from ai_portal.gateway.routing.registry import STRATEGY_REGISTRY, get_strategy
 
 __all__ = [
+    "CircuitBreaker",
+    "CircuitOpen",
+    "CircuitState",
+    "Failover",
+    "FailoverExhausted",
     "ModelAlias",
+    "ProviderHTTPError",
     "ProviderModel",
+    "ProviderTimeoutError",
     "RoutingCtx",
+    "RoutingError",
     "RoutingPolicy",
     "RoutingStrategy",
     "STRATEGY_REGISTRY",
