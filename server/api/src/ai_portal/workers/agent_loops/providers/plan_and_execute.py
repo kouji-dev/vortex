@@ -18,7 +18,11 @@ import json
 from datetime import datetime
 from typing import AsyncIterator
 
-from ai_portal.workers.agent_loops.protocol import AgentRunCtx
+from ai_portal.workers.agent_loops.protocol import (
+    AgentRunCtx,
+    Phase,
+    ReflectDecision,
+)
 from ai_portal.workers.agent_loops.providers.react import _build_tool_ctx
 from ai_portal.workers.types import EventKind, WorkerEvent
 
@@ -192,6 +196,20 @@ class PlanAndExecuteLoop:
                     },
                     ts=_now(),
                 )
+                decision = (
+                    ReflectDecision.RETRY if result.ok else ReflectDecision.ESCALATE
+                )
+                yield WorkerEvent(
+                    run_id=ctx.run.id,
+                    kind=EventKind.phase_changed,
+                    payload={
+                        "phase": Phase.REFLECT.value,
+                        "decision": decision.value,
+                        "tool": tc_name,
+                        "ok": result.ok,
+                    },
+                    ts=_now(),
+                )
                 messages.append(
                     {
                         "role": "assistant",
@@ -222,5 +240,14 @@ class PlanAndExecuteLoop:
                 ts=_now(),
             )
             if stop_reason == "end_turn" or "done" in content.lower():
+                yield WorkerEvent(
+                    run_id=ctx.run.id,
+                    kind=EventKind.phase_changed,
+                    payload={
+                        "phase": Phase.REFLECT.value,
+                        "decision": ReflectDecision.DONE.value,
+                    },
+                    ts=_now(),
+                )
                 return
             messages.append({"role": "assistant", "content": content})
