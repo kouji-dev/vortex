@@ -24,6 +24,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ai_portal.auth.deps import get_db
+from ai_portal.auth.limiter import sso_callback_limiter
 from ai_portal.auth.schemas import TokenResponse
 from ai_portal.auth.sessions import create_session
 from ai_portal.auth.sso import IdpNotFound, SsoError, complete_sso, start_sso
@@ -172,14 +173,26 @@ async def _finish_callback(
     state: str,
     params: dict,
 ) -> TokenResponse:
+    ip = _client_ip(request)
+    # Bucket per (ip, kind) — brute-forced state values still get throttled.
+    bucket_key = kind or "sso"
+    retry_after = sso_callback_limiter.check(ip, bucket_key)
+    if retry_after is not None:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={"error": "too_many_sso_callbacks"},
+            headers={"Retry-After": str(retry_after)},
+        )
     try:
         result = await complete_sso(db, state=state, params=params)
     except SsoError as exc:
+        sso_callback_limiter.record_failure(ip, bucket_key)
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
             detail={"error": "sso_callback_failed", "message": str(exc)},
         )
     user = result.user
+    sso_callback_limiter.record_success(ip, bucket_key)
     db.commit()  # persist JIT-created user before minting tokens
 
     settings = get_settings()

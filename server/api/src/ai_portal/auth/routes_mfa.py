@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from ai_portal.auth.deps import get_current_user, get_db
+from ai_portal.auth.limiter import mfa_verify_limiter
 from ai_portal.auth.mfa_totp import (
     InvalidTotpCode,
     MfaFactorNotFound,
@@ -54,21 +55,39 @@ def enroll_totp(
     )
 
 
+def _client_ip(request: Request) -> str:
+    if request.client and request.client.host:
+        return request.client.host
+    return "-"
+
+
 @router.post("/mfa/totp/verify", status_code=status.HTTP_200_OK)
 def verify_totp(
     body: TotpVerifyRequest,
+    request: Request,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict[str, bool]:
+    ip = _client_ip(request)
+    key = str(user.id)
+    retry_after = mfa_verify_limiter.check(ip, key)
+    if retry_after is not None:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="too_many_mfa_attempts",
+            headers={"Retry-After": str(retry_after)},
+        )
     svc = MfaService(db)
     try:
         svc.verify_totp(user_id=user.id, code=body.code)
     except InvalidTotpCode:
+        mfa_verify_limiter.record_failure(ip, key)
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="invalid_totp_code")
     except MfaFactorNotFound:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="totp_not_enrolled")
     except TotpAlreadyEnrolled:
         raise HTTPException(status.HTTP_409_CONFLICT, detail="totp_already_enrolled")
+    mfa_verify_limiter.record_success(ip, key)
     return {"confirmed": True}
 
 

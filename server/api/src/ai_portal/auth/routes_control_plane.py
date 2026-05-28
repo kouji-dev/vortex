@@ -8,10 +8,11 @@ from __future__ import annotations
 
 import uuid as _uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from ai_portal.auth.deps import get_current_user, get_db
+from ai_portal.auth.limiter import password_reset_limiter
 from ai_portal.auth.model import User
 from ai_portal.auth.orgs_schemas import (
     OrgCreate,
@@ -125,27 +126,61 @@ def verify_email(body: VerifyEmailRequest, db: Session = Depends(get_db)) -> Use
     return _profile_out(user)
 
 
+def _client_ip(request: Request) -> str:
+    if request.client and request.client.host:
+        return request.client.host
+    return "-"
+
+
 @router.post("/users/password-reset/request", status_code=status.HTTP_202_ACCEPTED)
 def password_reset_request(
-    body: PasswordResetRequest, db: Session = Depends(get_db)
+    body: PasswordResetRequest,
+    request: Request,
+    db: Session = Depends(get_db),
 ) -> dict[str, str]:
     # Always 202 — do not leak whether the email exists.
+    ip = _client_ip(request)
+    retry_after = password_reset_limiter.check(ip, body.email)
+    if retry_after is not None:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="too_many_password_reset_requests",
+            headers={"Retry-After": str(retry_after)},
+        )
+    password_reset_limiter.record_failure(ip, body.email)
     UserService(db).request_password_reset(body)
     return {"status": "accepted"}
 
 
 @router.post("/users/password-reset/confirm", response_model=UserProfileOut)
 def password_reset_confirm(
-    body: PasswordResetConfirm, db: Session = Depends(get_db)
+    body: PasswordResetConfirm,
+    request: Request,
+    db: Session = Depends(get_db),
 ) -> UserProfileOut:
+    ip = _client_ip(request)
+    # Identifier is the token prefix — bucket per (ip, token) so brute-forcing
+    # token guesses gets throttled without leaking the token to logs.
+    key = body.token[:16]
+    retry_after = password_reset_limiter.check(ip, key)
+    if retry_after is not None:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="too_many_password_reset_attempts",
+            headers={"Retry-After": str(retry_after)},
+        )
     try:
         user = UserService(db).reset_password(body)
     except InvalidToken:
+        password_reset_limiter.record_failure(ip, key)
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Invalid token") from None
     except TokenExpired:
+        password_reset_limiter.record_failure(ip, key)
         raise HTTPException(status.HTTP_410_GONE, detail="Token expired") from None
     except UserNotFound:
+        password_reset_limiter.record_failure(ip, key)
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="User not found") from None
+    password_reset_limiter.record_success(ip, key)
     return _profile_out(user)
 
 

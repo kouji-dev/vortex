@@ -87,3 +87,26 @@ class LoginLimiter:
 # Module-level singleton — fine because the FastAPI worker process is sticky
 # per failure-IP. Swap for a Redis-backed impl when we deploy multi-worker.
 login_limiter = LoginLimiter()
+
+
+# ── Scoped limiters for non-login endpoints ─────────────────────────────────
+#
+# Each scope gets its own singleton so the buckets do not bleed across routes
+# (e.g. a failed TOTP attempt must not lock the user out of /login).
+
+mfa_verify_limiter = LoginLimiter()
+password_reset_limiter = LoginLimiter()
+sso_callback_limiter = LoginLimiter()
+
+
+def get_scoped_limiter(scope: str) -> LoginLimiter:
+    """Return the singleton limiter for ``scope`` — raises on unknown scope."""
+    mapping = {
+        "login": login_limiter,
+        "mfa_verify": mfa_verify_limiter,
+        "password_reset": password_reset_limiter,
+        "sso_callback": sso_callback_limiter,
+    }
+    if scope not in mapping:
+        raise KeyError(f"unknown limiter scope: {scope!r}")
+    return mapping[scope]
