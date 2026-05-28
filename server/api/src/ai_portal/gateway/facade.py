@@ -343,6 +343,41 @@ class GatewayFacade:
         usage = Usage(input_tokens=n_in, output_tokens=n_out)
         return compute_cost_cents(usage, pricing)
 
+    # ── observability emit (public — also called by compat routes) ──────
+
+    def record_call(
+        self,
+        *,
+        actor: Actor,
+        req: LLMRequest,
+        model_used: str,
+        provider_name: str,
+        status: str,
+        latency_ms: int,
+        usage: Usage,
+        cost_cents: float,
+        error: str | None = None,
+        event_type: str = "gateway.completion",
+    ) -> None:
+        """Public entry-point to fire trace + audit + usage for one call.
+
+        Compat surfaces (OpenAI/Anthropic/Bedrock) that don't go through
+        :func:`complete` (they call :func:`complete_with_policies` directly
+        with their own provider dep) use this to keep observability wired.
+        """
+        self._record(
+            actor=actor,
+            req=req,
+            model_used=model_used,
+            provider_name=provider_name,
+            status=status,
+            latency_ms=latency_ms,
+            usage=usage,
+            cost_cents=cost_cents,
+            error=error,
+            event_type=event_type,
+        )
+
     # ── internals ───────────────────────────────────────────────────────
 
     def _record(

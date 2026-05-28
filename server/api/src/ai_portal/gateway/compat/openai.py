@@ -22,12 +22,13 @@ No business logic lives here. Cache / guardrails / routing all happen inside
 from __future__ import annotations
 
 import json
+import logging
 import time
 import uuid
 from collections.abc import AsyncIterator
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -36,6 +37,8 @@ from ai_portal.gateway.policies import (
     BudgetExceeded,
     complete_with_policies,
 )
+
+logger = logging.getLogger(__name__)
 from ai_portal.gateway.types import (
     LLMRequest,
     LLMResponse,
@@ -372,10 +375,87 @@ async def _sse_stream(
 # ── route ────────────────────────────────────────────────────────────────
 
 
+def _emit_observability(
+    *,
+    req: LLMRequest,
+    response_obj: LLMResponse | None,
+    provider_name: str,
+    request_obj: Request,
+    started_at: float,
+    status_str: str,
+    error: str | None,
+    cost_cents: float,
+) -> None:
+    """Best-effort: fire trace + audit + usage through the default facade.
+
+    Skips cleanly when no default facade is installed or no actor is found
+    (unauthenticated calls during smoke tests still go through but skip
+    observability). Never raises into the request path.
+    """
+    try:
+        from ai_portal.gateway.facade import Actor, get_default_facade  # noqa: PLC0415
+
+        try:
+            facade = get_default_facade()
+        except RuntimeError:
+            return  # no facade installed — silently skip
+
+        user = getattr(request_obj.state, "current_user", None)
+        if user is None or getattr(user, "org_id", None) is None:
+            return  # no actor to attribute the call to
+
+        actor = Actor(
+            org_id=user.org_id,
+            user_id=getattr(user, "id", None),
+            kind="user",
+        )
+        latency_ms = int((time.monotonic() - started_at) * 1000)
+        from ai_portal.gateway.types import Usage  # noqa: PLC0415
+        usage = response_obj.usage if response_obj is not None else Usage()
+        facade.record_call(
+            actor=actor,
+            req=req,
+            model_used=(response_obj.model_used if response_obj else req.model),
+            provider_name=provider_name,
+            status=status_str,
+            latency_ms=latency_ms,
+            usage=usage,
+            cost_cents=cost_cents,
+            error=error,
+            event_type="gateway.completion",
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception("openai_compat: observability emit failed")
+
+
+def _try_resolve_actor_user(request_obj: Request) -> Any | None:
+    """Best-effort: resolve the dev/Entra user without making auth mandatory.
+
+    Returns ``None`` for unauthenticated requests so legacy tests + the
+    existing public surface keep working. Production deployments layer real
+    auth on top (gateway in front, or future API-key dep).
+    """
+    try:
+        from ai_portal.auth.deps import _authenticate  # noqa: PLC0415
+        from ai_portal.core.db.session import SessionLocal  # noqa: PLC0415
+    except Exception:  # noqa: BLE001
+        return None
+
+    authz = request_obj.headers.get("authorization")
+    if not authz:
+        return None
+    try:
+        with SessionLocal() as db:
+            return _authenticate(request_obj, authz, db)
+    except Exception:  # noqa: BLE001
+        return None
+
+
 @router.post("/v1/chat/completions")
 async def create_chat_completion(
     body: OpenAIChatCompletionsRequest,
     response: Response,
+    request: Request,
     provider=Depends(gateway_service.get_llm_provider),
     policy_ctx: gateway_service.PolicyContext = Depends(
         gateway_service.get_policy_context
@@ -395,6 +475,9 @@ async def create_chat_completion(
     req = request_to_canonical(
         body, traceparent=traceparent, organization=openai_organization
     )
+    request.state.current_user = _try_resolve_actor_user(request)
+    started_at = time.monotonic()
+    provider_name = getattr(provider, "name", "unknown")
 
     if body.stream:
         include_usage = bool(
@@ -425,20 +508,42 @@ async def create_chat_completion(
             on_cache_hit_usage=policy_ctx.on_cache_hit_usage,  # type: ignore[arg-type]
         )
     except BudgetExceeded as e:
+        _emit_observability(
+            req=req, response_obj=None, provider_name=provider_name,
+            request_obj=request, started_at=started_at, status_str="error",
+            error=f"budget_exceeded:{e.reason}", cost_cents=0.0,
+        )
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
             detail=e.reason,
             headers=e.headers,
         ) from e
     except NotImplementedError as e:
+        _emit_observability(
+            req=req, response_obj=None, provider_name=provider_name,
+            request_obj=request, started_at=started_at, status_str="error",
+            error=str(e), cost_cents=0.0,
+        )
         raise HTTPException(
             status.HTTP_501_NOT_IMPLEMENTED, detail=str(e)
         ) from e
+    except Exception as e:  # noqa: BLE001
+        _emit_observability(
+            req=req, response_obj=None, provider_name=provider_name,
+            request_obj=request, started_at=started_at, status_str="error",
+            error=str(e), cost_cents=0.0,
+        )
+        raise
 
     if x_request_id:
         response.headers["x-request-id"] = x_request_id
     for k, v in result.headers.items():
         response.headers[k] = v
+    _emit_observability(
+        req=req, response_obj=result.response, provider_name=provider_name,
+        request_obj=request, started_at=started_at, status_str="ok",
+        error=None, cost_cents=result.cost_cents,
+    )
     return response_to_openai(result.response, model=body.model)
 
 

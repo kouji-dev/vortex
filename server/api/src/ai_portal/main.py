@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import sys
 import uuid
 from contextlib import asynccontextmanager
@@ -32,6 +33,7 @@ from ai_portal.budgets.router import router as budgets_router
 from ai_portal.catalog.router import router as catalog_router
 from ai_portal.chat.router import router as chat_router
 from ai_portal.core.config import get_settings, settings_log_snapshot
+from ai_portal.gateway.compat.openai import router as gateway_openai_compat_router
 from ai_portal.core.logging import configure_logging
 from ai_portal.core.middleware.setup_guard import SetupGuardMiddleware
 from ai_portal.gateway.evals.router import router as gateway_evals_router
@@ -42,6 +44,7 @@ from ai_portal.gdpr.router import router as gdpr_router
 from ai_portal.guardrails.router import router as guardrail_policies_router
 from ai_portal.knowledge_base.router import router as knowledge_base_router
 from ai_portal.memory.router import router as memories_router
+from ai_portal.memory.v1_router import router as memories_v1_router
 from ai_portal.middleware.csrf import CsrfMiddleware
 from ai_portal.rag.management.router import router as rag_management_router
 from ai_portal.rag.router import router as rag_router
@@ -59,6 +62,83 @@ from ai_portal.workers.triggers.webhook_router import router as workers_webhook_
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
+
+
+def _install_default_gateway_facade(
+    fastapi_app: FastAPI, st: Any, trace_writer: Any
+) -> None:
+    """Wire the process-wide :class:`GatewayFacade` for compat surfaces.
+
+    - emit_trace → :class:`TraceWriter` submit (async drain to ``request_traces``)
+    - emit_audit → :func:`ai_portal.audit.service.emit_audit`
+    - emit_usage → :func:`ai_portal.usage.emit.emit_usage` (own DB session)
+    - resolve_provider → :class:`FakeProvider` (smoke) or raises if none
+    """
+    from ai_portal.audit.service import emit_audit as _emit_audit  # noqa: PLC0415
+    from ai_portal.gateway import service as gw_service  # noqa: PLC0415
+    from ai_portal.gateway.facade import (  # noqa: PLC0415
+        FacadeConfig,
+        GatewayFacade,
+        set_default_facade,
+    )
+    from ai_portal.gateway.traces.writer import TraceRecord  # noqa: PLC0415
+    from ai_portal.usage.emit import emit_usage as _emit_usage  # noqa: PLC0415
+
+    use_fake = os.environ.get("GATEWAY_USE_FAKE_PROVIDER", "").lower() in (
+        "1", "true", "yes",
+    )
+
+    # Provider resolution. Fake provider is a deliberate test/dev hook —
+    # production wiring lands in a later phase (real routing + credentials).
+    provider_singleton: Any = None
+    if use_fake:
+        from ai_portal.gateway.fake_provider import FakeProvider  # noqa: PLC0415
+        provider_singleton = FakeProvider()
+        # Override the FastAPI dep used by compat routes.
+        fastapi_app.dependency_overrides[gw_service.get_llm_provider] = (
+            lambda: provider_singleton
+        )
+        logger.info("gateway_fake_provider_bound")
+
+    def _resolve_provider(_req: Any, _actor: Any) -> Any:
+        if provider_singleton is None:
+            raise RuntimeError(
+                "no provider configured — set GATEWAY_USE_FAKE_PROVIDER=true for "
+                "smoke tests, or wire production routing/credentials."
+            )
+        return provider_singleton
+
+    def _emit_trace(record: TraceRecord) -> None:
+        trace_writer.submit(record)
+
+    def _emit_audit_hook(**kw: Any) -> None:
+        try:
+            _emit_audit(**kw)
+        except Exception:  # noqa: BLE001
+            logger.exception("gateway facade audit emit failed")
+
+    def _emit_usage_hook(**kw: Any) -> None:
+        from ai_portal.core.db.rls import bypass_rls  # noqa: PLC0415
+        from ai_portal.core.db.session import SessionLocal  # noqa: PLC0415
+
+        try:
+            with SessionLocal() as db:
+                with bypass_rls(db):
+                    _emit_usage(db, **kw)
+                    db.commit()
+        except Exception:  # noqa: BLE001
+            logger.exception("gateway facade usage emit failed")
+
+    facade = GatewayFacade(
+        FacadeConfig(
+            resolve_provider=_resolve_provider,
+            emit_trace=_emit_trace,
+            emit_audit=_emit_audit_hook,
+            emit_usage=_emit_usage_hook,
+            route_name="POST /v1/chat/completions",
+        )
+    )
+    set_default_facade(facade)
 
 
 @asynccontextmanager
@@ -80,6 +160,14 @@ async def lifespan(_app: FastAPI):
         await _writer.start()
     except Exception as exc:  # noqa: BLE001
         logger.warning("trace_writer_start_failed: %s", exc)
+
+    # Install the default GatewayFacade so internal callers + compat routes
+    # share one trace/audit/usage emit pipeline.
+    try:
+        _install_default_gateway_facade(_app, st, _writer)
+        logger.info("gateway_facade_installed")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("gateway_facade_install_failed: %s", exc)
 
     # Wire the new-device login alert through NotifyService — skip cleanly
     # when no notification transport is configured.
@@ -171,6 +259,7 @@ app.include_router(me_router)
 app.include_router(assistants_router)
 app.include_router(chat_router)
 app.include_router(memories_router)
+app.include_router(memories_v1_router)
 app.include_router(knowledge_base_router)
 app.include_router(rag_router)
 app.include_router(rag_management_router)
@@ -200,4 +289,5 @@ app.include_router(gateway_metrics_router)
 app.include_router(guardrail_policies_router)
 app.include_router(workers_router)
 app.include_router(workers_webhook_router)
+app.include_router(gateway_openai_compat_router)
 
