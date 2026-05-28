@@ -1,5 +1,5 @@
 import { Link, useRouterState } from '@tanstack/react-router'
-import { BarChart2, Brain, ChevronUp, Library, LogOut, MessageSquare, Router as RouterIcon } from 'lucide-react'
+import { BarChart2, Bot, Brain, ChevronUp, Database, Library, LogOut, MessageSquare, Router as RouterIcon, Shield } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import * as React from 'react'
 
@@ -10,25 +10,33 @@ import { isAdminActor } from '~/lib/admin-permissions'
 const LANDING_URL = import.meta.env.VITE_LANDING_URL ?? '/'
 
 type NavItem = {
-  to:
-    | '/chat/conversations'
-    | '/knowledge-bases'
-    | '/memories'
-    | '/org/consumption'
-    | '/gateway/overview'
+  to: string
   Icon: LucideIcon
   label: string
   testId: string
   adminOnly?: boolean
+  group?: 'workspace' | 'modules' | 'admin'
 }
 
 const NAV: readonly NavItem[] = [
-  { to: '/chat/conversations', Icon: MessageSquare, label: 'Chat', testId: 'nav-chat' },
-  { to: '/knowledge-bases', Icon: Library, label: 'Knowledge', testId: 'nav-knowledge' },
-  { to: '/memories', Icon: Brain, label: 'Memories', testId: 'nav-memories' },
-  { to: '/org/consumption', Icon: BarChart2, label: 'Consumption', testId: 'nav-consumption' },
-  { to: '/gateway/overview', Icon: RouterIcon, label: 'Gateway', testId: 'nav-gateway', adminOnly: true },
+  // Workspace
+  { to: '/chat/conversations', Icon: MessageSquare, label: 'Chat', testId: 'nav-chat', group: 'workspace' },
+  { to: '/knowledge-bases', Icon: Library, label: 'Knowledge', testId: 'nav-knowledge', group: 'workspace' },
+  { to: '/memories', Icon: Brain, label: 'Memories', testId: 'nav-memories', group: 'workspace' },
+  { to: '/org/consumption', Icon: BarChart2, label: 'Consumption', testId: 'nav-consumption', group: 'workspace' },
+  // Modules
+  { to: '/gateway/overview', Icon: RouterIcon, label: 'Gateway', testId: 'nav-gateway', group: 'modules', adminOnly: true },
+  { to: '/rag/kbs', Icon: Database, label: 'RAG', testId: 'nav-rag', group: 'modules', adminOnly: true },
+  { to: '/workers', Icon: Bot, label: 'Workers', testId: 'nav-workers', group: 'modules', adminOnly: true },
+  // Admin
+  { to: '/admin', Icon: Shield, label: 'Admin', testId: 'nav-admin', group: 'admin', adminOnly: true },
 ] as const
+
+const GROUPS: { id: 'workspace' | 'modules' | 'admin'; label: string }[] = [
+  { id: 'workspace', label: 'Workspace' },
+  { id: 'modules', label: 'Modules' },
+  { id: 'admin', label: 'Admin' },
+]
 
 function relativeTime(iso?: string | null): string {
   if (!iso) return ''
@@ -79,31 +87,35 @@ export function AppSidebar() {
       aria-label="Main navigation"
       data-testid="app-sidebar"
     >
-      {/* Primary nav */}
-      <nav className="side-section" aria-label="Primary">
-        <div className="side-label">Workspace</div>
-        {NAV.map(({ to, Icon, label, testId, adminOnly }) => {
-          if (adminOnly && !isAdmin) return null
-          // Match /chat/conversations when on any /chat sub-route
-          const active =
-            to === '/chat/conversations'
-              ? path.startsWith('/chat')
-              : to === '/gateway/overview'
-                ? path.startsWith('/gateway')
-                : path.startsWith(to)
-          return (
-            <Link
-              key={to}
-              to={to}
-              className={`side-item${active ? ' active' : ''}`}
-              data-testid={testId}
-            >
-              <Icon className="side-icon" strokeWidth={2} aria-hidden />
-              <span>{label}</span>
-            </Link>
-          )
-        })}
-      </nav>
+      {/* Primary nav grouped by section */}
+      {GROUPS.map((group) => {
+        const items = NAV.filter((n) => n.group === group.id && (!n.adminOnly || isAdmin))
+        if (items.length === 0) return null
+        return (
+          <nav key={group.id} className="side-section" aria-label={group.label}>
+            <div className="side-label">{group.label}</div>
+            {items.map(({ to, Icon, label, testId }) => {
+              const active =
+                to === '/chat/conversations'
+                  ? path.startsWith('/chat')
+                  : to === '/gateway/overview'
+                    ? path.startsWith('/gateway')
+                    : path.startsWith(to)
+              return (
+                <Link
+                  key={to}
+                  to={to}
+                  className={`side-item${active ? ' active' : ''}`}
+                  data-testid={testId}
+                >
+                  <Icon className="side-icon" strokeWidth={2} aria-hidden />
+                  <span>{label}</span>
+                </Link>
+              )
+            })}
+          </nav>
+        )
+      })}
 
       {/* Inline conversation list (visible when on Chat routes) */}
       {isOnChat && (

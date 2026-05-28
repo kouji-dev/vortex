@@ -84,6 +84,10 @@ def _authenticate(
                 status.HTTP_401_UNAUTHORIZED,
                 detail="Dev user not found; run alembic upgrade head",
             )
+        # Populate app_roles for the dev user — admin UI gates on these.
+        # Default to owner so the dev session has full access.
+        user_role = getattr(user, "role", None) or "owner"
+        request.state.app_roles = [user_role]
         return user
 
     # New local auth: deployment_mode=saas|selfhosted uses JWT with uuid sub
