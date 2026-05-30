@@ -26,7 +26,9 @@ type Section = {
 // All admin sections enabled (O1-O10 + SCIM).
 const SECTIONS: readonly Section[] = [
   { to: '/admin/members', label: 'Members', enabled: true, testId: 'admin-nav-members' },
+  { to: '/admin/teams', label: 'Teams', enabled: true, testId: 'admin-nav-teams' },
   { to: '/admin/sso', label: 'SSO', enabled: true, testId: 'admin-nav-sso' },
+  { to: '/admin/directory', label: 'Directory', enabled: true, testId: 'admin-nav-directory' },
   { to: '/admin/scim', label: 'SCIM', enabled: true, testId: 'admin-nav-scim' },
   { to: '/admin/api-keys', label: 'API Keys', enabled: true, testId: 'admin-nav-api-keys' },
   { to: '/admin/audit', label: 'Audit', enabled: true, testId: 'admin-nav-audit' },

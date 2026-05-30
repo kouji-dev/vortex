@@ -1,19 +1,32 @@
 import { authorizedFetch } from './authorizedFetch'
 import { getApiBase } from './api-base'
 import type {
+  AddTeamMemberRequest,
   ApiKeySummary,
   AuditFilter,
   AuditPage,
+  AuthConfig,
   Budget,
   BudgetCreateRequest,
   BudgetStatus,
   CreateApiKeyRequest,
   CreateApiKeyResponse,
   CreateIdpConnectionRequest,
+  CreateLdapConnectionRequest,
+  CreateTeamRequest,
   DataDeleteCreateRequest,
   DataDeleteJob,
   DataExportJob,
+  EditApiKeyRequest,
   IdpConnection,
+  LdapConnection,
+  LdapTestResult,
+  PatchTeamRequest,
+  Team,
+  TeamKeyCount,
+  TeamMember,
+  TeamUsage,
+  UpdateLdapConnectionRequest,
   Invoice,
   InviteMemberRequest,
   ModuleFlagsMap,
@@ -155,6 +168,16 @@ export async function createApiKey(req: CreateApiKeyRequest): Promise<CreateApiK
 export async function revokeApiKey(id: string): Promise<void> {
   const res = await authorizedFetch(v1(`/v1/api-keys/${id}`), { method: 'DELETE' })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
+}
+
+export async function editApiKey(id: string, req: EditApiKeyRequest): Promise<ApiKeySummary> {
+  return asJson(
+    await authorizedFetch(v1(`/v1/api-keys/${id}`), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+    }),
+  )
 }
 
 // ---------- Audit ----------
@@ -400,4 +423,109 @@ export async function requestDataDelete(req: DataDeleteCreateRequest): Promise<D
 
 export async function fetchDataDelete(id: string): Promise<DataDeleteJob> {
   return asJson(await authorizedFetch(v1(`/v1/data-delete/${id}`)))
+}
+
+// ---------- Teams ----------
+export async function fetchTeams(): Promise<Team[]> {
+  return asJson(await authorizedFetch(v1('/v1/teams')))
+}
+
+export async function createTeam(req: CreateTeamRequest): Promise<Team> {
+  return asJson(
+    await authorizedFetch(v1('/v1/teams'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+    }),
+  )
+}
+
+export async function patchTeam(id: string, req: PatchTeamRequest): Promise<Team> {
+  return asJson(
+    await authorizedFetch(v1(`/v1/teams/${id}`), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+    }),
+  )
+}
+
+export async function deleteTeam(id: string): Promise<void> {
+  const res = await authorizedFetch(v1(`/v1/teams/${id}`), { method: 'DELETE' })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+}
+
+export async function fetchTeamMembers(id: string): Promise<TeamMember[]> {
+  return asJson(await authorizedFetch(v1(`/v1/teams/${id}/members`)))
+}
+
+export async function addTeamMember(id: string, req: AddTeamMemberRequest): Promise<TeamMember> {
+  return asJson(
+    await authorizedFetch(v1(`/v1/teams/${id}/members`), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+    }),
+  )
+}
+
+export async function removeTeamMember(id: string, userId: number): Promise<void> {
+  const res = await authorizedFetch(v1(`/v1/teams/${id}/members/${userId}`), { method: 'DELETE' })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+}
+
+export async function fetchTeamKeyCount(id: string): Promise<TeamKeyCount> {
+  return asJson(await authorizedFetch(v1(`/v1/teams/${id}/key-count`)))
+}
+
+export async function fetchTeamUsage(id: string): Promise<TeamUsage> {
+  return asJson(await authorizedFetch(v1(`/v1/teams/${id}/usage`)))
+}
+
+// ---------- Directory / LDAP ----------
+export async function fetchLdapConnections(): Promise<LdapConnection[]> {
+  return asJson(await authorizedFetch(v1('/v1/ldap-connections')))
+}
+
+export async function createLdapConnection(
+  req: CreateLdapConnectionRequest,
+): Promise<LdapConnection> {
+  return asJson(
+    await authorizedFetch(v1('/v1/ldap-connections'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+    }),
+  )
+}
+
+export async function updateLdapConnection(
+  id: string,
+  req: UpdateLdapConnectionRequest,
+): Promise<LdapConnection> {
+  return asJson(
+    await authorizedFetch(v1(`/v1/ldap-connections/${id}`), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+    }),
+  )
+}
+
+export async function deleteLdapConnection(id: string): Promise<void> {
+  const res = await authorizedFetch(v1(`/v1/ldap-connections/${id}`), { method: 'DELETE' })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+}
+
+export async function testLdapConnection(id: string): Promise<LdapTestResult> {
+  return asJson(
+    await authorizedFetch(v1(`/v1/ldap-connections/${id}/test`), { method: 'POST' }),
+  )
+}
+
+// ---------- Auth config (public bootstrap; no auth header needed) ----------
+export async function fetchAuthConfig(): Promise<AuthConfig> {
+  const res = await fetch(v1('/v1/auth/config'))
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  return res.json() as Promise<AuthConfig>
 }

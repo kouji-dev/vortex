@@ -64,6 +64,9 @@ class ApiKey(Base):
     prefix: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
     hash: Mapped[str] = mapped_column(String(64), nullable=False)
     scopes_json: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
+    # Per-key rate limits — {"rpm": int, "tpm": int, "concurrency": int}.
+    # NULL / absent keys mean "no limit"; enforced by the Gateway.
+    rate_limits_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     expires_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

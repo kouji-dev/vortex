@@ -413,3 +413,179 @@ class IssueTrackerIntegration(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+# ── worker-centric model (v1 direction: "a worker IS a task") ──────────────
+#
+# The tables above are the legacy *task-centric* framing (worker_tasks +
+# task-scoped worker_runs). The tables below are the new *worker-centric*
+# direction from the suite spec: a first-class persistent ``Worker`` bound 1:1
+# to a sandbox, driven message-by-message (interactive) or by a trigger
+# (autonomous). Each user message spawns a ``WorkerInstanceRun`` that tracks
+# its own file changes. ``WorkerMessage`` is the worker's own agent-SDK chat
+# thread (distinct from the LLM-provider chat module).
+#
+# These coexist with the legacy tables for now — the task-centric path is not
+# yet removed (see spec "Worker Model & Runtime"). New surfaces use these.
+
+
+class Worker(Base):
+    """First-class spawned worker = the task (interactive | autonomous).
+
+    Bound 1:1 to a sandbox/VM for v1. The sandbox stays allocated while the
+    worker is ``idle``; released only when the worker is ``stopped``.
+    """
+
+    __tablename__ = "workers"
+
+    id: Mapped[_uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, default=_uuid.uuid4
+    )
+    org_id: Mapped[_uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("orgs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    pool_id: Mapped[_uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("worker_pools.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    # state: idle | provisioning | running | error | stopped
+    state: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="provisioning",
+        server_default="provisioning", index=True,
+    )
+    # mode: interactive | autonomous
+    mode: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="interactive",
+        server_default="interactive",
+    )
+    model: Mapped[str] = mapped_column(String(128), nullable=False)
+    # runtime: claude | codex (which agent SDK/CLI drives the sandbox)
+    runtime: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="claude", server_default="claude"
+    )
+    # connector_json: GitLab connector config (project id, branch, token ref…)
+    connector_json: Mapped[dict] = mapped_column(
+        JSONB, nullable=False, server_default=_EMPTY_OBJ
+    )
+    repo_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    sandbox_id: Mapped[_uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), nullable=True
+    )
+    trigger_source: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    trigger_payload_json: Mapped[dict] = mapped_column(
+        JSONB, nullable=False, server_default=_EMPTY_OBJ
+    )
+    created_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    last_active_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+
+class WorkerInstanceRun(Base):
+    """One run = one user-message → agent-work cycle for a :class:`Worker`.
+
+    Distinct from the legacy task-scoped ``worker_runs`` (``WorkerRun``).
+    """
+
+    __tablename__ = "worker_instance_runs"
+
+    id: Mapped[_uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, default=_uuid.uuid4
+    )
+    worker_id: Mapped[_uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("workers.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    seq_no: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    user_message: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
+    # status: running | error | finished | success
+    status: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="running", server_default="running"
+    )
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    ended_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    sandbox_id: Mapped[_uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), nullable=True
+    )
+    cost_cents: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    error: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("worker_id", "seq_no", name="uq_worker_instance_runs_seq"),
+        Index("ix_worker_instance_runs_worker", "worker_id", "seq_no"),
+    )
+
+
+class WorkerRunChange(Base):
+    """A file changed during a run — drives the right-pane diff + file list."""
+
+    __tablename__ = "worker_run_changes"
+
+    id: Mapped[_uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, default=_uuid.uuid4
+    )
+    run_id: Mapped[_uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("worker_instance_runs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    file_path: Mapped[str] = mapped_column(String(1024), nullable=False)
+    # change_kind: added | modified | deleted | renamed
+    change_kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    additions: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    deletions: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # diff_ref: blob-store ref or inline unified diff (small diffs inline)
+    diff_ref: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class WorkerMessage(Base):
+    """The worker's own agent-SDK chat thread (separate from the chat module).
+
+    ``role``: user | agent | system. Persists across the worker's life.
+    """
+
+    __tablename__ = "worker_messages"
+
+    id: Mapped[_uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, default=_uuid.uuid4
+    )
+    worker_id: Mapped[_uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("workers.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    run_id: Mapped[_uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("worker_instance_runs.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    role: Mapped[str] = mapped_column(String(16), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
+    ts: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (Index("ix_worker_messages_worker_ts", "worker_id", "ts"),)

@@ -1,9 +1,12 @@
 /**
- * Q5 — KB settings (embedder, chunker, retrieval policy, tags).
+ * Q5 — KB settings (embedder, vector backend, reranker, chunker, retrieval
+ * policy, language, tags).
  *
- * Settings fields stay read-only until the KB PATCH endpoint exposes them;
- * tags are persisted via the existing PATCH route (`PUT /api/knowledge-bases/{id}`)
- * where the column already lives on the model.
+ * Deploy-vs-runtime: every provider dropdown is populated from the deployment-
+ * declared + enabled set (`GET /api/knowledge-bases/providers-config`). The UI
+ * can only SELECT FROM that set — never type a free-form id/endpoint/secret.
+ * Selections persist via `PATCH /api/knowledge-bases/{id}/settings`; tags persist
+ * via the existing `PATCH /api/knowledge-bases/{id}`.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
@@ -11,6 +14,11 @@ import * as React from 'react'
 
 import { getApiBase } from '~/lib/api-base'
 import { getAuthHeaders } from '~/lib/authorizedFetch'
+import {
+  resolveSelected,
+  selectableIds,
+  type ProvidersConfig,
+} from '~/lib/kb-provider-config'
 import { formatTags, parseTagsInput } from '~/lib/kb-tags'
 
 export const Route = createFileRoute('/rag/kbs/$id/settings')({
@@ -19,9 +27,9 @@ export const Route = createFileRoute('/rag/kbs/$id/settings')({
 
 type KbSettingsShape = {
   id: number
-  name: string
   embedder_id?: string | null
   vector_backend?: string | null
+  reranker_id?: string | null
   chunker_id?: string | null
   default_retrieval_policy_id?: string | null
   language?: string | null
@@ -38,12 +46,26 @@ function SettingsPage() {
   const q = useQuery({
     queryKey: ['rag', 'kb-settings', kbId],
     queryFn: async (): Promise<KbSettingsShape> => {
-      const res = await fetch(`${getApiBase()}/api/knowledge-bases/${kbId}`, {
-        headers: await getAuthHeaders(),
-      })
+      const res = await fetch(
+        `${getApiBase()}/api/knowledge-bases/${kbId}/settings`,
+        { headers: await getAuthHeaders() },
+      )
       if (!res.ok) throw new Error(await res.text())
       return (await res.json()) as KbSettingsShape
     },
+  })
+
+  const providers = useQuery({
+    queryKey: ['rag', 'providers-config'],
+    queryFn: async (): Promise<ProvidersConfig> => {
+      const res = await fetch(
+        `${getApiBase()}/api/knowledge-bases/providers-config`,
+        { headers: await getAuthHeaders() },
+      )
+      if (!res.ok) throw new Error(await res.text())
+      return (await res.json()) as ProvidersConfig
+    },
+    staleTime: 5 * 60_000,
   })
 
   const [tagsDraft, setTagsDraft] = React.useState<string | null>(null)
@@ -65,6 +87,29 @@ function SettingsPage() {
     },
     onSuccess: () => {
       setTagsDraft(null)
+      void qc.invalidateQueries({ queryKey: ['rag', 'kb-settings', kbId] })
+    },
+  })
+
+  // PATCH a single provider setting. Value is always chosen from the declared
+  // enabled set, so the backend (which re-validates) should never 422 here.
+  const saveSetting = useMutation({
+    mutationFn: async (patch: Partial<KbSettingsShape>) => {
+      const res = await fetch(
+        `${getApiBase()}/api/knowledge-bases/${kbId}/settings`,
+        {
+          method: 'PATCH',
+          headers: {
+            ...(await getAuthHeaders()),
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify(patch),
+        },
+      )
+      if (!res.ok) throw new Error(await res.text())
+      return (await res.json()) as KbSettingsShape
+    },
+    onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['rag', 'kb-settings', kbId] })
     },
   })
@@ -111,16 +156,57 @@ function SettingsPage() {
         <ApiKeysPanel kbId={kbId} />
       ) : (
       <div className="panel-body" style={{ padding: 16, display: 'grid', gap: 10, maxWidth: 480 }}>
-        {q.isPending && <p style={{ fontSize: 12, color: 'var(--ink-3)' }}>Loading…</p>}
-        {q.data && (
+        {(q.isPending || providers.isPending) && (
+          <p style={{ fontSize: 12, color: 'var(--ink-3)' }}>Loading…</p>
+        )}
+        {q.data && providers.data && (
           <>
-            <Field label="Embedder" value={q.data.embedder_id ?? 'voyage-3'} testId="rag-settings-embedder" />
-            <Field
-              label="Vector backend"
-              value={q.data.vector_backend ?? 'pgvector'}
-              testId="rag-settings-backend"
+            <p style={{ fontSize: 11, color: 'var(--ink-3)', margin: 0 }} data-testid="rag-settings-deploy-note">
+              Providers below are declared by this deployment. Pick a default from
+              the enabled set — endpoints and credentials are configured at deploy
+              time.
+            </p>
+            <ProviderSelect
+              label="Embedder"
+              testId="rag-settings-embedder"
+              ids={selectableIds(providers.data.embedders)}
+              value={resolveSelected(providers.data.embedders, q.data.embedder_id)}
+              busy={saveSetting.isPending}
+              onChange={(v) => saveSetting.mutate({ embedder_id: v })}
             />
-            <Field label="Chunker" value={q.data.chunker_id ?? 'fixed_token'} testId="rag-settings-chunker" />
+            <ProviderSelect
+              label="Vector backend"
+              testId="rag-settings-backend"
+              ids={selectableIds(providers.data.vector_stores)}
+              value={resolveSelected(providers.data.vector_stores, q.data.vector_backend)}
+              busy={saveSetting.isPending}
+              onChange={(v) => saveSetting.mutate({ vector_backend: v })}
+            />
+            <ProviderSelect
+              label="Reranker"
+              testId="rag-settings-reranker"
+              ids={selectableIds(providers.data.rerankers)}
+              value={resolveSelected(providers.data.rerankers, q.data.reranker_id)}
+              busy={saveSetting.isPending}
+              onChange={(v) => saveSetting.mutate({ reranker_id: v })}
+            />
+            <ProviderSelect
+              label="Chunker"
+              testId="rag-settings-chunker"
+              ids={providers.data.chunkers}
+              value={
+                q.data.chunker_id && providers.data.chunkers.includes(q.data.chunker_id)
+                  ? q.data.chunker_id
+                  : (providers.data.chunkers[0] ?? '')
+              }
+              busy={saveSetting.isPending}
+              onChange={(v) => saveSetting.mutate({ chunker_id: v })}
+            />
+            {saveSetting.isError && (
+              <span style={{ fontSize: 11, color: 'var(--err)' }} data-testid="rag-settings-error">
+                {(saveSetting.error as Error).message}
+              </span>
+            )}
             <Field
               label="Retrieval policy"
               value={q.data.default_retrieval_policy_id ?? '— org default —'}
@@ -187,6 +273,51 @@ function Field({ label, value, testId }: { label: string; value: string; testId:
     <label style={{ fontSize: 12, display: 'grid', gap: 4 }}>
       {label}
       <input className="rag-input" value={value} disabled data-testid={testId} />
+    </label>
+  )
+}
+
+/**
+ * Select-from-set provider dropdown. Options come only from the declared
+ * enabled set; changing the value PATCHes immediately. When the deployment
+ * declares no enabled provider the control is disabled (nothing to pick).
+ */
+function ProviderSelect({
+  label,
+  testId,
+  ids,
+  value,
+  busy,
+  onChange,
+}: {
+  label: string
+  testId: string
+  ids: string[]
+  value: string
+  busy: boolean
+  onChange: (v: string) => void
+}) {
+  const empty = ids.length === 0
+  return (
+    <label style={{ fontSize: 12, display: 'grid', gap: 4 }}>
+      {label}
+      <select
+        className="rag-input"
+        value={value}
+        disabled={busy || empty}
+        data-testid={testId}
+        onChange={(e) => {
+          const next = e.target.value
+          if (next && next !== value) onChange(next)
+        }}
+      >
+        {empty && <option value="">— none enabled —</option>}
+        {ids.map((id) => (
+          <option key={id} value={id}>
+            {id}
+          </option>
+        ))}
+      </select>
     </label>
   )
 }

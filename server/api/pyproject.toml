@@ -76,6 +76,8 @@ dependencies = [
   # Workers — sandbox + git + issue tracker providers
   "docker>=7.1",
   "kubernetes>=31",
+  # Control Plane — LDAP / Active Directory directory auth
+  "ldap3>=2.9",
 ]
 
 [project.optional-dependencies]

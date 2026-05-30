@@ -9,12 +9,37 @@ import {
   eventLabel,
   fileTreeFromEvents,
   formatCents,
+  isRunTerminal,
   isTerminal,
   parseSseDataLine,
+  runStatusBadgeClass,
   statusBadgeClass,
   tasksStats,
+  workerStateBadgeClass,
 } from './workers-logic.ts'
 import type { WorkerEvent } from './workers-types.ts'
+
+test('workerStateBadgeClass: idle ok, error bad, stopped warn', () => {
+  assert.equal(workerStateBadgeClass('idle'), 'gw-badge ok')
+  assert.equal(workerStateBadgeClass('error'), 'gw-badge bad')
+  assert.equal(workerStateBadgeClass('stopped'), 'gw-badge warn')
+  assert.equal(workerStateBadgeClass('running'), 'gw-badge')
+  assert.equal(workerStateBadgeClass('provisioning'), 'gw-badge')
+})
+
+test('runStatusBadgeClass: success ok, error bad, running default', () => {
+  assert.equal(runStatusBadgeClass('success'), 'gw-badge ok')
+  assert.equal(runStatusBadgeClass('error'), 'gw-badge bad')
+  assert.equal(runStatusBadgeClass('running'), 'gw-badge')
+  assert.equal(runStatusBadgeClass('finished'), 'gw-badge')
+})
+
+test('isRunTerminal: success/finished/error terminal, running not', () => {
+  assert.equal(isRunTerminal('success'), true)
+  assert.equal(isRunTerminal('finished'), true)
+  assert.equal(isRunTerminal('error'), true)
+  assert.equal(isRunTerminal('running'), false)
+})
 
 test('statusBadgeClass: ok for completed', () => {
   assert.equal(statusBadgeClass('completed'), 'gw-badge ok')

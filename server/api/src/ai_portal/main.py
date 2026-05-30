@@ -60,7 +60,13 @@ from ai_portal.usage.router import router as usage_router
 from ai_portal.usage.router import v1_router as usage_v1_router
 from ai_portal.webhooks.router import router as webhooks_router
 from ai_portal.workers.router import router as workers_router
+from ai_portal.workers.instances_router import router as workers_instances_router
 from ai_portal.workers.triggers.webhook_router import router as workers_webhook_router
+from ai_portal.auth.routes_social import router as auth_social_router
+from ai_portal.auth.routes_auth_config import router as auth_config_router
+from ai_portal.auth.routes_ldap import admin_router as auth_ldap_admin_router
+from ai_portal.auth.routes_ldap import public_router as auth_ldap_public_router
+from ai_portal.control_plane.teams.router import router as teams_router
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -74,7 +80,10 @@ def _install_default_gateway_facade(
     - emit_trace → :class:`TraceWriter` submit (async drain to ``request_traces``)
     - emit_audit → :func:`ai_portal.audit.service.emit_audit`
     - emit_usage → :func:`ai_portal.usage.emit.emit_usage` (own DB session)
-    - resolve_provider → :class:`FakeProvider` (smoke) or raises if none
+    - resolve_provider → real httpx adapter (anthropic/openai) built from the
+      org's :class:`ProviderCredential` (or env-config fallback) via
+      :class:`ProviderResolver`; :class:`FakeProvider` only when
+      ``GATEWAY_USE_FAKE_PROVIDER`` is set
     """
     from ai_portal.audit.service import emit_audit as _emit_audit  # noqa: PLC0415
     from ai_portal.gateway import service as gw_service  # noqa: PLC0415
@@ -83,6 +92,10 @@ def _install_default_gateway_facade(
         GatewayFacade,
         set_default_facade,
     )
+    from ai_portal.gateway.providers.resolution import (  # noqa: PLC0415
+        NoProviderCredential,
+        ProviderResolver,
+    )
     from ai_portal.gateway.traces.writer import TraceRecord  # noqa: PLC0415
     from ai_portal.usage.emit import emit_usage as _emit_usage  # noqa: PLC0415
 
@@ -90,25 +103,80 @@ def _install_default_gateway_facade(
         "1", "true", "yes",
     )
 
-    # Provider resolution. Fake provider is a deliberate test/dev hook —
-    # production wiring lands in a later phase (real routing + credentials).
+    # ── Provider resolution ─────────────────────────────────────────────────
+    # Real HTTP adapters (anthropic/openai) are the runtime path. FakeProvider
+    # is a deliberate test-only hook gated behind GATEWAY_USE_FAKE_PROVIDER.
+
     provider_singleton: Any = None
     if use_fake:
         from ai_portal.gateway.fake_provider import FakeProvider  # noqa: PLC0415
         provider_singleton = FakeProvider()
-        # Override the FastAPI dep used by compat routes.
-        fastapi_app.dependency_overrides[gw_service.get_llm_provider] = (
-            lambda: provider_singleton
-        )
         logger.info("gateway_fake_provider_bound")
 
-    def _resolve_provider(_req: Any, _actor: Any) -> Any:
-        if provider_singleton is None:
-            raise RuntimeError(
-                "no provider configured — set GATEWAY_USE_FAKE_PROVIDER=true for "
-                "smoke tests, or wire production routing/credentials."
+    def _load_org_secret(org_id: Any, provider: str) -> str | None:
+        """Decrypt the org's ProviderCredential for ``provider`` (or None)."""
+        from ai_portal.core.db.rls import bypass_rls  # noqa: PLC0415
+        from ai_portal.core.db.session import SessionLocal  # noqa: PLC0415
+        from ai_portal.gateway.provider_credentials.service import (  # noqa: PLC0415
+            CredentialNotFound,
+            ProviderCredentialService,
+        )
+
+        try:
+            with SessionLocal() as db:
+                with bypass_rls(db):
+                    svc = ProviderCredentialService(db)
+                    try:
+                        return svc.get_decrypted(org_id=org_id, provider=provider)
+                    except CredentialNotFound:
+                        return None
+        except Exception:  # noqa: BLE001
+            logger.debug("provider credential lookup failed", exc_info=True)
+            return None
+
+    resolver = ProviderResolver(settings=st, load_org_secret=_load_org_secret)
+
+    def _resolve_provider(req: Any, actor: Any) -> Any:
+        # Fake provider wins only when explicitly enabled (tests / smoke).
+        if provider_singleton is not None:
+            return provider_singleton
+        org_id = getattr(actor, "org_id", None)
+        model = getattr(req, "model", "") or ""
+        return resolver.resolve(org_id=org_id, model=model)
+
+    # Override the compat FastAPI dep so OpenAI/Anthropic/Bedrock surfaces
+    # resolve a real adapter from the authenticated org's credentials.
+    # The dep reads the model off the (cached) JSON body and the org off the
+    # authenticated user, then builds/caches the matching adapter.
+    async def _resolve_for_request_dep(request: Request) -> Any:
+        if provider_singleton is not None:
+            return provider_singleton
+        user = getattr(request.state, "current_user", None)
+        if user is None:
+            # Compat routes set current_user inside the handler (after deps),
+            # so resolve the actor here too — best-effort, no auth requirement.
+            from ai_portal.gateway.compat.openai import (  # noqa: PLC0415
+                _try_resolve_actor_user,
             )
-        return provider_singleton
+
+            user = _try_resolve_actor_user(request)
+        org_id = getattr(user, "org_id", None)
+        model = ""
+        try:
+            body = await request.json()
+            model = (body or {}).get("model", "") or ""
+        except Exception:  # noqa: BLE001
+            model = ""
+        try:
+            return resolver.resolve(org_id=org_id, model=model)
+        except NoProviderCredential as exc:
+            from fastapi import HTTPException  # noqa: PLC0415
+
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    fastapi_app.dependency_overrides[gw_service.get_llm_provider] = (
+        _resolve_for_request_dep
+    )
 
     def _emit_trace(record: TraceRecord) -> None:
         trace_writer.submit(record)
@@ -312,6 +380,12 @@ app.include_router(gateway_traces_router)
 app.include_router(gateway_metrics_router)
 app.include_router(guardrail_policies_router)
 app.include_router(workers_router)
+app.include_router(workers_instances_router)
 app.include_router(workers_webhook_router)
+app.include_router(auth_social_router)
+app.include_router(auth_config_router)
+app.include_router(auth_ldap_public_router)
+app.include_router(auth_ldap_admin_router)
+app.include_router(teams_router)
 app.include_router(gateway_openai_compat_router)
 

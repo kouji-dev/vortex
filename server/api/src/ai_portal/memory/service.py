@@ -127,14 +127,18 @@ class MemoryService:
         self,
         session: AsyncSession,
         *,
-        extractor_name: str = "llm_default",
-        policy_name: str = "default",
+        extractor_name: str | None = None,
+        policy_name: str | None = None,
         embedder=None,
     ) -> None:
+        from ai_portal.memory.deploy_config import default_for
+
         self.s = session
         self.repo = MemoryRepo(session)
-        self.extractor_name = extractor_name
-        self.policy_name = policy_name
+        # Deploy-vs-runtime: unspecified provider falls back to the operator
+        # default (which is the first declared / hard fallback when env unset).
+        self.extractor_name = extractor_name or default_for("extractor")
+        self.policy_name = policy_name or default_for("policy")
         self._embedder = embedder or _embedding_provider()
 
     # ── policy loaders ────────────────────────────────────────────────
@@ -418,6 +422,15 @@ class MemoryService:
 
         policy = get_policy(self.policy_name)
         if not await policy.should_recall(query, scope):
+            return []
+
+        # Deploy-vs-runtime: recaller must be in the operator-declared set.
+        from ai_portal.memory.deploy_config import ProviderNotDeclared, validate_selection
+
+        try:
+            validate_selection("recaller", recaller_name)
+        except ProviderNotDeclared:
+            logger.warning("memory.recall.recaller_not_declared %s", recaller_name)
             return []
 
         # Use built-in vector_pgvector with this session by default

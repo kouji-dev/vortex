@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as React from 'react'
 import { createApiKey, fetchApiKeys, revokeApiKey } from '~/lib/admin-api'
-import type { ApiKeySummary, CreateApiKeyResponse } from '~/lib/admin-types'
+import type { ApiKeySummary, CreateApiKeyRequest, CreateApiKeyResponse, RateLimits } from '~/lib/admin-types'
 import { SCOPE_CATALOG, labelForScope, validateScopes } from '~/lib/api-key-scopes'
 
 export const Route = createFileRoute('/admin/api-keys')({
@@ -112,12 +112,15 @@ function CreateKeyDialog({
 }: {
   saving: boolean
   error: string | null
-  onSubmit: (req: { name: string; scopes: string[]; expires_at: string | null }) => void
+  onSubmit: (req: CreateApiKeyRequest) => void
   onCancel: () => void
 }) {
   const [name, setName] = React.useState('')
   const [scopes, setScopes] = React.useState<string[]>([])
   const [expiresAt, setExpiresAt] = React.useState('')
+  const [rpm, setRpm] = React.useState('')
+  const [tpm, setTpm] = React.useState('')
+  const [concurrency, setConcurrency] = React.useState('')
   const [localError, setLocalError] = React.useState<string | null>(null)
 
   function toggle(scope: string) {
@@ -132,9 +135,14 @@ function CreateKeyDialog({
       return
     }
     setLocalError(null)
+    const rate: RateLimits = {}
+    if (rpm) rate.rpm = Number(rpm)
+    if (tpm) rate.tpm = Number(tpm)
+    if (concurrency) rate.concurrency = Number(concurrency)
     onSubmit({
       name,
       scopes,
+      rate_limits: Object.keys(rate).length ? rate : null,
       expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
     })
   }
@@ -162,6 +170,50 @@ function CreateKeyDialog({
             style={{ borderRadius: 4, border: '1px solid var(--line)', background: 'var(--bg)', color: 'var(--ink)', padding: '4px 8px', fontSize: 12 }}
           />
         </label>
+
+        <fieldset style={{ border: '1px solid var(--line)', borderRadius: 4, padding: 8, marginBottom: 12 }} data-testid="admin-api-keys-rate-limits">
+          <legend style={{ padding: '0 6px', fontSize: 11, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Rate limits (optional)
+          </legend>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11 }}>
+              RPM
+              <input
+                type="number"
+                min="0"
+                value={rpm}
+                onChange={(e) => setRpm(e.target.value)}
+                placeholder="60"
+                data-testid="admin-api-keys-rate-rpm"
+                style={{ borderRadius: 4, border: '1px solid var(--line)', background: 'var(--bg)', color: 'var(--ink)', padding: '4px 8px', fontSize: 12 }}
+              />
+            </label>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11 }}>
+              TPM
+              <input
+                type="number"
+                min="0"
+                value={tpm}
+                onChange={(e) => setTpm(e.target.value)}
+                placeholder="100000"
+                data-testid="admin-api-keys-rate-tpm"
+                style={{ borderRadius: 4, border: '1px solid var(--line)', background: 'var(--bg)', color: 'var(--ink)', padding: '4px 8px', fontSize: 12 }}
+              />
+            </label>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11 }}>
+              Concurrency
+              <input
+                type="number"
+                min="0"
+                value={concurrency}
+                onChange={(e) => setConcurrency(e.target.value)}
+                placeholder="4"
+                data-testid="admin-api-keys-rate-concurrency"
+                style={{ borderRadius: 4, border: '1px solid var(--line)', background: 'var(--bg)', color: 'var(--ink)', padding: '4px 8px', fontSize: 12 }}
+              />
+            </label>
+          </div>
+        </fieldset>
 
         <fieldset style={{ border: '1px solid var(--line)', borderRadius: 4, padding: 8, marginBottom: 12 }}>
           <legend style={{ padding: '0 6px', fontSize: 11, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>

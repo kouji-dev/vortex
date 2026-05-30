@@ -1,7 +1,13 @@
 // Pure logic for the workers UI — formatters, badges, grouping, SSE parsing.
 // Unit-tested with node:test; no React or DOM imports.
 
-import type { EventKind, TaskStatus, WorkerEvent } from './workers-types'
+import type {
+  EventKind,
+  InstanceRunStatus,
+  TaskStatus,
+  WorkerEvent,
+  WorkerState,
+} from './workers-types'
 
 /** Map a TaskStatus to a CSS badge class (matches gateway badge palette). */
 export function statusBadgeClass(s: TaskStatus): string {
@@ -152,4 +158,44 @@ export function tasksStats(tasks: { status: TaskStatus; completed_at: string | n
   const total = tasks.length
   const successRate = total > 0 ? completed / total : 0
   return { total, completed, failed, cancelled, active, successRate }
+}
+
+// ── worker instances (worker-centric) ────────────────────────────
+
+/** Map a worker lifecycle state to a CSS badge class. */
+export function workerStateBadgeClass(s: WorkerState): string {
+  switch (s) {
+    case 'idle':
+      return 'gw-badge ok'
+    case 'running':
+    case 'provisioning':
+      return 'gw-badge'
+    case 'error':
+      return 'gw-badge bad'
+    case 'stopped':
+      return 'gw-badge warn'
+    default:
+      return 'gw-badge'
+  }
+}
+
+/** Map an instance-run status to a CSS badge class. */
+export function runStatusBadgeClass(s: InstanceRunStatus): string {
+  switch (s) {
+    case 'success':
+      return 'gw-badge ok'
+    case 'running':
+      return 'gw-badge'
+    case 'finished':
+      return 'gw-badge'
+    case 'error':
+      return 'gw-badge bad'
+    default:
+      return 'gw-badge'
+  }
+}
+
+/** True if an instance run is in a terminal state. */
+export function isRunTerminal(s: InstanceRunStatus): boolean {
+  return s === 'success' || s === 'finished' || s === 'error'
 }

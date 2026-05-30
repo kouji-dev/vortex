@@ -275,6 +275,21 @@ def search_via_provider(
     body: SearchProviderBody,
     user: User = Depends(get_current_user),
 ):
+    # Deploy-vs-runtime: the provider must be declared + enabled in deployment
+    # config. The UI can only pick among the declared set; an undeclared or
+    # disabled provider is rejected here (never silently used).
+    from ai_portal.rag import provider_config as pc
+
+    cfg = pc.get_provider_config()
+    if not cfg.layer(pc.SEARCH_PROVIDERS).is_selectable(body.provider):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            detail=(
+                f"search provider {body.provider!r} is not enabled in this "
+                f"deployment (enabled: "
+                f"{', '.join(cfg.layer(pc.SEARCH_PROVIDERS).enabled_ids())})"
+            ),
+        )
     try:
         provider = get_provider(body.provider, **body.options)
     except UnknownSearchProvider:

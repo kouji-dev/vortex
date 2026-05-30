@@ -33,6 +33,61 @@ class KnowledgeBasePage(BaseModel):
 class KnowledgeBasePatch(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = Field(default=None, max_length=10_000)
+    tags: list[str] | None = None
+
+
+class KbSettingsRead(BaseModel):
+    """Current per-KB provider settings (runtime state)."""
+
+    id: int
+    embedder_id: str | None = None
+    vector_backend: str | None = None
+    reranker_id: str | None = None
+    chunker_id: str | None = None
+    default_retrieval_policy_id: str | None = None
+    language: str | None = None
+    tags: list[str] = Field(default_factory=list)
+
+
+class KbSettingsPatch(BaseModel):
+    """Patch per-KB provider settings. Each value must be selectable from the
+    deployment-declared + enabled set (enforced server-side)."""
+
+    embedder_id: str | None = Field(default=None, max_length=128)
+    vector_backend: str | None = Field(default=None, max_length=32)
+    reranker_id: str | None = Field(default=None, max_length=128)
+    chunker_id: str | None = Field(default=None, max_length=64)
+    default_retrieval_policy_id: str | None = Field(default=None, max_length=64)
+    language: str | None = Field(default=None, max_length=8)
+
+
+class ProviderEntryRead(BaseModel):
+    id: str
+    enabled: bool
+    endpoint: str | None = None
+    has_credential: bool = False
+    is_default: bool = False
+
+
+class ProviderLayerRead(BaseModel):
+    layer: str
+    default_id: str | None = None
+    items: list[ProviderEntryRead] = Field(default_factory=list)
+
+
+class ProvidersConfigRead(BaseModel):
+    """Deployment-declared provider universe for the RAG UI to select from.
+
+    Includes ``chunkers`` (code-level set) alongside the deploy-config layers so
+    the KB settings page can render every dropdown from one payload.
+    """
+
+    embedders: ProviderLayerRead
+    vector_stores: ProviderLayerRead
+    rerankers: ProviderLayerRead
+    search_providers: ProviderLayerRead
+    connectors: ProviderLayerRead
+    chunkers: list[str] = Field(default_factory=list)
 
 
 class DocumentRead(BaseModel):

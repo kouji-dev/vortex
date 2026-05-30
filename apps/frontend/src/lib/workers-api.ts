@@ -4,9 +4,14 @@ import { authorizedFetch } from './authorizedFetch'
 import { getApiBase } from './api-base'
 import type {
   CreatePoolRequest,
+  InstanceRun,
+  RunChange,
+  SpawnWorkerRequest,
   SubmitTaskRequest,
+  Worker,
   WorkerApproval,
   WorkerArtifact,
+  WorkerChatMessage,
   WorkerPool,
   WorkerRun,
   WorkerTask,
@@ -168,4 +173,87 @@ export async function replayTask(id: string): Promise<WorkerTask> {
 export function workerEventsUrl(taskId: string, afterTs?: string): string {
   const qs = afterTs ? `?after_ts=${encodeURIComponent(afterTs)}` : ''
   return v1(`/v1/workers/tasks/${taskId}/events${qs}`)
+}
+
+// ── worker instances (worker-centric "a worker IS a task") ───────
+
+export async function listWorkers(opts?: {
+  state?: string | null
+  limit?: number
+}): Promise<Worker[]> {
+  const qs = new URLSearchParams()
+  if (opts?.state) qs.set('state', opts.state)
+  if (opts?.limit) qs.set('limit', String(opts.limit))
+  const url = v1(`/v1/workers/instances${qs.toString() ? `?${qs}` : ''}`)
+  return asJson(await authorizedFetch(url))
+}
+
+export async function getWorker(id: string): Promise<Worker> {
+  return asJson(await authorizedFetch(v1(`/v1/workers/instances/${id}`)))
+}
+
+export async function spawnWorker(body: SpawnWorkerRequest): Promise<Worker> {
+  return asJson(
+    await authorizedFetch(v1('/v1/workers/instances'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+  )
+}
+
+export async function stopWorker(id: string): Promise<Worker> {
+  return asJson(
+    await authorizedFetch(v1(`/v1/workers/instances/${id}/stop`), {
+      method: 'POST',
+    }),
+  )
+}
+
+/** Send a user message to a worker — starts a new run. */
+export async function messageWorker(id: string, text: string): Promise<InstanceRun> {
+  return asJson(
+    await authorizedFetch(v1(`/v1/workers/instances/${id}/message`), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    }),
+  )
+}
+
+export async function listWorkerRuns(id: string): Promise<InstanceRun[]> {
+  return asJson(await authorizedFetch(v1(`/v1/workers/instances/${id}/runs`)))
+}
+
+export async function listWorkerMessages(id: string): Promise<WorkerChatMessage[]> {
+  return asJson(
+    await authorizedFetch(v1(`/v1/workers/instances/${id}/messages`)),
+  )
+}
+
+export async function listRunChanges(runId: string): Promise<RunChange[]> {
+  return asJson(await authorizedFetch(v1(`/v1/workers/runs/${runId}/changes`)))
+}
+
+export async function decidePermission(
+  workerId: string,
+  promptId: string,
+  decision: 'allow' | 'deny',
+  reason?: string,
+): Promise<{ ok: boolean; delivered: boolean }> {
+  return asJson(
+    await authorizedFetch(
+      v1(`/v1/workers/instances/${workerId}/permissions/${promptId}`),
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ decision, reason }),
+      },
+    ),
+  )
+}
+
+/** Build the SSE URL for a worker's agent stdio stream (STUB on backend). */
+export function workerStreamUrl(workerId: string): string {
+  return v1(`/v1/workers/instances/${workerId}/stream`)
 }

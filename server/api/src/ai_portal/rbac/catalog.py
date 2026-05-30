@@ -31,6 +31,8 @@ PERMISSIONS: list[Permission] = [
     Permission("members:invite", "Invite a new member", "control_plane"),
     Permission("members:remove", "Remove a member", "control_plane"),
     Permission("members:role:assign", "Assign roles to members", "control_plane"),
+    Permission("teams:read", "List teams + members + per-team key/usage stats", "control_plane"),
+    Permission("teams:write", "Create / update / delete teams + memberships", "control_plane"),
     Permission("api-keys:create", "Mint API keys", "control_plane"),
     Permission("api-keys:read", "List API keys (no secrets)", "control_plane"),
     Permission("api-keys:revoke", "Revoke API keys", "control_plane"),

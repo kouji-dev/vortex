@@ -126,3 +126,79 @@ class ApprovalOut(BaseModel):
     approve_count: int = 0
     reject_count: int = 0
     approvers_decided: list[dict[str, Any]] = []
+
+
+# ── worker instances (worker-centric "a worker IS a task") ───────
+
+
+class SpawnWorkerBody(BaseModel):
+    name: str = Field(min_length=1, max_length=128)
+    model: str = Field(min_length=1, max_length=128)
+    mode: str = Field(default="interactive", pattern="^(interactive|autonomous)$")
+    runtime: str = Field(default="claude", pattern="^(claude|codex)$")
+    # GitLab connector config (project id/path, branch, token ref)
+    connector: dict[str, Any] = Field(default_factory=dict)
+    repo_url: str | None = Field(default=None, max_length=1024)
+    pool_id: str | None = None
+    skills: list[str] = Field(default_factory=list)
+    trigger_source: str | None = Field(default=None, max_length=32)
+    trigger_payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class WorkerOut(BaseModel):
+    id: str
+    org_id: str
+    pool_id: str | None
+    name: str
+    state: str
+    mode: str
+    model: str
+    runtime: str
+    connector: dict[str, Any] = Field(default_factory=dict)
+    repo_url: str | None
+    sandbox_id: str | None
+    trigger_source: str | None
+    created_by: str | None
+    created_at: datetime
+    last_active_at: datetime | None
+
+
+class WorkerMessageBody(BaseModel):
+    text: str = Field(min_length=1, max_length=8192)
+
+
+class InstanceRunOut(BaseModel):
+    id: str
+    worker_id: str
+    seq_no: int
+    user_message: str
+    status: str
+    started_at: datetime
+    ended_at: datetime | None
+    cost_cents: int
+    error: str | None
+
+
+class RunChangeOut(BaseModel):
+    id: str
+    run_id: str
+    file_path: str
+    change_kind: str
+    additions: int
+    deletions: int
+    diff_ref: str
+
+
+class WorkerChatMessageOut(BaseModel):
+    id: str
+    worker_id: str
+    run_id: str | None
+    role: str
+    content: str
+    ts: datetime
+
+
+class PermissionDecideBody(BaseModel):
+    decision: str = Field(pattern="^(allow|deny)$")
+    reason: str | None = Field(default=None, max_length=2048)
+    updated_input: dict[str, Any] | None = None

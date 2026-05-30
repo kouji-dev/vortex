@@ -23,11 +23,14 @@ from ai_portal.knowledge_base.workers.connector_jobs import run_connector_sync_j
 from ai_portal.knowledge_base import repository as repo
 from ai_portal.knowledge_base import service as svc
 from ai_portal.knowledge_base import ingest_service as ingest_svc
+from ai_portal.knowledge_base import settings_service as settings_svc
 from ai_portal.knowledge_base.schemas import (
     ConnectorSyncJobRead,
     DocumentRead,
     DocumentsUploadResponseRead,
     KbCloneRequest,
+    KbSettingsPatch,
+    KbSettingsRead,
     KnowledgeBaseConnectorCreate,
     KnowledgeBaseConnectorPatch,
     KnowledgeBaseConnectorRead,
@@ -38,10 +41,14 @@ from ai_portal.knowledge_base.schemas import (
     PermissionTestDocSample,
     PermissionTestRequest,
     PermissionTestResponse,
+    ProviderEntryRead,
+    ProviderLayerRead,
+    ProvidersConfigRead,
     ScopedKbKeyCreate,
     ScopedKbKeyCreated,
     ScopedKbKeyOut,
 )
+from ai_portal.rag import provider_config as pc
 from ai_portal.knowledge_base import management as mgmt
 from ai_portal.knowledge_base import scoped_keys as scoped
 from ai_portal.api_keys.service import ApiKeyNotFound, ApiKeyService
@@ -92,6 +99,44 @@ def list_knowledge_bases_page(
     items = svc.build_kb_rows(db, page_rows)
     next_cursor = page_rows[-1].id if has_more and page_rows else None
     return KnowledgeBasePage(items=items, next_cursor=next_cursor)
+
+
+@router.get(
+    "/providers-config",
+    response_model=ProvidersConfigRead,
+)
+def get_providers_config(
+    _user: User = Depends(get_current_user),
+) -> ProvidersConfigRead:
+    """Deployment-declared provider universe the UI may select from.
+
+    Deploy-vs-runtime: the *available set* + endpoints + credentials are
+    declared in YAML/env (``rag_providers:``). The UI only enables/disables and
+    picks a KB-level default among the declared set — it cannot add a provider
+    or edit an endpoint/secret here.
+
+    Registered before ``/{knowledge_base_id}`` so the literal path wins.
+    """
+    cfg = pc.get_provider_config()
+
+    def _layer(name: str) -> ProviderLayerRead:
+        lc = cfg.layer(name)
+        return ProviderLayerRead(
+            layer=lc.layer,
+            default_id=lc.default_id,
+            items=[ProviderEntryRead(**e.to_public()) for e in lc.items],
+        )
+
+    from ai_portal.rag.chunkers.registry import register_builtins
+
+    return ProvidersConfigRead(
+        embedders=_layer(pc.EMBEDDERS),
+        vector_stores=_layer(pc.VECTOR_STORES),
+        rerankers=_layer(pc.RERANKERS),
+        search_providers=_layer(pc.SEARCH_PROVIDERS),
+        connectors=_layer(pc.CONNECTORS),
+        chunkers=list(register_builtins().names()),
+    )
 
 
 @router.get(
@@ -235,9 +280,73 @@ def patch_knowledge_base(
         db, kb,
         name=body.name.strip() if body.name is not None else None,
         description=body.description.strip() if body.description is not None else None,
+        tags=body.tags,
     )
     rows = svc.build_kb_rows(db, [kb])
     return rows[0]
+
+
+@router.get(
+    "/{knowledge_base_id}/settings",
+    response_model=KbSettingsRead,
+)
+def get_kb_settings(
+    knowledge_base_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
+) -> KbSettingsRead:
+    kb = svc.get_owned_kb(db, user, knowledge_base_id)
+    return KbSettingsRead(
+        id=kb.id,
+        embedder_id=kb.embedder_id,
+        vector_backend=kb.vector_backend,
+        reranker_id=(kb.settings_json or {}).get("reranker_id"),
+        chunker_id=kb.chunker_id,
+        default_retrieval_policy_id=kb.default_retrieval_policy_id,
+        language=kb.language,
+        tags=list(kb.tags or []),
+    )
+
+
+@router.patch(
+    "/{knowledge_base_id}/settings",
+    response_model=KbSettingsRead,
+)
+def patch_kb_settings(
+    knowledge_base_id: int,
+    body: KbSettingsPatch,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    org_id: _uuid.UUID = Depends(get_current_org_id),
+) -> KbSettingsRead:
+    """Update per-KB provider settings. Each value must be selectable from the
+    deployment-declared + enabled set; otherwise 422."""
+    kb = svc.get_owned_kb(db, user, knowledge_base_id)
+    try:
+        patch = settings_svc.validate_settings_patch(
+            embedder_id=body.embedder_id,
+            vector_backend=body.vector_backend,
+            reranker_id=body.reranker_id,
+            chunker_id=body.chunker_id,
+            default_retrieval_policy_id=body.default_retrieval_policy_id,
+            language=body.language,
+        )
+    except settings_svc.InvalidKbSetting as exc:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
+    kb = settings_svc.apply_settings(db, kb, patch)
+    return KbSettingsRead(
+        id=kb.id,
+        embedder_id=kb.embedder_id,
+        vector_backend=kb.vector_backend,
+        reranker_id=(kb.settings_json or {}).get("reranker_id"),
+        chunker_id=kb.chunker_id,
+        default_retrieval_policy_id=kb.default_retrieval_policy_id,
+        language=kb.language,
+        tags=list(kb.tags or []),
+    )
 
 
 @router.get("/{knowledge_base_id}/documents", response_model=list[DocumentRead])

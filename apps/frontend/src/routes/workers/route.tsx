@@ -9,7 +9,7 @@ import { isAdminActor } from '~/lib/admin-permissions'
 export const Route = createFileRoute('/workers')({
   beforeLoad: ({ location }) => {
     const p = location.pathname.replace(/\/$/, '') || '/'
-    if (p === '/workers') throw redirect({ to: '/workers/tasks' })
+    if (p === '/workers') throw redirect({ to: '/workers/instances' })
   },
   component: WorkersLayout,
 })
@@ -21,6 +21,7 @@ type Section = {
 }
 
 const SECTIONS: readonly Section[] = [
+  { to: '/workers/instances', label: 'Workers', testId: 'wk-nav-instances' },
   { to: '/workers/tasks', label: 'Tasks', testId: 'wk-nav-tasks' },
   { to: '/workers/pools', label: 'Pools', testId: 'wk-nav-pools' },
   { to: '/workers/integrations', label: 'Integrations', testId: 'wk-nav-integrations' },

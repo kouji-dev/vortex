@@ -56,11 +56,19 @@ def create_kb(db: Session, name: str, description: str, owner_user_id: int, org_
     return kb
 
 
-def update_kb(db: Session, kb: KnowledgeBase, name: str | None, description: str | None) -> KnowledgeBase:
+def update_kb(
+    db: Session,
+    kb: KnowledgeBase,
+    name: str | None,
+    description: str | None,
+    tags: list[str] | None = None,
+) -> KnowledgeBase:
     if name is not None:
         kb.name = name
     if description is not None:
         kb.description = description
+    if tags is not None:
+        kb.tags = list(tags)
     db.commit()
     db.refresh(kb)
     return kb

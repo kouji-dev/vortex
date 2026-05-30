@@ -65,11 +65,18 @@ export interface UpdateIdpConnectionRequest {
 // ---------- API Keys ----------
 export type ApiKeyScope = string // permission key like "gateway:complete"
 
+export interface RateLimits {
+  rpm?: number | null
+  tpm?: number | null
+  concurrency?: number | null
+}
+
 export interface ApiKeySummary {
   id: string
   name: string
   prefix: string
   scopes: ApiKeyScope[]
+  rate_limits?: RateLimits | null
   expires_at: string | null
   last_used_at: string | null
   created_at: string
@@ -79,7 +86,13 @@ export interface ApiKeySummary {
 export interface CreateApiKeyRequest {
   name: string
   scopes: ApiKeyScope[]
+  rate_limits?: RateLimits | null
   expires_at?: string | null
+}
+
+export interface EditApiKeyRequest {
+  name?: string
+  rate_limits?: RateLimits | null
 }
 
 export interface CreateApiKeyResponse {
@@ -383,4 +396,127 @@ export interface DataDeleteJob {
 
 export interface DataDeleteCreateRequest {
   scope: Record<string, unknown>
+}
+
+// ---------- Teams ----------
+export interface Team {
+  id: string
+  org_id: string
+  slug: string
+  name: string
+  description: string | null
+  created_at: string
+  archived_at: string | null
+  member_count: number
+}
+
+export interface CreateTeamRequest {
+  slug: string
+  name: string
+  description?: string | null
+}
+
+export interface PatchTeamRequest {
+  slug?: string
+  name?: string
+  description?: string | null
+  archived?: boolean
+}
+
+export interface TeamMember {
+  id: number
+  team_id: string
+  user_id: number
+  email: string | null
+  name: string | null
+  role: string | null
+  created_at: string
+}
+
+export interface AddTeamMemberRequest {
+  user_id: number
+  role?: string | null
+}
+
+export interface TeamKeyCount {
+  team_id: string
+  member_count: number
+  key_count: number
+}
+
+export interface TeamUsage {
+  team_id: string
+  member_count: number
+  input_tokens: number
+  output_tokens: number
+  cached_input_tokens: number
+  cost_usd: number
+  message_count: number
+}
+
+// ---------- Directory / LDAP ----------
+export type LdapKind = 'ldap' | 'active_directory'
+export type LdapTlsMode = 'none' | 'starttls' | 'ldaps'
+
+export interface LdapConnection {
+  id: string
+  org_id: string | null
+  name: string
+  kind: LdapKind
+  host: string
+  port: number
+  bind_dn: string
+  base_dn: string
+  user_filter: string
+  group_filter: string | null
+  tls_mode: LdapTlsMode
+  attr_map: Record<string, string> | null
+  group_role_map: Record<string, string> | null
+  enabled: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateLdapConnectionRequest {
+  name: string
+  kind?: LdapKind
+  host: string
+  port?: number | null
+  bind_dn: string
+  bind_secret: string
+  base_dn: string
+  user_filter?: string | null
+  group_filter?: string | null
+  tls_mode?: LdapTlsMode
+  attr_map?: Record<string, string> | null
+  group_role_map?: Record<string, string> | null
+  enabled?: boolean
+}
+
+export interface UpdateLdapConnectionRequest {
+  name?: string
+  host?: string
+  port?: number | null
+  bind_dn?: string
+  bind_secret?: string
+  base_dn?: string
+  user_filter?: string | null
+  group_filter?: string | null
+  tls_mode?: LdapTlsMode
+  attr_map?: Record<string, string> | null
+  group_role_map?: Record<string, string> | null
+  enabled?: boolean
+}
+
+export interface LdapTestResult {
+  ok: boolean
+  message: string | null
+}
+
+// ---------- Auth config (public bootstrap) ----------
+export interface AuthConfig {
+  password: boolean
+  social: string[]
+  directory: boolean
+  enterprise: boolean
 }

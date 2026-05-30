@@ -32,7 +32,6 @@ from sqlalchemy.orm import Session
 from ai_portal.api_keys.model import ApiKey
 from ai_portal.api_keys.repository import ApiKeyRepo
 
-
 PLAINTEXT_PREFIX = "ap_"
 PREFIX_BODY_LEN = 9  # chars of the random body included in the stored prefix
 SECRET_BYTES = 32
@@ -117,6 +116,7 @@ class ApiKeyService:
         scopes: list[str] | None = None,
         actor_user_id: int | None = None,
         expires_at: datetime | None = None,
+        rate_limits: dict | None = None,
     ) -> CreatedApiKey:
         plaintext = mint_plaintext()
         key = ApiKey(
@@ -126,12 +126,40 @@ class ApiKeyService:
             prefix=split_prefix(plaintext),
             hash=hash_plaintext(plaintext),
             scopes_json=list(scopes or []),
+            rate_limits_json=rate_limits or None,
             expires_at=expires_at,
         )
         self.repo.add(key)
         self.db.commit()
         self.db.refresh(key)
         return CreatedApiKey(key=key, plaintext=plaintext)
+
+    # ── update ──────────────────────────────────────────────────────────
+
+    def update(
+        self,
+        *,
+        org_id: _uuid.UUID,
+        key_id: _uuid.UUID,
+        name: str | None = None,
+        rate_limits: dict | None = None,
+        rate_limits_set: bool = False,
+    ) -> ApiKey:
+        """Edit a key's name and/or per-key rate limits.
+
+        ``rate_limits_set`` distinguishes "not provided" (leave as-is) from
+        "provided as null/empty" (clear the limits).
+        """
+        row = self.repo.by_id(org_id=org_id, key_id=key_id)
+        if row is None:
+            raise ApiKeyNotFound(str(key_id))
+        if name is not None:
+            row.name = name
+        if rate_limits_set:
+            row.rate_limits_json = rate_limits or None
+        self.db.commit()
+        self.db.refresh(row)
+        return row
 
     # ── verify ──────────────────────────────────────────────────────────
 
@@ -183,6 +211,7 @@ class ApiKeyService:
             scopes=list(old.scopes_json or []),
             actor_user_id=old.actor_user_id,
             expires_at=old.expires_at,
+            rate_limits=dict(old.rate_limits_json) if old.rate_limits_json else None,
         )
         # Revoke old after the new row is committed so verify can't briefly hit
         # neither.

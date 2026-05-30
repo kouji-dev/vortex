@@ -31,6 +31,17 @@ from ai_portal.memory.policies import get as get_policy  # noqa: F401
 from ai_portal.memory.policies import list_names as list_policies  # noqa: F401
 from ai_portal.memory.policies import register as register_policy  # noqa: F401
 
+# Deploy-vs-runtime provider config (declared SET → runtime selects from it).
+from ai_portal.memory.deploy_config import (  # noqa: F401
+    EnabledProviders,
+    ProviderNotDeclared,
+    default_for as default_provider,
+    enabled_providers,
+    is_enabled as provider_enabled,
+    list_enabled as list_enabled_providers,
+    validate_selection as validate_provider,
+)
+
 from ai_portal.memory.schemas import (  # noqa: F401
     BulkDeleteRequest,
     ExtractionPolicyDTO,
@@ -88,6 +99,13 @@ __all__ = [
     "get_policy",
     "list_policies",
     "register_policy",
+    "EnabledProviders",
+    "ProviderNotDeclared",
+    "default_provider",
+    "enabled_providers",
+    "provider_enabled",
+    "list_enabled_providers",
+    "validate_provider",
     "integrations",
     "rag_tool",
 ]

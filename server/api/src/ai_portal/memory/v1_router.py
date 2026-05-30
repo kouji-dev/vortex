@@ -237,6 +237,13 @@ async def extract_endpoint(
         Turn(role=t.role, content=t.content, turn_id=t.turn_id, ts=t.ts)
         for t in body.turns
     ]
+    # Deploy-vs-runtime: only an operator-declared extractor may be selected.
+    from ai_portal.memory.deploy_config import ProviderNotDeclared, validate_selection
+
+    try:
+        validate_selection("extractor", body.extractor)
+    except ProviderNotDeclared as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     svc = MemoryService(session, extractor_name=body.extractor)
     result = await svc.extract(turns, scope, opts)
     await session.commit()
@@ -329,6 +336,25 @@ async def get_related(
             for e in g.edges
         ],
     }
+
+
+# ── deploy-declared providers ───────────────────────────────────────
+
+
+@router.get("/providers")
+async def list_providers(
+    actor=Depends(_get_actor()),
+) -> dict[str, Any]:
+    """Operator-declared provider set per kind + defaults.
+
+    UI / KB settings select extractor / recaller / store / policy from this
+    declared set only — never free-form. The set is fixed at deploy time via
+    ``MEMORY_EXTRACTORS`` / ``MEMORY_RECALLERS`` / ``MEMORY_STORES`` /
+    ``MEMORY_POLICIES`` env (defaults to all bundled when unset).
+    """
+    from ai_portal.memory.deploy_config import enabled_providers
+
+    return enabled_providers().as_dict()
 
 
 # ── policies ────────────────────────────────────────────────────────

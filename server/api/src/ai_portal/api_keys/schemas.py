@@ -8,11 +8,32 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class RateLimits(BaseModel):
+    """Per-key rate limits enforced by the Gateway.
+
+    All fields optional — an unset field means "no limit" for that dimension.
+    """
+
+    rpm: int | None = Field(default=None, ge=0, description="Requests per minute")
+    tpm: int | None = Field(default=None, ge=0, description="Tokens per minute")
+    concurrency: int | None = Field(
+        default=None, ge=0, description="Max concurrent in-flight requests"
+    )
+
+
 class ApiKeyCreate(BaseModel):
     name: str = Field(min_length=1, max_length=128)
     scopes: list[str] = Field(default_factory=list, max_length=64)
+    rate_limits: RateLimits | None = None
     expires_at: datetime | None = None
     actor_user_id: int | None = None
+
+
+class ApiKeyEdit(BaseModel):
+    """Mutable fields for an existing key (PATCH /v1/api-keys/{id})."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=128)
+    rate_limits: RateLimits | None = None
 
 
 class ApiKeyOut(BaseModel):
@@ -26,6 +47,7 @@ class ApiKeyOut(BaseModel):
     name: str
     prefix: str
     scopes: list[str] = Field(alias="scopes_json")
+    rate_limits: RateLimits | None = Field(default=None, alias="rate_limits_json")
     expires_at: datetime | None
     last_used_at: datetime | None
     revoked_at: datetime | None
