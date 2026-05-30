@@ -46,7 +46,7 @@
 
 - [ ] Create / rename / archive / delete KB
 - [ ] KB visibility: private (creator), team, org-public
-- [ ] KB-level settings: embedder, vector backend, chunking strategy, default retrieval policy, language
+- [ ] KB-level settings: embedder, vector backend, chunking strategy, default retrieval policy, language — each *selected from* the deployment-declared set (not free-form URLs)
 - [ ] KB tags / categories
 - [ ] Per-KB API key (read-only, scoped)
 - [ ] KB clone / fork
@@ -101,6 +101,18 @@ Each connector is a configurable provider with auth, scheduling, delta sync, and
 - [ ] Stage 8 — Index: write to vector backend + BM25 store + ACL store
 - [ ] Each stage emits progress + errors visible per-document
 - [ ] Retry policy per stage; failure-isolated to one document
+
+### Ingestion Execution & Scaling
+
+> **DEFERRED / optional — do later.** In-process execution is sufficient for now. The work below is to build a proper per-part `JobExecutor` abstraction (ingest, connector sync, pipeline, re-embed) so each can run remotely. Not required for v1.
+
+Heavy work (extract / chunk / embed / index + connector sync) runs through a configurable **Job Execution Backend** so it can run in-process for dev or on separate machines (another VPS / AWS) for scale. Remote workers need only DB + queue access — no coupling to the API server.
+
+- [ ] Executor declared in deployment config: `inprocess` (dev), `rq` (Redis queue → remote workers), future `celery` / `sqs` / `aws_batch` / `k8s_job`
+- [ ] PARTIAL TODAY: document ingest already dispatches in-process (FastAPI `BackgroundTasks`) when no Redis, else enqueues to RQ for a remote worker (`run_ingest_job`); toggle is implicit on `redis_url`
+- [ ] GAP: make the executor an explicit named config choice (not implicit on `redis_url`), routed through the shared abstraction below
+- [ ] GAP: connector sync currently runs in-process only (`BackgroundTasks`) — route it through the executor so syncs run remotely
+- [ ] GAP: pipeline runner (`rag/pipeline/runner.py`) dispatches per-stage through the executor
 
 ### ACL Mirroring
 
@@ -204,8 +216,21 @@ Each connector is a configurable provider with auth, scheduling, delta sync, and
 - [ ] Versioned dataset releases for downstream training
 - [ ] Cross-tenant KB sharing
 - [ ] Custom embedding model upload UI (config only via env / settings)
+- [ ] Pluggable distributed Job Execution Backend (per-part executor: ingest / connector sync / pipeline / re-embed) — deferred/optional; in-process + existing RQ path is enough for now
 
 ## Configurable Abstractions
+
+> **Real implementations required.** Every layer below ships a working implementation against the providers listed — not a stub. The gateway `FakeProvider` is a dev-only shortcut for LLM/embed calls; it is never a substitute for the embedder, vector-store, reranker, search-provider, or connector implementations here.
+>
+> **Deploy-vs-runtime split** (see suite-overview): for each layer, the *available set* + endpoints + credentials are declared in deployment config (YAML/env) — the UI cannot add a backend or change an endpoint. The UI only enables/disables and sets the KB-level default among the declared set.
+
+| Layer | Declared in YAML/env | Managed in UI |
+|---|---|---|
+| Embedders | available set, endpoints, keys | enable/disable, per-KB default |
+| Vector stores | available backends, connection URLs, keys | enable/disable, per-KB default |
+| Rerankers | available set, endpoints, keys | enable/disable, per-KB default |
+| Search providers | available set, API keys | enable/disable, default-for-web |
+| Connectors | available connector TYPES, OAuth app creds | per-KB connector instance + schedule |
 
 ### Connector (`rag/connectors/`)
 
@@ -245,6 +270,13 @@ Each connector is a configurable provider with auth, scheduling, delta sync, and
 
 - [ ] Interface: per-connector ACL mapper
 - [ ] Bundled with each connector that supports ACL
+
+### Job Execution Backend (shared — suite-wide) — DEFERRED / optional
+
+- [ ] Interface: `JobExecutor` with `submit(job_name, *args, **opts)`, `health()`
+- [ ] Bundled: `inprocess` (dev, FastAPI BackgroundTasks), `rq` (Redis → remote workers); future `celery`, `sqs` / `aws_batch`, `k8s_job`
+- [ ] Backend declared in deployment config (deploy-vs-runtime split) — not an implicit toggle
+- [ ] Consumers: RAG ingest + connector sync + re-embed jobs (first); intended to converge the suite's other ad-hoc job paths later
 
 ## Data Model (sketch)
 

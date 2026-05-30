@@ -1,5 +1,7 @@
 # Gateway — Design Spec
 
+> **🚫 NO FAKE PROVIDER (shipping blocker).** Real LLM provider adapters must be built and wired through the facade; `FakeProvider` / `GATEWAY_USE_FAKE_PROVIDER` retired. Today the facade binds `FakeProvider` and there are **no real adapters under `gateway/providers/`** — building them (anthropic, openai, … as HTTP clients implementing `LLMProvider`) is the prerequisite for shipping. See suite-overview global directive.
+
 ## Purpose
 
 - [ ] One audited, governed entry point for every LLM call inside an enterprise
@@ -57,8 +59,10 @@
 
 - [ ] Built-in providers: `anthropic`, `openai`, `azure_openai`, `bedrock`, `vertex`, `gemini`, `mistral`, `ollama`, `vllm`, `together`, `groq`, `fireworks`
 - [ ] Each provider declares: supported models, capabilities (vision, tools, thinking, cache, json_mode, streaming), pricing
-- [ ] Per-org credential storage (encrypted at rest with KEK rotation hook)
-- [ ] Per-org provider enable/disable
+- [ ] **Available provider SET + endpoint URLs declared in deployment config (YAML/env)** — admin CANNOT add or remove a provider, or change an endpoint, via the UI
+- [ ] **Enable/disable a declared provider is a UI action** (within the config-declared set)
+- [ ] **Model catalog declared in config**; per-model enable/disable in UI
+- [ ] Provider credentials: deployment-level by default (see suite-overview deploy-vs-runtime split); per-org BYO-key is an open per-feature decision (current `provider_credentials` table is per-org)
 - [ ] Health check per provider (probe `/models` or equivalent)
 - [ ] Catalog refresh job (poll provider model lists daily)
 
@@ -80,11 +84,21 @@
 
 ### Rate Limiting & Concurrency
 
+Two distinct concerns — keep them separate.
+
+**Inbound (tenant governance — configured *per API key*):**
+
 - [ ] Limit dimensions: `RPM`, `TPM` (tokens per minute), `concurrent_requests`
-- [ ] Scope: per-key, per-user, per-team, per-org, per-model
+- [ ] Configured as properties of an API key (see Control Plane → API Keys); resolvable up the hierarchy per-user / team / org / model
 - [ ] Burst allowance (token bucket)
 - [ ] 429 response with `Retry-After` header
 - [ ] Limits visible in `GET /v1/limits/me`
+- [ ] No standalone Rate Limits page — limits are edited inline when minting/editing an API key
+
+**Outbound (provider-side resilience — automatic, no config surface):**
+
+- [ ] Provider returns 429 / 5xx / timeout → backoff + retry + failover (see Routing & Failover)
+- [ ] Circuit breaker per provider/model
 
 ### Prompt Caching
 
@@ -203,6 +217,8 @@
 - [ ] Multi-region active routing
 - [ ] BYO-classifier upload UI (configs only via API for v1)
 - [ ] WAF-level DDoS protection (delegated to deployment layer)
+- [ ] Granular gateway RBAC beyond admin/member (custom per-feature gateway permissions) — deferred; admin-only panel for v1
+- [ ] Member self-service read-only view (own usage + own keys) — deferred; see Access tiers above
 
 ## Configurable Abstractions
 
@@ -211,6 +227,7 @@
 - [ ] Interface: `LLMProvider` with `complete`, `stream`, `embed`, `count_tokens`, `list_models`, `health`
 - [ ] Capabilities declared per provider
 - [ ] Bundled: `anthropic`, `openai`, `azure_openai`, `bedrock`, `vertex`, `gemini`, `mistral`, `ollama`, `vllm`
+- [ ] **BLOCKER**: build the real adapters under `gateway/providers/` (HTTP clients implementing `LLMProvider`) and wire the facade to resolve them from credentials — none exist today; `FakeProvider` is the only implementation
 - [ ] "How to add" template + checklist
 
 ### Routing Strategy
@@ -280,12 +297,17 @@
 - [ ] Gateway → Providers (credentials, health, enable/disable)
 - [ ] Gateway → Models (catalog, capabilities, pricing)
 - [ ] Gateway → Routing (policies, aliases, drag-to-reorder priority)
-- [ ] Gateway → Rate Limits
+- [ ] ~~Gateway → Rate Limits page~~ — **dropped**. Inbound limits are edited inline in **Admin → API Keys**; provider-side handling is automatic (Routing). Remove the dead `/gateway/rate-limits` nav item from `route.tsx`.
 - [ ] Gateway → Guardrails (policy editor with live test)
 - [ ] Gateway → Traces (table + detail + replay)
 - [ ] Gateway → Playground
 - [ ] Gateway → Evals
 - [ ] Code snippets (cURL / Python / TS / Claude-Code config) per provider-compatible endpoint
+
+### Access tiers
+
+- [ ] Admin view (now): full Gateway console — create/manage provider creds, routing, limits, guardrails; mint API keys; see all teams' + all users' consumption and traces. Gateway is admin-only today (`isAdminActor` gate → 403 for non-admins).
+- [ ] Member (individual) view — LATER: read-only. Sees only own consumption + own keys (read-only), no provider/routing/guardrail/limit management. Not built for v1.
 
 ## Dependencies on Other Modules
 
@@ -307,3 +329,19 @@
 - [ ] Run only touched-file tests during implementation
 - [ ] Defer E2E to the final verification step
 - [ ] E2E targets (added at the end): OpenAI-compat call routes correctly, Anthropic-compat streaming, failover on injected 503, rate-limit returns 429, guardrail blocks injected prompt, budget cutoff blocks call
+
+### Frontend UI E2E coverage (GAP — currently ~90% untested)
+
+Today `e2e/suite/gateway.spec.ts` only meaningfully tests the **Traces** page; the other 9 pages have no UI E2E. Two existing tests also bypass the UI (`page.evaluate(fetch(...))`) which violates the UI-only E2E rule. To implement later:
+
+- [ ] Rewrite the chat-completion + 429 tests to drive the **Playground** UI instead of raw `fetch` (UI-only rule)
+- [ ] Overview — KPIs + top-models/errors render
+- [ ] Providers — list renders, add-credential form, health badge, enable/disable
+- [ ] Models — catalog table renders with capabilities + pricing
+- [ ] Routing — policy list, create/edit, drag-reorder priority (logic has a unit test; UI untested)
+- [ ] Per-key rate limits — set RPM/TPM/concurrency when editing an API key; verify 429 enforced (no standalone Rate Limits page)
+- [ ] Guardrails — policy editor + live test
+- [ ] Playground — submit prompt, side-by-side compare, cost/latency shown
+- [ ] Evals — create test set, run, results table
+- [ ] Snippets — code snippets render per provider-compat endpoint
+- [ ] Admin-gating — non-admin actor sees the `gateway-forbidden` 403 panel

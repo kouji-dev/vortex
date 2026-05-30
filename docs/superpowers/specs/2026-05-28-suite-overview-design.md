@@ -4,6 +4,8 @@
 >
 > **Status (May 2026, post-pivot):** All five modules implemented and smoke-tested. E2E suite 6/9 passing. See `docs/RUNBOOK.md` for ops.
 
+> **🚫 NO FAKE PROVIDERS (global directive — shipping prerequisite).** The gateway `FakeProvider` and `GATEWAY_USE_FAKE_PROVIDER` are retired for now. Real implementations are required on **every** external call path — LLM providers, embedders, vector stores, rerankers, search providers, connectors — before the app ships. No stub may stand in for a real backend in any module. This **overrides** earlier guidance that treated the fake provider as the dev default.
+
 ## Purpose
 
 - [x] Build a modular AI suite where each module stands alone but composes into one governed platform
@@ -61,7 +63,9 @@ Control Plane  ←  Gateway  ←  RAG  ←  Memories
 - [ ] RBAC enforcement: every API route declares the permission it requires
 - [ ] GDPR cascade: deleting a user / org cascades to all module-owned data
 - [ ] Configurable: every external dependency behind an interface in `<module>/providers/`
+- [ ] Real implementations required (shipping prerequisite): NO fake/stub providers in any call path — the gateway `FakeProvider` is retired and `GATEWAY_USE_FAKE_PROVIDER` stays off. Every layer — LLM providers, embedders, vector stores, rerankers, search providers, connectors, extractors — must hit a real backend
 - [ ] Health endpoint: `/v1/<module>/health` reports per-provider status
+- [ ] Distributable execution (DEFERRED/optional): in-process execution is sufficient for v1. Target later — a per-consumer Job Execution Backend abstraction (`inprocess` dev, `rq`/remote scale) so background work can run on separate machines; backend declared in deployment config. See suite Out of Scope.
 
 ## Configurable-Abstraction Pattern (applied uniformly)
 
@@ -70,11 +74,36 @@ Every "thing that talks to the outside world" follows this shape:
 - [ ] `protocol.py` — abstract interface, types, error taxonomy
 - [ ] `providers/<name>.py` — concrete implementation
 - [ ] `registry.py` — name → factory, loaded from settings
-- [ ] Per-org config row picks which provider is active
+- [ ] Runtime state (per-org row) only enables/disables or picks a default among providers DECLARED in deployment config — it never defines a new provider or edits its endpoint/secret
 - [ ] At least one bundled open-source / self-hosted implementation per category
 - [ ] Documented "how to add a provider" with checklist
 
-Applies to: LLM providers, embedders, vector stores, rerankers, search providers, connectors, extractors, chunkers, sandbox providers, git providers, issue trackers, identity providers, SCIM endpoints, billing providers, email/notification providers, object storage.
+Applies to: LLM providers, embedders, vector stores, rerankers, search providers, connectors, extractors, chunkers, sandbox providers, git providers, issue trackers, identity providers, SCIM endpoints, billing providers, email/notification providers, object storage, job/task execution backends.
+
+## Deployment Config vs Runtime State (per-feature split)
+
+Deployment config (YAML / env) is the **source of truth** for the *universe* of every external dependency. The UI only operates *within* that universe.
+
+- [ ] **Deploy-config owns** (YAML/env, set at deploy, not editable at runtime): the available SET of providers/backends, their endpoint URLs, versions, the model catalog, and secrets/credentials
+- [ ] **Runtime UI owns**: operational state within the declared set — enable/disable, choose defaults, routing policies, aliases, per-org toggles
+- [ ] **UI may NOT**: add a new provider/backend, change an endpoint URL, or edit a secret. Example: an admin cannot register a new LLM provider from the UI — the deployment declares which providers exist; the admin only enables/disables them.
+- [ ] The exact deploy-vs-runtime line is decided **per feature** — each module spec must state, for each configurable layer, what is config vs UI-managed
+- [ ] Same build serves self-hosted and SaaS; the deployment's YAML/env decides what's *available*, the UI decides what's *active*
+- [ ] Adding a NEW provider type to any layer is a deployment/config (or code) change, never a runtime UI action
+
+### Per-feature config split (each module fills in its layers)
+
+| Layer | Declared in YAML/env (deploy) | Managed in UI (runtime) |
+|---|---|---|
+| LLM providers | available set, base URLs, credentials | enable/disable, default, routing weight |
+| Models | available model catalog | enable/disable per model |
+| Embedders / vector stores / rerankers | available set, endpoints, credentials | enable/disable, KB-level default |
+| Search providers | available set, API keys | enable/disable, default-for-web |
+| Connectors | available connector types, OAuth app creds | per-KB instance enable + schedule |
+| Auth strategies | enabled strategies + provider endpoints + secrets | (none at runtime for v1) |
+| Job execution backend | executor kind (`inprocess`/`rq`/…) + queue URL | (none at runtime for v1) |
+
+> **Open per-feature question:** per-org BYO credentials (SaaS) vs single deployment-level credentials. Default assumption: deployment-level. Where a layer needs per-org keys, that exception must be stated explicitly in the module spec.
 
 ## Out of Scope — Suite-Level (for now)
 
@@ -86,6 +115,7 @@ Applies to: LLM providers, embedders, vector stores, rerankers, search providers
 - [ ] Fine-tuning / training infra
 - [ ] Image / video generation models (text + embeddings + transcription only)
 - [ ] Voice cloning / TTS as first-class capability
+- [ ] Pluggable distributed Job Execution Backend abstraction (per-consumer remote executors: `rq`/`sqs`/`k8s`) — deferred/optional; in-process + existing RQ ingest path suffice for v1
 
 ## Sub-Agent Dispatch Plan (executed AFTER spec approval)
 
