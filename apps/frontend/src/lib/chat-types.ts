@@ -236,4 +236,5 @@ export interface CatalogModelEntry {
   model_settings: CatalogModelSettings;
   can_request_access?: boolean;
   request_access_url?: string | null;
+  usable_in_worker?: boolean;
 }
