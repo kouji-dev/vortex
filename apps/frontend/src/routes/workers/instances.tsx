@@ -14,6 +14,7 @@ import { formatTs, workerStateBadgeClass } from '~/lib/workers-logic'
 import type { WorkerMode, WorkerState } from '~/lib/workers-types'
 import { useWorkerModelsQuery } from '~/hooks/useWorkerModelsQuery'
 import { inferRuntime } from '~/lib/worker-runtime'
+import { useGitIntegrationsQuery } from '~/hooks/useGitIntegrationsQuery'
 
 export const Route = createFileRoute('/workers/instances')({
   component: InstancesPage,
@@ -171,9 +172,6 @@ function SpawnDrawer({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient()
   const [name, setName] = React.useState('')
   const [mode, setMode] = React.useState<WorkerMode>('interactive')
-  const [gitlabProject, setGitlabProject] = React.useState('')
-  const [repoUrl, setRepoUrl] = React.useState('')
-  const [branch, setBranch] = React.useState('main')
 
   const workerModels = useWorkerModelsQuery()
   const [model, setModel] = React.useState('') // api_model_id
@@ -189,6 +187,21 @@ function SpawnDrawer({ onClose }: { onClose: () => void }) {
 
   const runtime = inferRuntime(model) ?? 'claude'
 
+  // Repo picker state
+  const gitIntegrations = useGitIntegrationsQuery()
+  const enabledRepos = React.useMemo(
+    () =>
+      (gitIntegrations.data ?? []).flatMap((i) =>
+        i.repos.filter((r) => r.enabled).map((r) => ({ ...r, integrationId: i.id })),
+      ),
+    [gitIntegrations.data],
+  )
+  const [repoFullName, setRepoFullName] = React.useState('')
+  React.useEffect(() => {
+    if (!repoFullName && enabledRepos.length > 0) setRepoFullName(enabledRepos[0].full_name)
+  }, [enabledRepos, repoFullName])
+  const selectedRepo = enabledRepos.find((r) => r.full_name === repoFullName)
+
   const spawn = useMutation({
     mutationFn: () =>
       api.spawnWorker({
@@ -197,9 +210,10 @@ function SpawnDrawer({ onClose }: { onClose: () => void }) {
         effort,
         mode,
         runtime,
-        repo_url: repoUrl || null,
-        // GitLab is the v1 priority connector.
-        connector: { kind: 'gitlab', project: gitlabProject, branch },
+        repo_url: selectedRepo ? `https://github.com/${selectedRepo.full_name}.git` : null,
+        connector: selectedRepo
+          ? { kind: 'github', project: selectedRepo.full_name, branch: selectedRepo.default_branch }
+          : undefined,
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['workers', 'instances'] })
@@ -290,35 +304,38 @@ function SpawnDrawer({ onClose }: { onClose: () => void }) {
           </Select>
         </Field>
 
-        <Field label="GitLab project (group/repo)">
-          <input
-            className="wk-input"
-            style={{ width: '100%' }}
-            value={gitlabProject}
-            onChange={(e) => setGitlabProject(e.target.value)}
-            placeholder="acme/api"
-            data-testid="wk-instance-spawn-gitlab"
-          />
-        </Field>
-
-        <Field label="Repo URL (clone)">
-          <input
-            className="wk-input"
-            style={{ width: '100%' }}
-            value={repoUrl}
-            onChange={(e) => setRepoUrl(e.target.value)}
-            placeholder="https://gitlab.com/acme/api.git"
-            data-testid="wk-instance-spawn-repo-url"
-          />
-        </Field>
-
-        <Field label="Branch">
-          <input
-            className="wk-input"
-            style={{ width: '100%' }}
-            value={branch}
-            onChange={(e) => setBranch(e.target.value)}
-          />
+        <Field label="Repository">
+          {enabledRepos.length > 0 ? (
+            <Select
+              style={{ width: '100%' }}
+              value={repoFullName}
+              onChange={(e) => setRepoFullName(e.target.value)}
+              data-testid="wk-instance-spawn-repo"
+              size="sm"
+            >
+              {enabledRepos.map((r) => (
+                <option key={r.id} value={r.full_name}>
+                  {r.full_name}
+                </option>
+              ))}
+            </Select>
+          ) : (
+            <div
+              data-testid="wk-instance-spawn-no-repo"
+              style={{
+                border: '1px solid var(--line)',
+                padding: 10,
+                borderRadius: 6,
+                fontSize: 12,
+                color: 'var(--ink-3)',
+              }}
+            >
+              No Git provider connected.{' '}
+              <Link to="/workers/integrations" data-testid="wk-instance-spawn-connect-link">
+                Connect in Settings →
+              </Link>
+            </div>
+          )}
         </Field>
 
         {spawn.error && (
@@ -332,7 +349,7 @@ function SpawnDrawer({ onClose }: { onClose: () => void }) {
           </button>
           <button
             className="btn btn-sm btn-primary"
-            disabled={!name || !model || spawn.isPending}
+            disabled={!name || !model || spawn.isPending || enabledRepos.length === 0}
             onClick={() => spawn.mutate()}
             data-testid="wk-instance-spawn-submit"
           >
