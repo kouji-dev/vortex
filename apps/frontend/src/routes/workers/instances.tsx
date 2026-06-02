@@ -5,12 +5,15 @@
  * drawer collects model + mode (interactive | autonomous) + GitLab connector
  * (+ runtime + skills) and POSTs to /v1/workers/instances.
  */
+import { Select } from '~/components/ui/select'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as React from 'react'
 import * as api from '~/lib/workers-api'
 import { formatTs, workerStateBadgeClass } from '~/lib/workers-logic'
-import type { WorkerMode, WorkerRuntime, WorkerState } from '~/lib/workers-types'
+import type { WorkerMode, WorkerState } from '~/lib/workers-types'
+import { useWorkerModelsQuery } from '~/hooks/useWorkerModelsQuery'
+import { inferRuntime } from '~/lib/worker-runtime'
 
 export const Route = createFileRoute('/workers/instances')({
   component: InstancesPage,
@@ -45,18 +48,20 @@ function InstancesPage() {
     <div data-testid="workers-instances">
       <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center' }}>
         <label style={{ fontSize: 11, color: 'var(--ink-3)' }}>State</label>
-        <select
+        <Select
           className="wk-input"
           value={stateFilter}
           onChange={(e) => setStateFilter(e.target.value as WorkerState | '')}
           data-testid="wk-instance-state-filter"
+        size="sm"
+        inline
         >
           {STATE_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}
             </option>
           ))}
-        </select>
+        </Select>
         <button
           className="btn btn-sm btn-primary"
           onClick={() => setShowSpawn(true)}
@@ -160,26 +165,36 @@ const MODE_OPTIONS: { value: WorkerMode; label: string }[] = [
   { value: 'autonomous', label: 'Autonomous (works on its own)' },
 ]
 
-const RUNTIME_OPTIONS: { value: WorkerRuntime; label: string }[] = [
-  { value: 'claude', label: 'Claude Agent SDK' },
-  { value: 'codex', label: 'Codex CLI' },
-]
+const EFFORT_OPTIONS = ['low', 'medium', 'high', 'max'] as const
 
 function SpawnDrawer({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient()
   const [name, setName] = React.useState('')
-  const [model, setModel] = React.useState('claude-sonnet-4-6')
   const [mode, setMode] = React.useState<WorkerMode>('interactive')
-  const [runtime, setRuntime] = React.useState<WorkerRuntime>('claude')
   const [gitlabProject, setGitlabProject] = React.useState('')
   const [repoUrl, setRepoUrl] = React.useState('')
   const [branch, setBranch] = React.useState('main')
+
+  const workerModels = useWorkerModelsQuery()
+  const [model, setModel] = React.useState('') // api_model_id
+  const [effort, setEffort] = React.useState('medium')
+
+  // Default to the first worker model once loaded.
+  React.useEffect(() => {
+    if (!model && workerModels.data && workerModels.data.length > 0) {
+      setModel(workerModels.data[0].api_model_id)
+      setEffort(workerModels.data[0].effort || 'medium')
+    }
+  }, [workerModels.data, model])
+
+  const runtime = inferRuntime(model) ?? 'claude'
 
   const spawn = useMutation({
     mutationFn: () =>
       api.spawnWorker({
         name,
         model,
+        effort,
         mode,
         runtime,
         repo_url: repoUrl || null,
@@ -226,45 +241,53 @@ function SpawnDrawer({ onClose }: { onClose: () => void }) {
         </Field>
 
         <Field label="Model">
-          <input
-            className="wk-input"
+          <Select
             style={{ width: '100%' }}
             value={model}
             onChange={(e) => setModel(e.target.value)}
             data-testid="wk-instance-spawn-model"
-          />
+            size="sm"
+          >
+            {(workerModels.data ?? []).map((m) => (
+              <option key={m.id} value={m.api_model_id}>
+                {m.display_name}
+              </option>
+            ))}
+          </Select>
+        </Field>
+
+        <Field label="Effort">
+          <Select
+            style={{ width: '100%' }}
+            value={effort}
+            onChange={(e) => setEffort(e.target.value)}
+            data-testid="wk-instance-spawn-effort"
+            size="sm"
+          >
+            {EFFORT_OPTIONS.map((opt) => (
+              <option key={opt} value={opt}>
+                {opt[0].toUpperCase() + opt.slice(1)}
+              </option>
+            ))}
+          </Select>
         </Field>
 
         <Field label="Mode">
-          <select
+          <Select
             className="wk-input"
             style={{ width: '100%' }}
             value={mode}
             onChange={(e) => setMode(e.target.value as WorkerMode)}
             data-testid="wk-instance-spawn-mode"
+          size="sm"
+          inline
           >
             {MODE_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
               </option>
             ))}
-          </select>
-        </Field>
-
-        <Field label="Runtime">
-          <select
-            className="wk-input"
-            style={{ width: '100%' }}
-            value={runtime}
-            onChange={(e) => setRuntime(e.target.value as WorkerRuntime)}
-            data-testid="wk-instance-spawn-runtime"
-          >
-            {RUNTIME_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+          </Select>
         </Field>
 
         <Field label="GitLab project (group/repo)">

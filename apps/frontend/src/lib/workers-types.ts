@@ -190,6 +190,7 @@ export interface WorkerChatMessage {
 export interface SpawnWorkerRequest {
   name: string
   model: string
+  effort?: string
   mode?: WorkerMode
   runtime?: WorkerRuntime
   connector?: Record<string, unknown>
