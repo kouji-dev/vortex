@@ -24,6 +24,7 @@ from ai_portal.audit.sinks_router import router as audit_sinks_router
 from ai_portal.auth.router import router as auth_router
 from ai_portal.auth.routes_control_plane import router as control_plane_router
 from ai_portal.auth.routes_me import router as me_router
+from ai_portal.auth.routes_members import router as members_router
 from ai_portal.auth.routes_mfa import router as auth_mfa_router
 from ai_portal.auth.routes_orgs import router as orgs_router
 from ai_portal.auth.routes_setup import router as setup_router
@@ -62,6 +63,7 @@ from ai_portal.webhooks.router import router as webhooks_router
 from ai_portal.workers.router import router as workers_router
 from ai_portal.workers.instances_router import router as workers_instances_router
 from ai_portal.workers.triggers.webhook_router import router as workers_webhook_router
+from ai_portal.workers.git.router import router as workers_git_router
 from ai_portal.auth.routes_social import router as auth_social_router
 from ai_portal.auth.routes_auth_config import router as auth_config_router
 from ai_portal.auth.routes_ldap import admin_router as auth_ldap_admin_router
@@ -355,6 +357,7 @@ app.include_router(rag_router)
 app.include_router(rag_management_router)
 app.include_router(setup_router)
 app.include_router(orgs_router)
+app.include_router(members_router)
 app.include_router(control_plane_router)
 app.include_router(usage_router)
 app.include_router(usage_v1_router)
@@ -382,6 +385,7 @@ app.include_router(guardrail_policies_router)
 app.include_router(workers_router)
 app.include_router(workers_instances_router)
 app.include_router(workers_webhook_router)
+app.include_router(workers_git_router)
 app.include_router(auth_social_router)
 app.include_router(auth_config_router)
 app.include_router(auth_ldap_public_router)
