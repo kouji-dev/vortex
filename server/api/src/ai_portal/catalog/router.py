@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from ai_portal.auth.deps import get_current_user, get_db
@@ -56,6 +56,7 @@ def _row_to_read(
         catalog_metadata=m.catalog_metadata,
         model_settings=model_settings_from_metadata(m.catalog_metadata),
         accessible=accessible,
+        usable_in_worker=m.usable_in_worker,
         can_request_access=can_request_access,
         request_access_url=m.request_access_url,
         is_default=is_default,
@@ -70,7 +71,10 @@ def _row_to_read(
 def list_catalog_models(
     db: Session = Depends(get_db),
     _user: User = Depends(get_current_user),
+    usable_in_worker: bool | None = Query(default=None),
 ) -> list[CatalogModelRead]:
     rows = repo.get_all_active_catalog_models(db)
+    if usable_in_worker is not None:
+        rows = [m for m in rows if m.usable_in_worker == usable_in_worker]
     default_id = _default_catalog_row_id(rows, db)
     return [_row_to_read(m, is_default=(m.id == default_id), user=_user, db=db) for m in rows]

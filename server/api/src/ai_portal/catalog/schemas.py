@@ -23,6 +23,7 @@ class CatalogModelRead(BaseModel):
     )
     model_settings: catalog_model_settings.ModelSettingsPublic
     accessible: bool
+    usable_in_worker: bool = False
     can_request_access: bool
     request_access_url: str | None = None
     is_default: bool = False
