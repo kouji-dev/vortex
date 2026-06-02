@@ -36,6 +36,9 @@ class CatalogModel(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     requires_entitlement: Mapped[bool] = mapped_column(Boolean, default=False)
+    usable_in_worker: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false", nullable=False, index=True
+    )
     request_access_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     catalog_metadata: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     org_id: Mapped[UUID] = mapped_column(
