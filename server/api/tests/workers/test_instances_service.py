@@ -57,7 +57,7 @@ def test_spawn_rejects_bad_runtime() -> None:
 def test_spawn_rejects_unknown_skill() -> None:
     with pytest.raises(svc.InvalidArg):
         svc.spawn_worker(
-            _FakeSession(), org_id=_ORG, name="w", model="m", skills=["ghost"]
+            _FakeSession(), org_id=_ORG, name="w", model="claude-sonnet-4-6", skills=["ghost"]
         )
 
 

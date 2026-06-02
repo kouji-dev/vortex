@@ -21,6 +21,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ai_portal.workers.agent_runtime import AgentRuntimeConfig
+from ai_portal.workers.runtime_infer import infer_runtime
 from ai_portal.workers.model import (
     Worker,
     WorkerInstanceRun,
@@ -63,7 +64,7 @@ def spawn_worker(
     name: str,
     model: str,
     mode: str = "interactive",
-    runtime: str = "claude",
+    runtime: str | None = None,
     connector: dict[str, Any] | None = None,
     repo_url: str | None = None,
     pool_id: _uuid.UUID | None = None,
@@ -79,6 +80,10 @@ def spawn_worker(
     """
     if mode not in WORKER_MODES:
         raise InvalidArg(f"invalid mode {mode!r}")
+    try:
+        runtime = runtime or infer_runtime(model)
+    except ValueError as exc:
+        raise InvalidArg(str(exc)) from exc
     if runtime not in WORKER_RUNTIMES:
         raise InvalidArg(f"invalid runtime {runtime!r}")
     if skills:
