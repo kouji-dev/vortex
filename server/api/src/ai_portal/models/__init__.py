@@ -19,6 +19,7 @@ from ai_portal.knowledge_base.model import (  # noqa: F401
 from ai_portal.auth.model import Org, OrgInvite, User, UserPortalApiKey  # noqa: F401
 from ai_portal.workers.model import (  # noqa: F401
     GitIntegration,
+    GitRepo,
     IssueTrackerIntegration,
     Worker,
     WorkerApproval,

@@ -361,28 +361,69 @@ class WorkerBranchLock(Base):
 
 
 class GitIntegration(Base):
-    """Per-org git provider config (cipher text)."""
+    """Per-org or per-user git provider config (cipher text).
+
+    Either ``org_id`` or ``user_id`` owns the integration (the other is NULL).
+    ``auth_type`` records how credentials are stored (``token`` | ``oauth``).
+    ``account_login`` holds the provider account/login handle for display.
+    """
 
     __tablename__ = "git_integrations"
 
     id: Mapped[_uuid.UUID] = mapped_column(
         PGUUID(as_uuid=True), primary_key=True, default=_uuid.uuid4
     )
-    org_id: Mapped[_uuid.UUID] = mapped_column(
+    org_id: Mapped[_uuid.UUID | None] = mapped_column(
         PGUUID(as_uuid=True),
         ForeignKey("orgs.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
+        index=True,
+    )
+    user_id: Mapped[_uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("users.uuid", ondelete="CASCADE"),
+        nullable=True,
         index=True,
     )
     kind: Mapped[str] = mapped_column(String(32), nullable=False)
     config_encrypted: Mapped[bytes] = mapped_column(
         LargeBinary, nullable=False, server_default=_EMPTY_BYTEA
     )
+    account_login: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    auth_type: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="token", server_default="token"
+    )
     enabled: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default="true"
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class GitRepo(Base):
+    """A repository discovered for a git integration; workers may use enabled ones."""
+
+    __tablename__ = "git_repos"
+
+    id: Mapped[_uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, default=_uuid.uuid4
+    )
+    integration_id: Mapped[_uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("git_integrations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    full_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    default_branch: Mapped[str] = mapped_column(
+        String(255), nullable=False, server_default="main"
+    )
+    enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
     )
 
 
