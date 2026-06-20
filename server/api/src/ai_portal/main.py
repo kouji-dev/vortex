@@ -66,8 +66,6 @@ from ai_portal.workers.triggers.webhook_router import router as workers_webhook_
 from ai_portal.workers.git.router import router as workers_git_router
 from ai_portal.auth.routes_social import router as auth_social_router
 from ai_portal.auth.routes_auth_config import router as auth_config_router
-from ai_portal.auth.routes_ldap import admin_router as auth_ldap_admin_router
-from ai_portal.auth.routes_ldap import public_router as auth_ldap_public_router
 from ai_portal.control_plane.teams.router import router as teams_router
 
 logger = logging.getLogger(__name__)
@@ -388,8 +386,6 @@ app.include_router(workers_webhook_router)
 app.include_router(workers_git_router)
 app.include_router(auth_social_router)
 app.include_router(auth_config_router)
-app.include_router(auth_ldap_public_router)
-app.include_router(auth_ldap_admin_router)
 app.include_router(teams_router)
 app.include_router(gateway_openai_compat_router)
 
