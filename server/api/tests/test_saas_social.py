@@ -247,7 +247,7 @@ class TestSocialCallbackRoute:
         _clear_for_tests()
         register_social_provider("github", GitHubSocialProvider.from_env)
 
-        with patch("ai_portal.auth.config.get_auth_config") as mock_cfg:
+        with patch("ai_portal.auth.routes_social.get_auth_config") as mock_cfg:
             cfg = MagicMock()
             cfg.social_providers = ["github"]
             mock_cfg.return_value = cfg

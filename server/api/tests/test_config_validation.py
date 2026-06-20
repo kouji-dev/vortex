@@ -57,9 +57,6 @@ database:
 auth:
   secret_key: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   portal_api_key_pepper: ""
-  entra_tenant_id: ""
-  entra_api_audience: ""
-  entra_debug_jwt: false
 smtp:
   host: ""
   port: 587
@@ -97,7 +94,7 @@ observability:
     config_file.write_text(yaml_content)
     monkeypatch.setenv("AI_PORTAL_CONFIG", str(config_file))
     # Clear any leftover env vars that might shadow YAML values
-    for key in ["API_HOST", "API_PORT", "DATABASE_URL", "SECRET_KEY", "DEPLOYMENT_MODE"]:
+    for key in ["API_HOST", "API_PORT", "DATABASE_URL", "SECRET_KEY", "DEPLOYMENT_MODE", "CORS_ORIGINS"]:
         monkeypatch.delenv(key, raising=False)
 
     s = Settings()
@@ -117,9 +114,6 @@ llm:
 auth:
   secret_key: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   portal_api_key_pepper: ""
-  entra_tenant_id: ""
-  entra_api_audience: ""
-  entra_debug_jwt: false
 server:
   host: 0.0.0.0
   port: 8000

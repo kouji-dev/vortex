@@ -112,8 +112,9 @@ class TestRegisterEndpoint:
         )
         assert resp.status_code == 403
 
-    def test_register_in_enterprise_mode_returns_400(self, monkeypatch):
-        monkeypatch.setenv("DEPLOYMENT_MODE", "enterprise")
+    def test_register_in_selfhosted_mode_blocks_open_signup(self, monkeypatch):
+        # enterprise was never a valid mode; selfhosted is the correct non-saas literal
+        monkeypatch.setenv("DEPLOYMENT_MODE", "selfhosted")
         monkeypatch.setenv("SECRET_KEY", SECRET)
         from fastapi.testclient import TestClient
         from ai_portal.main import app
@@ -122,7 +123,7 @@ class TestRegisterEndpoint:
             "/auth/register",
             json={"email": "x@example.com", "password": "Passw0rd!"},
         )
-        assert resp.status_code == 400
+        assert resp.status_code == 403
 
 
 # ── login endpoint ────────────────────────────────────────────────────────────

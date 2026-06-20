@@ -8,6 +8,18 @@ import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
+# Auto-provide SCRATCH_DATABASE_URL from DATABASE_URL when not already set.
+# Enables test_alembic_clean_upgrade.py without requiring manual env export.
+# Uses the same Postgres server as DATABASE_URL but a throwaway scratch DB.
+_db_url = os.environ.get("DATABASE_URL", "")
+if _db_url and "SCRATCH_DATABASE_URL" not in os.environ:
+    from sqlalchemy.engine.url import make_url as _make_url
+    try:
+        _scratch = _make_url(_db_url).set(database="ai_portal_scratch").render_as_string(hide_password=False)
+        os.environ["SCRATCH_DATABASE_URL"] = _scratch
+    except Exception:
+        pass
+
 # Hosts no test may ever reach — real LLM/embedding/rerank APIs cost money.
 # Tests mock at the boundary (respx / a provider fixture); a real DNS lookup to
 # one of these fails loud instead of silently spending.

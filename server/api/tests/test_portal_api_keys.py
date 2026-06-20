@@ -34,9 +34,16 @@ def seeded_user(db_session: Session):
 
 
 @requires_postgres
-def test_portal_api_key_auth_roundtrip(monkeypatch, seeded_user):
+def test_portal_api_key_auth_roundtrip(monkeypatch, seeded_user, db_session):
     monkeypatch.setenv("PORTAL_API_KEY_PEPPER", "test-pepper")
     user, org = seeded_user
+
+    from ai_portal.auth.deps import get_db
+
+    def _override_db():
+        yield db_session
+
+    app.dependency_overrides[get_db] = _override_db
 
     settings = get_settings()
     token = create_access_token(
@@ -49,22 +56,25 @@ def test_portal_api_key_auth_roundtrip(monkeypatch, seeded_user):
 
     client = TestClient(app)
 
-    cr = client.post(
-        "/api/me/portal-api-keys",
-        headers=auth_headers,
-        json={"label": "codex"},
-    )
-    assert cr.status_code == 201, cr.text
-    api_token = cr.json()["token"]
-    assert api_token.startswith("aip_")
+    try:
+        cr = client.post(
+            "/api/me/portal-api-keys",
+            headers=auth_headers,
+            json={"label": "codex"},
+        )
+        assert cr.status_code == 201, cr.text
+        api_token = cr.json()["token"]
+        assert api_token.startswith("aip_")
 
-    me = client.get("/api/me", headers={"Authorization": f"Bearer {api_token}"})
-    assert me.status_code == 200
-    assert me.json()["email"] == user.email
+        me = client.get("/api/me", headers={"Authorization": f"Bearer {api_token}"})
+        assert me.status_code == 200
+        assert me.json()["email"] == user.email
 
-    kid = cr.json()["id"]
-    dr = client.delete(f"/api/me/portal-api-keys/{kid}", headers=auth_headers)
-    assert dr.status_code == 204
+        kid = cr.json()["id"]
+        dr = client.delete(f"/api/me/portal-api-keys/{kid}", headers=auth_headers)
+        assert dr.status_code == 204
 
-    me2 = client.get("/api/me", headers={"Authorization": f"Bearer {api_token}"})
-    assert me2.status_code == 401
+        me2 = client.get("/api/me", headers={"Authorization": f"Bearer {api_token}"})
+        assert me2.status_code == 401
+    finally:
+        app.dependency_overrides.pop(get_db, None)

@@ -39,16 +39,14 @@ def _postgres_root_url(scratch_url: str) -> str:
     return url.set(database="postgres").render_as_string(hide_password=False)
 
 
-pytestmark = pytest.mark.skipif(
-    not _scratch_url(),
-    reason=f"{_SCRATCH_URL_ENV} not set — skipping clean-upgrade test",
-)
-
-
 def test_alembic_upgrade_head_from_empty_database() -> None:
     """`alembic upgrade head` succeeds against a freshly-created empty DB."""
     scratch_url = _scratch_url()
-    assert scratch_url is not None  # for type-checkers; pytestmark guarantees
+    if scratch_url is None:
+        pytest.fail(
+            f"{_SCRATCH_URL_ENV} not set — set it to run the clean-upgrade test. "
+            "Example: postgresql+psycopg://postgres:postgres@127.0.0.1:5435/ai_portal_scratch"
+        )
 
     parsed = make_url(scratch_url)
     # Use a unique DB name per run so concurrent runs don't trip over each other.
