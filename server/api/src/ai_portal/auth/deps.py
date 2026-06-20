@@ -7,22 +7,14 @@ from fastapi import Depends, Header, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ai_portal.auth.strategies.entra import decode_entra_access_token, roles_from_claims
 from ai_portal.auth.strategies.jwt import decode_token
 from ai_portal.auth.strategies.portal_keys import user_for_portal_api_key
-from ai_portal.auth.service import profile_fields_from_claims, upsert_user_from_entra_claims
 from ai_portal.core.config import get_settings
 from ai_portal.core.db.rls import set_org_context
 from ai_portal.core.db.session import SessionLocal
 from ai_portal.auth.model import User
 
 logger = logging.getLogger(__name__)
-
-
-def _looks_like_compact_jws(token: str) -> bool:
-    """Entra access tokens are JWS compact form: header.payload.signature (3 segments)."""
-    parts = token.split(".")
-    return len(parts) == 3 and all(len(p) > 0 for p in parts)
 
 
 def get_db() -> Generator[Session, None, None]:
@@ -72,112 +64,39 @@ def _authenticate(
             )
         return user
 
-    # Dev bearer short-circuit: when auth_mode=dev, the dev bearer is accepted
-    # regardless of deployment_mode (so local development against a SaaS-mode
-    # backend keeps working without minting JWTs).
-    if settings.auth_mode == "dev" and token == settings.dev_bearer_token:
-        user = db.scalars(
-            select(User).where(User.email == settings.dev_seed_user_email)
-        ).first()
-        if user is None:
-            raise HTTPException(
-                status.HTTP_401_UNAUTHORIZED,
-                detail="Dev user not found; run alembic upgrade head",
-            )
-        # Populate app_roles for the dev user — admin UI gates on these.
-        # Default to owner so the dev session has full access.
-        user_role = getattr(user, "role", None) or "owner"
-        request.state.app_roles = [user_role]
-        return user
+    # Enterprise OIDC (selfhosted + oidc_issuer configured): RS256 token → OIDC bearer path.
+    if settings.deployment_mode == "selfhosted" and settings.oidc_issuer:
+        if token.count(".") == 2 and jwt.get_unverified_header(token).get("alg", "").startswith("RS"):
+            from ai_portal.auth.oidc.bearer import authenticate_oidc_bearer
+            user, role = authenticate_oidc_bearer(db, token, settings)
+            request.state.app_roles = [role]
+            return user
 
-    # New local auth: deployment_mode=saas|selfhosted uses JWT with uuid sub
-    if settings.deployment_mode in ("saas", "selfhosted"):
+    # SaaS / selfhosted local JWT (HS256, our own IdP)
+    try:
+        payload = decode_token(token, secret=settings.secret_key)
+    except jwt.PyJWTError as e:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from e
+    if payload.get("type") != "access":
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Not an access token")
+    user_uuid = _uuid.UUID(payload["sub"])
+    user = db.scalars(select(User).where(User.uuid == user_uuid)).first()
+    if user is None or not user.is_active:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    sid_raw = payload.get("sid")
+    if isinstance(sid_raw, str) and sid_raw:
         try:
-            payload = decode_token(token, secret=settings.secret_key)
-        except jwt.PyJWTError as e:
-            raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from e
-        if payload.get("type") != "access":
-            raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Not an access token")
-        user_uuid = _uuid.UUID(payload["sub"])
-        user = db.scalars(select(User).where(User.uuid == user_uuid)).first()
-        if user is None or not user.is_active:
-            raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="User not found")
-        sid_raw = payload.get("sid")
-        if isinstance(sid_raw, str) and sid_raw:
-            try:
-                sid_uuid = _uuid.UUID(sid_raw)
-                from ai_portal.auth.sessions import is_session_active
+            sid_uuid = _uuid.UUID(sid_raw)
+            from ai_portal.auth.sessions import is_session_active
 
-                if not is_session_active(db, session_id=sid_uuid):
-                    raise HTTPException(
-                        status.HTTP_401_UNAUTHORIZED, detail="Session revoked"
-                    )
-                request.state.session_id = sid_uuid
-            except ValueError:
-                pass
-        return user
-
-    if settings.auth_mode == "dev":
-        if token != settings.dev_bearer_token:
-            raise HTTPException(
-                status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token",
-            )
-        user = db.scalars(
-            select(User).where(User.email == settings.dev_seed_user_email)
-        ).first()
-        if user is None:
-            raise HTTPException(
-                status.HTTP_401_UNAUTHORIZED,
-                detail="Dev user not found; run alembic upgrade head",
-            )
-        return user
-
-    if settings.auth_mode == "entra":
-        if not settings.entra_tenant_id or not settings.entra_api_audience:
-            raise HTTPException(
-                status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Entra auth misconfigured (tenant or audience)",
-            )
-        if not _looks_like_compact_jws(token):
-            raise HTTPException(
-                status.HTTP_401_UNAUTHORIZED,
-                detail=(
-                    "Bearer token is not a JWT; this API is running with AUTH_MODE=entra. "
-                    "Send a Microsoft Entra access token for your API scope, or set AUTH_MODE=dev "
-                    "(and restart) to use DEV_BEARER_TOKEN from the SPA."
-                ),
-            )
-        try:
-            claims = decode_entra_access_token(
-                token,
-                tenant_id=settings.entra_tenant_id,
-                audience=settings.entra_api_audience,
-            )
-            request.state.app_roles = roles_from_claims(claims)
-            request.state.me_profile = profile_fields_from_claims(claims)
-            return upsert_user_from_entra_claims(db, claims)
-        except jwt.PyJWTError as e:
-            logger.warning("Entra JWT rejected: %s", e)
-            detail = (
-                f"Invalid or expired token: {e}"
-                if settings.entra_debug_jwt
-                else "Invalid or expired token"
-            )
-            raise HTTPException(
-                status.HTTP_401_UNAUTHORIZED,
-                detail=detail,
-            ) from None
-        except ValueError as e:
-            raise HTTPException(
-                status.HTTP_401_UNAUTHORIZED,
-                detail=str(e),
-            ) from e
-
-    raise HTTPException(
-        status.HTTP_500_INTERNAL_SERVER_ERROR,
-        detail="Unknown auth_mode",
-    )
+            if not is_session_active(db, session_id=sid_uuid):
+                raise HTTPException(
+                    status.HTTP_401_UNAUTHORIZED, detail="Session revoked"
+                )
+            request.state.session_id = sid_uuid
+        except ValueError:
+            pass
+    return user
 
 
 def get_app_roles(request: Request) -> list[str]:

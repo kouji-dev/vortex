@@ -338,7 +338,7 @@ def health() -> dict[str, Any]:
     st = get_settings()
     return {
         "status": "ok",
-        "auth_mode": st.auth_mode,
+        "deployment_mode": st.deployment_mode,
         "api": {"post_knowledge_bases": _app_has_post_knowledge_bases_create()},
     }
 
