@@ -1,13 +1,13 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../support/fixtures'
 
 test.describe('Admin consumption page', () => {
   test('consumption nav link is visible in sidebar', async ({ page }) => {
-    await page.goto('/chat/conversations', { waitUntil: 'networkidle' })
+    await page.goto('/chat/conversations', { waitUntil: 'domcontentloaded' })
     await expect(page.getByTestId('nav-consumption')).toBeVisible()
   })
 
   test('consumption page loads with heading', async ({ page }) => {
-    await page.goto('/org/consumption', { waitUntil: 'networkidle' })
+    await page.goto('/org/consumption', { waitUntil: 'domcontentloaded' })
     await expect(page.getByTestId('consumption-page')).toBeVisible()
     await expect(page.getByRole('heading', { name: /consumption/i })).toBeVisible()
   })
@@ -46,7 +46,7 @@ test.describe('Admin consumption page', () => {
       })
     })
 
-    await page.goto('/org/consumption', { waitUntil: 'networkidle' })
+    await page.goto('/org/consumption', { waitUntil: 'domcontentloaded' })
     await expect(page.getByTestId('consumption-page')).toBeVisible()
     // KPI strip should render the mocked data
     await expect(page.locator('.kpi-row')).toBeVisible({ timeout: 5_000 })

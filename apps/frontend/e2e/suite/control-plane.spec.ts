@@ -9,7 +9,7 @@
  * All backend interactions are mocked at the browser via page.route() — no direct API seeding.
  * Scaffold: failures expected when the matching UI surfaces evolve; specs document the contract.
  */
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../support/fixtures'
 
 test.describe('Suite — Control plane', () => {
   // ───────────────────────────────────────────────────────────────────
@@ -29,7 +29,7 @@ test.describe('Suite — Control plane', () => {
       })
     })
 
-    await page.goto('/login', { waitUntil: 'networkidle' })
+    await page.goto('/login', { waitUntil: 'domcontentloaded' })
     await page.getByPlaceholder('you@company.com').fill('admin@example.com')
     await page.getByPlaceholder('••••••••').fill('hunter2')
     await page.getByRole('button', { name: /continue to workspace/i }).click()
@@ -73,7 +73,7 @@ test.describe('Suite — Control plane', () => {
     })
 
     // Naviguate to the admin API keys surface. Folded into org settings or a dedicated tab.
-    await page.goto('/org/settings', { waitUntil: 'networkidle' })
+    await page.goto('/org/settings', { waitUntil: 'domcontentloaded' })
     const apiKeysTab = page.getByRole('button', { name: /api keys/i }).first()
     if (await apiKeysTab.isVisible().catch(() => false)) {
       await apiKeysTab.click()
@@ -169,7 +169,7 @@ test.describe('Suite — Control plane', () => {
       })
     })
 
-    await page.goto('/org/settings', { waitUntil: 'networkidle' })
+    await page.goto('/org/settings', { waitUntil: 'domcontentloaded' })
     await page.getByRole('button', { name: 'Audit Log' }).click()
     await expect(page.getByText('api_key.create')).toBeVisible({ timeout: 10_000 })
   })

@@ -1,7 +1,7 @@
 /**
  * Admin Retention tab — verify policy fields, legal hold toggle, and GDPR purge UI.
  */
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../support/fixtures'
 
 const RETENTION_ROUTE = '**/api/admin/retention/policy'
 
@@ -30,7 +30,7 @@ test.describe('Admin — Retention tab', () => {
       })
     })
 
-    await page.goto('/org/settings', { waitUntil: 'networkidle' })
+    await page.goto('/org/settings', { waitUntil: 'domcontentloaded' })
     await page.getByRole('button', { name: 'Retention' }).click()
 
     // Use exact text to avoid strict-mode matching description paragraphs.
@@ -46,7 +46,7 @@ test.describe('Admin — Retention tab', () => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_POLICY) })
     })
 
-    await page.goto('/org/settings', { waitUntil: 'networkidle' })
+    await page.goto('/org/settings', { waitUntil: 'domcontentloaded' })
     await page.getByRole('button', { name: 'Retention' }).click()
 
     await expect(page.getByText('GDPR — Purge user data')).toBeVisible()
@@ -59,7 +59,7 @@ test.describe('Admin — Retention tab', () => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_POLICY) })
     })
 
-    await page.goto('/org/settings', { waitUntil: 'networkidle' })
+    await page.goto('/org/settings', { waitUntil: 'domcontentloaded' })
     await page.getByRole('button', { name: 'Retention' }).click()
 
     const legalHoldSection = page.locator('[data-testid="org-settings"]').locator('div').filter({ hasText: 'Legal hold' }).first()

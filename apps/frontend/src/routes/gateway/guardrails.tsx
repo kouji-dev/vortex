@@ -1,5 +1,6 @@
 // apps/frontend/src/routes/gateway/guardrails.tsx
 // Gateway → Guardrails (J6): policy bundle editor + live test pane.
+import { Select } from '~/components/ui/select'
 import { createFileRoute } from '@tanstack/react-router'
 import * as React from 'react'
 import { authorizedFetch } from '~/lib/authorizedFetch'
@@ -232,24 +233,26 @@ function PhaseEditor({
     <section style={{ marginBottom: 16 }} data-testid={`phase-${phase}`}>
       <div className="panel-head" style={{ fontSize: 11 }}>{label}</div>
       <div style={{ display: 'flex', gap: 6, padding: '8px 0' }}>
-        <select
+        <Select
           value={kind}
           onChange={(e) => setKind(e.target.value as GuardrailKind)}
-          style={{ flex: 1, fontSize: 11, padding: 4, border: '1px solid var(--line)', borderRadius: 3, background: 'var(--bg)', color: 'var(--ink)' }}
+        size="sm"
+        inline
         >
           {KINDS.map((k) => (
             <option key={k} value={k}>{k}</option>
           ))}
-        </select>
-        <select
+        </Select>
+        <Select
           value={action}
           onChange={(e) => setAction(e.target.value as GuardrailAction)}
-          style={{ fontSize: 11, padding: 4, border: '1px solid var(--line)', borderRadius: 3, background: 'var(--bg)', color: 'var(--ink)' }}
+        size="sm"
+        inline
         >
           {ACTIONS.map((a) => (
             <option key={a} value={a}>{a}</option>
           ))}
-        </select>
+        </Select>
         <button
           className="btn btn-sm"
           onClick={() => onAdd({ kind, config: {}, on_match: action })}

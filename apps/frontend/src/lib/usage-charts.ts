@@ -28,7 +28,7 @@ export function scaleBars(
   selector: (b: UsageBucket) => number,
   maxWidth: number,
 ): ScaledBar[] {
-  if (buckets.length === 0) return []
+  if (!buckets || buckets.length === 0) return []
   const values = buckets.map(selector)
   const max = Math.max(...values, 1) // never divide by zero
   return buckets.map((b, i) => {
@@ -53,7 +53,7 @@ export function scaleTimeseries(
   width: number,
   height: number,
 ): ScaledLinePoint[] {
-  if (points.length === 0) return []
+  if (!points || points.length === 0) return []
   const values = points.map(selector)
   const max = Math.max(...values, 1)
   const n = points.length
@@ -79,6 +79,7 @@ export function buildLinePath(points: ScaledLinePoint[]): string {
  * Format cents as dollars with sensible precision.
  */
 export function formatCost(cents: number): string {
+  if (cents == null || Number.isNaN(cents)) return '—'
   const dollars = cents / 100
   if (dollars >= 100) return `$${dollars.toFixed(0)}`
   if (dollars >= 1) return `$${dollars.toFixed(2)}`
@@ -90,6 +91,7 @@ export function formatCost(cents: number): string {
  * Format token counts with k/M suffix.
  */
 export function formatTokens(n: number): string {
+  if (n == null || Number.isNaN(n)) return '—'
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`
   return String(n)

@@ -1,3 +1,4 @@
+import { Select } from '~/components/ui/select'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as React from 'react'
@@ -343,9 +344,9 @@ function BudgetDialog({
           />
         </Field>
         <Field label="Scope">
-          <select value={scopeKind} onChange={(e) => setScopeKind(e.target.value as ScopeKind)} style={inputStyle}>
+          <Select value={scopeKind} onChange={(e) => setScopeKind(e.target.value as ScopeKind)} size="sm" inline>
             {SCOPES.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
+          </Select>
         </Field>
         {scopeKind !== 'org' && (
           <Field label="Scope id">
@@ -356,11 +357,11 @@ function BudgetDialog({
           <input value={limit} onChange={(e) => setLimit(e.target.value)} placeholder="100.00" style={inputStyle} />
         </Field>
         <Field label="Period">
-          <select value={period} onChange={(e) => setPeriod(e.target.value as 'day' | 'month' | 'custom')} style={inputStyle}>
+          <Select value={period} onChange={(e) => setPeriod(e.target.value as 'day' | 'month' | 'custom')} size="sm" inline>
             <option value="day">Day</option>
             <option value="month">Month</option>
             <option value="custom">Custom</option>
-          </select>
+          </Select>
         </Field>
         <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12, margin: '8px 0' }}>
           <input
@@ -424,15 +425,15 @@ function QuotaDialog({
       <form onSubmit={submit}>
         <Field label="Name"><input required value={name} onChange={(e) => setName(e.target.value)} style={inputStyle} /></Field>
         <Field label="Scope">
-          <select value={scopeKind} onChange={(e) => setScopeKind(e.target.value as ScopeKind)} style={inputStyle}>
+          <Select value={scopeKind} onChange={(e) => setScopeKind(e.target.value as ScopeKind)} size="sm" inline>
             {SCOPES.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
+          </Select>
         </Field>
         {scopeKind !== 'org' && (
           <Field label="Scope id"><input value={scopeId} onChange={(e) => setScopeId(e.target.value)} style={inputStyle} /></Field>
         )}
         <Field label="Unit">
-          <select value={unit} onChange={(e) => setUnit(e.target.value)} style={inputStyle}>
+          <Select value={unit} onChange={(e) => setUnit(e.target.value)} size="sm" inline>
             <option value="tokens_in">tokens_in</option>
             <option value="tokens_out">tokens_out</option>
             <option value="embeddings">embeddings</option>
@@ -440,22 +441,22 @@ function QuotaDialog({
             <option value="queries">queries</option>
             <option value="worker_minutes">worker_minutes</option>
             <option value="storage_gb">storage_gb</option>
-          </select>
+          </Select>
         </Field>
         <Field label="Max"><input value={maxQty} onChange={(e) => setMaxQty(e.target.value)} placeholder="1000000" style={inputStyle} /></Field>
         <Field label="Period">
-          <select value={period} onChange={(e) => setPeriod(e.target.value as 'day' | 'month' | 'custom')} style={inputStyle}>
+          <Select value={period} onChange={(e) => setPeriod(e.target.value as 'day' | 'month' | 'custom')} size="sm" inline>
             <option value="day">Day</option>
             <option value="month">Month</option>
             <option value="custom">Custom</option>
-          </select>
+          </Select>
         </Field>
         <Field label="On breach">
-          <select value={action} onChange={(e) => setAction(e.target.value as 'block' | 'warn' | 'allow')} style={inputStyle}>
+          <Select value={action} onChange={(e) => setAction(e.target.value as 'block' | 'warn' | 'allow')} size="sm" inline>
             <option value="block">block</option>
             <option value="warn">warn</option>
             <option value="allow">allow</option>
-          </select>
+          </Select>
         </Field>
         {(error || localError) && <p style={{ fontSize: 11, color: 'var(--red)', marginBottom: 8 }}>{error || localError}</p>}
         <DialogActions saving={saving} onCancel={onCancel} />

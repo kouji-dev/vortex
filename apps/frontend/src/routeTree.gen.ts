@@ -24,10 +24,10 @@ import { Route as KnowledgeBasesIndexRouteImport } from './routes/knowledge-base
 import { Route as GatewayIndexRouteImport } from './routes/gateway/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as WorkersTasksRouteImport } from './routes/workers/tasks'
-import { Route as WorkersInstancesRouteImport } from './routes/workers/instances'
 import { Route as WorkersSettingsRouteImport } from './routes/workers/settings'
 import { Route as WorkersPoolsRouteImport } from './routes/workers/pools'
 import { Route as WorkersIntegrationsRouteImport } from './routes/workers/integrations'
+import { Route as WorkersInstancesRouteImport } from './routes/workers/instances'
 import { Route as WorkersAnalyticsRouteImport } from './routes/workers/analytics'
 import { Route as RagSearchProvidersRouteImport } from './routes/rag/search-providers'
 import { Route as RagMarketplaceRouteImport } from './routes/rag/marketplace'
@@ -48,14 +48,14 @@ import { Route as GatewayGuardrailsRouteImport } from './routes/gateway/guardrai
 import { Route as GatewayEvalsRouteImport } from './routes/gateway/evals'
 import { Route as AdminWebhooksRouteImport } from './routes/admin/webhooks'
 import { Route as AdminUsageRouteImport } from './routes/admin/usage'
-import { Route as AdminSsoRouteImport } from './routes/admin/sso'
 import { Route as AdminTeamsRouteImport } from './routes/admin/teams'
-import { Route as AdminDirectoryRouteImport } from './routes/admin/directory'
+import { Route as AdminSsoRouteImport } from './routes/admin/sso'
 import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
 import { Route as AdminScimRouteImport } from './routes/admin/scim'
 import { Route as AdminMemoryPoliciesRouteImport } from './routes/admin/memory-policies'
 import { Route as AdminMemoryAnalyticsRouteImport } from './routes/admin/memory-analytics'
 import { Route as AdminMembersRouteImport } from './routes/admin/members'
+import { Route as AdminDirectoryRouteImport } from './routes/admin/directory'
 import { Route as AdminDataRouteImport } from './routes/admin/data'
 import { Route as AdminBudgetsRouteImport } from './routes/admin/budgets'
 import { Route as AdminBillingRouteImport } from './routes/admin/billing'
@@ -163,14 +163,14 @@ const WorkersPoolsRoute = WorkersPoolsRouteImport.update({
   path: '/pools',
   getParentRoute: () => WorkersRouteRoute,
 } as any)
-const WorkersInstancesRoute = WorkersInstancesRouteImport.update({
-  id: '/instances',
-  path: '/instances',
-  getParentRoute: () => WorkersRouteRoute,
-} as any)
 const WorkersIntegrationsRoute = WorkersIntegrationsRouteImport.update({
   id: '/integrations',
   path: '/integrations',
+  getParentRoute: () => WorkersRouteRoute,
+} as any)
+const WorkersInstancesRoute = WorkersInstancesRouteImport.update({
+  id: '/instances',
+  path: '/instances',
   getParentRoute: () => WorkersRouteRoute,
 } as any)
 const WorkersAnalyticsRoute = WorkersAnalyticsRouteImport.update({
@@ -273,19 +273,14 @@ const AdminUsageRoute = AdminUsageRouteImport.update({
   path: '/usage',
   getParentRoute: () => AdminRouteRoute,
 } as any)
-const AdminSsoRoute = AdminSsoRouteImport.update({
-  id: '/sso',
-  path: '/sso',
-  getParentRoute: () => AdminRouteRoute,
-} as any)
 const AdminTeamsRoute = AdminTeamsRouteImport.update({
   id: '/teams',
   path: '/teams',
   getParentRoute: () => AdminRouteRoute,
 } as any)
-const AdminDirectoryRoute = AdminDirectoryRouteImport.update({
-  id: '/directory',
-  path: '/directory',
+const AdminSsoRoute = AdminSsoRouteImport.update({
+  id: '/sso',
+  path: '/sso',
   getParentRoute: () => AdminRouteRoute,
 } as any)
 const AdminSettingsRoute = AdminSettingsRouteImport.update({
@@ -311,6 +306,11 @@ const AdminMemoryAnalyticsRoute = AdminMemoryAnalyticsRouteImport.update({
 const AdminMembersRoute = AdminMembersRouteImport.update({
   id: '/members',
   path: '/members',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminDirectoryRoute = AdminDirectoryRouteImport.update({
+  id: '/directory',
+  path: '/directory',
   getParentRoute: () => AdminRouteRoute,
 } as any)
 const AdminDataRoute = AdminDataRouteImport.update({
@@ -358,6 +358,12 @@ const WorkersTasksTaskIdRoute = WorkersTasksTaskIdRouteImport.update({
   path: '/$taskId',
   getParentRoute: () => WorkersTasksRoute,
 } as any)
+const WorkersInstancesWorkerIdRoute =
+  WorkersInstancesWorkerIdRouteImport.update({
+    id: '/$workerId',
+    path: '/$workerId',
+    getParentRoute: () => WorkersInstancesRoute,
+  } as any)
 const ChatConversationsIdRoute = ChatConversationsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -367,11 +373,6 @@ const WorkersPoolsIdTemplateRoute = WorkersPoolsIdTemplateRouteImport.update({
   id: '/$id/template',
   path: '/$id/template',
   getParentRoute: () => WorkersPoolsRoute,
-} as any)
-const WorkersInstancesWorkerIdRoute = WorkersInstancesWorkerIdRouteImport.update({
-  id: '/$workerId',
-  path: '/$workerId',
-  getParentRoute: () => WorkersInstancesRoute,
 } as any)
 const RagKbsIdSettingsRoute = RagKbsIdSettingsRouteImport.update({
   id: '/kbs/$id/settings',
@@ -436,6 +437,7 @@ export interface FileRoutesByFullPath {
   '/admin/billing': typeof AdminBillingRoute
   '/admin/budgets': typeof AdminBudgetsRoute
   '/admin/data': typeof AdminDataRoute
+  '/admin/directory': typeof AdminDirectoryRoute
   '/admin/members': typeof AdminMembersRoute
   '/admin/memory-analytics': typeof AdminMemoryAnalyticsRoute
   '/admin/memory-policies': typeof AdminMemoryPoliciesRoute
@@ -443,7 +445,6 @@ export interface FileRoutesByFullPath {
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/sso': typeof AdminSsoRoute
   '/admin/teams': typeof AdminTeamsRoute
-  '/admin/directory': typeof AdminDirectoryRoute
   '/admin/usage': typeof AdminUsageRoute
   '/admin/webhooks': typeof AdminWebhooksRoute
   '/gateway/evals': typeof GatewayEvalsRoute
@@ -464,8 +465,8 @@ export interface FileRoutesByFullPath {
   '/rag/marketplace': typeof RagMarketplaceRoute
   '/rag/search-providers': typeof RagSearchProvidersRoute
   '/workers/analytics': typeof WorkersAnalyticsRoute
-  '/workers/integrations': typeof WorkersIntegrationsRoute
   '/workers/instances': typeof WorkersInstancesRouteWithChildren
+  '/workers/integrations': typeof WorkersIntegrationsRoute
   '/workers/pools': typeof WorkersPoolsRouteWithChildren
   '/workers/settings': typeof WorkersSettingsRoute
   '/workers/tasks': typeof WorkersTasksRouteWithChildren
@@ -474,6 +475,7 @@ export interface FileRoutesByFullPath {
   '/knowledge-bases/': typeof KnowledgeBasesIndexRoute
   '/workers/': typeof WorkersIndexRoute
   '/chat/conversations/$id': typeof ChatConversationsIdRoute
+  '/workers/instances/$workerId': typeof WorkersInstancesWorkerIdRoute
   '/workers/tasks/$taskId': typeof WorkersTasksTaskIdRoute
   '/chat/conversations/': typeof ChatConversationsIndexRoute
   '/rag/kbs/': typeof RagKbsIndexRoute
@@ -486,7 +488,6 @@ export interface FileRoutesByFullPath {
   '/rag/kbs/$id/playground': typeof RagKbsIdPlaygroundRoute
   '/rag/kbs/$id/quarantine': typeof RagKbsIdQuarantineRoute
   '/rag/kbs/$id/settings': typeof RagKbsIdSettingsRoute
-  '/workers/instances/$workerId': typeof WorkersInstancesWorkerIdRoute
   '/workers/pools/$id/template': typeof WorkersPoolsIdTemplateRoute
 }
 export interface FileRoutesByTo {
@@ -502,6 +503,7 @@ export interface FileRoutesByTo {
   '/admin/billing': typeof AdminBillingRoute
   '/admin/budgets': typeof AdminBudgetsRoute
   '/admin/data': typeof AdminDataRoute
+  '/admin/directory': typeof AdminDirectoryRoute
   '/admin/members': typeof AdminMembersRoute
   '/admin/memory-analytics': typeof AdminMemoryAnalyticsRoute
   '/admin/memory-policies': typeof AdminMemoryPoliciesRoute
@@ -509,7 +511,6 @@ export interface FileRoutesByTo {
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/sso': typeof AdminSsoRoute
   '/admin/teams': typeof AdminTeamsRoute
-  '/admin/directory': typeof AdminDirectoryRoute
   '/admin/usage': typeof AdminUsageRoute
   '/admin/webhooks': typeof AdminWebhooksRoute
   '/gateway/evals': typeof GatewayEvalsRoute
@@ -530,8 +531,8 @@ export interface FileRoutesByTo {
   '/rag/marketplace': typeof RagMarketplaceRoute
   '/rag/search-providers': typeof RagSearchProvidersRoute
   '/workers/analytics': typeof WorkersAnalyticsRoute
-  '/workers/integrations': typeof WorkersIntegrationsRoute
   '/workers/instances': typeof WorkersInstancesRouteWithChildren
+  '/workers/integrations': typeof WorkersIntegrationsRoute
   '/workers/pools': typeof WorkersPoolsRouteWithChildren
   '/workers/settings': typeof WorkersSettingsRoute
   '/workers/tasks': typeof WorkersTasksRouteWithChildren
@@ -540,6 +541,7 @@ export interface FileRoutesByTo {
   '/knowledge-bases': typeof KnowledgeBasesIndexRoute
   '/workers': typeof WorkersIndexRoute
   '/chat/conversations/$id': typeof ChatConversationsIdRoute
+  '/workers/instances/$workerId': typeof WorkersInstancesWorkerIdRoute
   '/workers/tasks/$taskId': typeof WorkersTasksTaskIdRoute
   '/chat/conversations': typeof ChatConversationsIndexRoute
   '/rag/kbs': typeof RagKbsIndexRoute
@@ -552,7 +554,6 @@ export interface FileRoutesByTo {
   '/rag/kbs/$id/playground': typeof RagKbsIdPlaygroundRoute
   '/rag/kbs/$id/quarantine': typeof RagKbsIdQuarantineRoute
   '/rag/kbs/$id/settings': typeof RagKbsIdSettingsRoute
-  '/workers/instances/$workerId': typeof WorkersInstancesWorkerIdRoute
   '/workers/pools/$id/template': typeof WorkersPoolsIdTemplateRoute
 }
 export interface FileRoutesById {
@@ -573,6 +574,7 @@ export interface FileRoutesById {
   '/admin/billing': typeof AdminBillingRoute
   '/admin/budgets': typeof AdminBudgetsRoute
   '/admin/data': typeof AdminDataRoute
+  '/admin/directory': typeof AdminDirectoryRoute
   '/admin/members': typeof AdminMembersRoute
   '/admin/memory-analytics': typeof AdminMemoryAnalyticsRoute
   '/admin/memory-policies': typeof AdminMemoryPoliciesRoute
@@ -580,7 +582,6 @@ export interface FileRoutesById {
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/sso': typeof AdminSsoRoute
   '/admin/teams': typeof AdminTeamsRoute
-  '/admin/directory': typeof AdminDirectoryRoute
   '/admin/usage': typeof AdminUsageRoute
   '/admin/webhooks': typeof AdminWebhooksRoute
   '/gateway/evals': typeof GatewayEvalsRoute
@@ -601,8 +602,8 @@ export interface FileRoutesById {
   '/rag/marketplace': typeof RagMarketplaceRoute
   '/rag/search-providers': typeof RagSearchProvidersRoute
   '/workers/analytics': typeof WorkersAnalyticsRoute
-  '/workers/integrations': typeof WorkersIntegrationsRoute
   '/workers/instances': typeof WorkersInstancesRouteWithChildren
+  '/workers/integrations': typeof WorkersIntegrationsRoute
   '/workers/pools': typeof WorkersPoolsRouteWithChildren
   '/workers/settings': typeof WorkersSettingsRoute
   '/workers/tasks': typeof WorkersTasksRouteWithChildren
@@ -611,6 +612,7 @@ export interface FileRoutesById {
   '/knowledge-bases/': typeof KnowledgeBasesIndexRoute
   '/workers/': typeof WorkersIndexRoute
   '/chat/conversations/$id': typeof ChatConversationsIdRoute
+  '/workers/instances/$workerId': typeof WorkersInstancesWorkerIdRoute
   '/workers/tasks/$taskId': typeof WorkersTasksTaskIdRoute
   '/chat/conversations/': typeof ChatConversationsIndexRoute
   '/rag/kbs/': typeof RagKbsIndexRoute
@@ -623,7 +625,6 @@ export interface FileRoutesById {
   '/rag/kbs/$id/playground': typeof RagKbsIdPlaygroundRoute
   '/rag/kbs/$id/quarantine': typeof RagKbsIdQuarantineRoute
   '/rag/kbs/$id/settings': typeof RagKbsIdSettingsRoute
-  '/workers/instances/$workerId': typeof WorkersInstancesWorkerIdRoute
   '/workers/pools/$id/template': typeof WorkersPoolsIdTemplateRoute
 }
 export interface FileRouteTypes {
@@ -645,6 +646,7 @@ export interface FileRouteTypes {
     | '/admin/billing'
     | '/admin/budgets'
     | '/admin/data'
+    | '/admin/directory'
     | '/admin/members'
     | '/admin/memory-analytics'
     | '/admin/memory-policies'
@@ -652,7 +654,6 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/admin/sso'
     | '/admin/teams'
-    | '/admin/directory'
     | '/admin/usage'
     | '/admin/webhooks'
     | '/gateway/evals'
@@ -673,8 +674,8 @@ export interface FileRouteTypes {
     | '/rag/marketplace'
     | '/rag/search-providers'
     | '/workers/analytics'
-    | '/workers/integrations'
     | '/workers/instances'
+    | '/workers/integrations'
     | '/workers/pools'
     | '/workers/settings'
     | '/workers/tasks'
@@ -683,6 +684,7 @@ export interface FileRouteTypes {
     | '/knowledge-bases/'
     | '/workers/'
     | '/chat/conversations/$id'
+    | '/workers/instances/$workerId'
     | '/workers/tasks/$taskId'
     | '/chat/conversations/'
     | '/rag/kbs/'
@@ -695,7 +697,6 @@ export interface FileRouteTypes {
     | '/rag/kbs/$id/playground'
     | '/rag/kbs/$id/quarantine'
     | '/rag/kbs/$id/settings'
-    | '/workers/instances/$workerId'
     | '/workers/pools/$id/template'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -711,6 +712,7 @@ export interface FileRouteTypes {
     | '/admin/billing'
     | '/admin/budgets'
     | '/admin/data'
+    | '/admin/directory'
     | '/admin/members'
     | '/admin/memory-analytics'
     | '/admin/memory-policies'
@@ -718,7 +720,6 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/admin/sso'
     | '/admin/teams'
-    | '/admin/directory'
     | '/admin/usage'
     | '/admin/webhooks'
     | '/gateway/evals'
@@ -739,8 +740,8 @@ export interface FileRouteTypes {
     | '/rag/marketplace'
     | '/rag/search-providers'
     | '/workers/analytics'
-    | '/workers/integrations'
     | '/workers/instances'
+    | '/workers/integrations'
     | '/workers/pools'
     | '/workers/settings'
     | '/workers/tasks'
@@ -749,6 +750,7 @@ export interface FileRouteTypes {
     | '/knowledge-bases'
     | '/workers'
     | '/chat/conversations/$id'
+    | '/workers/instances/$workerId'
     | '/workers/tasks/$taskId'
     | '/chat/conversations'
     | '/rag/kbs'
@@ -761,7 +763,6 @@ export interface FileRouteTypes {
     | '/rag/kbs/$id/playground'
     | '/rag/kbs/$id/quarantine'
     | '/rag/kbs/$id/settings'
-    | '/workers/instances/$workerId'
     | '/workers/pools/$id/template'
   id:
     | '__root__'
@@ -781,6 +782,7 @@ export interface FileRouteTypes {
     | '/admin/billing'
     | '/admin/budgets'
     | '/admin/data'
+    | '/admin/directory'
     | '/admin/members'
     | '/admin/memory-analytics'
     | '/admin/memory-policies'
@@ -788,7 +790,6 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/admin/sso'
     | '/admin/teams'
-    | '/admin/directory'
     | '/admin/usage'
     | '/admin/webhooks'
     | '/gateway/evals'
@@ -809,8 +810,8 @@ export interface FileRouteTypes {
     | '/rag/marketplace'
     | '/rag/search-providers'
     | '/workers/analytics'
-    | '/workers/integrations'
     | '/workers/instances'
+    | '/workers/integrations'
     | '/workers/pools'
     | '/workers/settings'
     | '/workers/tasks'
@@ -819,6 +820,7 @@ export interface FileRouteTypes {
     | '/knowledge-bases/'
     | '/workers/'
     | '/chat/conversations/$id'
+    | '/workers/instances/$workerId'
     | '/workers/tasks/$taskId'
     | '/chat/conversations/'
     | '/rag/kbs/'
@@ -831,7 +833,6 @@ export interface FileRouteTypes {
     | '/rag/kbs/$id/playground'
     | '/rag/kbs/$id/quarantine'
     | '/rag/kbs/$id/settings'
-    | '/workers/instances/$workerId'
     | '/workers/pools/$id/template'
   fileRoutesById: FileRoutesById
 }
@@ -973,18 +974,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkersPoolsRouteImport
       parentRoute: typeof WorkersRouteRoute
     }
-    '/workers/instances': {
-      id: '/workers/instances'
-      path: '/instances'
-      fullPath: '/workers/instances'
-      preLoaderRoute: typeof WorkersInstancesRouteImport
-      parentRoute: typeof WorkersRouteRoute
-    }
     '/workers/integrations': {
       id: '/workers/integrations'
       path: '/integrations'
       fullPath: '/workers/integrations'
       preLoaderRoute: typeof WorkersIntegrationsRouteImport
+      parentRoute: typeof WorkersRouteRoute
+    }
+    '/workers/instances': {
+      id: '/workers/instances'
+      path: '/instances'
+      fullPath: '/workers/instances'
+      preLoaderRoute: typeof WorkersInstancesRouteImport
       parentRoute: typeof WorkersRouteRoute
     }
     '/workers/analytics': {
@@ -1127,13 +1128,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminUsageRouteImport
       parentRoute: typeof AdminRouteRoute
     }
-    '/admin/sso': {
-      id: '/admin/sso'
-      path: '/sso'
-      fullPath: '/admin/sso'
-      preLoaderRoute: typeof AdminSsoRouteImport
-      parentRoute: typeof AdminRouteRoute
-    }
     '/admin/teams': {
       id: '/admin/teams'
       path: '/teams'
@@ -1141,11 +1135,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminTeamsRouteImport
       parentRoute: typeof AdminRouteRoute
     }
-    '/admin/directory': {
-      id: '/admin/directory'
-      path: '/directory'
-      fullPath: '/admin/directory'
-      preLoaderRoute: typeof AdminDirectoryRouteImport
+    '/admin/sso': {
+      id: '/admin/sso'
+      path: '/sso'
+      fullPath: '/admin/sso'
+      preLoaderRoute: typeof AdminSsoRouteImport
       parentRoute: typeof AdminRouteRoute
     }
     '/admin/settings': {
@@ -1181,6 +1175,13 @@ declare module '@tanstack/react-router' {
       path: '/members'
       fullPath: '/admin/members'
       preLoaderRoute: typeof AdminMembersRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/directory': {
+      id: '/admin/directory'
+      path: '/directory'
+      fullPath: '/admin/directory'
+      preLoaderRoute: typeof AdminDirectoryRouteImport
       parentRoute: typeof AdminRouteRoute
     }
     '/admin/data': {
@@ -1246,6 +1247,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkersTasksTaskIdRouteImport
       parentRoute: typeof WorkersTasksRoute
     }
+    '/workers/instances/$workerId': {
+      id: '/workers/instances/$workerId'
+      path: '/$workerId'
+      fullPath: '/workers/instances/$workerId'
+      preLoaderRoute: typeof WorkersInstancesWorkerIdRouteImport
+      parentRoute: typeof WorkersInstancesRoute
+    }
     '/chat/conversations/$id': {
       id: '/chat/conversations/$id'
       path: '/$id'
@@ -1259,13 +1267,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/workers/pools/$id/template'
       preLoaderRoute: typeof WorkersPoolsIdTemplateRouteImport
       parentRoute: typeof WorkersPoolsRoute
-    }
-    '/workers/instances/$workerId': {
-      id: '/workers/instances/$workerId'
-      path: '/$workerId'
-      fullPath: '/workers/instances/$workerId'
-      preLoaderRoute: typeof WorkersInstancesWorkerIdRouteImport
-      parentRoute: typeof WorkersInstancesRoute
     }
     '/rag/kbs/$id/settings': {
       id: '/rag/kbs/$id/settings'
@@ -1339,6 +1340,7 @@ interface AdminRouteRouteChildren {
   AdminBillingRoute: typeof AdminBillingRoute
   AdminBudgetsRoute: typeof AdminBudgetsRoute
   AdminDataRoute: typeof AdminDataRoute
+  AdminDirectoryRoute: typeof AdminDirectoryRoute
   AdminMembersRoute: typeof AdminMembersRoute
   AdminMemoryAnalyticsRoute: typeof AdminMemoryAnalyticsRoute
   AdminMemoryPoliciesRoute: typeof AdminMemoryPoliciesRoute
@@ -1346,7 +1348,6 @@ interface AdminRouteRouteChildren {
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminSsoRoute: typeof AdminSsoRoute
   AdminTeamsRoute: typeof AdminTeamsRoute
-  AdminDirectoryRoute: typeof AdminDirectoryRoute
   AdminUsageRoute: typeof AdminUsageRoute
   AdminWebhooksRoute: typeof AdminWebhooksRoute
   AdminIndexRoute: typeof AdminIndexRoute
@@ -1358,6 +1359,7 @@ const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminBillingRoute: AdminBillingRoute,
   AdminBudgetsRoute: AdminBudgetsRoute,
   AdminDataRoute: AdminDataRoute,
+  AdminDirectoryRoute: AdminDirectoryRoute,
   AdminMembersRoute: AdminMembersRoute,
   AdminMemoryAnalyticsRoute: AdminMemoryAnalyticsRoute,
   AdminMemoryPoliciesRoute: AdminMemoryPoliciesRoute,
@@ -1365,7 +1367,6 @@ const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminSettingsRoute: AdminSettingsRoute,
   AdminSsoRoute: AdminSsoRoute,
   AdminTeamsRoute: AdminTeamsRoute,
-  AdminDirectoryRoute: AdminDirectoryRoute,
   AdminUsageRoute: AdminUsageRoute,
   AdminWebhooksRoute: AdminWebhooksRoute,
   AdminIndexRoute: AdminIndexRoute,
@@ -1467,6 +1468,17 @@ const RagRouteRouteWithChildren = RagRouteRoute._addFileChildren(
   RagRouteRouteChildren,
 )
 
+interface WorkersInstancesRouteChildren {
+  WorkersInstancesWorkerIdRoute: typeof WorkersInstancesWorkerIdRoute
+}
+
+const WorkersInstancesRouteChildren: WorkersInstancesRouteChildren = {
+  WorkersInstancesWorkerIdRoute: WorkersInstancesWorkerIdRoute,
+}
+
+const WorkersInstancesRouteWithChildren =
+  WorkersInstancesRoute._addFileChildren(WorkersInstancesRouteChildren)
+
 interface WorkersPoolsRouteChildren {
   WorkersPoolsIdTemplateRoute: typeof WorkersPoolsIdTemplateRoute
 }
@@ -1491,22 +1503,10 @@ const WorkersTasksRouteWithChildren = WorkersTasksRoute._addFileChildren(
   WorkersTasksRouteChildren,
 )
 
-interface WorkersInstancesRouteChildren {
-  WorkersInstancesWorkerIdRoute: typeof WorkersInstancesWorkerIdRoute
-}
-
-const WorkersInstancesRouteChildren: WorkersInstancesRouteChildren = {
-  WorkersInstancesWorkerIdRoute: WorkersInstancesWorkerIdRoute,
-}
-
-const WorkersInstancesRouteWithChildren = WorkersInstancesRoute._addFileChildren(
-  WorkersInstancesRouteChildren,
-)
-
 interface WorkersRouteRouteChildren {
   WorkersAnalyticsRoute: typeof WorkersAnalyticsRoute
-  WorkersIntegrationsRoute: typeof WorkersIntegrationsRoute
   WorkersInstancesRoute: typeof WorkersInstancesRouteWithChildren
+  WorkersIntegrationsRoute: typeof WorkersIntegrationsRoute
   WorkersPoolsRoute: typeof WorkersPoolsRouteWithChildren
   WorkersSettingsRoute: typeof WorkersSettingsRoute
   WorkersTasksRoute: typeof WorkersTasksRouteWithChildren
@@ -1515,8 +1515,8 @@ interface WorkersRouteRouteChildren {
 
 const WorkersRouteRouteChildren: WorkersRouteRouteChildren = {
   WorkersAnalyticsRoute: WorkersAnalyticsRoute,
-  WorkersIntegrationsRoute: WorkersIntegrationsRoute,
   WorkersInstancesRoute: WorkersInstancesRouteWithChildren,
+  WorkersIntegrationsRoute: WorkersIntegrationsRoute,
   WorkersPoolsRoute: WorkersPoolsRouteWithChildren,
   WorkersSettingsRoute: WorkersSettingsRoute,
   WorkersTasksRoute: WorkersTasksRouteWithChildren,

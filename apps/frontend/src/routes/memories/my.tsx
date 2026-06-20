@@ -5,6 +5,7 @@
  * `/api/users/me/memories`) and layers a v1-style toolbar on top showing the
  * pluggable v1 memory list with filter/edit/delete/pin/star/importance.
  */
+import { Select } from '~/components/ui/select'
 import { createFileRoute } from '@tanstack/react-router'
 import { Pin, Search, Star, Trash2 } from 'lucide-react'
 import * as React from 'react'
@@ -130,28 +131,32 @@ function MyMemoriesPage() {
               data-testid="mem-my-search"
             />
           </div>
-          <select
+          <Select
             value={type}
             onChange={(e) => setType(e.target.value as MemoryType | 'all')}
             data-testid="mem-my-type"
             style={selectStyle}
+          size="sm"
+          inline
           >
             <option value="all">all types</option>
             {MEMORY_TYPES.map((t) => (
               <option key={t} value={t}>{t} ({counts[t]})</option>
             ))}
-          </select>
-          <select
+          </Select>
+          <Select
             value={scope}
             onChange={(e) => setScope(e.target.value as ScopeKind | 'all')}
             data-testid="mem-my-scope"
             style={selectStyle}
+          size="sm"
+          inline
           >
             <option value="all">all scopes</option>
             {SCOPE_KINDS.map((s) => (
               <option key={s} value={s}>{s}</option>
             ))}
-          </select>
+          </Select>
           {selected.size > 0 && (
             <>
               <span className="meta" data-testid="mem-my-selected-count">{selected.size} selected</span>

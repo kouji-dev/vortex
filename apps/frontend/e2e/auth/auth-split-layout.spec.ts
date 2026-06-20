@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../support/fixtures';
 
 test.describe('Auth split layout', () => {
   test('login shows hero + form side by side on desktop', async ({ page }) => {

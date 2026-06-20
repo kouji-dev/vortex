@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../support/fixtures'
 
 import {
   createMemoryViaApi,
@@ -18,14 +18,14 @@ test.describe('Memories page', () => {
   // ──────────────────────────────────────────────────────────────
 
   test('navigates to /memories from sidebar Memories link', async ({ page }) => {
-    await page.goto('/', { waitUntil: 'networkidle' })
+    await page.goto('/', { waitUntil: 'domcontentloaded' })
     await page.getByRole('link', { name: /memories/i }).first().click()
-    await expect(page).toHaveURL('/memories')
+    await expect(page).toHaveURL(/\/memories(\/my)?$/)
     await expect(page.locator('[data-testid="memories-page"]')).toBeVisible()
   })
 
   test('page heading and sub-heading are visible', async ({ page }) => {
-    await page.goto('/memories', { waitUntil: 'networkidle' })
+    await page.goto('/memories', { waitUntil: 'domcontentloaded' })
     await expect(page.getByRole('heading', { name: 'Memories', exact: true })).toBeVisible()
     await expect(page.getByText(/long-term facts/i)).toBeVisible()
     await expect(page.getByPlaceholder(/e\.g\. I prefer/i)).toBeVisible()
@@ -36,23 +36,23 @@ test.describe('Memories page', () => {
   // ──────────────────────────────────────────────────────────────
 
   test('input field has correct placeholder', async ({ page }) => {
-    await page.goto('/memories', { waitUntil: 'networkidle' })
+    await page.goto('/memories', { waitUntil: 'domcontentloaded' })
     await expect(page.getByPlaceholder(/e\.g\. I prefer/i)).toBeVisible()
   })
 
   test('Add button is disabled when input is empty', async ({ page }) => {
-    await page.goto('/memories', { waitUntil: 'networkidle' })
+    await page.goto('/memories', { waitUntil: 'domcontentloaded' })
     await expect(page.getByRole('button', { name: /^add$/i })).toBeDisabled()
   })
 
   test('Add button enables when input has text', async ({ page }) => {
-    await page.goto('/memories', { waitUntil: 'networkidle' })
+    await page.goto('/memories', { waitUntil: 'domcontentloaded' })
     await page.getByPlaceholder(/e\.g\. I prefer/i).fill('Some memory content')
     await expect(page.getByRole('button', { name: /^add$/i })).toBeEnabled()
   })
 
   test('Add button re-disables after clearing input', async ({ page }) => {
-    await page.goto('/memories', { waitUntil: 'networkidle' })
+    await page.goto('/memories', { waitUntil: 'domcontentloaded' })
     const input = page.getByPlaceholder(/e\.g\. I prefer/i)
     await input.fill('hello')
     await input.fill('')
@@ -60,7 +60,7 @@ test.describe('Memories page', () => {
   })
 
   test('can create a memory by clicking Add button', async ({ page, request }) => {
-    await page.goto('/memories', { waitUntil: 'networkidle' })
+    await page.goto('/memories', { waitUntil: 'domcontentloaded' })
     const content = `E2E click-add ${Date.now()}`
     await page.getByPlaceholder(/e\.g\. I prefer/i).fill(content)
     await page.getByRole('button', { name: /^add$/i }).click()
@@ -74,7 +74,7 @@ test.describe('Memories page', () => {
   })
 
   test('can create a memory by pressing Enter', async ({ page, request }) => {
-    await page.goto('/memories', { waitUntil: 'networkidle' })
+    await page.goto('/memories', { waitUntil: 'domcontentloaded' })
     const content = `E2E enter-create ${Date.now()}`
     await page.getByPlaceholder(/e\.g\. I prefer/i).fill(content)
     await page.keyboard.press('Enter')
@@ -88,7 +88,7 @@ test.describe('Memories page', () => {
   })
 
   test('input clears after successful creation', async ({ page, request }) => {
-    await page.goto('/memories', { waitUntil: 'networkidle' })
+    await page.goto('/memories', { waitUntil: 'domcontentloaded' })
     const content = `E2E clear-after ${Date.now()}`
     const input = page.getByPlaceholder(/e\.g\. I prefer/i)
     await input.fill(content)
@@ -111,7 +111,7 @@ test.describe('Memories page', () => {
     const content = `E2E src-badge ${Date.now()}`
     const id = await createMemoryViaApi(request, content)
     try {
-      await page.goto('/memories', { waitUntil: 'networkidle' })
+      await page.goto('/memories', { waitUntil: 'domcontentloaded' })
       const item = memoryItem(page, content)
       await expect(item).toBeVisible()
       await expect(item.locator('.pill', { hasText: 'manual' })).toBeVisible()
@@ -142,7 +142,7 @@ test.describe('Memories page', () => {
     const content = `E2E date-display ${Date.now()}`
     const id = await createMemoryViaApi(request, content)
     try {
-      await page.goto('/memories', { waitUntil: 'networkidle' })
+      await page.goto('/memories', { waitUntil: 'domcontentloaded' })
       const item = memoryItem(page, content)
       await expect(item).toBeVisible()
       // The .meta div contains a relative timestamp string
@@ -160,7 +160,7 @@ test.describe('Memories page', () => {
     const content = `E2E pause-btn ${Date.now()}`
     const id = await createMemoryViaApi(request, content)
     try {
-      await page.goto('/memories', { waitUntil: 'networkidle' })
+      await page.goto('/memories', { waitUntil: 'domcontentloaded' })
       await memoryItem(page, content).click()
       await expect(page.locator('.run-main').getByRole('button', { name: /^pause$/i })).toBeVisible()
     } finally {
@@ -172,7 +172,7 @@ test.describe('Memories page', () => {
     const content = `E2E pause-badge ${Date.now()}`
     const id = await createMemoryViaApi(request, content)
     try {
-      await page.goto('/memories', { waitUntil: 'networkidle' })
+      await page.goto('/memories', { waitUntil: 'domcontentloaded' })
       await memoryItem(page, content).click()
       await page.locator('.run-main').getByRole('button', { name: /^pause$/i }).click()
       await expect(memoryItem(page, content).getByText('paused')).toBeVisible({ timeout: 5_000 })
@@ -185,7 +185,7 @@ test.describe('Memories page', () => {
     const content = `E2E resume-btn ${Date.now()}`
     const id = await createMemoryViaApi(request, content)
     try {
-      await page.goto('/memories', { waitUntil: 'networkidle' })
+      await page.goto('/memories', { waitUntil: 'domcontentloaded' })
       await memoryItem(page, content).click()
       await page.locator('.run-main').getByRole('button', { name: /^pause$/i }).click()
       await expect(page.locator('.run-main').getByRole('button', { name: /^resume$/i })).toBeVisible({ timeout: 5_000 })
@@ -198,7 +198,7 @@ test.describe('Memories page', () => {
     const content = `E2E pause-opacity ${Date.now()}`
     const id = await createMemoryViaApi(request, content)
     try {
-      await page.goto('/memories', { waitUntil: 'networkidle' })
+      await page.goto('/memories', { waitUntil: 'domcontentloaded' })
       await memoryItem(page, content).click()
       await page.locator('.run-main').getByRole('button', { name: /^pause$/i }).click()
       await expect(memoryItem(page, content).getByText('paused')).toBeVisible({ timeout: 5_000 })
@@ -217,7 +217,7 @@ test.describe('Memories page', () => {
     const content = `E2E resume-opacity ${Date.now()}`
     const id = await createMemoryViaApi(request, content)
     try {
-      await page.goto('/memories', { waitUntil: 'networkidle' })
+      await page.goto('/memories', { waitUntil: 'domcontentloaded' })
       await memoryItem(page, content).click()
       await page.locator('.run-main').getByRole('button', { name: /^pause$/i }).click()
       await expect(page.locator('.run-main').getByRole('button', { name: /^resume$/i })).toBeVisible({ timeout: 5_000 })
@@ -235,7 +235,7 @@ test.describe('Memories page', () => {
     const id1 = await createMemoryViaApi(request, content1)
     const id2 = await createMemoryViaApi(request, content2)
     try {
-      await page.goto('/memories', { waitUntil: 'networkidle' })
+      await page.goto('/memories', { waitUntil: 'domcontentloaded' })
       const items = page.locator('.run-list-item')
       const textsBefore = await items.allTextContents()
       const idxBefore = textsBefore.findIndex((t) => t.includes(content1))
@@ -264,7 +264,7 @@ test.describe('Memories page', () => {
     const content = `E2E del-btn-visible ${Date.now()}`
     const id = await createMemoryViaApi(request, content)
     try {
-      await page.goto('/memories', { waitUntil: 'networkidle' })
+      await page.goto('/memories', { waitUntil: 'domcontentloaded' })
       await memoryItem(page, content).click()
       await expect(page.locator('.run-main').getByTitle('Delete memory')).toBeVisible()
     } finally {
@@ -279,7 +279,7 @@ test.describe('Memories page', () => {
     const content = `E2E del-dialog-open ${Date.now()}`
     const id = await createMemoryViaApi(request, content)
     try {
-      await page.goto('/memories', { waitUntil: 'networkidle' })
+      await page.goto('/memories', { waitUntil: 'domcontentloaded' })
       page.once('dialog', (d) => {
         d.dismiss()
         throw new Error('Native window.confirm appeared — expected in-app dialog')
@@ -299,7 +299,7 @@ test.describe('Memories page', () => {
     const content = `E2E del-dialog-btns ${Date.now()}`
     const id = await createMemoryViaApi(request, content)
     try {
-      await page.goto('/memories', { waitUntil: 'networkidle' })
+      await page.goto('/memories', { waitUntil: 'domcontentloaded' })
       await memoryItem(page, content).click()
       await page.locator('.run-main').getByTitle('Delete memory').click()
       const dialog = page.getByRole('dialog')
@@ -320,7 +320,7 @@ test.describe('Memories page', () => {
     const content = `E2E del-cancel ${Date.now()}`
     const id = await createMemoryViaApi(request, content)
     try {
-      await page.goto('/memories', { waitUntil: 'networkidle' })
+      await page.goto('/memories', { waitUntil: 'domcontentloaded' })
       await memoryItem(page, content).click()
       await page.locator('.run-main').getByTitle('Delete memory').click()
       const dialog = page.getByRole('dialog')
@@ -337,7 +337,7 @@ test.describe('Memories page', () => {
     test.setTimeout(60_000)
     const content = `E2E del-confirm ${Date.now()}`
     await createMemoryViaApi(request, content)
-    await page.goto('/memories', { waitUntil: 'networkidle' })
+    await page.goto('/memories', { waitUntil: 'domcontentloaded' })
     const item = memoryItem(page, content)
     await item.scrollIntoViewIfNeeded()
     await expect(item).toBeVisible({ timeout: 15_000 })
@@ -353,7 +353,7 @@ test.describe('Memories page', () => {
   test('delete dialog closes automatically after confirmation', async ({ page, request }) => {
     const content = `E2E del-dialog-close ${Date.now()}`
     await createMemoryViaApi(request, content)
-    await page.goto('/memories', { waitUntil: 'networkidle' })
+    await page.goto('/memories', { waitUntil: 'domcontentloaded' })
     await memoryItem(page, content).click()
     await page.locator('.run-main').getByTitle('Delete memory').click()
     const dialog = page.getByRole('dialog')
@@ -370,7 +370,7 @@ test.describe('Memories page', () => {
     const content = `E2E api-visible ${Date.now()}`
     const id = await createMemoryViaApi(request, content)
     try {
-      await page.goto('/memories', { waitUntil: 'networkidle' })
+      await page.goto('/memories', { waitUntil: 'domcontentloaded' })
       await expect(page.getByText(content)).toBeVisible()
     } finally {
       await deleteMemoryViaApi(request, id)
@@ -378,7 +378,7 @@ test.describe('Memories page', () => {
   })
 
   test('filter chips are visible on the memories page', async ({ page }) => {
-    await page.goto('/memories', { waitUntil: 'networkidle' })
+    await page.goto('/memories', { waitUntil: 'domcontentloaded' })
     await expect(page.locator('.filter-chip', { hasText: 'all' })).toBeVisible()
     await expect(page.locator('.filter-chip', { hasText: 'system' })).toBeVisible()
     await expect(page.locator('.filter-chip', { hasText: 'active' })).toBeVisible()
@@ -389,7 +389,7 @@ test.describe('Memories page', () => {
     const content = `E2E detail-panel ${Date.now()}`
     const id = await createMemoryViaApi(request, content)
     try {
-      await page.goto('/memories', { waitUntil: 'networkidle' })
+      await page.goto('/memories', { waitUntil: 'domcontentloaded' })
       await memoryItem(page, content).click()
       // Full content visible in detail panel
       await expect(page.locator('.run-main').getByText(content)).toBeVisible()

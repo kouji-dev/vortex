@@ -6,7 +6,7 @@
  *
  * @see docs/superpowers/specs/2026-04-04-chat-remaining-features-delivery.md (Step 1)
  */
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../support/fixtures'
 import { createEmptyConversation } from '../support/create-conversation'
 
 const apiBase = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
@@ -14,7 +14,7 @@ const apiBase = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
 test.describe('Chat — spec parity (no LLM)', () => {
   test('empty thread documents composer behavior in empty state', async ({ page, request }) => {
     const convId = await createEmptyConversation(request, apiBase)
-    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
+    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'domcontentloaded' })
     await expect(page.getByRole('heading', { name: /start the conversation/i })).toBeVisible()
     await expect(
       page.getByText(/nothing is sent until you press send/i),
@@ -26,7 +26,7 @@ test.describe('Chat — spec parity (no LLM)', () => {
     request,
   }) => {
     const convId = await createEmptyConversation(request, apiBase)
-    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
+    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'domcontentloaded' })
     const starters = page.getByTestId('chat-starters-suggested')
     await expect(starters).toBeVisible({ timeout: 15_000 })
     await expect(page.getByText(/suggested prompts/i)).toBeVisible()
@@ -35,20 +35,20 @@ test.describe('Chat — spec parity (no LLM)', () => {
   test('Add options opens capabilities menu with Reflection', async ({ page, request }) => {
     // Capabilities are now inline pills in the composer toolbar (no separate "Add options" button).
     const convId = await createEmptyConversation(request, apiBase)
-    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
+    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'domcontentloaded' })
     await expect(page.getByTestId('capability-pill-reflection')).toBeVisible()
     await expect(page.getByTestId('capability-pill-research')).toBeVisible()
   })
 
   test('model selector is visible on thread page', async ({ page, request }) => {
     const convId = await createEmptyConversation(request, apiBase)
-    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
+    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'domcontentloaded' })
     await expect(page.getByTestId('chat-model-select')).toBeVisible()
   })
 
   test('short thread does not show load-older control', async ({ page, request }) => {
     const convId = await createEmptyConversation(request, apiBase)
-    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
+    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'domcontentloaded' })
     await expect(page.getByTestId('chat-load-older')).toHaveCount(0)
   })
 
@@ -92,7 +92,7 @@ test.describe('Chat — spec parity (no LLM)', () => {
       }
     })
 
-    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
+    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'domcontentloaded' })
     await expect(page.getByTestId('chat-load-older')).toBeVisible({ timeout: 20_000 })
     await page.getByTestId('chat-load-older').click()
     await expect(page.getByText('E2E seed user 0', { exact: true })).toBeVisible({
@@ -121,7 +121,7 @@ test.describe('Chat — spec parity (no LLM)', () => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(messages) })
     })
 
-    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
+    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'domcontentloaded' })
     const details = page.getByTestId('chat-starters-collapsed')
     await expect(details).toBeVisible({ timeout: 15_000 })
     await details.click()

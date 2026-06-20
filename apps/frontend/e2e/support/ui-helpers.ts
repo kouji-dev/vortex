@@ -3,49 +3,47 @@ import type { Page } from '@playwright/test'
 
 import { createKbThroughUi, escapeRegExp } from '../kb/helpers'
 
-import { parseConversationIdFromUrl } from './conversation-ui'
-
-const STREAM_ROUTE = '**/api/chat/conversations/*/messages/stream'
+import { parseConversationIdFromUrl, waitForHydrated } from './conversation-ui'
 
 /**
  * Open an existing conversation from the sidebar by title, or create one via the composer with a
  * mocked stream so no LLM is required.
  */
 export async function createOrFindConversation(page: Page, name: string): Promise<number> {
-  await page.goto('/chat/conversations', { waitUntil: 'networkidle' })
+  await page.goto('/chat/conversations', { waitUntil: 'domcontentloaded' })
   const asideLink = page.locator('aside').getByRole('link', { name, exact: true })
   if (await asideLink.first().isVisible().catch(() => false)) {
     await asideLink.first().click()
     await page.waitForURL(/\/chat\/conversations\/\d+/, { timeout: 30_000 })
+    await waitForHydrated(page)
     return parseConversationIdFromUrl(page)
   }
 
-  await page.route(STREAM_ROUTE, async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'text/event-stream',
-      body: 'data: {"event_type":"item","item":{"id":1,"thread_id":0,"turn_id":"00000000-0000-0000-0000-000000000000","kind":"assistant_text","role":"assistant","status":"done","provider":null,"model":null,"cost_usd":null,"cost_estimated":false,"latency_ms":null,"data":{"text":"OK"},"parent_item_id":null,"started_at":null,"finished_at":null,"created_at":"2026-01-01T00:00:00Z"}}\n\ndata: {"event_type":"done"}\n\n',
-    })
-  })
-  try {
-    await page.goto('/chat/conversations', { waitUntil: 'networkidle' })
-    await page.getByRole('textbox', { name: /message/i }).fill(name)
-    await page.getByRole('button', { name: /send message/i }).click()
-    await page.waitForURL(/\/chat\/conversations\/\d+/, { timeout: 120_000 })
-    await expect(page.getByRole('button', { name: /send message/i })).toBeVisible({
-      timeout: 120_000,
-    })
-    return parseConversationIdFromUrl(page)
-  } finally {
-    await page.unroute(STREAM_ROUTE)
-  }
+  // Create via the composer. The mock server streams a default "OK" turn — no
+  // page.route bootstrap (which would race the new page's pending-stream and
+  // leak a duplicate turn into the mock server's store).
+  await page.goto('/chat/conversations', { waitUntil: 'domcontentloaded' })
+  const composer = page.getByRole('textbox', { name: /message/i })
+  const sendBtn = page.getByRole('button', { name: /send message/i })
+  // SSR hydration race: a fast (mocked) API lets the page settle before React
+  // attaches the input handler, so the first `fill` can be ignored. Re-fill
+  // until the send button enables (= React registered the value).
+  await expect(async () => {
+    await composer.fill(name)
+    await expect(sendBtn).toBeEnabled({ timeout: 500 })
+  }).toPass({ timeout: 15_000 })
+  await sendBtn.click()
+  await page.waitForURL(/\/chat\/conversations\/\d+/, { timeout: 120_000 })
+  await expect(sendBtn).toBeVisible({ timeout: 120_000 })
+  await waitForHydrated(page)
+  return parseConversationIdFromUrl(page)
 }
 
 /**
  * Find a KB on the list page by name or create it via the dialog. Ends on `/knowledge-bases/:id`.
  */
 export async function createOrFindKb(page: Page, name: string): Promise<number> {
-  await page.goto('/knowledge-bases', { waitUntil: 'networkidle' })
+  await page.goto('/knowledge-bases', { waitUntil: 'domcontentloaded' })
   await page.getByLabel('Search knowledge bases').fill(name)
   const row = page.getByRole('row', { name: new RegExp(escapeRegExp(name)) })
   if (await row.first().isVisible().catch(() => false)) {
@@ -57,6 +55,7 @@ export async function createOrFindKb(page: Page, name: string): Promise<number> 
     await view.click()
     await expect(page).toHaveURL(new RegExp(`/knowledge-bases/${id}`))
     await expect(page.getByRole('heading', { level: 1, name })).toBeVisible({ timeout: 15_000 })
+    await waitForHydrated(page)
     return id
   }
   return createKbThroughUi(page, name)

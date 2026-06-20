@@ -8,11 +8,12 @@
  *
  * UI-only, no direct API seeding. Mocks attach to the browser via page.route().
  */
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../support/fixtures'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { createOrFindKb } from '../support/ui-helpers'
+import { installRagMock } from '../support/rag-mock'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const SAMPLE_PATH = path.resolve(__dirname, '../fixtures/sample.txt')
@@ -27,65 +28,9 @@ test.describe('Suite — RAG', () => {
     const kbId = await createOrFindKb(page, KB_NAME)
     await expect(page).toHaveURL(new RegExp(`/knowledge-bases/${kbId}`))
 
-    // 2. Mock the document upload + ingest progress.
-    //    Documents listing: returns the uploaded file as "ready" after upload.
-    let docReady = false
-    const DOC_ID = 91234
-
-    await page.route(`**/api/kbs/${kbId}/documents**`, async (route) => {
-      const req = route.request()
-      if (req.method() === 'POST') {
-        docReady = true
-        await route.fulfill({
-          status: 201,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            id: DOC_ID,
-            kb_id: kbId,
-            name: 'sample.txt',
-            status: 'ready',
-            chunks: 3,
-            created_at: new Date().toISOString(),
-          }),
-        })
-        return
-      }
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          items: docReady
-            ? [
-                {
-                  id: DOC_ID,
-                  kb_id: kbId,
-                  name: 'sample.txt',
-                  status: 'ready',
-                  chunks: 3,
-                  created_at: new Date().toISOString(),
-                },
-              ]
-            : [],
-          total: docReady ? 1 : 0,
-        }),
-      })
-    })
-
-    // 3. Mock the streaming answer endpoint with one citation marker.
-    await page.route(`**/api/kbs/${kbId}/answer**`, async (route) => {
-      const body = [
-        `data: ${JSON.stringify({ type: 'token', text: 'Sample ' })}\n\n`,
-        `data: ${JSON.stringify({ type: 'token', text: 'answer ' })}\n\n`,
-        `data: ${JSON.stringify({ type: 'token', text: 'with citation' })}\n\n`,
-        `data: ${JSON.stringify({
-          type: 'citation',
-          index: 1,
-          source: { document_id: DOC_ID, name: 'sample.txt', score: 0.92 },
-        })}\n\n`,
-        `data: ${JSON.stringify({ type: 'done' })}\n\n`,
-      ].join('')
-      await route.fulfill({ status: 200, contentType: 'text/event-stream', body })
-    })
+    // 2 + 3. Mock the document upload/listing + the streaming answer endpoint
+    //         (with one citation marker) via the shared RAG helper.
+    await installRagMock(page, { kbId, docName: 'sample.txt' })
 
     // 4. Upload a doc through the KB detail UI (or via the create-dialog initial-file).
     //    Many KB detail pages have an "Upload" or file input — find the first match.

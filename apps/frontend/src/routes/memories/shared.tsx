@@ -5,6 +5,7 @@
  * via `memory:admin`. Here we still render the same patch/delete buttons but
  * they will simply 403; we show a hint in the toolbar.
  */
+import { Select } from '~/components/ui/select'
 import { createFileRoute } from '@tanstack/react-router'
 import * as React from 'react'
 
@@ -53,38 +54,44 @@ function SharedMemoriesPage() {
           </span>
         </div>
         <div style={{ padding: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <select
+          <Select
             value={scope}
             onChange={(e) => setScope(e.target.value as ScopeKind | 'all')}
             data-testid="mem-shared-scope"
             style={selectStyle}
+          size="sm"
+          inline
           >
             <option value="all">all (team + org + assistant)</option>
             {SHARED_SCOPES.map((s) => (
               <option key={s} value={s}>{s}</option>
             ))}
-          </select>
-          <select
+          </Select>
+          <Select
             value={type}
             onChange={(e) => setType(e.target.value as MemoryType | 'all')}
             data-testid="mem-shared-type"
             style={selectStyle}
+          size="sm"
+          inline
           >
             <option value="all">all types</option>
             {MEMORY_TYPES.map((t) => (
               <option key={t} value={t}>{t}</option>
             ))}
-          </select>
-          <select
+          </Select>
+          <Select
             value={source}
             onChange={(e) => setSource(e.target.value as MemorySource)}
             data-testid="mem-shared-source"
             style={selectStyle}
+          size="sm"
+          inline
           >
             <option value="all">all sources</option>
             <option value="auto">auto (extracted)</option>
             <option value="manual">manual</option>
-          </select>
+          </Select>
         </div>
       </div>
 

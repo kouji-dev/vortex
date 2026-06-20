@@ -10,7 +10,7 @@
  * All interactions go through the browser. Backend mocked via page.route().
  * Scaffold — pages may not exist yet; failures are useful signal.
  */
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../support/fixtures'
 
 const COMPLETIONS_ROUTE = '**/v1/chat/completions'
 const TRACES_ROUTE = '**/api/v1/gateway/traces**'
@@ -48,7 +48,7 @@ test.describe('Suite — Gateway', () => {
       await route.fulfill(okCompletion())
     })
 
-    await page.goto('/', { waitUntil: 'networkidle' })
+    await page.goto('/', { waitUntil: 'domcontentloaded' })
 
     const resp = await page.evaluate(async () => {
       const r = await fetch('/v1/chat/completions', {
@@ -109,7 +109,7 @@ test.describe('Suite — Gateway', () => {
       })
     })
 
-    await page.goto('/', { waitUntil: 'networkidle' })
+    await page.goto('/', { waitUntil: 'domcontentloaded' })
     await page.evaluate(async () => {
       await fetch('/v1/chat/completions', {
         method: 'POST',
@@ -121,7 +121,7 @@ test.describe('Suite — Gateway', () => {
       })
     })
 
-    await page.goto('/gateway/traces', { waitUntil: 'networkidle' })
+    await page.goto('/gateway/traces', { waitUntil: 'domcontentloaded' })
     await expect(page.getByTestId('view-trace_suite_gw_1')).toBeVisible({ timeout: 10_000 })
   })
 
@@ -148,7 +148,7 @@ test.describe('Suite — Gateway', () => {
       await route.fulfill(okCompletion({ 'x-aip-rate-limit-remaining': String(threshold - calls) }))
     })
 
-    await page.goto('/', { waitUntil: 'networkidle' })
+    await page.goto('/', { waitUntil: 'domcontentloaded' })
 
     const statuses = await page.evaluate(async (n) => {
       const out: number[] = []

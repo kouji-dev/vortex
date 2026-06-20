@@ -1,5 +1,6 @@
 // apps/frontend/src/routes/gateway/snippets.tsx
 // Gateway → Snippets (J10): pick an endpoint + model + key → see code samples.
+import { Select } from '~/components/ui/select'
 import { createFileRoute } from '@tanstack/react-router'
 import * as React from 'react'
 import { CodeSnippetPanel } from '~/components/gateway/CodeSnippetPanel'
@@ -42,15 +43,16 @@ function SnippetsPage() {
         <div className="panel-body" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', padding: 12 }}>
           <label style={{ fontSize: 11, color: 'var(--ink-3)', display: 'flex', flexDirection: 'column', gap: 4 }}>
             Model
-            <select
+            <Select
               value={model}
               onChange={(e) => setModel(e.target.value)}
-              style={{ fontSize: 11, padding: 4, border: '1px solid var(--line)', borderRadius: 3, background: 'var(--bg)', color: 'var(--ink)' }}
               data-testid="snippet-model"
+            size="sm"
+            inline
             >
               {models.length === 0 && <option value={model}>{model}</option>}
               {models.map((m) => <option key={m.id} value={m.model_id}>{m.display_name || m.model_id}</option>)}
-            </select>
+            </Select>
           </label>
           <label style={{ fontSize: 11, color: 'var(--ink-3)', display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minWidth: 200 }}>
             API key (paste yours; not stored)

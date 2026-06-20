@@ -31,10 +31,7 @@ function SettingsPage() {
 
   return (
     <div className="panel" data-testid="admin-settings">
-      <div className="panel-head">
-        <span>Settings</span>
-      </div>
-
+      {/* Section title comes from the ModuleShell ribbon; no duplicate header here. */}
       <div className="panel-body" style={{ padding: 0 }}>
         <div
           role="tablist"

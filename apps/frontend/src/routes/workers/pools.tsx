@@ -4,6 +4,7 @@
  * Pools own: sandbox template, repo allow-list, budget, approval policy,
  * default model. The drawer lets admins edit the template + budget inline.
  */
+import { Select } from '~/components/ui/select'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as React from 'react'
@@ -173,32 +174,36 @@ function CreatePoolDrawer({ onClose }: { onClose: () => void }) {
           />
         </Field>
         <Field label="Template">
-          <select
+          <Select
             className="wk-input"
             style={{ width: '100%' }}
             value={template}
             onChange={(e) => setTemplate(e.target.value as (typeof TEMPLATES)[number])}
+          size="sm"
+          inline
           >
             {TEMPLATES.map((t) => (
               <option key={t} value={t}>
                 {t}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
         <Field label="Sandbox provider">
-          <select
+          <Select
             className="wk-input"
             style={{ width: '100%' }}
             value={sandbox}
             onChange={(e) => setSandbox(e.target.value as (typeof SANDBOX_PROVIDERS)[number])}
+          size="sm"
+          inline
           >
             {SANDBOX_PROVIDERS.map((t) => (
               <option key={t} value={t}>
                 {t}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
         <Field label="Repos (one per line, or comma-separated)">
           <textarea

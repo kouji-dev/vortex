@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../support/fixtures'
 
 import { createOrFindConversation } from '../support/ui-helpers'
 import { createOrFindKb } from '../support/ui-helpers'
@@ -17,7 +17,7 @@ test.describe('Chat knowledge bases', () => {
     test.setTimeout(120_000)
     // Use a persisted conversation so KB attachment survives page reload (PATCH persists to DB).
     const convId = await createOrFindConversation(page, E2E_CHAT_KB_CONV)
-    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
+    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'domcontentloaded' })
 
     await page.getByTestId('chat-kb-picker-trigger').click()
     await expect(page.getByTestId('kb-picker-popover')).toBeVisible()
@@ -42,7 +42,7 @@ test.describe('Chat knowledge bases', () => {
     await expect(page.getByTestId('kb-picker-popover')).toBeHidden()
 
     await page.waitForLoadState('networkidle')
-    await page.reload({ waitUntil: 'networkidle' })
+    await page.reload({ waitUntil: 'domcontentloaded' })
     await page.getByTestId('chat-kb-picker-trigger').click()
     await expect(
       page.getByRole('option', { name: new RegExp(E2E_CHAT_KB_SHARED) }).first(),

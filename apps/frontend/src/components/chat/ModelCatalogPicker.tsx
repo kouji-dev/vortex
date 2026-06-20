@@ -1,3 +1,4 @@
+import { Select } from '~/components/ui/select'
 import { useQuery } from '@tanstack/react-query'
 import { PrismLogo } from '~/components/brand'
 
@@ -89,12 +90,14 @@ export function ModelCatalogPicker({
 
   return (
     <div className="space-y-2">
-      <select
+      <Select
         className="w-full rounded border border-neutral-300 px-2 py-1.5 text-sm dark:border-neutral-600 dark:bg-neutral-900"
         value={selectValue}
         disabled={disabled || q.isPending}
         onChange={(e) => handleSelectChange(e.target.value)}
         aria-label="Model from catalog"
+      size="sm"
+      inline
       >
         <option value="">Server default</option>
         {models
@@ -112,7 +115,7 @@ export function ModelCatalogPicker({
             </option>
           ))}
         <option value="__custom__">Custom model id…</option>
-      </select>
+      </Select>
 
       {selectValue === '__custom__' && (
         <input

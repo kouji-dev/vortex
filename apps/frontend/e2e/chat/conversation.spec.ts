@@ -4,7 +4,7 @@
  * Covers: composer input, KB picker open/close/search/attach/detach,
  * keyboard navigation, sidebar navigation, and thread-header delete dialog.
  */
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../support/fixtures'
 import { escapeRegExp } from '../kb/helpers'
 import { e2eStableResourceName } from '../support/resource-slug'
 import { gotoChatComposerIndex } from '../support/conversation-ui'
@@ -124,7 +124,7 @@ test.describe('Chat conversation', () => {
     const kbName = e2eStableResourceName('kb', test.info().title)
     await createOrFindKb(page, kbName)
     const convId = await createOrFindConversation(page, E2E_CONV_KB_DETACH)
-    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
+    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'domcontentloaded' })
     await attachKbToConversationViaUi(page, kbName)
     await page.getByTestId('chat-kb-picker-trigger').click()
     const opt = page.getByRole('option', { name: new RegExp(escapeRegExp(kbName)) }).first()
@@ -202,7 +202,7 @@ test.describe('Chat conversation', () => {
     test.setTimeout(120_000)
     const convId = await createOrFindConversation(page, E2E_CONV_SHARED)
     try {
-      await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
+      await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'domcontentloaded' })
       page.once('dialog', (d) => {
         d.dismiss()
         throw new Error('Native window.confirm appeared — expected in-app dialog')
@@ -223,7 +223,7 @@ test.describe('Chat conversation', () => {
     test.setTimeout(120_000)
     const convId = await createOrFindConversation(page, E2E_CONV_SHARED)
     try {
-      await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
+      await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'domcontentloaded' })
       await page.getByTestId('thread-header-delete-open').click()
       const dialog = page.getByRole('dialog')
       await expect(dialog).toBeVisible()
@@ -242,7 +242,7 @@ test.describe('Chat conversation', () => {
     test.setTimeout(120_000)
     const convId = await createOrFindConversation(page, E2E_CONV_SHARED)
     try {
-      await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
+      await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'domcontentloaded' })
       await page.getByTestId('thread-header-delete-open').click()
       const dialog = page.getByRole('dialog')
       await expect(dialog).toBeVisible()

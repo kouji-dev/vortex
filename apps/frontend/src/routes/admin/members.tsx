@@ -1,3 +1,4 @@
+import { Select } from '~/components/ui/select'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as React from 'react'
@@ -117,13 +118,14 @@ function InviteForm({
         onChange={(e) => setEmail(e.target.value)}
         style={{ flex: 1, borderRadius: 4, border: '1px solid var(--line)', background: 'var(--bg)', color: 'var(--ink)', padding: '4px 8px', fontSize: 12 }}
       />
-      <select
+      <Select
         value={role}
         onChange={(e) => setRole(e.target.value as MemberRole)}
-        style={{ borderRadius: 4, border: '1px solid var(--line)', background: 'var(--bg)', color: 'var(--ink)', padding: '4px 8px', fontSize: 12 }}
+        size="sm"
+        inline
       >
         {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
-      </select>
+      </Select>
       <button type="submit" className="btn btn-primary" disabled={loading}>
         {loading ? 'Inviting…' : 'Invite'}
       </button>
@@ -150,14 +152,15 @@ function MembersTable({
         <div key={m.user_id} className="audit-row" style={{ gridTemplateColumns: '1fr 1fr 120px 120px 80px' }}>
           <span style={{ color: 'var(--ink)' }}>{m.email}</span>
           <span style={{ color: 'var(--ink-2)' }}>{m.name ?? '—'}</span>
-          <select
+          <Select
             value={m.role}
             onChange={(e) => onChangeRole(m.user_id, e.target.value as MemberRole)}
             data-testid={`admin-member-role-${m.user_id}`}
-            style={{ borderRadius: 3, border: '1px solid var(--line)', background: 'var(--bg)', color: 'var(--ink)', padding: '2px 6px', fontSize: 11 }}
+            size="sm"
+            inline
           >
             {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
-          </select>
+          </Select>
           <span className="meta">{m.last_active_at ? new Date(m.last_active_at).toLocaleDateString() : '—'}</span>
           <button
             className="btn btn-sm"

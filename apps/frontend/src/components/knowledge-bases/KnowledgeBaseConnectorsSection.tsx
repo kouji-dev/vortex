@@ -1,3 +1,4 @@
+import { Select } from '~/components/ui/select'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { RefreshCw, Trash2 } from 'lucide-react'
 import * as React from 'react'
@@ -208,10 +209,12 @@ export function KnowledgeBaseConnectorsSection({
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400">
               Type
-              <select
+              <Select
                 className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
                 value={kind}
                 onChange={(e) => setKind(e.target.value as ConnectorKind)}
+              size="sm"
+              inline
               >
                 {CONNECTOR_KINDS.map((k) => (
                   <option
@@ -223,7 +226,7 @@ export function KnowledgeBaseConnectorsSection({
                     {!isConnectorKindImplemented(k) ? ' (coming soon)' : ''}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
             <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400">
               Label

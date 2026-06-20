@@ -1,7 +1,7 @@
 /**
  * Knowledge Bases list page — table structure, Actions column, search, stats.
  */
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../support/fixtures'
 import { createKbThroughUi, escapeRegExp } from './helpers'
 import { e2eStableResourceName } from '../support/resource-slug'
 import { createOrFindKb } from '../support/ui-helpers'
@@ -23,17 +23,17 @@ test.describe('Knowledge Bases list page', () => {
   // ──────────────────────────────────────────────────────────────
 
   test('page heading is visible', async ({ page }) => {
-    await page.goto('/knowledge-bases', { waitUntil: 'networkidle' })
+    await page.goto('/knowledge-bases', { waitUntil: 'domcontentloaded' })
     await expect(page.getByRole('heading', { name: /knowledge bases/i }).first()).toBeVisible()
   })
 
   test('"Add knowledge base" button is visible', async ({ page }) => {
-    await page.goto('/knowledge-bases', { waitUntil: 'networkidle' })
+    await page.goto('/knowledge-bases', { waitUntil: 'domcontentloaded' })
     await expect(page.getByRole('button', { name: /add knowledge base/i })).toBeVisible()
   })
 
   test('search input is visible with correct placeholder', async ({ page }) => {
-    await page.goto('/knowledge-bases', { waitUntil: 'networkidle' })
+    await page.goto('/knowledge-bases', { waitUntil: 'domcontentloaded' })
     await expect(page.getByLabel('Search knowledge bases')).toBeVisible()
   })
 
@@ -45,7 +45,7 @@ test.describe('Knowledge Bases list page', () => {
     const name = e2eStableResourceName('kb', test.info().title)
     const id = await createOrFindKb(page, name)
     try {
-      await page.goto('/knowledge-bases', { waitUntil: 'networkidle' })
+      await page.goto('/knowledge-bases', { waitUntil: 'domcontentloaded' })
       const headers = page.getByRole('columnheader')
       await expect(headers.filter({ hasText: /name/i })).toBeVisible()
       await expect(headers.filter({ hasText: /size/i })).toBeVisible()
@@ -65,7 +65,7 @@ test.describe('Knowledge Bases list page', () => {
     const name = e2eStableResourceName('kb', test.info().title)
     const id = await createOrFindKb(page, name)
     try {
-      await page.goto('/knowledge-bases', { waitUntil: 'networkidle' })
+      await page.goto('/knowledge-bases', { waitUntil: 'domcontentloaded' })
       await expect(
         page.getByRole('link', { name: new RegExp(`view ${escapeRegExp(name)}`, 'i') }),
       ).toBeVisible()
@@ -78,7 +78,7 @@ test.describe('Knowledge Bases list page', () => {
     const name = e2eStableResourceName('kb', test.info().title)
     const id = await createOrFindKb(page, name)
     try {
-      await page.goto('/knowledge-bases', { waitUntil: 'networkidle' })
+      await page.goto('/knowledge-bases', { waitUntil: 'domcontentloaded' })
       await expect(page.getByTitle('View knowledge base').first()).toBeVisible()
     } finally {
       await deleteKbViaApi(request, id)
@@ -89,7 +89,7 @@ test.describe('Knowledge Bases list page', () => {
     const name = e2eStableResourceName('kb', test.info().title)
     const id = await createOrFindKb(page, name)
     try {
-      await page.goto('/knowledge-bases', { waitUntil: 'networkidle' })
+      await page.goto('/knowledge-bases', { waitUntil: 'domcontentloaded' })
       await page
         .getByRole('link', { name: new RegExp(`view ${escapeRegExp(name)}`, 'i') })
         .click()
@@ -109,7 +109,7 @@ test.describe('Knowledge Bases list page', () => {
     const name = e2eStableResourceName('kb', `${test.info().title} ${unique}`)
     const id = await createOrFindKb(page, name)
     try {
-      await page.goto('/knowledge-bases', { waitUntil: 'networkidle' })
+      await page.goto('/knowledge-bases', { waitUntil: 'domcontentloaded' })
       await page.getByLabel('Search knowledge bases').fill(unique)
       await expect(page.getByRole('row', { name: new RegExp(escapeRegExp(unique)) })).toBeVisible()
     } finally {
@@ -120,7 +120,7 @@ test.describe('Knowledge Bases list page', () => {
   test('searching a non-existent name shows "No knowledge bases match your search"', async ({
     page,
   }) => {
-    await page.goto('/knowledge-bases', { waitUntil: 'networkidle' })
+    await page.goto('/knowledge-bases', { waitUntil: 'domcontentloaded' })
     await page.getByLabel('Search knowledge bases').fill('__impossible_kb_zzz_9999__')
     await expect(page.getByText(/no knowledge bases match/i)).toBeVisible()
   })
@@ -130,7 +130,7 @@ test.describe('Knowledge Bases list page', () => {
   // ──────────────────────────────────────────────────────────────
 
   test('"Add knowledge base" button opens a dialog', async ({ page }) => {
-    await page.goto('/knowledge-bases', { waitUntil: 'networkidle' })
+    await page.goto('/knowledge-bases', { waitUntil: 'domcontentloaded' })
     await page.getByRole('button', { name: /add knowledge base/i }).click()
     await expect(page.getByRole('dialog')).toBeVisible({ timeout: 10_000 })
   })
@@ -159,7 +159,7 @@ test.describe('Knowledge Bases list page', () => {
     const name = e2eStableResourceName('kb', test.info().title)
     const id = await createOrFindKb(page, name)
     try {
-      await page.goto('/knowledge-bases', { waitUntil: 'networkidle' })
+      await page.goto('/knowledge-bases', { waitUntil: 'domcontentloaded' })
       // The name cell contains a link — click the text
       await page.getByRole('link', { name: new RegExp(escapeRegExp(name)) }).first().click()
       await expect(page).toHaveURL(new RegExp(`/knowledge-bases/${id}`))

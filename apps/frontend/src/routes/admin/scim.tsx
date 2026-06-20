@@ -1,3 +1,4 @@
+import { Select } from '~/components/ui/select'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as React from 'react'
@@ -182,13 +183,13 @@ function CreateDialog({
           <input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Production" style={inputStyle} />
         </Field>
         <Field label="Preset">
-          <select value={preset} onChange={(e) => setPreset(e.target.value as ScimPreset)} style={inputStyle}>
+          <Select value={preset} onChange={(e) => setPreset(e.target.value as ScimPreset)} size="sm" inline>
             {SCIM_PRESETS.map((p) => (
               <option key={p.value} value={p.value}>
                 {p.label} — {p.blurb}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
         {(error || localError) && <p style={{ fontSize: 11, color: 'var(--red)', marginBottom: 8 }}>{error || localError}</p>}
         <DialogActions saving={saving} onCancel={onCancel} submitLabel="Create" />
@@ -299,14 +300,16 @@ function GroupMappingDialog({
           />
         </Field>
         <Field label="Role">
-          <select
+          <Select
             value={roleName}
             onChange={(e) => setRoleName(e.target.value as typeof SCIM_ROLE_OPTIONS[number])}
             style={inputStyle}
             data-testid="admin-scim-group-role"
+          size="sm"
+          inline
           >
             {SCIM_ROLE_OPTIONS.map((r) => <option key={r} value={r}>{r}</option>)}
-          </select>
+          </Select>
         </Field>
         {(upsert.error || localError) && (
           <p style={{ fontSize: 11, color: 'var(--red)', marginBottom: 8 }}>

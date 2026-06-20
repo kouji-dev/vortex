@@ -1,15 +1,15 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../support/fixtures'
 
 import { createMemoryViaApi, deleteMemoryViaApi } from '../support/memories-api'
 
 test.describe('Memories in chat', () => {
   test('homepage shows Memories feature card that links to /memories', async ({ page }) => {
-    await page.goto('/', { waitUntil: 'networkidle' })
+    await page.goto('/', { waitUntil: 'domcontentloaded' })
     await expect(page.getByText('Memories', { exact: false }).first()).toBeVisible()
     const memoriesLink = page.getByRole('link', { name: /memories/i }).first()
     await expect(memoriesLink).toBeVisible()
     await memoriesLink.click()
-    await expect(page).toHaveURL('/memories')
+    await expect(page).toHaveURL(/\/memories(\/my)?$/)
   })
 
   test('memories API can create and delete a memory', async ({ request }) => {
@@ -24,7 +24,7 @@ test.describe('Memories in chat', () => {
     const id = await createMemoryViaApi(request, content)
 
     try {
-      await page.goto('/memories', { waitUntil: 'networkidle' })
+      await page.goto('/memories', { waitUntil: 'domcontentloaded' })
       await expect(page.getByText(content)).toBeVisible({ timeout: 5_000 })
     } finally {
       await deleteMemoryViaApi(request, id)

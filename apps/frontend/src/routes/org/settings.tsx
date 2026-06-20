@@ -1,3 +1,4 @@
+import { Select } from '~/components/ui/select'
 import { createFileRoute } from '@tanstack/react-router'
 import * as React from 'react'
 import { authorizedFetch } from '~/lib/authorizedFetch'
@@ -140,14 +141,15 @@ function MembersTab() {
             onChange={(e) => setInviteEmail(e.target.value)}
             style={{ flex: 1, borderRadius: 4, border: '1px solid var(--line)', background: 'var(--bg)', color: 'var(--ink)', padding: '4px 8px', fontSize: 12 }}
           />
-          <select
+          <Select
             value={inviteRole}
             onChange={(e) => setInviteRole(e.target.value as 'member' | 'admin')}
-            style={{ borderRadius: 4, border: '1px solid var(--line)', background: 'var(--bg)', color: 'var(--ink)', padding: '4px 8px', fontSize: 12 }}
+          size="sm"
+          inline
           >
             <option value="member">Member</option>
             <option value="admin">Admin</option>
-          </select>
+          </Select>
           <button type="submit" className="btn btn-primary">Invite</button>
         </form>
         {error && <p style={{ marginTop: 6, fontSize: 12, color: 'var(--red)' }}>{error}</p>}

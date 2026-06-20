@@ -8,6 +8,7 @@
  * Selections persist via `PATCH /api/knowledge-bases/{id}/settings`; tags persist
  * via the existing `PATCH /api/knowledge-bases/{id}`.
  */
+import { Select } from '~/components/ui/select'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import * as React from 'react'
@@ -301,7 +302,7 @@ function ProviderSelect({
   return (
     <label style={{ fontSize: 12, display: 'grid', gap: 4 }}>
       {label}
-      <select
+      <Select
         className="rag-input"
         value={value}
         disabled={busy || empty}
@@ -310,6 +311,8 @@ function ProviderSelect({
           const next = e.target.value
           if (next && next !== value) onChange(next)
         }}
+      size="sm"
+      inline
       >
         {empty && <option value="">— none enabled —</option>}
         {ids.map((id) => (
@@ -317,7 +320,7 @@ function ProviderSelect({
             {id}
           </option>
         ))}
-      </select>
+      </Select>
     </label>
   )
 }

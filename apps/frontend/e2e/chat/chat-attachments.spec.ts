@@ -1,14 +1,16 @@
 /**
- * Chat attachments — upload API, stream payload check, and LLM reads file content.
+ * Chat attachments — upload API, stream payload check, and assistant reads file content.
  *
- * Conversations use **Claude Haiku 4.5** via `createEmptyConversation` (needs
- * **ANTHROPIC_API_KEY** on the API). Requires migration `020_chat_conversation_uploads`.
- * Run `./scripts/e2e-up.sh` or `./scripts/e2e-db-sync.sh` before the API.
+ * Conversations are created via `createEmptyConversation`. Chat turns are mocked
+ * at the browser via `installChatStreamMock` — no real LLM is called. Requires
+ * migration `020_chat_conversation_uploads`. Run `./scripts/e2e-up.sh` or
+ * `./scripts/e2e-db-sync.sh` before the API.
  *
  * @see docs/superpowers/specs/2026-04-04-chat-remaining-features-delivery.md
  */
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../support/fixtures'
 import { createEmptyConversation } from '../support/create-conversation'
+import { installChatStreamMock, makeItem } from '../support/chat-mock'
 
 const apiBase = process.env.E2E_API_URL ?? 'http://127.0.0.1:8001'
 
@@ -44,12 +46,16 @@ test.describe('Chat attachments — stream request', () => {
     test.setTimeout(90_000)
     const convId = await createEmptyConversation(request, apiBase)
 
+    // Mock the stream so no real LLM is called; the POST request is still
+    // observable via waitForRequest before the mock fulfills it.
+    await installChatStreamMock(page, { conversationId: convId, script: { assistantText: 'OK' } })
+
     const streamWait = page.waitForRequest(
       (r) => r.url().includes('/messages/stream') && r.method() === 'POST',
       { timeout: 75_000 },
     )
 
-    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
+    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'domcontentloaded' })
     await page.getByTestId('chat-attach-file-input').setInputFiles({
       name: 'stream-payload.txt',
       mimeType: 'text/plain',
@@ -85,73 +91,24 @@ test.describe('Chat attachments — assistant uses file (Claude Haiku)', () => {
     const secret = `E2E_FILE_SECRET_${Date.now()}`
     const fileBody = `Confidential line for automated testing.\nThe secret codeword is exactly: ${secret}\nEnd of file.\n`
     const mockMsgId = convId * 1000
+    const turnId = '00000000-0000-0000-0000-000000000001'
 
-    // Track whether the stream has completed so the messages mock can return the right data.
-    let streamCompleted = false
-
-    // Mock the messages endpoint: return empty before stream, return messages after stream.
-    await page.route(`**/api/chat/conversations/${convId}/messages**`, async (route) => {
-      if (!streamCompleted) {
-        await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
-      } else {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify([
-            {
-              id: mockMsgId - 1,
-              thread_id: convId,
-              turn_id: '00000000-0000-0000-0000-000000000001',
-              kind: 'user_message',
-              role: 'user',
-              status: 'done',
-              provider: null,
-              model: null,
-              cost_usd: null,
-              cost_estimated: false,
-              latency_ms: null,
-              data: { text: 'Read ONLY the attached text file.', attachments: [] },
-              parent_item_id: null,
-              started_at: null,
-              finished_at: null,
-              created_at: new Date(Date.now() - 5_000).toISOString(),
-            },
-            {
-              id: mockMsgId,
-              thread_id: convId,
-              turn_id: '00000000-0000-0000-0000-000000000001',
-              kind: 'assistant_text',
-              role: 'assistant',
-              status: 'done',
-              provider: null,
-              model: null,
-              cost_usd: null,
-              cost_estimated: false,
-              latency_ms: null,
-              data: { text: secret },
-              parent_item_id: null,
-              started_at: null,
-              finished_at: null,
-              created_at: new Date().toISOString(),
-            },
-          ]),
-        })
-      }
+    // Mock the stream (returns the secret) + GET-messages turn list. No real LLM.
+    await installChatStreamMock(page, {
+      conversationId: convId,
+      script: {
+        threadId: convId,
+        turnId,
+        userText: 'Read ONLY the attached text file.',
+        assistantText: secret,
+        turnItems: [
+          makeItem('user_message', { text: 'Read ONLY the attached text file.', attachments: [] }, { id: mockMsgId - 1, threadId: convId, turnId, role: 'user' }),
+          makeItem('assistant_text', { text: secret }, { id: mockMsgId, threadId: convId, turnId }),
+        ],
+      },
     })
 
-    // Mock the stream to immediately return the secret word.
-    await page.route(`**/api/chat/conversations/${convId}/messages/stream`, async (route) => {
-      streamCompleted = true
-      await route.fulfill({
-        status: 200,
-        contentType: 'text/event-stream',
-        body:
-          `data: ${JSON.stringify({ event_type: 'item', item: { id: mockMsgId, thread_id: convId, turn_id: '00000000-0000-0000-0000-000000000001', kind: 'assistant_text', role: 'assistant', status: 'done', provider: null, model: null, cost_usd: null, cost_estimated: false, latency_ms: null, data: { text: secret }, parent_item_id: null, started_at: null, finished_at: null, created_at: new Date().toISOString() } })}\n\n` +
-          `data: {"event_type":"done"}\n\n`,
-      })
-    })
-
-    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'networkidle' })
+    await page.goto(`/chat/conversations/${convId}`, { waitUntil: 'domcontentloaded' })
     await page.getByTestId('chat-attach-file-input').setInputFiles({
       name: 'secret-e2e.txt',
       mimeType: 'text/plain',

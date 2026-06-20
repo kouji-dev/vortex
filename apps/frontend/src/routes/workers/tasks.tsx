@@ -4,6 +4,7 @@
  * Lists tasks with filters (status / pool) and a submit-task drawer that
  * POSTs to /v1/workers/tasks.
  */
+import { Select } from '~/components/ui/select'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as React from 'react'
@@ -59,24 +60,28 @@ function TasksPage() {
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center' }}>
         <label style={{ fontSize: 11, color: 'var(--ink-3)' }}>Status</label>
-        <select
+        <Select
           className="wk-input"
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as TaskStatus | '')}
           data-testid="wk-task-status-filter"
+        size="sm"
+        inline
         >
           {STATUS_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}
             </option>
           ))}
-        </select>
+        </Select>
         <label style={{ fontSize: 11, color: 'var(--ink-3)' }}>Pool</label>
-        <select
+        <Select
           className="wk-input"
           value={poolFilter}
           onChange={(e) => setPoolFilter(e.target.value)}
           data-testid="wk-task-pool-filter"
+        size="sm"
+        inline
         >
           <option value="">Any</option>
           {(poolsQ.data ?? []).map((p) => (
@@ -84,7 +89,7 @@ function TasksPage() {
               {p.name}
             </option>
           ))}
-        </select>
+        </Select>
         <button
           className="btn btn-sm"
           onClick={() => setShowSubmit(true)}
@@ -277,11 +282,13 @@ function SubmitDrawer({
         <label style={{ display: 'block', fontSize: 11, color: 'var(--ink-3)', marginBottom: 4 }}>
           Pool
         </label>
-        <select
+        <Select
           className="wk-input"
           style={{ width: '100%', marginBottom: 10 }}
           value={poolId}
           onChange={(e) => setPoolId(e.target.value)}
+        size="sm"
+        inline
         >
           <option value="">(auto-pick)</option>
           {pools.map((p) => (
@@ -289,7 +296,7 @@ function SubmitDrawer({
               {p.name}
             </option>
           ))}
-        </select>
+        </Select>
         <label style={{ display: 'block', fontSize: 11, color: 'var(--ink-3)', marginBottom: 4 }}>
           Description
         </label>

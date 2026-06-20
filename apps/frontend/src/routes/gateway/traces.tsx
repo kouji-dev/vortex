@@ -1,5 +1,6 @@
 // apps/frontend/src/routes/gateway/traces.tsx
 // Gateway → Traces (J7): table + drawer + replay (with overrides).
+import { Select } from '~/components/ui/select'
 import { createFileRoute } from '@tanstack/react-router'
 import * as React from 'react'
 import { authorizedFetch } from '~/lib/authorizedFetch'
@@ -152,13 +153,14 @@ function FiltersBar({ filters, onChange }: { filters: TraceFilters; onChange: (f
           onChange={(e) => onChange({ ...filters, provider: e.target.value })}
           style={{ fontSize: 11, padding: 4, border: '1px solid var(--line)', borderRadius: 3, background: 'var(--bg)', color: 'var(--ink)' }}
         />
-        <select
+        <Select
           value={filters.status ?? 'all'}
           onChange={(e) => onChange({ ...filters, status: e.target.value as TraceStatus | 'all' })}
-          style={{ fontSize: 11, padding: 4, border: '1px solid var(--line)', borderRadius: 3, background: 'var(--bg)', color: 'var(--ink)' }}
+        size="sm"
+        inline
         >
           {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
+        </Select>
       </div>
     </div>
   )
@@ -274,25 +276,27 @@ function TraceDrawer({
             <Section label="Replay">
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <label style={{ fontSize: 10, color: 'var(--ink-3)' }}>Override model</label>
-                <select
+                <Select
                   value={overrideModel}
                   onChange={(e) => setOverrideModel(e.target.value)}
-                  style={{ fontSize: 11, padding: 4, border: '1px solid var(--line)', borderRadius: 3, background: 'var(--bg)', color: 'var(--ink)' }}
                   data-testid="replay-model"
+                size="sm"
+                inline
                 >
                   <option value="">(same as original)</option>
                   {models.map((m) => <option key={m.id} value={m.model_id}>{m.display_name || m.model_id}</option>)}
-                </select>
+                </Select>
                 <label style={{ fontSize: 10, color: 'var(--ink-3)' }}>Override routing policy</label>
-                <select
+                <Select
                   value={overridePolicy}
                   onChange={(e) => setOverridePolicy(e.target.value)}
-                  style={{ fontSize: 11, padding: 4, border: '1px solid var(--line)', borderRadius: 3, background: 'var(--bg)', color: 'var(--ink)' }}
                   data-testid="replay-policy"
+                size="sm"
+                inline
                 >
                   <option value="">(same as original)</option>
                   {policies.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </select>
+                </Select>
                 <button
                   className="btn btn-primary"
                   onClick={replay}

@@ -93,6 +93,15 @@ export const Route = createRootRouteWithContext<{
 const AUTH_ROUTE_RE = /^\/(login|register|setup)(\/|$)/
 
 function RootComponent() {
+  // Deterministic hydration marker for E2E: a useEffect commits only after the
+  // client has hydrated, so `html[data-hydrated]` signals the tree is interactive.
+  React.useEffect(() => {
+    document.documentElement.dataset.hydrated = 'true'
+    return () => {
+      delete document.documentElement.dataset.hydrated
+    }
+  }, [])
+
   useAuthRedirect()
   useSetupRedirect()
   const me = useMeQuery()

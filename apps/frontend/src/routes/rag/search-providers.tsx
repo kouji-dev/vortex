@@ -6,6 +6,7 @@
  * admin pick the default-for-web among the ENABLED providers. It NEVER collects
  * an API key or endpoint — those live in deployment config.
  */
+import { Select } from '~/components/ui/select'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import * as React from 'react'
@@ -134,12 +135,14 @@ function SearchProvidersPage() {
 
             <label style={{ fontSize: 12, display: 'grid', gap: 4, maxWidth: 320 }}>
               Default for web search
-              <select
+              <Select
                 className="rag-input"
                 value={selectedDefault}
                 disabled={enabled.length === 0 || saveDefault.isPending}
                 data-testid="rag-sp-default-select"
                 onChange={(e) => setDraftDefault(e.target.value)}
+              size="sm"
+              inline
               >
                 {enabled.length === 0 && <option value="">— none enabled —</option>}
                 {enabled.map((id) => (
@@ -147,7 +150,7 @@ function SearchProvidersPage() {
                     {id}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
 
             <div>

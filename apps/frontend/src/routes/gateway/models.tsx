@@ -1,3 +1,4 @@
+import { Select } from '~/components/ui/select'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import * as React from 'react'
@@ -62,27 +63,31 @@ function ModelsPage() {
             onChange={(e) => setSearch(e.target.value)}
             data-testid="gw-models-search"
           />
-          <select
+          <Select
             className="gw-input"
             value={provider}
             onChange={(e) => setProvider(e.target.value)}
             data-testid="gw-models-provider"
+          size="sm"
+          inline
           >
             <option value="">All providers</option>
             {providerOptions.map((p) => (
               <option key={p} value={p}>{p}</option>
             ))}
-          </select>
-          <select
+          </Select>
+          <Select
             className="gw-input"
             value={capability ?? ''}
             onChange={(e) => setCapability((e.target.value || '') as ModelFilter['capability'] | '')}
             data-testid="gw-models-capability"
+          size="sm"
+          inline
           >
             {CAP_FILTERS.map((c) => (
               <option key={c.value || 'any'} value={c.value ?? ''}>{c.label}</option>
             ))}
-          </select>
+          </Select>
           <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}>
             <input
               type="checkbox"

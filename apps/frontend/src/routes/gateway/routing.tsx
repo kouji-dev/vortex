@@ -1,3 +1,4 @@
+import { Select } from '~/components/ui/select'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as React from 'react'
@@ -246,16 +247,18 @@ function PolicyEditorDialog({
         </label>
         <label style={fieldRow}>
           Strategy
-          <select
+          <Select
             className="gw-input"
             value={strategy}
             onChange={(e) => setStrategy(e.target.value as RoutingStrategy)}
             data-testid="gw-routing-policy-strategy"
+          size="sm"
+          inline
           >
             {STRATEGY_OPTIONS.map((s) => (
               <option key={s.value} value={s.value}>{s.label}</option>
             ))}
-          </select>
+          </Select>
           <span style={{ fontSize: 11, color: 'var(--ink-3)' }}>
             {STRATEGY_OPTIONS.find((s) => s.value === strategy)?.blurb}
           </span>
@@ -530,16 +533,18 @@ function AliasDialog({
         </label>
         <label style={fieldRow}>
           Policy
-          <select
+          <Select
             className="gw-input"
             value={policyId}
             onChange={(e) => setPolicyId(e.target.value)}
             data-testid="gw-routing-alias-policy"
+          size="sm"
+          inline
           >
             {policies.map((p) => (
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
-          </select>
+          </Select>
         </label>
         {(error || mut.error) && (
           <p style={{ fontSize: 11, color: 'var(--red)', marginBottom: 8 }}>

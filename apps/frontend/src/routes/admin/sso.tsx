@@ -1,3 +1,4 @@
+import { Select } from '~/components/ui/select'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as React from 'react'
@@ -194,14 +195,15 @@ function IdpForm({
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11 }}>
           Provider
-          <select
+          <Select
             value={kind}
             onChange={(e) => { setKind(e.target.value as IdpKind); setConfig({}) }}
             disabled={!!initial}
-            style={{ borderRadius: 4, border: '1px solid var(--line)', background: 'var(--bg)', color: 'var(--ink)', padding: '4px 8px', fontSize: 12 }}
+          size="sm"
+          inline
           >
             {KINDS.map((k) => <option key={k.value} value={k.value}>{k.label}</option>)}
-          </select>
+          </Select>
         </label>
 
         <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11 }}>

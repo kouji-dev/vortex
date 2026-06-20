@@ -1,7 +1,7 @@
 /**
  * Admin Policies tab — verify RBAC controls render and save button is present.
  */
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../support/fixtures'
 
 const RBAC_ROUTE = '**/api/admin/rbac/policy'
 const MODELS_ROUTE = '**/api/models'
@@ -40,7 +40,7 @@ test.describe('Admin — Policies tab', () => {
       })
     })
 
-    await page.goto('/org/settings', { waitUntil: 'networkidle' })
+    await page.goto('/org/settings', { waitUntil: 'domcontentloaded' })
     await page.getByRole('button', { name: 'Policies' }).click()
 
     // Capability table headers.
@@ -66,7 +66,7 @@ test.describe('Admin — Policies tab', () => {
       })
     })
 
-    await page.goto('/org/settings', { waitUntil: 'networkidle' })
+    await page.goto('/org/settings', { waitUntil: 'domcontentloaded' })
     await page.getByRole('button', { name: 'Policies' }).click()
 
     await expect(page.getByLabel(/allow all/i)).toBeVisible()

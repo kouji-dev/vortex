@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../support/fixtures'
 
 test.describe('Auth gate (local mode simulation)', () => {
   // Skipped: VITE_AUTH_MODE is baked at build time so we can't override it at runtime

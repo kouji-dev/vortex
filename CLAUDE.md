@@ -66,7 +66,7 @@ wmic process where "commandline like '%uvicorn%' and commandline like '%8001%'" 
 | `pnpm test:e2e:filter <pattern>` | Run a subset by grep pattern, e.g. `pnpm test:e2e:filter thinking-block` |
 | `pnpm test:e2e:ui` | Open Playwright UI mode |
 
-Playwright config: **8 workers minimum, 0 retries**.
+Playwright config: **2 workers, 0 retries** (workers capped to limit CPU during E2E runs).
 
 ## E2E Test Principles
 

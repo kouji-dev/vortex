@@ -1,3 +1,4 @@
+import { Select } from '~/components/ui/select'
 import * as React from 'react'
 
 import { Dialog, DialogBody } from '~/components/ui/Dialog'
@@ -101,19 +102,21 @@ export function ModelTuningModal({
           {model && r?.supported && r.efforts_available.length > 0 && (
             <div className="form-row !mb-0 !max-w-none">
               <label>Reasoning effort</label>
-              <select
+              <Select
                 className="select"
                 value={tuning.reasoningEffort}
                 onChange={(e) =>
                   onTuningChange({ ...tuning, reasoningEffort: e.target.value })
                 }
+              size="sm"
+              inline
               >
                 {r.efforts_available.map((eff) => (
                   <option key={eff} value={eff}>
                     {eff}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
           )}
 

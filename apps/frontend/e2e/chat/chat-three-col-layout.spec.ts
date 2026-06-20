@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../support/fixtures'
 import { createOrFindConversation } from '../support/ui-helpers'
 
 test('chat shows 3-col with inspector toggle', async ({ page }) => {

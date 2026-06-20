@@ -4,6 +4,7 @@
  * Re-uses the existing knowledge-bases documents endpoint; this page is the
  * /rag/ flavour with status colour-coding and a status filter.
  */
+import { Select } from '~/components/ui/select'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import * as React from 'react'
@@ -45,18 +46,20 @@ function DocumentsPage() {
         style={{ display: 'flex', justifyContent: 'space-between' }}
       >
         <span>Documents</span>
-        <select
+        <Select
           className="rag-input"
           style={{ width: 'auto' }}
           value={status}
           onChange={(e) => setStatus(e.target.value as typeof status)}
           data-testid="rag-docs-filter"
+        size="sm"
+        inline
         >
           <option value="all">all</option>
           <option value="ready">ready</option>
           <option value="pending">pending</option>
           <option value="failed">failed</option>
-        </select>
+        </Select>
       </div>
       <div className="panel-body" style={{ padding: 12 }}>
         {docsQ.isPending && <p style={{ fontSize: 12, color: 'var(--ink-3)' }}>Loading…</p>}

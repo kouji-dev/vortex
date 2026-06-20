@@ -1,3 +1,4 @@
+import { Select } from '~/components/ui/select'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import * as React from 'react'
@@ -49,22 +50,24 @@ function UsagePage() {
       <div className="panel-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span>Usage</span>
         <div style={{ display: 'flex', gap: 8 }}>
-          <select
+          <Select
             value={dim}
             onChange={(e) => setDim(e.target.value as UsageDimension)}
             data-testid="admin-usage-dim"
-            style={{ borderRadius: 4, border: '1px solid var(--line)', background: 'var(--bg)', color: 'var(--ink)', padding: '4px 8px', fontSize: 12 }}
+            size="sm"
+            inline
           >
             {DIMS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
-          </select>
-          <select
+          </Select>
+          <Select
             value={period}
             onChange={(e) => setPeriod(e.target.value as UsagePeriod)}
             data-testid="admin-usage-period"
-            style={{ borderRadius: 4, border: '1px solid var(--line)', background: 'var(--bg)', color: 'var(--ink)', padding: '4px 8px', fontSize: 12 }}
+            size="sm"
+            inline
           >
             {PERIODS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
-          </select>
+          </Select>
         </div>
       </div>
 
@@ -93,14 +96,14 @@ function UsagePage() {
               <h3 style={{ fontSize: 12, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
                 Cost over time
               </h3>
-              <CostLineChart points={report.data.timeseries} />
+              <CostLineChart points={report.data.timeseries ?? []} />
             </section>
 
             <section style={{ marginTop: 20 }}>
               <h3 style={{ fontSize: 12, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
                 Top {DIMS.find((d) => d.value === dim)?.label.toLowerCase()}
               </h3>
-              <BucketBarChart buckets={report.data.buckets} />
+              <BucketBarChart buckets={report.data.buckets ?? []} />
             </section>
           </>
         )}

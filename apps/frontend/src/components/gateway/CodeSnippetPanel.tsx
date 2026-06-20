@@ -1,5 +1,6 @@
 // apps/frontend/src/components/gateway/CodeSnippetPanel.tsx
 // J10 — reusable per-endpoint snippet panel (cURL / Python / TS / Claude-Code).
+import { Select } from '~/components/ui/select'
 import * as React from 'react'
 import { renderSnippets, type Snippet } from '~/lib/code-snippets'
 import type { SnippetContext, SnippetEndpoint } from '~/lib/gateway-types'
@@ -51,14 +52,15 @@ export function CodeSnippetPanel(props: CodeSnippetPanelProps) {
       <div className="panel-head" style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
         <span>Code snippet</span>
         {props.onEndpointChange && (
-          <select
+          <Select
             value={props.endpoint}
             onChange={(e) => props.onEndpointChange?.(e.target.value as SnippetEndpoint)}
-            style={{ fontSize: 11, padding: 4, border: '1px solid var(--line)', borderRadius: 3, background: 'var(--bg)', color: 'var(--ink)' }}
             data-testid="endpoint-picker"
+          size="sm"
+          inline
           >
             {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
+          </Select>
         )}
       </div>
       <div style={{ display: 'flex', gap: 4, padding: '6px 10px', borderBottom: '1px solid var(--line)' }}>

@@ -3,7 +3,7 @@
  *
  * Uses a mocked API so the test doesn't require real LLM calls or specific usage rows.
  */
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../support/fixtures'
 
 const USAGE_SUMMARY_ROUTE = '**/api/admin/usage/summary**'
 
@@ -34,7 +34,7 @@ test.describe('Admin — Usage tab', () => {
       })
     })
 
-    await page.goto('/org/settings', { waitUntil: 'networkidle' })
+    await page.goto('/org/settings', { waitUntil: 'domcontentloaded' })
 
     // Click the Usage tab.
     await page.getByRole('button', { name: 'Usage' }).click()
@@ -64,7 +64,7 @@ test.describe('Admin — Usage tab', () => {
       })
     })
 
-    await page.goto('/org/settings', { waitUntil: 'networkidle' })
+    await page.goto('/org/settings', { waitUntil: 'domcontentloaded' })
     await page.getByRole('button', { name: 'Usage' }).click()
     await expect(page.getByText('No usage data')).toBeVisible()
   })

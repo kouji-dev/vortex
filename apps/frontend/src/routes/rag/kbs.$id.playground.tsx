@@ -5,6 +5,7 @@
  * retrieved chunks + answer side-by-side. Stores every run as a session so
  * the user can replay it deterministically or promote it to an eval case.
  */
+import { Select } from '~/components/ui/select'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import * as React from 'react'
@@ -182,16 +183,18 @@ function SaveAsEvalPicker({
         <span style={{ fontSize: 11, color: 'var(--ink-3)' }}>No test sets — create one first.</span>
       ) : (
         <>
-          <select
+          <Select
             value={chosen}
             onChange={(e) => setChosen(e.target.value)}
             data-testid="rag-playground-save-as-eval-select"
             style={{ fontSize: 11 }}
+          size="sm"
+          inline
           >
             {evals.map((e) => (
               <option key={e.id} value={e.id}>{e.name}</option>
             ))}
-          </select>
+          </Select>
           <button
             type="button"
             onClick={() => onSave(chosen)}

@@ -1,7 +1,7 @@
 /**
  * Admin Audit Log tab — verify events render and CSV export button is present.
  */
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../support/fixtures'
 
 const AUDIT_ROUTE = '**/api/admin/audit**'
 
@@ -33,7 +33,7 @@ test.describe('Admin — Audit Log tab', () => {
       })
     })
 
-    await page.goto('/org/settings', { waitUntil: 'networkidle' })
+    await page.goto('/org/settings', { waitUntil: 'domcontentloaded' })
     await page.getByRole('button', { name: 'Audit Log' }).click()
 
     // Wait for the table to appear.
@@ -51,7 +51,7 @@ test.describe('Admin — Audit Log tab', () => {
       })
     })
 
-    await page.goto('/org/settings', { waitUntil: 'networkidle' })
+    await page.goto('/org/settings', { waitUntil: 'domcontentloaded' })
     await page.getByRole('button', { name: 'Audit Log' }).click()
 
     await expect(page.getByPlaceholder(/Filter by event type/i)).toBeVisible()

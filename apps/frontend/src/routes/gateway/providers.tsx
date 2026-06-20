@@ -1,3 +1,4 @@
+import { Select } from '~/components/ui/select'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as React from 'react'
@@ -185,16 +186,18 @@ function AddCredentialDialog({
       <form onSubmit={submit}>
         <label style={fieldRow}>
           Provider
-          <select
+          <Select
             value={provider}
             onChange={(e) => setProvider(e.target.value)}
             className="gw-input"
             data-testid="gw-providers-provider"
+          size="sm"
+          inline
           >
             {PROVIDER_CATALOG.map((p) => (
               <option key={p.kind} value={p.kind}>{p.label}</option>
             ))}
-          </select>
+          </Select>
         </label>
         <label style={fieldRow}>
           Label (optional)

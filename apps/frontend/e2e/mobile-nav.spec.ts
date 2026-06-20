@@ -6,10 +6,11 @@
  *
  * Requires the E2E backend: `./scripts/e2e-up.sh`
  */
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/fixtures'
+
+import { installChatStreamMock } from './support/chat-mock'
 
 const MOBILE_VIEWPORT = { width: 390, height: 844 }
-const STREAM_ROUTE = '**/api/chat/conversations/*/messages/stream'
 const SHARED_CONV_NAME = 'E2E Mobile Nav'
 
 /**
@@ -34,7 +35,7 @@ async function mobileCreateOrFindConversation(
   page: import('@playwright/test').Page,
   name: string,
 ): Promise<void> {
-  await page.goto('/chat/conversations', { waitUntil: 'networkidle' })
+  await page.goto('/chat/conversations', { waitUntil: 'domcontentloaded' })
 
   // Try to find an existing conversation via the hamburger drawer
   const hamburger = page.getByRole('button', { name: 'Open conversations' })
@@ -52,14 +53,8 @@ async function mobileCreateOrFindConversation(
     await expect(drawerCloseButton(page)).not.toBeInViewport({ timeout: 5_000 })
   }
 
-  // Create conversation via the mobile composer with a mocked stream response
-  await page.route(STREAM_ROUTE, async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'text/event-stream',
-      body: 'data: {"event_type":"item","item":{"id":1,"thread_id":0,"turn_id":"00000000-0000-0000-0000-000000000000","kind":"assistant_text","role":"assistant","status":"done","provider":null,"model":null,"cost_usd":null,"cost_estimated":false,"latency_ms":null,"data":{"text":"OK"},"parent_item_id":null,"started_at":null,"finished_at":null,"created_at":"2026-01-01T00:00:00Z"}}\n\ndata: {"event_type":"done"}\n\n',
-    })
-  })
+  // Create conversation via the mobile composer with a mocked stream response.
+  const cleanup = await installChatStreamMock(page, { script: { userText: name, assistantText: 'OK' } })
   try {
     await page.getByRole('textbox', { name: /message/i }).fill(name)
     await page.getByRole('button', { name: /send message/i }).click()
@@ -68,7 +63,7 @@ async function mobileCreateOrFindConversation(
       timeout: 60_000,
     })
   } finally {
-    await page.unroute(STREAM_ROUTE).catch(() => undefined)
+    await cleanup()
   }
 }
 
@@ -80,12 +75,12 @@ test.describe('Mobile navigation', () => {
   // ── Bottom tab bar ─────────────────────────────────────────────────────────
 
   test('bottom tab bar is visible on mobile', async ({ page }) => {
-    await page.goto('/', { waitUntil: 'networkidle' })
+    await page.goto('/', { waitUntil: 'domcontentloaded' })
     await expect(page.getByRole('navigation', { name: 'Main navigation' })).toBeVisible()
   })
 
   test('desktop sidebar is hidden on mobile', async ({ page }) => {
-    await page.goto('/chat/conversations', { waitUntil: 'networkidle' })
+    await page.goto('/chat/conversations', { waitUntil: 'domcontentloaded' })
     // AppSidebar wraps in a div.hidden.md:flex — the aside itself is inside that div
     const aside = page.locator('aside[aria-label="Main navigation"]')
     await expect(aside).toBeHidden()
@@ -94,14 +89,14 @@ test.describe('Mobile navigation', () => {
   // ── Tab navigation ─────────────────────────────────────────────────────────
 
   test('Chat tab navigates to /chat', async ({ page }) => {
-    await page.goto('/', { waitUntil: 'networkidle' })
+    await page.goto('/', { waitUntil: 'domcontentloaded' })
     const nav = page.getByRole('navigation', { name: 'Main navigation' })
     await nav.getByRole('link', { name: 'Chat' }).click()
     await expect(page).toHaveURL(/\/chat/, { timeout: 10_000 })
   })
 
   test('Knowledge Bases tab navigates to /knowledge-bases', async ({ page }) => {
-    await page.goto('/', { waitUntil: 'networkidle' })
+    await page.goto('/', { waitUntil: 'domcontentloaded' })
     const nav = page.getByRole('navigation', { name: 'Main navigation' })
     await nav.getByRole('link', { name: 'KBs' }).click()
     await expect(page).toHaveURL(/\/knowledge-bases/, { timeout: 10_000 })
@@ -110,13 +105,13 @@ test.describe('Mobile navigation', () => {
   // ── More tab bottom sheet ──────────────────────────────────────────────────
 
   test('More tab opens bottom sheet with overflow nav items', async ({ page }) => {
-    await page.goto('/', { waitUntil: 'networkidle' })
+    await page.goto('/', { waitUntil: 'domcontentloaded' })
     await page.getByRole('button', { name: 'More navigation options' }).click()
     await expect(page.getByRole('link', { name: 'Org Settings' })).toBeVisible({ timeout: 5_000 })
   })
 
   test('More tab bottom sheet closes on backdrop tap', async ({ page }) => {
-    await page.goto('/', { waitUntil: 'networkidle' })
+    await page.goto('/', { waitUntil: 'domcontentloaded' })
     await page.getByRole('button', { name: 'More navigation options' }).click()
     await expect(page.getByRole('link', { name: 'Org Settings' })).toBeVisible({ timeout: 5_000 })
     // Tap the backdrop — near the top of the screen, well above the bottom sheet

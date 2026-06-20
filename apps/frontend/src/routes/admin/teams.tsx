@@ -1,3 +1,4 @@
+import { Select } from '~/components/ui/select'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as React from 'react'
@@ -219,18 +220,19 @@ function AddMemberRow({
         setRole('')
       }}
     >
-      <select
+      <Select
         value={userId}
         onChange={(e) => setUserId(e.target.value)}
         required
         data-testid="admin-team-add-member-select"
-        style={{ flex: 1, borderRadius: 4, border: '1px solid var(--line)', background: 'var(--bg)', color: 'var(--ink)', padding: '4px 8px', fontSize: 12 }}
+      size="sm"
+      inline
       >
         <option value="">Add a member…</option>
         {addable.map((m) => (
           <option key={m.user_id} value={m.user_id}>{m.email}</option>
         ))}
-      </select>
+      </Select>
       <input
         value={role}
         onChange={(e) => setRole(e.target.value)}

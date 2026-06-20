@@ -4,9 +4,21 @@ import type { Page } from '@playwright/test'
 import { escapeRegExp } from '../kb/helpers'
 import { e2eStableResourceName } from './resource-slug'
 
+/**
+ * Wait until the app has hydrated client-side. The root sets
+ * `html[data-hydrated="true"]` from a useEffect, which commits only after
+ * hydration — so clicks/toggles after this won't be dropped by the SSR race.
+ */
+export async function waitForHydrated(page: Page): Promise<void> {
+  await page.waitForFunction(() => document.documentElement.dataset.hydrated === 'true', {
+    timeout: 30_000,
+  })
+}
+
 /** Open the chat composer on `/chat/conversations` (no persisted thread id yet). */
 export async function gotoChatComposerIndex(page: Page): Promise<void> {
-  await page.goto('/chat/conversations', { waitUntil: 'networkidle' })
+  await page.goto('/chat/conversations', { waitUntil: 'domcontentloaded' })
+  await waitForHydrated(page)
 }
 
 /**
@@ -37,6 +49,7 @@ export async function ensureConversationByTitle(page: Page, title: string): Prom
   if (await link.first().isVisible().catch(() => false)) {
     await link.first().click()
     await page.waitForURL(/\/chat\/conversations\/\d+/, { timeout: 30_000 })
+    await waitForHydrated(page)
     return parseConversationIdFromUrl(page)
   }
 
@@ -46,6 +59,7 @@ export async function ensureConversationByTitle(page: Page, title: string): Prom
   await expect(page.getByRole('button', { name: /send message/i })).toBeVisible({
     timeout: 120_000,
   })
+  await waitForHydrated(page)
   return parseConversationIdFromUrl(page)
 }
 
@@ -64,6 +78,7 @@ export async function createConversationThroughUi(
   await expect(page.getByRole('button', { name: /send message/i })).toBeVisible({
     timeout: 120_000,
   })
+  await waitForHydrated(page)
   return parseConversationIdFromUrl(page)
 }
 

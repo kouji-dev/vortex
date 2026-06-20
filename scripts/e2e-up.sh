@@ -50,6 +50,16 @@ fi
 
 E2E_DB_URL="postgresql+psycopg://postgres:postgres@127.0.0.1:${E2E_DB_PORT}/${E2E_DB_NAME}"
 
+# ── No paid calls in E2E ────────────────────────────────────────────────────
+# Drop real provider keys so the E2E server can't make a real LLM/embedding
+# call (the .env sourcing below would otherwise leak them into uvicorn + seed).
+# E2E specs mock every provider response in the browser via page.route; with no
+# key, anything un-mocked fails loud instead of spending. Catalog seed runs with
+# --skip-model-validation so model-select still populates.
+_strip_provider_keys() {
+  unset ANTHROPIC_API_KEY OPENAI_API_KEY GEMINI_API_KEY VOYAGE_API_KEY COHERE_API_KEY
+}
+
 # Container name: worktree-specific or the default compose name
 if [ -n "$WORKTREE_NAME" ]; then
   E2E_CONTAINER="local-e2e-ai-portal-db-${WORKTREE_NAME}"
@@ -140,6 +150,7 @@ if [ -f "$REPO_ROOT/.env" ]; then
   source "$REPO_ROOT/.env"
   set +o allexport
 fi
+_strip_provider_keys
 (cd "$BACKEND_DIR" && DATABASE_URL="$E2E_DB_URL" \
   "$PYTHON" -m ai_portal.scripts.seed_catalog_models --skip-model-validation)
 
@@ -154,6 +165,7 @@ echo "   Press Ctrl-C to stop."
     source "$REPO_ROOT/.env"
     set +o allexport
   fi
+  _strip_provider_keys
   export DATABASE_URL="$E2E_DB_URL"
   export API_PORT="$E2E_API_PORT"
   export CORS_ORIGINS="http://localhost:${E2E_FRONTEND_PORT},http://127.0.0.1:${E2E_FRONTEND_PORT}"

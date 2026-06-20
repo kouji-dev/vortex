@@ -5,7 +5,7 @@
  * document table display, document deletion, back navigation, and
  * the ingest progress indicator.
  */
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../support/fixtures'
 import path from 'node:path'
 import { e2eStableResourceName } from '../support/resource-slug'
 import { createOrFindKb } from '../support/ui-helpers'

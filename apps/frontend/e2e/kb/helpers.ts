@@ -1,6 +1,8 @@
 import { expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
 
+import { waitForHydrated } from '../support/conversation-ui'
+
 /** Escape string for safe use inside `new RegExp(...)`. */
 export function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -17,7 +19,7 @@ export function parseKnowledgeBaseIdFromUrl(page: Page): number {
  * dialog. Ends on `/knowledge-bases/:id`. Returns the numeric id.
  */
 export async function ensureKnowledgeBaseByName(page: Page, name: string): Promise<number> {
-  await page.goto('/knowledge-bases', { waitUntil: 'networkidle' })
+  await page.goto('/knowledge-bases', { waitUntil: 'domcontentloaded' })
   await page.getByLabel('Search knowledge bases').fill(name)
   const row = page.getByRole('row', { name: new RegExp(escapeRegExp(name)) })
   if (await row.first().isVisible().catch(() => false)) {
@@ -27,6 +29,7 @@ export async function ensureKnowledgeBaseByName(page: Page, name: string): Promi
   }
   await expect(page).toHaveURL(/\/knowledge-bases\/\d+/)
   await expect(page.getByRole('heading', { level: 1, name })).toBeVisible({ timeout: 15_000 })
+  await waitForHydrated(page)
   return parseKnowledgeBaseIdFromUrl(page)
 }
 
@@ -35,7 +38,7 @@ export async function ensureKnowledgeBaseByName(page: Page, name: string): Promi
  * `/knowledge-bases/:id` (initial file upload, if any, continues in the background).
  */
 export async function createKbThroughUi(page: Page, name: string): Promise<number> {
-  await page.goto('/knowledge-bases', { waitUntil: 'networkidle' })
+  await page.goto('/knowledge-bases', { waitUntil: 'domcontentloaded' })
   await page.getByRole('button', { name: /add knowledge base/i }).click()
   const dialog = page.getByRole('dialog')
   await expect(dialog).toBeVisible({ timeout: 15_000 })
@@ -45,6 +48,7 @@ export async function createKbThroughUi(page: Page, name: string): Promise<numbe
   await expect(dialog).toBeHidden({ timeout: 15_000 })
   await expect(page).toHaveURL(/\/knowledge-bases\/\d+/)
   await expect(page.getByRole('heading', { level: 1, name })).toBeVisible({ timeout: 15_000 })
+  await waitForHydrated(page)
   return parseKnowledgeBaseIdFromUrl(page)
 }
 
@@ -54,7 +58,7 @@ export async function createKbWithInitialFileThroughUi(
   name: string,
   filePath: string,
 ): Promise<number> {
-  await page.goto('/knowledge-bases', { waitUntil: 'networkidle' })
+  await page.goto('/knowledge-bases', { waitUntil: 'domcontentloaded' })
   await page.getByRole('button', { name: /add knowledge base/i }).click()
   const dialog = page.getByRole('dialog')
   await expect(dialog).toBeVisible({ timeout: 15_000 })
@@ -65,5 +69,6 @@ export async function createKbWithInitialFileThroughUi(
   await expect(dialog).toBeHidden({ timeout: 15_000 })
   await expect(page).toHaveURL(/\/knowledge-bases\/\d+/)
   await expect(page.getByRole('heading', { level: 1, name })).toBeVisible({ timeout: 15_000 })
+  await waitForHydrated(page)
   return parseKnowledgeBaseIdFromUrl(page)
 }

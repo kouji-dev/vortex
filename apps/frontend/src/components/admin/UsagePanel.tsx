@@ -1,3 +1,4 @@
+import { Select } from '~/components/ui/select'
 import * as React from 'react'
 import { authorizedFetch } from '~/lib/authorizedFetch'
 
@@ -41,15 +42,16 @@ export function UsagePanel() {
     <div>
       <div className="panel-head" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span>Usage &amp; Cost (last 30 days)</span>
-        <select
+        <Select
           value={groupBy}
           onChange={(e) => setGroupBy(e.target.value as typeof groupBy)}
-          style={{ borderRadius: 3, border: '1px solid var(--line)', background: 'var(--bg)', color: 'var(--ink)', padding: '3px 8px', fontSize: 11, fontFamily: 'var(--font-mono)' }}
+        size="sm"
+        inline
         >
           <option value="model">By model</option>
           <option value="user">By user</option>
           <option value="capability">By capability</option>
-        </select>
+        </Select>
       </div>
 
       {error && <p style={{ padding: '8px 14px', fontSize: 12, color: 'var(--red)' }}>{error}</p>}

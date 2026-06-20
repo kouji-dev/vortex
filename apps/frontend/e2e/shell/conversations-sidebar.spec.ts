@@ -1,7 +1,7 @@
 /**
  * Conversations sidebar — selection mode, bulk delete, in-app delete dialogs.
  */
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../support/fixtures'
 import { createOrFindConversation } from '../support/ui-helpers'
 
 test.describe.configure({ mode: 'serial' })
@@ -41,12 +41,12 @@ test.describe('Conversations sidebar', () => {
   // ──────────────────────────────────────────────────────────────
 
   test('"New conversation" button / link is visible', async ({ page }) => {
-    await page.goto('/chat/conversations', { waitUntil: 'networkidle' })
+    await page.goto('/chat/conversations', { waitUntil: 'domcontentloaded' })
     await expect(page.getByTestId('sidebar-new-conversation')).toBeVisible()
   })
 
   test('"Conversation actions" menu button is visible', async ({ page }) => {
-    await page.goto('/chat/conversations', { waitUntil: 'networkidle' })
+    await page.goto('/chat/conversations', { waitUntil: 'domcontentloaded' })
     await expect(page.getByRole('button', { name: /conversation actions/i })).toBeVisible()
   })
 
@@ -55,7 +55,7 @@ test.describe('Conversations sidebar', () => {
   // ──────────────────────────────────────────────────────────────
 
   test('clicking "Select conversations" enters selection mode', async ({ page }) => {
-    await page.goto('/chat/conversations', { waitUntil: 'networkidle' })
+    await page.goto('/chat/conversations', { waitUntil: 'domcontentloaded' })
     await page.getByRole('button', { name: /conversation actions/i }).click()
     await page.getByRole('menuitem', { name: /select conversations/i }).click()
     await expect(page.getByRole('checkbox', { name: /select all/i })).toBeVisible({
@@ -64,7 +64,7 @@ test.describe('Conversations sidebar', () => {
   })
 
   test('"Cancel" button exits selection mode', async ({ page }) => {
-    await page.goto('/chat/conversations', { waitUntil: 'networkidle' })
+    await page.goto('/chat/conversations', { waitUntil: 'domcontentloaded' })
     await page.getByRole('button', { name: /conversation actions/i }).click()
     await page.getByRole('menuitem', { name: /select conversations/i }).click()
     await expect(page.getByRole('checkbox', { name: /select all/i })).toBeVisible()
@@ -79,7 +79,7 @@ test.describe('Conversations sidebar', () => {
   // ──────────────────────────────────────────────────────────────
 
   test('Select All checkbox is visible in selection mode', async ({ page }) => {
-    await page.goto('/chat/conversations', { waitUntil: 'networkidle' })
+    await page.goto('/chat/conversations', { waitUntil: 'domcontentloaded' })
     await page.getByRole('button', { name: /conversation actions/i }).click()
     await page.getByRole('menuitem', { name: /select conversations/i }).click()
     await expect(page.getByRole('checkbox', { name: /select all/i })).toBeVisible()
@@ -88,7 +88,7 @@ test.describe('Conversations sidebar', () => {
   test('Select All checkbox checks all conversations and shows selected count', async ({
     page,
   }) => {
-    await page.goto('/chat/conversations', { waitUntil: 'networkidle' })
+    await page.goto('/chat/conversations', { waitUntil: 'domcontentloaded' })
     await page.getByRole('button', { name: /conversation actions/i }).click()
     await page.getByRole('menuitem', { name: /select conversations/i }).click()
     await page.getByRole('checkbox', { name: /select all/i }).click()
@@ -96,7 +96,7 @@ test.describe('Conversations sidebar', () => {
   })
 
   test('Select All then uncheck disables the bulk Delete button', async ({ page }) => {
-    await page.goto('/chat/conversations', { waitUntil: 'networkidle' })
+    await page.goto('/chat/conversations', { waitUntil: 'domcontentloaded' })
     await page.getByRole('button', { name: /conversation actions/i }).click()
     await page.getByRole('menuitem', { name: /select conversations/i }).click()
     const selectAll = page.getByRole('checkbox', { name: /select all/i })
@@ -106,7 +106,7 @@ test.describe('Conversations sidebar', () => {
   })
 
   test('individual conversation checkbox is visible in selection mode', async ({ page }) => {
-    await page.goto('/chat/conversations', { waitUntil: 'networkidle' })
+    await page.goto('/chat/conversations', { waitUntil: 'domcontentloaded' })
     await page.getByRole('button', { name: /conversation actions/i }).click()
     await page.getByRole('menuitem', { name: /select conversations/i }).click()
     await expect(
@@ -119,14 +119,14 @@ test.describe('Conversations sidebar', () => {
   // ──────────────────────────────────────────────────────────────
 
   test('hovering a conversation row reveals the delete button', async ({ page }) => {
-    await page.goto(`/chat/conversations/${poolA}`, { waitUntil: 'networkidle' })
+    await page.goto(`/chat/conversations/${poolA}`, { waitUntil: 'domcontentloaded' })
     const convLink = page.locator(`a[href*="/chat/conversations/${poolA}"]`).first()
     await convLink.hover()
     await expect(page.getByTitle('Delete conversation').first()).toBeVisible({ timeout: 3_000 })
   })
 
   test('sidebar single delete opens an in-app confirmation dialog', async ({ page }) => {
-    await page.goto(`/chat/conversations/${poolA}`, { waitUntil: 'networkidle' })
+    await page.goto(`/chat/conversations/${poolA}`, { waitUntil: 'domcontentloaded' })
     page.once('dialog', (d) => {
       d.dismiss()
       throw new Error('Native window.confirm appeared — expected in-app dialog')
@@ -141,7 +141,7 @@ test.describe('Conversations sidebar', () => {
   })
 
   test('sidebar single delete dialog has Cancel and Delete buttons', async ({ page }) => {
-    await page.goto(`/chat/conversations/${poolA}`, { waitUntil: 'networkidle' })
+    await page.goto(`/chat/conversations/${poolA}`, { waitUntil: 'domcontentloaded' })
     const convLink = page.locator(`a[href*="/chat/conversations/${poolA}"]`).first()
     await convLink.hover()
     await page.getByTitle('Delete conversation').first().click()
@@ -153,7 +153,7 @@ test.describe('Conversations sidebar', () => {
   })
 
   test('Cancel in sidebar delete dialog closes it without deleting', async ({ page }) => {
-    await page.goto(`/chat/conversations/${poolA}`, { waitUntil: 'networkidle' })
+    await page.goto(`/chat/conversations/${poolA}`, { waitUntil: 'domcontentloaded' })
     const convLink = page.locator(`a[href*="/chat/conversations/${poolA}"]`).first()
     await convLink.hover()
     await page.getByTitle('Delete conversation').first().click()
@@ -169,7 +169,7 @@ test.describe('Conversations sidebar', () => {
   // ──────────────────────────────────────────────────────────────
 
   test('bulk delete opens an in-app dialog (not native confirm)', async ({ page }) => {
-    await page.goto('/chat/conversations', { waitUntil: 'networkidle' })
+    await page.goto('/chat/conversations', { waitUntil: 'domcontentloaded' })
     await expect(page.locator(`a[href*="/chat/conversations/${poolA}"]`).first()).toBeVisible({
       timeout: 30_000,
     })
@@ -187,7 +187,7 @@ test.describe('Conversations sidebar', () => {
   })
 
   test('bulk delete dialog shows "Delete selected conversations?" heading', async ({ page }) => {
-    await page.goto('/chat/conversations', { waitUntil: 'networkidle' })
+    await page.goto('/chat/conversations', { waitUntil: 'domcontentloaded' })
     await expect(page.locator(`a[href*="/chat/conversations/${poolB}"]`).first()).toBeVisible({
       timeout: 30_000,
     })
@@ -205,7 +205,7 @@ test.describe('Conversations sidebar', () => {
   })
 
   test('bulk delete Cancel closes dialog without deleting', async ({ page, request }) => {
-    await page.goto('/chat/conversations', { waitUntil: 'networkidle' })
+    await page.goto('/chat/conversations', { waitUntil: 'domcontentloaded' })
     await expect(page.locator(`a[href*="/chat/conversations/${poolA}"]`).first()).toBeVisible({
       timeout: 30_000,
     })

@@ -1,5 +1,6 @@
 // apps/frontend/src/routes/gateway/evals.tsx
 // Gateway → Evals (J9): test-set CRUD + run launcher + results table.
+import { Select } from '~/components/ui/select'
 import { createFileRoute } from '@tanstack/react-router'
 import * as React from 'react'
 import { authorizedFetch } from '~/lib/authorizedFetch'
@@ -209,16 +210,17 @@ function TestSetEditor({
               onChange={(e) => updateRecord(i, { expected: e.target.value })}
               style={{ fontSize: 11, padding: 4, border: '1px solid var(--line)', borderRadius: 3, background: 'var(--bg)', color: 'var(--ink)' }}
             />
-            <select
+            <Select
               value={r.judge}
               onChange={(e) => updateRecord(i, { judge: e.target.value as EvalRecord['judge'] })}
-              style={{ fontSize: 11, padding: 4, border: '1px solid var(--line)', borderRadius: 3, background: 'var(--bg)', color: 'var(--ink)' }}
+            size="sm"
+            inline
             >
               <option value="exact">exact</option>
               <option value="regex">regex</option>
               <option value="llm">llm</option>
               <option value="custom">custom</option>
-            </select>
+            </Select>
             <button className="btn btn-sm" style={{ color: 'var(--red)' }} onClick={() => removeRecord(i)}>×</button>
           </div>
         ))}

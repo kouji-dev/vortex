@@ -1,3 +1,4 @@
+import { Select } from '~/components/ui/select'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as React from 'react'
@@ -184,9 +185,9 @@ function CreateConnectionDialog({
             <input required value={form.name} onChange={(e) => set('name', e.target.value)} data-testid="admin-directory-name" style={inputStyle} />
           </Field>
           <Field label="Kind">
-            <select value={form.kind} onChange={(e) => set('kind', e.target.value as LdapKind)} style={inputStyle}>
+            <Select value={form.kind} onChange={(e) => set('kind', e.target.value as LdapKind)} size="sm" inline>
               {KINDS.map((k) => <option key={k.value} value={k.value}>{k.label}</option>)}
-            </select>
+            </Select>
           </Field>
           <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 8 }}>
             <Field label="Host">
@@ -197,9 +198,9 @@ function CreateConnectionDialog({
             </Field>
           </div>
           <Field label="TLS">
-            <select value={form.tls_mode} onChange={(e) => set('tls_mode', e.target.value as LdapTlsMode)} style={inputStyle}>
+            <Select value={form.tls_mode} onChange={(e) => set('tls_mode', e.target.value as LdapTlsMode)} size="sm" inline>
               {TLS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-            </select>
+            </Select>
           </Field>
           <Field label="Bind DN (service account)">
             <input required value={form.bind_dn} onChange={(e) => set('bind_dn', e.target.value)} placeholder="cn=svc,dc=acme,dc=com" style={inputStyle} />

@@ -1,9 +1,38 @@
 from __future__ import annotations
 
 import os
+import socket
 
 import pytest
 from sqlalchemy import create_engine, text
+
+# Hosts no test may ever reach — real LLM/embedding/rerank APIs cost money.
+# Tests mock at the boundary (respx / a provider fixture); a real DNS lookup to
+# one of these fails loud instead of silently spending.
+_BLOCKED_LLM_HOSTS = (
+    "api.openai.com",
+    "api.anthropic.com",
+    "api.voyageai.com",
+    "api.cohere.com",
+    "generativelanguage.googleapis.com",
+)
+
+
+@pytest.fixture(autouse=True)
+def _block_real_llm_network(monkeypatch):
+    """Fail loud if a test tries a real provider call. Mock it instead."""
+    real_getaddrinfo = socket.getaddrinfo
+
+    def guard(host, *args, **kwargs):
+        if isinstance(host, str) and any(
+            host == h or host.endswith("." + h) for h in _BLOCKED_LLM_HOSTS
+        ):
+            raise RuntimeError(
+                f"real LLM call blocked in tests: {host} — mock it (respx / provider fixture)"
+            )
+        return real_getaddrinfo(host, *args, **kwargs)
+
+    monkeypatch.setattr(socket, "getaddrinfo", guard)
 
 
 def _postgres_url() -> str | None:

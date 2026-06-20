@@ -6,76 +6,14 @@
  *  - Start a new conversation B.
  *  - Memory recall surfaces in the new turn's memory sidebar.
  *
- * Memory write + recall are both browser-mocked via page.route().
+ * Chat turns + memory write/recall are all browser-mocked via the shared
+ * `installChatStreamMock` / `installMemoriesMock` helpers.
  */
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../support/fixtures'
 
 import { createOrFindConversation } from '../support/ui-helpers'
-
-const STREAM_ROUTE = '**/api/chat/conversations/*/messages/stream'
-const MESSAGES_ROUTE = '**/api/chat/conversations/*/messages*'
-const MEMORIES_ROUTE = '**/api/users/me/memories**'
-const RECALL_ROUTE = '**/api/memories/recall**'
-
-function mockTurn(page: import('@playwright/test').Page, userText: string, assistantText: string) {
-  const turnId = `00000000-0000-4000-8000-${String(Date.now()).slice(-12)}`
-  const assistantItem = {
-    id: 5001,
-    thread_id: 9999,
-    turn_id: turnId,
-    kind: 'assistant_text',
-    role: 'assistant',
-    status: 'done',
-    provider: null,
-    model: null,
-    cost_usd: null,
-    cost_estimated: false,
-    latency_ms: null,
-    data: { text: assistantText },
-    parent_item_id: null,
-    started_at: null,
-    finished_at: null,
-    created_at: new Date().toISOString(),
-  }
-  page.route(STREAM_ROUTE, async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'text/event-stream',
-      body: [
-        `data: ${JSON.stringify({ event_type: 'item', item: assistantItem })}\n\n`,
-        'data: {"event_type":"done"}\n\n',
-      ].join(''),
-    })
-  })
-  page.route(MESSAGES_ROUTE, async (route) => {
-    if (route.request().method() !== 'GET') return route.continue()
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify([
-        {
-          id: 5000,
-          thread_id: 9999,
-          turn_id: turnId,
-          kind: 'user_message',
-          role: 'user',
-          status: 'done',
-          provider: null,
-          model: null,
-          cost_usd: null,
-          cost_estimated: false,
-          latency_ms: null,
-          data: { text: userText, attachments: [] },
-          parent_item_id: null,
-          started_at: null,
-          finished_at: null,
-          created_at: new Date().toISOString(),
-        },
-        assistantItem,
-      ]),
-    })
-  })
-}
+import { installChatStreamMock } from '../support/chat-mock'
+import { installMemoriesMock } from '../support/memories-mock'
 
 test.describe('Suite — Memory', () => {
   test('memory recall surfaces in a new conversation sidebar', async ({ page }) => {
@@ -83,49 +21,14 @@ test.describe('Suite — Memory', () => {
 
     const MEMORY_CONTENT = `User prefers concise answers ${Date.now()}`
 
-    // Mock memories list — after the first turn the memory should "exist".
-    let memoryWritten = false
-    await page.route(MEMORIES_ROUTE, async (route) => {
-      if (route.request().method() === 'POST') {
-        memoryWritten = true
-        await route.fulfill({
-          status: 201,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            id: 7777,
-            content: MEMORY_CONTENT,
-            created_at: new Date().toISOString(),
-          }),
-        })
-        return
-      }
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(
-          memoryWritten
-            ? [{ id: 7777, content: MEMORY_CONTENT, created_at: new Date().toISOString() }]
-            : [],
-        ),
-      })
-    })
-
-    // Mock recall — returns the memory once it was "written".
-    await page.route(RECALL_ROUTE, async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          items: memoryWritten
-            ? [{ id: 7777, content: MEMORY_CONTENT, score: 0.88 }]
-            : [],
-        }),
-      })
-    })
+    // Mock memories list + recall — the memory only surfaces after a POST writes it.
+    await installMemoriesMock(page, { content: MEMORY_CONTENT })
 
     // 1. Conversation A — send a turn that should generate a memory.
     await createOrFindConversation(page, 'E2E Memory Source A')
-    mockTurn(page, 'Please be concise from now on.', 'Got it — I will be concise.')
+    const cleanupA = await installChatStreamMock(page, {
+      script: { userText: 'Please be concise from now on.', assistantText: 'Got it — I will be concise.' },
+    })
     await page.getByRole('textbox', { name: /message/i }).fill('Please be concise from now on.')
     await page.getByRole('button', { name: /send message/i }).click()
     await expect(page.getByRole('button', { name: /send message/i })).toBeVisible({
@@ -142,10 +45,11 @@ test.describe('Suite — Memory', () => {
     }, MEMORY_CONTENT)
 
     // 2. Conversation B — start a new conversation.
-    await page.unroute(STREAM_ROUTE)
-    await page.unroute(MESSAGES_ROUTE)
+    await cleanupA()
     await createOrFindConversation(page, `E2E Memory Target B ${Date.now()}`)
-    mockTurn(page, 'Summarise our chat.', 'Short summary.')
+    const cleanupB = await installChatStreamMock(page, {
+      script: { userText: 'Summarise our chat.', assistantText: 'Short summary.' },
+    })
     await page.getByRole('textbox', { name: /message/i }).fill('Summarise our chat.')
     await page.getByRole('button', { name: /send message/i }).click()
     await expect(page.getByRole('button', { name: /send message/i })).toBeVisible({
@@ -161,5 +65,7 @@ test.describe('Suite — Memory', () => {
       .first()
     await expect(sidebar).toBeVisible({ timeout: 15_000 })
     await expect(sidebar.getByText(MEMORY_CONTENT)).toBeVisible({ timeout: 10_000 })
+
+    await cleanupB()
   })
 })

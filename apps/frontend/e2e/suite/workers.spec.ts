@@ -8,79 +8,24 @@
  *
  * No real sandbox provisioning. UI-only interactions, mocks via page.route().
  */
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../support/fixtures'
 
-const TASKS_ROUTE = '**/api/workers/tasks**'
-const RUN_STREAM_ROUTE = '**/api/workers/runs/*/stream'
+import { installWorkersMock } from '../support/workers-mock'
 
 test.describe('Suite — Workers', () => {
   test('submit a task and see agent_thought + tool_call SSE events', async ({ page }) => {
     test.setTimeout(60_000)
 
-    const TASK_ID = 'task_suite_1'
     const RUN_ID = 'run_suite_1'
 
-    await page.route(TASKS_ROUTE, async (route) => {
-      const req = route.request()
-      if (req.method() === 'POST') {
-        await route.fulfill({
-          status: 201,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            id: TASK_ID,
-            run_id: RUN_ID,
-            status: 'running',
-            prompt: 'fetch latest cat fact',
-            created_at: new Date().toISOString(),
-          }),
-        })
-        return
-      }
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          items: [
-            {
-              id: TASK_ID,
-              run_id: RUN_ID,
-              status: 'running',
-              prompt: 'fetch latest cat fact',
-              created_at: new Date().toISOString(),
-            },
-          ],
-          total: 1,
-        }),
-      })
-    })
-
-    // Mock the SSE run stream — must emit at least an agent_thought and a tool_call event.
-    await page.route(RUN_STREAM_ROUTE, async (route) => {
-      const events = [
-        { event_type: 'agent_thought', thought: 'I should call fetch_url to retrieve a cat fact.' },
-        {
-          event_type: 'tool_call',
-          tool: 'fetch_url',
-          input: { url: 'https://cat-fact.example/today' },
-        },
-        {
-          event_type: 'tool_result',
-          tool: 'fetch_url',
-          output: { status: 200, body: 'Cats sleep 16h/day.' },
-        },
-        { event_type: 'agent_thought', thought: 'Now I will summarise the result for the user.' },
-        { event_type: 'final', text: 'Cats sleep about 16 hours per day.' },
-        { event_type: 'done' },
-      ]
-      const body = events.map((e) => `data: ${JSON.stringify(e)}\n\n`).join('')
-      await route.fulfill({ status: 200, contentType: 'text/event-stream', body })
-    })
+    // Mock task create/list + the SSE run stream (canned thought→tool→final→done).
+    await installWorkersMock(page, { runId: RUN_ID })
 
     // Drive the UI. The Workers surface is expected at /workers or /agents — try both.
     const tried: string[] = []
     for (const url of ['/workers', '/agents', '/org/workers']) {
       tried.push(url)
-      const resp = await page.goto(url, { waitUntil: 'networkidle' }).catch(() => null)
+      const resp = await page.goto(url, { waitUntil: 'domcontentloaded' }).catch(() => null)
       if (resp && resp.ok()) break
     }
 

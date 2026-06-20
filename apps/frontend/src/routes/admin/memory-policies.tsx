@@ -8,6 +8,7 @@
  * - Edit the sensitive-category exclusion list
  * - Override per-type retention days
  */
+import { Select } from '~/components/ui/select'
 import { createFileRoute } from '@tanstack/react-router'
 import * as React from 'react'
 
@@ -88,16 +89,18 @@ function MemoryPoliciesPage() {
       <div className="panel">
         <div className="panel-head" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span>Scope</span>
-          <select
+          <Select
             value={scope}
             onChange={(e) => setScope(e.target.value as ScopeKind)}
             data-testid="mem-pol-scope"
             style={selectStyle}
+          size="sm"
+          inline
           >
             {SCOPE_KINDS.map((s) => (
               <option key={s} value={s}>{s}</option>
             ))}
-          </select>
+          </Select>
         </div>
       </div>
 
@@ -297,16 +300,18 @@ function ExtractionEditor({
         {/* Conflict strategy */}
         <div>
           <div style={subHeader}>Conflict strategy</div>
-          <select
+          <Select
             value={draft.conflict_strategy}
             onChange={(e) => setDraft((d) => ({ ...d, conflict_strategy: e.target.value as ConflictStrategy }))}
             data-testid="mem-pol-conflict"
             style={selectStyle}
+          size="sm"
+          inline
           >
             {CONFLICT_STRATEGIES.map((s) => (
               <option key={s} value={s}>{s}</option>
             ))}
-          </select>
+          </Select>
         </div>
 
         <div>

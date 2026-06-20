@@ -61,3 +61,9 @@ Thumbs.db
 # Design reference bundles (local only — not committed)
 .design-bundle-vortex/
 .design-bundle-landing/
+.superpowers/
+
+# local dev artifacts / secrets — never commit
+.kek.dev.env
+*.log
+.claude/scheduled_tasks.lock

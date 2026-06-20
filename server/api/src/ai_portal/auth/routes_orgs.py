@@ -5,7 +5,7 @@ import uuid as _uuid
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -26,6 +26,12 @@ class OrgRead(BaseModel):
     instance_mode: bool
 
     model_config = {"from_attributes": True}
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def _coerce_id(cls, v: object) -> str:
+        # Org.id is a UUID column; Pydantic v2 won't coerce UUID -> str on its own.
+        return str(v)
 
 
 class OrgPatch(BaseModel):
