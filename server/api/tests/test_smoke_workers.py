@@ -38,18 +38,20 @@ from tests.conftest import requires_postgres
 
 
 _REQUIRED_ENV = {
-    "AUTH_MODE": "dev",
-    "DEPLOYMENT_MODE": "dev",
+    "DEPLOYMENT_MODE": "saas",
 }
 
 
 def _env_ok() -> bool:
-    return all(os.environ.get(k) == v for k, v in _REQUIRED_ENV.items())
+    return (
+        os.environ.get("DEPLOYMENT_MODE") in ("saas", "selfhosted")
+        and bool(os.environ.get("SECRET_KEY"))
+    )
 
 
 requires_env = pytest.mark.skipif(
     not _env_ok(),
-    reason="smoke test needs AUTH_MODE=dev DEPLOYMENT_MODE=dev",
+    reason="smoke test needs DEPLOYMENT_MODE=saas and SECRET_KEY set",
 )
 
 
@@ -64,6 +66,7 @@ def _client() -> TestClient:
 
 
 def _auth_headers() -> dict[str, str]:
+    # TODO(auth-rework): smoke auth needs real JWT — dev bearer removed in Phase 2
     return {"Authorization": "Bearer devtoken"}
 
 

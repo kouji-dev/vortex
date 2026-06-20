@@ -45,7 +45,7 @@ def read_me(
 def admin_ping(
     _: None = Depends(require_app_roles("Admin")),
 ) -> dict[str, str]:
-    """RBAC probe: requires Entra app role Admin when auth_mode=entra (dev bypasses)."""
+    """RBAC probe: requires Admin app role. Returns 200 if caller holds the role, 403 otherwise."""
     return {"status": "ok"}
 
 

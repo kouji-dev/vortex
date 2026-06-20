@@ -9,5 +9,5 @@ def test_health_ok() -> None:
     assert r.status_code == 200
     data = r.json()
     assert data["status"] == "ok"
-    assert data["auth_mode"] == "dev"
+    assert data["deployment_mode"] == "saas"
     assert data["api"]["post_knowledge_bases"] is True

@@ -9,7 +9,7 @@ Run:
     DATABASE_URL=postgresql+psycopg://postgres:postgres@127.0.0.1:5435/ai_portal_smoke_mem \
     AUDIT_KEK=lzW_EE_mY6AHkw_W74n-CUjIoXYob9HbI1ww4HDxNoU= \
     MEMORY_KEK=lzW_EE_mY6AHkw_W74n-CUjIoXYob9HbI1ww4HDxNoU= \
-    AUTH_MODE=dev DEPLOYMENT_MODE=dev OTEL_ENABLED=false CATALOG_SYNC_ENABLED=false \
+    DEPLOYMENT_MODE=saas SECRET_KEY=test-secret-key-32-chars-minimum!! OTEL_ENABLED=false CATALOG_SYNC_ENABLED=false \
     pytest server/api/tests/test_smoke_memory.py
 """
 from __future__ import annotations
@@ -65,6 +65,7 @@ def client(monkeypatch):
     yield TestClient(app)
 
 
+# TODO(auth-rework): smoke auth needs real JWT — dev bearer removed in Phase 2
 HDR = {"Authorization": "Bearer devtoken"}
 
 

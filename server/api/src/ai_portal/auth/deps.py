@@ -79,7 +79,10 @@ def _authenticate(
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from e
     if payload.get("type") != "access":
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Not an access token")
-    user_uuid = _uuid.UUID(payload["sub"])
+    try:
+        user_uuid = _uuid.UUID(payload["sub"])
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from e
     user = db.scalars(select(User).where(User.uuid == user_uuid)).first()
     if user is None or not user.is_active:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="User not found")

@@ -15,7 +15,7 @@ Run:
     DATABASE_URL=postgresql+psycopg://postgres:postgres@127.0.0.1:5435/ai_portal_smoke_rag \
     AUDIT_KEK=lzW_EE_mY6AHkw_W74n-CUjIoXYob9HbI1ww4HDxNoU= \
     MEMORY_KEK=lzW_EE_mY6AHkw_W74n-CUjIoXYob9HbI1ww4HDxNoU= \
-    AUTH_MODE=dev DEPLOYMENT_MODE=dev OTEL_ENABLED=false CATALOG_SYNC_ENABLED=false \
+    DEPLOYMENT_MODE=saas SECRET_KEY=test-secret-key-32-chars-minimum!! OTEL_ENABLED=false CATALOG_SYNC_ENABLED=false \
     pytest server/api/tests/test_smoke_rag.py -xvs
 """
 from __future__ import annotations
@@ -59,7 +59,7 @@ def _smoke_env():
     """Point the process at the smoke DB before importing ai_portal modules."""
     prior = {k: os.environ.get(k) for k in (
         "DATABASE_URL", "AUDIT_KEK", "MEMORY_KEK",
-        "AUTH_MODE", "DEPLOYMENT_MODE",
+        "DEPLOYMENT_MODE", "SECRET_KEY",
         "OTEL_ENABLED", "CATALOG_SYNC_ENABLED",
     )}
     os.environ["DATABASE_URL"] = SMOKE_DB_URL
@@ -69,8 +69,8 @@ def _smoke_env():
     os.environ.setdefault(
         "MEMORY_KEK", "lzW_EE_mY6AHkw_W74n-CUjIoXYob9HbI1ww4HDxNoU="
     )
-    os.environ.setdefault("AUTH_MODE", "dev")
-    os.environ.setdefault("DEPLOYMENT_MODE", "dev")
+    os.environ.setdefault("DEPLOYMENT_MODE", "saas")
+    os.environ.setdefault("SECRET_KEY", "test-secret-key-32-chars-minimum!!")
     os.environ.setdefault("OTEL_ENABLED", "false")
     os.environ.setdefault("CATALOG_SYNC_ENABLED", "false")
     # Force settings cache reset so our DATABASE_URL takes effect.

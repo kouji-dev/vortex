@@ -5,7 +5,6 @@ must work against a freshly migrated control-plane DB. Skipped unless
 ``SMOKE_BACKEND_URL`` env var is set pointing at a live backend booted with:
 
     DEPLOYMENT_MODE=saas
-    AUTH_MODE=dev
     SECRET_KEY=<32+ chars>
     AUDIT_KEK=<fernet base64>
     MEMORY_KEK=<fernet base64>
