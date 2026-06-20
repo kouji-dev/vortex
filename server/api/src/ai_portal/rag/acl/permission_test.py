@@ -6,7 +6,6 @@ correctly without having to impersonate the user.
 
 Reads:
 
-- :data:`scim_group_members` for the user's group memberships.
 - :data:`kb_acls` via :func:`visible_document_ids`.
 - :data:`kb_documents` for the sample titles + URIs.
 """
@@ -17,12 +16,10 @@ import uuid as _uuid
 from dataclasses import dataclass
 from typing import Iterable
 
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ai_portal.knowledge_base.model import KbDocument
 from ai_portal.rag.acl.service import visible_document_ids
-from ai_portal.scim.model import ScimGroupMember
 
 
 @dataclass(slots=True)
@@ -42,14 +39,12 @@ class PermissionTestOutcome:
 
 
 def _load_user_group_ids(db: Session, user_id: int) -> list[str]:
-    """Return SCIM group ids the user belongs to (as strings)."""
+    """Return group ids the user belongs to (as strings).
 
-    rows = db.execute(
-        select(ScimGroupMember.group_id).where(
-            ScimGroupMember.user_id == user_id
-        )
-    ).all()
-    return [str(r[0]) for r in rows]
+    SCIM group membership was removed; returns empty list until a
+    replacement group-membership mechanism is wired up.
+    """
+    return []
 
 
 def run_permission_test(

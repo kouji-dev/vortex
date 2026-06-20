@@ -54,8 +54,6 @@ from ai_portal.rag.router import router as rag_router
 from ai_portal.rbac.router import router as rbac_router
 from ai_portal.realtime.router import router as realtime_router
 from ai_portal.retention.router import router as retention_router
-from ai_portal.scim.router import admin_router as scim_admin_router
-from ai_portal.scim.router import scim_router
 from ai_portal.settings.router import router as settings_router
 from ai_portal.usage.router import router as usage_router
 from ai_portal.usage.router import v1_router as usage_v1_router
@@ -305,7 +303,6 @@ async def request_id_middleware(request: Request, call_next):
 async def api_v1_prefix_compat(request: Request, call_next):
     """Frontend's authorizedFetch hits `/api/v1/...`; many backend routers are
     mounted at `/v1/...`. Strip the `/api` prefix so both conventions resolve.
-    Same for `/api/scim/...` → `/scim/...`.
     """
     path = request.scope.get("path", "")
     if path.startswith("/api/v1/") or path == "/api/v1":
@@ -313,11 +310,6 @@ async def api_v1_prefix_compat(request: Request, call_next):
         raw = request.scope.get("raw_path")
         if isinstance(raw, bytes) and raw.startswith(b"/api/v1"):
             request.scope["raw_path"] = raw[4:] or b"/"
-    elif path.startswith("/api/scim/"):
-        request.scope["path"] = path[4:]
-        raw = request.scope.get("raw_path")
-        if isinstance(raw, bytes) and raw.startswith(b"/api/scim/"):
-            request.scope["raw_path"] = raw[4:]
     return await call_next(request)
 
 
@@ -369,8 +361,6 @@ app.include_router(realtime_router)
 app.include_router(webhooks_router)
 app.include_router(billing_router)
 app.include_router(api_keys_router)
-app.include_router(scim_admin_router)
-app.include_router(scim_router)
 app.include_router(settings_router)
 app.include_router(gdpr_router)
 app.include_router(gateway_limits_router)

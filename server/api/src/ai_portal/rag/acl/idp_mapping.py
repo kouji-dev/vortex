@@ -3,23 +3,19 @@
 Connectors emit ``AclSet`` populated with **source-native** identifiers:
 
 - Email addresses (``alice@acme.com``)
-- IdP object IDs (Entra AAD oid, Google sub, Okta uid)
-- Group external IDs (Entra group oid, Google group address, Slack
-  channel id, Confluence space key)
+- IdP object IDs (Google sub, OIDC sub, etc.)
+- Group external IDs
 
-This module resolves them against the org's directory state (the
-``users`` table populated by SCIM + the ``scim_groups`` table) and
-returns a :class:`ResolvedAcl`. Anything that cannot be resolved goes
-into :attr:`ResolvedAcl.unresolved` so a future re-sync (after SCIM
-catches up) can fill in the missing IDs without re-ingesting.
+This module resolves them against the org's user table and returns a
+:class:`ResolvedAcl`. Anything that cannot be resolved goes into
+:attr:`ResolvedAcl.unresolved` so a future re-sync can fill in the
+missing IDs without re-ingesting.
 
 The default mapping rules:
 
 - A source user id that looks like an email matches ``users.email``.
-- A source user id that is a UUID matches ``users.entra_object_id`` or
-  ``users.uuid``.
-- A source group id matches ``scim_groups.external_id`` first, then
-  ``scim_groups.display_name``.
+- A source user id that is a UUID matches ``users.uuid``.
+- Group ids: no group resolver is wired (SCIM removed); goes to unresolved.
 
 All matches are scoped by ``org_id`` — never cross-tenant.
 """
@@ -37,7 +33,6 @@ from sqlalchemy.orm import Session
 from ai_portal.auth.model import User
 from ai_portal.rag.acl.protocol import ResolvedAcl
 from ai_portal.rag.connectors.protocol import AclSet
-from ai_portal.scim.model import ScimGroup
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _UUID_RE = re.compile(
@@ -99,14 +94,6 @@ class IdpMapper:
         if _looks_like_uuid(source_user_id):
             row = self.db.execute(
                 select(User.id).where(
-                    User.entra_object_id == source_user_id,
-                    User.org_id == org_uuid,
-                )
-            ).first()
-            if row is not None:
-                return str(row[0])
-            row = self.db.execute(
-                select(User.id).where(
                     User.uuid == _uuid.UUID(source_user_id),
                     User.org_id == org_uuid,
                 )
@@ -120,26 +107,10 @@ class IdpMapper:
     # ----------------------------------------------------------------- groups
 
     def resolve_group(self, source_group_id: str) -> str | None:
-        """Return the internal ``scim_groups.id`` (as string) or ``None``."""
+        """Return the internal group id (as string) or ``None``.
 
-        org_uuid = self._coerce_org_id()
-        row = self.db.execute(
-            select(ScimGroup.id).where(
-                ScimGroup.external_id == source_group_id,
-                ScimGroup.org_id == org_uuid,
-            )
-        ).first()
-        if row is not None:
-            return str(row[0])
-        # Fall back to display name match (common for Slack channels by name).
-        row = self.db.execute(
-            select(ScimGroup.id).where(
-                ScimGroup.display_name == source_group_id,
-                ScimGroup.org_id == org_uuid,
-            )
-        ).first()
-        if row is not None:
-            return str(row[0])
+        No group resolver is wired (SCIM removed); always returns None.
+        """
         return None
 
     # ---------------------------------------------------------------- AclSet
