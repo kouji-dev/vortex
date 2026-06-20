@@ -7,7 +7,6 @@ that want SSO must import this package once during startup.
 
 # Side-effect imports — each module calls register_provider() at load time.
 from ai_portal.auth.idp.providers import (  # noqa: F401
-    entra,
     google,
     oidc,
     okta,

@@ -6,7 +6,7 @@ carrying ``Authorization: Bearer ap_xxx``.
 Wired in :mod:`ai_portal.control_plane.deps` (``current_actor``) alongside
 the existing user-bearer flow. Returns ``None`` for any token that does not
 start with the control-plane ``ap_`` prefix so the resolver chain can fall
-through to other strategies (JWT / portal keys / entra).
+through to other strategies (JWT / portal keys).
 """
 
 from __future__ import annotations
@@ -47,10 +47,6 @@ def actor_for_api_key_token(db: Session, raw_token: str) -> Actor | None:
         org_id=row.org_id,
         kind="api_key",
         user_id=row.actor_user_id,
-        # ``ActorRoleAssignment.actor_api_key_id`` is a plain int column in the
-        # legacy RBAC table. The new ``api_keys.id`` is a UUID; we surface a
-        # stable int hash so existing assignment lookups still work for now.
-        # Cross-table integration lands with the RBAC consolidation task.
         api_key_id=int(row.id.int & ((1 << 63) - 1)),
     )
 

@@ -20,9 +20,6 @@ _YAML_KEY_MAP: dict[str, str] = {
     "database.url": "database_url",
     "auth.secret_key": "secret_key",
     "auth.portal_api_key_pepper": "portal_api_key_pepper",
-    "auth.entra_tenant_id": "entra_tenant_id",
-    "auth.entra_api_audience": "entra_api_audience",
-    "auth.entra_debug_jwt": "entra_debug_jwt",
     "smtp.host": "smtp_host",
     "smtp.port": "smtp_port",
     "smtp.user": "smtp_user",
@@ -124,11 +121,6 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173"
     api_host: str = "0.0.0.0"
     api_port: int = 8000
-
-    entra_tenant_id: str = ""
-    entra_api_audience: str = ""
-    # Local debugging only: include PyJWT error text in 401 responses for Entra tokens.
-    entra_debug_jwt: bool = Field(default=False, validation_alias="ENTRA_DEBUG_JWT")
 
     # saas = open signup, JWT local auth
     # selfhosted = invite-only, JWT local auth, setup wizard on first boot
@@ -352,9 +344,6 @@ def settings_log_snapshot(st: Settings) -> dict[str, Any]:
         "api_port": st.api_port,
         "cors_origins": st.cors_origins,
         "database_url": _redact_database_url(st.database_url),
-        "entra_tenant_id": st.entra_tenant_id or "(empty)",
-        "entra_api_audience": st.entra_api_audience or "(empty)",
-        "entra_debug_jwt": st.entra_debug_jwt,
         "openai_api_base": st.openai_api_base,
         "openai_api_key_set": bool(st.openai_api_key.strip()),
         "anthropic_api_key_set": bool(st.anthropic_api_key.strip()),
