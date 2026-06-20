@@ -1,0 +1,43 @@
+# Keycloak test IdP for enterprise SSO (OIDC) E2E.
+#
+# Boots Keycloak 26 in dev mode with an in-memory H2 store and imports the
+# realms under ./realms on startup. No external DB, no persistence — fresh
+# state every `up`, which is exactly what an E2E IdP wants.
+#
+# Usage:
+#   docker compose -f tests/keycloak/docker-compose.yml up -d
+#   curl http://localhost:8080/realms/acme-corp/.well-known/openid-configuration
+#   docker compose -f tests/keycloak/docker-compose.yml down
+#
+# Admin console: http://localhost:8080  (admin / admin)
+# See README.md for the realm/client/user/group facts the E2E spec depends on.
+
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    container_name: vortex-e2e-keycloak
+    command:
+      - start-dev
+      - --import-realm
+      - --http-port=8080
+    environment:
+      # Bootstrap admin (Keycloak 26 renamed KEYCLOAK_ADMIN -> KC_BOOTSTRAP_ADMIN_*).
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      # In-memory dev store; no external DB.
+      KC_DB: dev-mem
+      KC_HEALTH_ENABLED: "true"
+      KC_HTTP_ENABLED: "true"
+      # Allow tokens/issuer to resolve at localhost for the E2E browser + backend.
+      KC_HOSTNAME_STRICT: "false"
+    ports:
+      - "8080:8080"
+    volumes:
+      # Imported on first boot via --import-realm.
+      - ./realms:/opt/keycloak/data/import:ro
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080 && echo done"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s

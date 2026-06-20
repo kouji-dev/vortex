@@ -1,0 +1,99 @@
+{
+  "realm": "acme-corp",
+  "enabled": true,
+  "displayName": "Acme Corp (E2E customer IdP)",
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "defaultSignatureAlgorithm": "RS256",
+  "accessTokenLifespan": 300,
+  "groups": [
+    { "name": "IT-Admins" },
+    { "name": "Engineering" }
+  ],
+  "clients": [
+    {
+      "clientId": "vortex-app",
+      "name": "Vortex App (OIDC consumer)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "acme-enterprise-secret",
+      "clientAuthenticatorType": "client-secret",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "fullScopeAllowed": true,
+      "redirectUris": [
+        "http://localhost:5173/*",
+        "http://localhost:5175/*",
+        "http://127.0.0.1:5173/*",
+        "http://127.0.0.1:5175/*",
+        "http://localhost:8000/*",
+        "http://localhost:8001/*",
+        "http://127.0.0.1:8000/*",
+        "http://127.0.0.1:8001/*"
+      ],
+      "webOrigins": ["+"],
+      "attributes": {
+        "post.logout.redirect.uris": "+"
+      },
+      "protocolMappers": [
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "consentRequired": false,
+          "config": {
+            "full.path": "false",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "claim.name": "groups"
+          }
+        },
+        {
+          "name": "email",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "email",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "claim.name": "email",
+            "jsonType.label": "String"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "alice@acme.test",
+      "email": "alice@acme.test",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Alice",
+      "lastName": "Admin",
+      "credentials": [
+        { "type": "password", "value": "Passw0rd!", "temporary": false }
+      ],
+      "groups": ["/IT-Admins"]
+    },
+    {
+      "username": "bob@acme.test",
+      "email": "bob@acme.test",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Bob",
+      "lastName": "Builder",
+      "credentials": [
+        { "type": "password", "value": "Passw0rd!", "temporary": false }
+      ],
+      "groups": ["/Engineering"]
+    }
+  ]
+}
