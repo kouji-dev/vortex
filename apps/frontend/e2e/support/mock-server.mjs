@@ -72,6 +72,11 @@ let nextDocId = 1
 const memos = []
 let nextMemoId = 1
 
+// Org members + invitations store (stateful for the saas-signup-invite spec).
+const members = []
+const invitations = []
+let nextInviteId = 1
+
 const now = () => new Date().toISOString()
 const newTurnId = () => `00000000-0000-4000-8000-${String(Date.now()).slice(-12)}`
 
@@ -121,6 +126,88 @@ const server = createServer(async (req, res) => {
       body = JSON.parse(raw)
     } catch {
       body = {}
+    }
+  }
+
+  // ── Auth (UI-driven E2E seeding) ───────────────────────────────────────────
+  // The mock is NOT a real auth server: it does not verify passwords or sign
+  // real JWTs. It exists so the register/login UI flow in global-setup (and the
+  // saas-signup-invite spec) completes end-to-end and the app stores a token in
+  // localStorage (key `aip_access_token`), which gates every protected route.
+  const mockTokens = (email) => ({
+    access_token: `e2e-mock-access.${Buffer.from(email).toString('base64url')}`,
+    refresh_token: `e2e-mock-refresh.${Buffer.from(email).toString('base64url')}`,
+    token_type: 'bearer',
+  })
+  // Public auth-config bootstrap the login page fetches.
+  if (path === '/api/v1/auth/config' && method === 'GET') {
+    return json(res, { password: true, social: [], directory: false, enterprise: false })
+  }
+  // Password register (no /api prefix — matches register.tsx) and its proxied twin.
+  if ((path === '/auth/register' || path === '/api/v1/auth/register') && method === 'POST') {
+    return json(res, mockTokens(body.email ?? 'e2e@vortex.test'), 201)
+  }
+  // Password login.
+  if ((path === '/auth/login' || path === '/api/v1/auth/login') && method === 'POST') {
+    return json(res, mockTokens(body.email ?? 'e2e@vortex.test'), 200)
+  }
+  // Accept invite via register form (token + password) — register.tsx path.
+  if ((path === '/auth/accept-invite' || path === '/api/v1/auth/accept-invite') && method === 'POST') {
+    return json(res, mockTokens(`invitee+${(body.token ?? 'tok')}@vortex.test`), 201)
+  }
+  // Org members list.
+  if (path === '/api/v1/members' && method === 'GET') {
+    return json(res, members)
+  }
+  // Invitations list + create (admin/members InviteForm).
+  if (path === '/api/v1/members/invitations') {
+    if (method === 'GET') return json(res, invitations)
+    if (method === 'POST') {
+      const token = `inv-${nextInviteId}-${Date.now()}`
+      const inv = {
+        id: String(nextInviteId++),
+        email: body.email ?? '',
+        role: body.role ?? 'member',
+        invited_by: 'e2e-admin@vortex.test',
+        created_at: now(),
+        expires_at: new Date(Date.now() + 7 * 864e5).toISOString(),
+        // Extra fields the UI table ignores but the spec reads off the network
+        // response to build the /invite/<token> link (no email inbox in E2E).
+        token,
+        invite_url: `/invite/${token}`,
+      }
+      invitations.unshift(inv)
+      return json(res, inv, 201)
+    }
+  }
+  // Revoke invitation.
+  {
+    const rv = path.match(/^\/api\/v1\/members\/invitations\/([^/]+)$/)
+    if (rv && method === 'DELETE') {
+      const i = invitations.findIndex((x) => x.id === rv[1])
+      if (i >= 0) invitations.splice(i, 1)
+      return send(res, 204, 'text/plain', '')
+    }
+  }
+  // Accept invite when already authenticated (invite.$token.tsx path).
+  {
+    const im = path.match(/^\/api\/v1\/auth\/invites\/([^/]+)\/accept$/)
+    if (im && method === 'POST') {
+      const token = im[1]
+      const inv = invitations.find((x) => x.token === token)
+      if (inv) {
+        members.unshift({
+          user_id: `u-${inv.id}`,
+          email: inv.email,
+          name: null,
+          role: inv.role,
+          joined_at: now(),
+          last_active_at: now(),
+        })
+        const i = invitations.indexOf(inv)
+        if (i >= 0) invitations.splice(i, 1)
+      }
+      return json(res, { ok: true, org_id: ORG_ID }, 200)
     }
   }
 

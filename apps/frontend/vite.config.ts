@@ -13,6 +13,10 @@ export default defineConfig({
     proxy: {
       '/api': { target: devApiTarget, changeOrigin: true },
       '/health': { target: devApiTarget, changeOrigin: true },
+      // Password auth endpoints (register/login/accept-invite) post to /auth/*
+      // with no /api prefix (see register.tsx). Proxy them to the backend/mock
+      // so the UI-driven E2E auth-seeding flow reaches a token issuer.
+      '/auth': { target: devApiTarget, changeOrigin: true },
     },
   },
   resolve: {

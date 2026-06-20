@@ -17,3 +17,5 @@ yarn.lock
 /blob-report/
 /playwright/.cache/
 /tmp/
+# UI-seeded auth session saved by e2e/global-setup.ts
+/e2e/.auth/

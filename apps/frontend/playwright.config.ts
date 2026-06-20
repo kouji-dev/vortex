@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test'
+import { STORAGE_STATE } from './e2e/global-setup'
 
 // E2E backend runs on a dedicated port so tests never touch the dev database.
 // Start it with:  ./scripts/e2e-up.sh   (from the repo root)
@@ -22,6 +23,9 @@ export default defineConfig({
   use: {
     baseURL: E2E_BASE_URL,
     trace: 'on-first-retry',
+    // Auth is real now (no dev bearer). global-setup logs in via the UI once and
+    // saves the session here, so every test starts authenticated.
+    storageState: STORAGE_STATE,
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   // Start Vite on 5175 via scripts/e2e-vite.mjs so `VITE_DEV_API_PROXY_TARGET` is set reliably
@@ -46,10 +50,10 @@ export default defineConfig({
           url: 'http://localhost:5175',
           reuseExistingServer: false,
           timeout: 120_000,
+          // No VITE_AUTH_MODE / VITE_DEV_BEARER_TOKEN — dev auth was removed. The
+          // app runs as a real token-bearer; global-setup seeds the session.
           env: {
             E2E_API_URL,
-            VITE_AUTH_MODE: 'dev',
-            VITE_DEV_BEARER_TOKEN: process.env.VITE_DEV_BEARER_TOKEN ?? 'devtoken',
           },
         },
       ],
