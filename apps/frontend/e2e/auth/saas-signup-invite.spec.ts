@@ -73,10 +73,12 @@ test.describe('SaaS signup + invite', () => {
     const inviteeCtx = await browser.newContext()
     const inviteePage = await inviteeCtx.newPage()
     try {
-      // The register page accepts an invite via ?invite=<token> (accept-invite
-      // endpoint) — a single UI step that joins the org and signs the user in.
+      // The register page accepts an invite via ?invite=<token>. The invitee
+      // registers (POST /api/v1/auth/register) then the app calls the
+      // authenticated POST /api/v1/auth/invites/:token/accept to join the org.
       await inviteePage.goto(`/register?invite=${token}`, { waitUntil: 'domcontentloaded' })
       await expect(inviteePage.getByText(/accept invite/i)).toBeVisible({ timeout: 15_000 })
+      await inviteePage.getByPlaceholder('you@company.com').fill(inviteeEmail)
       await inviteePage.getByPlaceholder('Min. 8 characters').fill(password)
       await inviteePage.getByPlaceholder('••••••••').fill(password)
       await inviteePage.getByRole('button', { name: /accept & sign in/i }).click()

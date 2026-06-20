@@ -151,10 +151,6 @@ const server = createServer(async (req, res) => {
   if ((path === '/auth/login' || path === '/api/v1/auth/login') && method === 'POST') {
     return json(res, mockTokens(body.email ?? 'e2e@vortex.test'), 200)
   }
-  // Accept invite via register form (token + password) — register.tsx path.
-  if ((path === '/auth/accept-invite' || path === '/api/v1/auth/accept-invite') && method === 'POST') {
-    return json(res, mockTokens(`invitee+${(body.token ?? 'tok')}@vortex.test`), 201)
-  }
   // Org members list.
   if (path === '/api/v1/members' && method === 'GET') {
     return json(res, members)

@@ -75,7 +75,7 @@ function LoginPage() {
         footer={
           <>
             New to Vortex?{' '}
-            <Link to="/register" search={{ invite: undefined }} className="text-accent">
+            <Link to="/register" search={{ invite: undefined, email: undefined }} className="text-accent">
               Create an account
             </Link>
           </>
