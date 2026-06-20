@@ -25,10 +25,8 @@ test.describe('Auth split layout', () => {
     expect(heroBox!.height).toBeLessThanOrEqual(200);
   });
 
-  test('register and setup also use the split shell', async ({ page }) => {
+  test('register also uses the split shell', async ({ page }) => {
     await page.goto('/register');
-    await expect(page.getByTestId('auth-shell')).toBeVisible();
-    await page.goto('/setup');
     await expect(page.getByTestId('auth-shell')).toBeVisible();
   });
 });

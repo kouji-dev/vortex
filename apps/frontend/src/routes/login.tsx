@@ -11,6 +11,7 @@ import {
   showEnterpriseSso,
   showPasswordForm,
 } from '~/lib/auth-strategies'
+import { safeRedirect } from '~/lib/safe-redirect'
 
 export const Route = createFileRoute('/login')({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -24,7 +25,7 @@ const API_BASE = import.meta.env.VITE_API_URL ?? ''
 function LoginPage() {
   const navigate = useNavigate()
   const search = useSearch({ from: '/login' })
-  const redirectTo = search.redirect ?? '/'
+  const redirectTo = safeRedirect(search.redirect)
 
   const authConfig = useQuery({
     queryKey: ['auth-config'],
@@ -46,7 +47,7 @@ function LoginPage() {
     setError(null)
     setLoading(true)
     try {
-      const res = await fetch(`${API_BASE}/auth/login`, {
+      const res = await fetch(`${API_BASE}/api/v1/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),

@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate, useSearch } from '@tanstack/react-router'
 import * as React from 'react'
 import { tokenStore } from '~/auth/tokenStore'
+import { safeRedirect } from '~/lib/safe-redirect'
 
 export const Route = createFileRoute('/auth/callback')({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -43,7 +44,7 @@ function AuthCallbackPage() {
     // Clear the hash so the token is not in browser history
     window.history.replaceState(null, '', window.location.pathname + window.location.search)
 
-    const destination = search.redirect ?? '/'
+    const destination = safeRedirect(search.redirect)
     void navigate({ to: destination, replace: true })
   }, [navigate, search.redirect])
 
