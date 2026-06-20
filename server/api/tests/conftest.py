@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import os
 import socket
+import uuid as _uuid
 
 import pytest
 from sqlalchemy import create_engine, text
+from sqlalchemy.orm import Session
 
 # Hosts no test may ever reach — real LLM/embedding/rerank APIs cost money.
 # Tests mock at the boundary (respx / a provider fixture); a real DNS lookup to
@@ -56,6 +58,29 @@ requires_postgres = pytest.mark.skipif(
     not postgres_available(),
     reason="DATABASE_URL not set or Postgres unreachable",
 )
+
+
+@pytest.fixture
+def db_session():
+    from ai_portal.core.db.session import SessionLocal
+    db: Session = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.rollback(); db.close()
+
+
+@pytest.fixture
+def org(db_session):
+    from ai_portal.auth.model import Org
+    o = Org(slug=f"acme-{_uuid.uuid4().hex[:8]}", name="Acme")
+    db_session.add(o); db_session.flush(); return o
+
+
+@pytest.fixture
+def rsa_key():
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    return rsa.generate_private_key(public_exponent=65537, key_size=2048)
 
 
 @pytest.fixture(scope="module")
