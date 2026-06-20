@@ -28,7 +28,8 @@ from ai_portal.auth.sessions import create_session
 from ai_portal.auth.strategies.dev import AuthenticationError, RegistrationError, UserManager
 from ai_portal.auth.strategies.jwt import decode_token
 from ai_portal.core.config import get_settings
-from ai_portal.auth.model import User
+from ai_portal.auth.model import OrgInvite, User
+from sqlalchemy import select
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -239,6 +240,72 @@ def auth_me(
         is_superuser=user.is_superuser,
         org_id=str(user.org_id) if user.org_id else None,
     )
+
+
+@router.post(
+    "/invites/{token}/accept",
+    status_code=status.HTTP_200_OK,
+    tags=["auth"],
+)
+def accept_invite_authenticated(
+    token: str,
+    authorization: str | None = Header(None),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Accept an org invite as an already-authenticated user.
+
+    The caller must be logged in (bearer access token). The invite's org and
+    role are applied to the authenticated user — no password exchange needed.
+
+    Returns 400 if the invite is expired, 409 if already used, 410 if revoked.
+    """
+    from datetime import UTC, datetime
+
+    # ── authenticate caller ─────────────────────────────────────────────────
+    _require_local_auth()
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Missing bearer token")
+    raw_token = authorization.split(" ", 1)[1].strip()
+    settings = get_settings()
+    try:
+        payload = decode_token(raw_token, secret=settings.secret_key)
+    except jwt.PyJWTError:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    if payload.get("type") != "access":
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Not an access token")
+    try:
+        user_uuid = _uuid.UUID(payload["sub"])
+    except (KeyError, ValueError):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    user = db.scalars(select(User).where(User.uuid == user_uuid)).first()
+    if user is None or not user.is_active:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="User not found")
+
+    # ── look up invite ──────────────────────────────────────────────────────
+    invite = db.scalars(select(OrgInvite).where(OrgInvite.token == token)).first()
+    if invite is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Invite not found")
+
+    # Revoked → 410 Gone
+    if invite.revoked_at is not None:
+        raise HTTPException(status.HTTP_410_GONE, detail="Invite has been revoked")
+
+    # Already accepted → 409 Conflict
+    if invite.accepted_at is not None:
+        raise HTTPException(status.HTTP_409_CONFLICT, detail="Invite already used")
+
+    # Expired → 400 Bad Request
+    if invite.expires_at.replace(tzinfo=UTC) < datetime.now(UTC):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Invite has expired")
+
+    # ── attach user to org ──────────────────────────────────────────────────
+    user.org_id = invite.org_id
+    user.role = invite.role
+    invite.accepted_at = datetime.now(UTC)
+    db.commit()
+    db.refresh(user)
+
+    return {"detail": "invite accepted", "org_id": str(invite.org_id), "role": invite.role}
 
 
 @router.post("/accept-invite", status_code=status.HTTP_201_CREATED, response_model=TokenResponse)
