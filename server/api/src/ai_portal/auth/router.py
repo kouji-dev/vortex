@@ -11,12 +11,6 @@ from ai_portal.audit.service import emit_audit
 from ai_portal.auth import repository as repo
 from ai_portal.auth.deps import get_db
 from ai_portal.auth.limiter import login_limiter
-from ai_portal.auth.mfa_totp import (
-    InvalidTotpCode,
-    MfaFactorNotFound,
-    MfaService,
-    user_has_confirmed_totp,
-)
 from ai_portal.auth.schemas import (
     LoginRequest,
     RefreshRequest,
@@ -155,22 +149,6 @@ def login(
                     "error": "sso_required",
                     "message": "this organization requires SSO login",
                 },
-            )
-
-    # MFA gate: confirmed TOTP factor → require totp_code.
-    if user_has_confirmed_totp(db, user.id):
-        if not body.totp_code:
-            raise HTTPException(
-                status.HTTP_401_UNAUTHORIZED,
-                detail={"error": "mfa_required", "factor": "totp"},
-            )
-        try:
-            MfaService(db).check_login_totp(user_id=user.id, code=body.totp_code)
-        except (InvalidTotpCode, MfaFactorNotFound):
-            login_limiter.record_failure(ip, body.email)
-            raise HTTPException(
-                status.HTTP_401_UNAUTHORIZED,
-                detail={"error": "invalid_totp_code"},
             )
 
     login_limiter.record_success(ip, body.email)

@@ -25,9 +25,7 @@ from ai_portal.auth.router import router as auth_router
 from ai_portal.auth.routes_control_plane import router as control_plane_router
 from ai_portal.auth.routes_me import router as me_router
 from ai_portal.auth.routes_members import router as members_router
-from ai_portal.auth.routes_mfa import router as auth_mfa_router
 from ai_portal.auth.routes_orgs import router as orgs_router
-from ai_portal.auth.routes_setup import router as setup_router
 from ai_portal.auth.routes_sso import router as auth_sso_router
 from ai_portal.billing.router import router as billing_router
 from ai_portal.budgets.router import router as budgets_router
@@ -334,7 +332,6 @@ def health() -> dict[str, Any]:
 
 
 app.include_router(auth_router)
-app.include_router(auth_mfa_router)
 app.include_router(auth_sso_router)
 app.include_router(catalog_router)
 app.include_router(me_router)
@@ -345,7 +342,6 @@ app.include_router(memories_v1_router)
 app.include_router(knowledge_base_router)
 app.include_router(rag_router)
 app.include_router(rag_management_router)
-app.include_router(setup_router)
 app.include_router(orgs_router)
 app.include_router(members_router)
 app.include_router(control_plane_router)

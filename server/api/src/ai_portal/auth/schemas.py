@@ -11,17 +11,6 @@ class RegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: str
     password: str
-    totp_code: str | None = None
-
-
-class TotpEnrollResponse(BaseModel):
-    secret: str
-    provisioning_uri: str
-    qr_code_data_uri: str
-
-
-class TotpVerifyRequest(BaseModel):
-    code: str = Field(min_length=6, max_length=10)
 
 
 class SessionRead(BaseModel):
