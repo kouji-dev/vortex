@@ -161,7 +161,7 @@ class PermissionTestRequest(BaseModel):
 
     ``user_id`` is the internal ``users.id`` whose visibility we want to
     inspect. ``group_ids`` is an optional override — when omitted, the
-    user's group memberships are loaded from ``scim_group_members``.
+    user's group memberships are resolved (no SCIM; group_ids will be empty unless overridden).
     """
 
     user_id: int

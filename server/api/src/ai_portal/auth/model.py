@@ -64,7 +64,6 @@ class User(Base):
         default=_uuid.uuid4,
     )
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
-    entra_object_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     hashed_password: Mapped[str | None] = mapped_column(String(255), nullable=True)
     org_id: Mapped[_uuid.UUID | None] = mapped_column(
         PGUUID(as_uuid=True), nullable=True, index=True
@@ -77,14 +76,8 @@ class User(Base):
     is_superuser: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     locale: Mapped[str | None] = mapped_column(String(16), nullable=True)
-    mfa_required: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False, server_default="false"
-    )
     email_verified_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
-    )
-    scim_external_id: Mapped[str | None] = mapped_column(
-        String(255), nullable=True, index=True
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
@@ -145,30 +138,6 @@ class UserSession(Base):
         DateTime(timezone=True), nullable=True
     )
 
-
-class UserMfaFactor(Base):
-    """Enrolled MFA factor (TOTP secret, recovery codes, WebAuthn pubkey)."""
-
-    __tablename__ = "user_mfa_factors"
-
-    id: Mapped[_uuid.UUID] = mapped_column(
-        PGUUID(as_uuid=True), primary_key=True, default=_uuid.uuid4
-    )
-    user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    kind: Mapped[str] = mapped_column(String(16), nullable=False)  # totp | recovery | webauthn
-    secret: Mapped[str] = mapped_column(String(255), nullable=False)
-    label: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    confirmed_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
-    revoked_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
 
 
 class EmailVerification(Base):

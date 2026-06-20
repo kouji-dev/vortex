@@ -39,7 +39,6 @@ class UserProfileOut(BaseModel):
     role: str
     is_active: bool
     is_verified: bool
-    mfa_required: bool
     email_verified_at: datetime | None = None
     org_id: str | None = None
 
