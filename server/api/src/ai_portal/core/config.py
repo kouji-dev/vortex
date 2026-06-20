@@ -9,19 +9,6 @@ from pydantic.fields import FieldInfo
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
 
-def validate_portal_api_key_pepper_for_auth_mode(
-    auth_mode: Literal["dev", "entra"],
-    portal_api_key_pepper: str,
-) -> None:
-    """Entra deployments must set a non-empty pepper so portal API keys are HMAC-hashed."""
-    if auth_mode == "entra" and not portal_api_key_pepper.strip():
-        msg = (
-            "PORTAL_API_KEY_PEPPER is required when AUTH_MODE=entra "
-            "(portal API keys use HMAC; set a long random secret in production)."
-        )
-        raise ValueError(msg)
-
-
 # Maps YAML nested path → flat Settings field name.
 # Format: "section.yaml_key": "settings_field_name"
 _YAML_KEY_MAP: dict[str, str] = {
@@ -31,10 +18,7 @@ _YAML_KEY_MAP: dict[str, str] = {
     "server.upload_dir": "upload_dir",
     "server.deployment_mode": "deployment_mode",
     "database.url": "database_url",
-    "auth.mode": "auth_mode",
     "auth.secret_key": "secret_key",
-    "auth.dev_bearer_token": "dev_bearer_token",
-    "auth.dev_seed_user_email": "dev_seed_user_email",
     "auth.portal_api_key_pepper": "portal_api_key_pepper",
     "auth.entra_tenant_id": "entra_tenant_id",
     "auth.entra_api_audience": "entra_api_audience",
@@ -141,21 +125,15 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     api_port: int = 8000
 
-    dev_bearer_token: str = "devtoken"
-    dev_seed_user_email: str = "dev@localhost"
-
-    auth_mode: Literal["dev", "entra"] = "dev"
     entra_tenant_id: str = ""
     entra_api_audience: str = ""
     # Local debugging only: include PyJWT error text in 401 responses for Entra tokens.
     entra_debug_jwt: bool = Field(default=False, validation_alias="ENTRA_DEBUG_JWT")
 
-    # New deployment mode — replaces auth_mode for new deployments.
-    # dev = dev token (backward compat)
     # saas = open signup, JWT local auth
     # selfhosted = invite-only, JWT local auth, setup wizard on first boot
-    deployment_mode: Literal["dev", "saas", "selfhosted"] = Field(
-        default="dev",
+    deployment_mode: Literal["saas", "selfhosted"] = Field(
+        default="saas",
         validation_alias=AliasChoices("DEPLOYMENT_MODE"),
     )
 
@@ -352,15 +330,6 @@ class Settings(BaseSettings):
             )
         return self
 
-    @model_validator(mode="after")
-    def _entra_requires_portal_api_key_pepper(self) -> "Settings":
-        validate_portal_api_key_pepper_for_auth_mode(
-            self.auth_mode,
-            self.portal_api_key_pepper,
-        )
-        return self
-
-
 def _redact_database_url(url: str) -> str:
     """Hide credentials in SQLAlchemy-style URLs for logs."""
     if "://" not in url or "@" not in url:
@@ -378,13 +347,11 @@ def _redact_database_url(url: str) -> str:
 def settings_log_snapshot(st: Settings) -> dict[str, Any]:
     """Non-secret view of settings for startup logging."""
     return {
-        "auth_mode": st.auth_mode,
+        "deployment_mode": st.deployment_mode,
         "api_host": st.api_host,
         "api_port": st.api_port,
         "cors_origins": st.cors_origins,
         "database_url": _redact_database_url(st.database_url),
-        "dev_seed_user_email": st.dev_seed_user_email,
-        "dev_bearer_token_configured": bool(st.dev_bearer_token.strip()),
         "entra_tenant_id": st.entra_tenant_id or "(empty)",
         "entra_api_audience": st.entra_api_audience or "(empty)",
         "entra_debug_jwt": st.entra_debug_jwt,
@@ -397,7 +364,6 @@ def settings_log_snapshot(st: Settings) -> dict[str, Any]:
         "chat_default_api_model": st.chat_default_api_model,
         "upload_dir": st.upload_dir,
         "portal_api_key_pepper_set": bool(st.portal_api_key_pepper.strip()),
-        "deployment_mode": st.deployment_mode,
         "secret_key_set": bool(st.secret_key.strip()),
         "smtp_host": st.smtp_host or "(not set)",
     }

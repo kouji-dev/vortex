@@ -5,37 +5,42 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from ai_portal.core.config import Settings, validate_portal_api_key_pepper_for_auth_mode
+from ai_portal.core.config import Settings
 
 
-def test_validate_portal_api_key_pepper_entra_requires_non_empty():
-    with pytest.raises(ValueError, match="PORTAL_API_KEY_PEPPER"):
-        validate_portal_api_key_pepper_for_auth_mode("entra", "")
-    with pytest.raises(ValueError, match="PORTAL_API_KEY_PEPPER"):
-        validate_portal_api_key_pepper_for_auth_mode("entra", "   ")
+def test_default_deployment_mode_is_saas(monkeypatch):
+    """Default deployment_mode is 'saas'."""
+    # Ensure DEPLOYMENT_MODE is not set from env
+    monkeypatch.delenv("DEPLOYMENT_MODE", raising=False)
+    # secret_key required for saas; provide it
+    monkeypatch.setenv("SECRET_KEY", "a" * 32)
+    s = Settings()
+    assert s.deployment_mode == "saas"
 
 
-def test_validate_portal_api_key_pepper_dev_allows_empty():
-    validate_portal_api_key_pepper_for_auth_mode("dev", "")
-    validate_portal_api_key_pepper_for_auth_mode("dev", "  ")
-
-
-def test_settings_entra_rejects_blank_pepper(monkeypatch):
-    monkeypatch.setenv("AUTH_MODE", "entra")
-    monkeypatch.setenv("PORTAL_API_KEY_PEPPER", "")
-    monkeypatch.setenv("ENTRA_TENANT_ID", "11111111-1111-1111-1111-111111111111")
-    monkeypatch.setenv("ENTRA_API_AUDIENCE", "api://x")
-    with pytest.raises(ValidationError, match="PORTAL_API_KEY_PEPPER"):
+def test_secret_key_required_for_saas(monkeypatch):
+    """SECRET_KEY must be set for deployment_mode=saas."""
+    monkeypatch.setenv("DEPLOYMENT_MODE", "saas")
+    monkeypatch.setenv("SECRET_KEY", "")
+    with pytest.raises(ValidationError, match="SECRET_KEY"):
         Settings()
 
 
-def test_settings_entra_accepts_pepper(monkeypatch):
-    monkeypatch.setenv("AUTH_MODE", "entra")
-    monkeypatch.setenv("PORTAL_API_KEY_PEPPER", "not-empty")
-    monkeypatch.setenv("ENTRA_TENANT_ID", "11111111-1111-1111-1111-111111111111")
-    monkeypatch.setenv("ENTRA_API_AUDIENCE", "api://x")
+def test_secret_key_required_for_selfhosted(monkeypatch):
+    """SECRET_KEY must be set for deployment_mode=selfhosted."""
+    monkeypatch.setenv("DEPLOYMENT_MODE", "selfhosted")
+    monkeypatch.setenv("SECRET_KEY", "")
+    with pytest.raises(ValidationError, match="SECRET_KEY"):
+        Settings()
+
+
+def test_saas_with_secret_key_ok(monkeypatch):
+    """saas mode with a valid secret_key loads without error."""
+    monkeypatch.setenv("DEPLOYMENT_MODE", "saas")
+    monkeypatch.setenv("SECRET_KEY", "s" * 32)
     s = Settings()
-    assert s.portal_api_key_pepper == "not-empty"
+    assert s.deployment_mode == "saas"
+    assert s.secret_key == "s" * 32
 
 
 def test_yaml_values_loaded_into_settings(monkeypatch, tmp_path):
@@ -46,14 +51,11 @@ server:
   port: 9999
   cors_origins: http://example.com
   upload_dir: data/test
-  deployment_mode: dev
+  deployment_mode: saas
 database:
   url: postgresql+psycopg://user:pass@localhost/testdb
 auth:
-  mode: dev
-  secret_key: ""
-  dev_bearer_token: testtoken
-  dev_seed_user_email: test@test.com
+  secret_key: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   portal_api_key_pepper: ""
   entra_tenant_id: ""
   entra_api_audience: ""
@@ -95,7 +97,7 @@ observability:
     config_file.write_text(yaml_content)
     monkeypatch.setenv("AI_PORTAL_CONFIG", str(config_file))
     # Clear any leftover env vars that might shadow YAML values
-    for key in ["API_HOST", "API_PORT", "DATABASE_URL"]:
+    for key in ["API_HOST", "API_PORT", "DATABASE_URL", "SECRET_KEY", "DEPLOYMENT_MODE"]:
         monkeypatch.delenv(key, raising=False)
 
     s = Settings()
@@ -104,7 +106,7 @@ observability:
     assert s.api_port == 9999
     assert s.cors_origins == "http://example.com"
     assert s.database_url == "postgresql+psycopg://user:pass@localhost/testdb"
-    assert s.dev_bearer_token == "testtoken"
+    assert s.deployment_mode == "saas"
 
 
 def test_env_var_overrides_yaml_secret(monkeypatch, tmp_path):
@@ -113,10 +115,7 @@ def test_env_var_overrides_yaml_secret(monkeypatch, tmp_path):
 llm:
   openai_api_key: from-yaml
 auth:
-  secret_key: yaml-secret
-  mode: dev
-  dev_bearer_token: devtoken
-  dev_seed_user_email: dev@localhost
+  secret_key: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   portal_api_key_pepper: ""
   entra_tenant_id: ""
   entra_api_audience: ""
@@ -126,7 +125,7 @@ server:
   port: 8000
   cors_origins: http://localhost:5173
   upload_dir: data/uploads
-  deployment_mode: dev
+  deployment_mode: saas
 database:
   url: postgresql+psycopg://postgres:postgres@127.0.0.1:5434/ai_portal
 smtp:
@@ -169,6 +168,7 @@ observability:
 def test_missing_config_yaml_does_not_crash(monkeypatch, tmp_path):
     """If config.yaml does not exist, Settings loads from defaults/env without error."""
     monkeypatch.setenv("AI_PORTAL_CONFIG", str(tmp_path / "nonexistent.yaml"))
+    monkeypatch.setenv("SECRET_KEY", "b" * 32)
     # Should not raise
     s = Settings()
     assert s.api_port == 8000  # pydantic default
