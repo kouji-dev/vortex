@@ -4,8 +4,8 @@ import uuid as _uuid
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, UniqueConstraint, func
-from sqlalchemy.dialects.postgresql import UUID as PGUUID
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, UniqueConstraint, func, text
+from sqlalchemy.dialects.postgresql import JSONB, UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ai_portal.core.db.base import Base
@@ -76,6 +76,11 @@ class User(Base):
     is_superuser: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     locale: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    # OIDC group names from the IdP ``groups`` claim; refreshed on every JIT provision.
+    # connector group id must equal the IdP group name (identity match assumed)
+    idp_groups: Mapped[list] = mapped_column(
+        JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb")
+    )
     email_verified_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
