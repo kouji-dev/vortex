@@ -45,7 +45,7 @@ function RegisterPage() {
     try {
       if (inviteToken) {
         // Invite flow: register the new user → store tokens → accept invite (authenticated).
-        const regRes = await fetch(`${API_BASE}/api/v1/auth/register`, {
+        const regRes = await fetch(`${API_BASE}/auth/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password }),
@@ -59,7 +59,7 @@ function RegisterPage() {
 
         // Accept the invite as the newly authenticated user.
         const acceptRes = await authorizedFetch(
-          `${API_BASE}/api/v1/auth/invites/${inviteToken}/accept`,
+          `${API_BASE}/auth/invites/${inviteToken}/accept`,
           { method: 'POST' },
         )
         if (!acceptRes.ok && acceptRes.status !== 409) {
@@ -69,7 +69,7 @@ function RegisterPage() {
         }
       } else {
         // Standard registration flow.
-        const res = await fetch(`${API_BASE}/api/v1/auth/register`, {
+        const res = await fetch(`${API_BASE}/auth/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password }),

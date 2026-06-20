@@ -39,7 +39,7 @@ function InviteAcceptPage() {
     // Authenticated — accept the invite.
     setStatus('accepting')
 
-    authorizedFetch(`${API_BASE}/api/v1/auth/invites/${token}/accept`, { method: 'POST' })
+    authorizedFetch(`${API_BASE}/auth/invites/${token}/accept`, { method: 'POST' })
       .then(async (res) => {
         if (res.status === 409) {
           // Already accepted — just redirect to home.
