@@ -9,7 +9,6 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SetupRouteImport } from './routes/setup'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as MemoriesRouteImport } from './routes/memories'
 import { Route as LoginRouteImport } from './routes/login'
@@ -37,6 +36,7 @@ import { Route as MemoriesSharedRouteImport } from './routes/memories/shared'
 import { Route as MemoriesSettingsRouteImport } from './routes/memories/settings'
 import { Route as MemoriesMyRouteImport } from './routes/memories/my'
 import { Route as KnowledgeBasesIdRouteImport } from './routes/knowledge-bases/$id'
+import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as GatewayTracesRouteImport } from './routes/gateway/traces'
 import { Route as GatewaySnippetsRouteImport } from './routes/gateway/snippets'
 import { Route as GatewayRoutingRouteImport } from './routes/gateway/routing'
@@ -46,6 +46,7 @@ import { Route as GatewayOverviewRouteImport } from './routes/gateway/overview'
 import { Route as GatewayModelsRouteImport } from './routes/gateway/models'
 import { Route as GatewayGuardrailsRouteImport } from './routes/gateway/guardrails'
 import { Route as GatewayEvalsRouteImport } from './routes/gateway/evals'
+import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as AdminWebhooksRouteImport } from './routes/admin/webhooks'
 import { Route as AdminUsageRouteImport } from './routes/admin/usage'
 import { Route as AdminTeamsRouteImport } from './routes/admin/teams'
@@ -78,11 +79,6 @@ import { Route as RagKbsIdDocumentsRouteImport } from './routes/rag/kbs.$id.docu
 import { Route as RagKbsIdConnectorsRouteImport } from './routes/rag/kbs.$id.connectors'
 import { Route as RagKbsIdAnalyticsRouteImport } from './routes/rag/kbs.$id.analytics'
 
-const SetupRoute = SetupRouteImport.update({
-  id: '/setup',
-  path: '/setup',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
   path: '/register',
@@ -218,6 +214,11 @@ const KnowledgeBasesIdRoute = KnowledgeBasesIdRouteImport.update({
   path: '/knowledge-bases/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const InviteTokenRoute = InviteTokenRouteImport.update({
+  id: '/invite/$token',
+  path: '/invite/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GatewayTracesRoute = GatewayTracesRouteImport.update({
   id: '/traces',
   path: '/traces',
@@ -262,6 +263,11 @@ const GatewayEvalsRoute = GatewayEvalsRouteImport.update({
   id: '/evals',
   path: '/evals',
   getParentRoute: () => GatewayRouteRoute,
+} as any)
+const AuthCallbackRoute = AuthCallbackRouteImport.update({
+  id: '/auth/callback',
+  path: '/auth/callback',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AdminWebhooksRoute = AdminWebhooksRouteImport.update({
   id: '/webhooks',
@@ -430,7 +436,6 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/memories': typeof MemoriesRouteWithChildren
   '/register': typeof RegisterRoute
-  '/setup': typeof SetupRoute
   '/chat/conversations': typeof ChatConversationsRouteRouteWithChildren
   '/admin/api-keys': typeof AdminApiKeysRoute
   '/admin/audit': typeof AdminAuditRoute
@@ -447,6 +452,7 @@ export interface FileRoutesByFullPath {
   '/admin/teams': typeof AdminTeamsRoute
   '/admin/usage': typeof AdminUsageRoute
   '/admin/webhooks': typeof AdminWebhooksRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/gateway/evals': typeof GatewayEvalsRoute
   '/gateway/guardrails': typeof GatewayGuardrailsRoute
   '/gateway/models': typeof GatewayModelsRoute
@@ -456,6 +462,7 @@ export interface FileRoutesByFullPath {
   '/gateway/routing': typeof GatewayRoutingRoute
   '/gateway/snippets': typeof GatewaySnippetsRoute
   '/gateway/traces': typeof GatewayTracesRoute
+  '/invite/$token': typeof InviteTokenRoute
   '/knowledge-bases/$id': typeof KnowledgeBasesIdRoute
   '/memories/my': typeof MemoriesMyRoute
   '/memories/settings': typeof MemoriesSettingsRoute
@@ -497,7 +504,6 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/memories': typeof MemoriesRouteWithChildren
   '/register': typeof RegisterRoute
-  '/setup': typeof SetupRoute
   '/admin/api-keys': typeof AdminApiKeysRoute
   '/admin/audit': typeof AdminAuditRoute
   '/admin/billing': typeof AdminBillingRoute
@@ -513,6 +519,7 @@ export interface FileRoutesByTo {
   '/admin/teams': typeof AdminTeamsRoute
   '/admin/usage': typeof AdminUsageRoute
   '/admin/webhooks': typeof AdminWebhooksRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/gateway/evals': typeof GatewayEvalsRoute
   '/gateway/guardrails': typeof GatewayGuardrailsRoute
   '/gateway/models': typeof GatewayModelsRoute
@@ -522,6 +529,7 @@ export interface FileRoutesByTo {
   '/gateway/routing': typeof GatewayRoutingRoute
   '/gateway/snippets': typeof GatewaySnippetsRoute
   '/gateway/traces': typeof GatewayTracesRoute
+  '/invite/$token': typeof InviteTokenRoute
   '/knowledge-bases/$id': typeof KnowledgeBasesIdRoute
   '/memories/my': typeof MemoriesMyRoute
   '/memories/settings': typeof MemoriesSettingsRoute
@@ -567,7 +575,6 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/memories': typeof MemoriesRouteWithChildren
   '/register': typeof RegisterRoute
-  '/setup': typeof SetupRoute
   '/chat/conversations': typeof ChatConversationsRouteRouteWithChildren
   '/admin/api-keys': typeof AdminApiKeysRoute
   '/admin/audit': typeof AdminAuditRoute
@@ -584,6 +591,7 @@ export interface FileRoutesById {
   '/admin/teams': typeof AdminTeamsRoute
   '/admin/usage': typeof AdminUsageRoute
   '/admin/webhooks': typeof AdminWebhooksRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/gateway/evals': typeof GatewayEvalsRoute
   '/gateway/guardrails': typeof GatewayGuardrailsRoute
   '/gateway/models': typeof GatewayModelsRoute
@@ -593,6 +601,7 @@ export interface FileRoutesById {
   '/gateway/routing': typeof GatewayRoutingRoute
   '/gateway/snippets': typeof GatewaySnippetsRoute
   '/gateway/traces': typeof GatewayTracesRoute
+  '/invite/$token': typeof InviteTokenRoute
   '/knowledge-bases/$id': typeof KnowledgeBasesIdRoute
   '/memories/my': typeof MemoriesMyRoute
   '/memories/settings': typeof MemoriesSettingsRoute
@@ -639,7 +648,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/memories'
     | '/register'
-    | '/setup'
     | '/chat/conversations'
     | '/admin/api-keys'
     | '/admin/audit'
@@ -656,6 +664,7 @@ export interface FileRouteTypes {
     | '/admin/teams'
     | '/admin/usage'
     | '/admin/webhooks'
+    | '/auth/callback'
     | '/gateway/evals'
     | '/gateway/guardrails'
     | '/gateway/models'
@@ -665,6 +674,7 @@ export interface FileRouteTypes {
     | '/gateway/routing'
     | '/gateway/snippets'
     | '/gateway/traces'
+    | '/invite/$token'
     | '/knowledge-bases/$id'
     | '/memories/my'
     | '/memories/settings'
@@ -706,7 +716,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/memories'
     | '/register'
-    | '/setup'
     | '/admin/api-keys'
     | '/admin/audit'
     | '/admin/billing'
@@ -722,6 +731,7 @@ export interface FileRouteTypes {
     | '/admin/teams'
     | '/admin/usage'
     | '/admin/webhooks'
+    | '/auth/callback'
     | '/gateway/evals'
     | '/gateway/guardrails'
     | '/gateway/models'
@@ -731,6 +741,7 @@ export interface FileRouteTypes {
     | '/gateway/routing'
     | '/gateway/snippets'
     | '/gateway/traces'
+    | '/invite/$token'
     | '/knowledge-bases/$id'
     | '/memories/my'
     | '/memories/settings'
@@ -775,7 +786,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/memories'
     | '/register'
-    | '/setup'
     | '/chat/conversations'
     | '/admin/api-keys'
     | '/admin/audit'
@@ -792,6 +802,7 @@ export interface FileRouteTypes {
     | '/admin/teams'
     | '/admin/usage'
     | '/admin/webhooks'
+    | '/auth/callback'
     | '/gateway/evals'
     | '/gateway/guardrails'
     | '/gateway/models'
@@ -801,6 +812,7 @@ export interface FileRouteTypes {
     | '/gateway/routing'
     | '/gateway/snippets'
     | '/gateway/traces'
+    | '/invite/$token'
     | '/knowledge-bases/$id'
     | '/memories/my'
     | '/memories/settings'
@@ -846,7 +858,8 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   MemoriesRoute: typeof MemoriesRouteWithChildren
   RegisterRoute: typeof RegisterRoute
-  SetupRoute: typeof SetupRoute
+  AuthCallbackRoute: typeof AuthCallbackRoute
+  InviteTokenRoute: typeof InviteTokenRoute
   KnowledgeBasesIdRoute: typeof KnowledgeBasesIdRoute
   OrgConsumptionRoute: typeof OrgConsumptionRoute
   OrgSettingsRoute: typeof OrgSettingsRoute
@@ -855,13 +868,6 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/setup': {
-      id: '/setup'
-      path: '/setup'
-      fullPath: '/setup'
-      preLoaderRoute: typeof SetupRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/register': {
       id: '/register'
       path: '/register'
@@ -1051,6 +1057,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof KnowledgeBasesIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/invite/$token': {
+      id: '/invite/$token'
+      path: '/invite/$token'
+      fullPath: '/invite/$token'
+      preLoaderRoute: typeof InviteTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/gateway/traces': {
       id: '/gateway/traces'
       path: '/traces'
@@ -1113,6 +1126,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/gateway/evals'
       preLoaderRoute: typeof GatewayEvalsRouteImport
       parentRoute: typeof GatewayRouteRoute
+    }
+    '/auth/callback': {
+      id: '/auth/callback'
+      path: '/auth/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/admin/webhooks': {
       id: '/admin/webhooks'
@@ -1553,7 +1573,8 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   MemoriesRoute: MemoriesRouteWithChildren,
   RegisterRoute: RegisterRoute,
-  SetupRoute: SetupRoute,
+  AuthCallbackRoute: AuthCallbackRoute,
+  InviteTokenRoute: InviteTokenRoute,
   KnowledgeBasesIdRoute: KnowledgeBasesIdRoute,
   OrgConsumptionRoute: OrgConsumptionRoute,
   OrgSettingsRoute: OrgSettingsRoute,

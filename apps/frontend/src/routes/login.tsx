@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, useNavigate, useSearch } from '@tanstack/react-router'
 import { Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import * as React from 'react'
@@ -13,6 +13,9 @@ import {
 } from '~/lib/auth-strategies'
 
 export const Route = createFileRoute('/login')({
+  validateSearch: (search: Record<string, unknown>) => ({
+    redirect: typeof search.redirect === 'string' ? search.redirect : undefined,
+  }),
   component: LoginPage,
 })
 
@@ -20,6 +23,9 @@ const API_BASE = import.meta.env.VITE_API_URL ?? ''
 
 function LoginPage() {
   const navigate = useNavigate()
+  const search = useSearch({ from: '/login' })
+  const redirectTo = search.redirect ?? '/'
+
   const authConfig = useQuery({
     queryKey: ['auth-config'],
     queryFn: fetchAuthConfig,
@@ -47,11 +53,11 @@ function LoginPage() {
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        throw new Error(data.detail ?? 'Login failed')
+        throw new Error((data as { detail?: string }).detail ?? 'Login failed')
       }
-      const data = await res.json()
+      const data = await res.json() as { access_token: string; refresh_token: string }
       tokenStore.set(data.access_token, data.refresh_token)
-      navigate({ to: '/' })
+      navigate({ to: redirectTo })
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Login failed')
     } finally {

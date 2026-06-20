@@ -122,6 +122,10 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     api_port: int = 8000
 
+    # Frontend origin for social OAuth redirect-back. Defaults to the first CORS origin.
+    # Override with FRONTEND_URL env var when the frontend is on a different host.
+    frontend_url: str = Field(default="", validation_alias=AliasChoices("FRONTEND_URL"))
+
     # saas = open signup, JWT local auth
     # selfhosted = invite-only, JWT local auth, setup wizard on first boot
     deployment_mode: Literal["saas", "selfhosted"] = Field(
@@ -313,6 +317,14 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @property
+    def effective_frontend_url(self) -> str:
+        """Frontend base URL for OAuth redirect-back (no trailing slash)."""
+        if self.frontend_url.strip():
+            return self.frontend_url.rstrip("/")
+        origins = self.cors_origin_list
+        return origins[0].rstrip("/") if origins else "http://localhost:5173"
 
     @model_validator(mode="after")
     def _require_secret_key_in_auth_modes(self) -> "Settings":

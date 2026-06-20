@@ -17,6 +17,8 @@ import asyncio
 import secrets
 import uuid as _uuid
 
+from urllib.parse import urlencode
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
@@ -126,12 +128,12 @@ async def social_start(
     return RedirectResponse(url=url, status_code=status.HTTP_302_FOUND)
 
 
-@router.get("/{provider}/callback", response_model=TokenResponse)
+@router.get("/{provider}/callback")
 async def social_callback(
     provider: str,
     request: Request,
     db: Session = Depends(get_db),
-) -> TokenResponse:
+) -> RedirectResponse:
     prov = _require_provider_enabled(provider)
     state = request.query_params.get("state")
     if not state:
@@ -192,4 +194,16 @@ async def social_callback(
         ip=ip,
         user_agent=_user_agent(request),
     )
-    return TokenResponse(**tokens)
+    db.commit()
+
+    # Redirect browser back to the frontend callback page with tokens in the
+    # URL hash fragment (fragments never reach the server — avoids token logging).
+    frontend_url = settings.effective_frontend_url
+    fragment = urlencode(
+        {
+            "access_token": tokens["access_token"],
+            "refresh_token": tokens.get("refresh_token", ""),
+        }
+    )
+    redirect_url = f"{frontend_url}/auth/callback#{fragment}"
+    return RedirectResponse(url=redirect_url, status_code=status.HTTP_302_FOUND)

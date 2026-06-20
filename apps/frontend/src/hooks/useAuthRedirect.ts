@@ -20,7 +20,7 @@ export function useAuthRedirect(): void {
     const checkAuth = () => {
       const token = tokenStore.getAccess()
       if (!token) {
-        navigate({ to: '/login', replace: true })
+        navigate({ to: '/login', search: { redirect: undefined }, replace: true })
       }
     }
 

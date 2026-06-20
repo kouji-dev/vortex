@@ -67,7 +67,7 @@ function RegisterPage() {
         footer={
           <>
             Already have an account?{' '}
-            <Link to="/login" className="text-accent">
+            <Link to="/login" search={{ redirect: undefined }} className="text-accent">
               Sign in
             </Link>
           </>

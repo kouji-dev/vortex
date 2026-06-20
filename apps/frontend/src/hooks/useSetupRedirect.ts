@@ -22,7 +22,7 @@ export function useSetupRedirect(): void {
       .then((res) => {
         if (res.status === 503) {
           // Backend not ready — send to login; no dedicated setup wizard in frontend.
-          navigate({ to: '/login', replace: true })
+          navigate({ to: '/login', search: { redirect: undefined }, replace: true })
         }
       })
       .catch((err) => {
