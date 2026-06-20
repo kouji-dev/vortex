@@ -9,7 +9,5 @@ that want SSO must import this package once during startup.
 from ai_portal.auth.idp.providers import (  # noqa: F401
     google,
     oidc,
-    okta,
-    saml,
 )
 

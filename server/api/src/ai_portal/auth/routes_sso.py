@@ -145,25 +145,6 @@ async def sso_callback_get(
     )
 
 
-@router.post("/callback/{kind}", response_model=TokenResponse)
-async def sso_callback_post(
-    kind: str,
-    request: Request,
-    db: Session = Depends(get_db),
-) -> TokenResponse:
-    """SAML-style callback (SAMLResponse + RelayState in form body)."""
-    form = await request.form()
-    params = {k: v for k, v in form.items()}
-    state = params.get("RelayState") or params.get("state")
-    if not state:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            detail={"error": "missing_state"},
-        )
-    return await _finish_callback(
-        kind=kind, request=request, db=db, state=state, params=params
-    )
-
 
 async def _finish_callback(
     *,
