@@ -25,6 +25,7 @@ import httpx
 
 from ai_portal.auth.idp.protocol import IdentityProvider, UserClaims
 from ai_portal.auth.idp.registry import register_provider
+from ai_portal.auth.oidc.jwks import make_claims, verify_id_token
 
 
 class OidcError(Exception):
@@ -129,7 +130,7 @@ class OidcProvider(IdentityProvider):
             verifier=verifier,
             redirect_uri=params["redirect_uri"],
         )
-        return self._claims_from_token(token)
+        return await self._claims_from_token(token)
 
     # ── internals ─────────────────────────────────────────────────────────
     async def _discover(self) -> dict[str, Any]:
@@ -169,35 +170,31 @@ class OidcProvider(IdentityProvider):
         async with httpx.AsyncClient(timeout=10.0) as http:
             return await http.post(url, data=data)
 
-    @staticmethod
-    def _claims_from_token(token: dict[str, Any]) -> UserClaims:
-        # MVP: trust the IdP for the unverified payload of the ID token.
-        # Signature verification against the JWKS is added in G5 alongside the
-        # SSO routes (avoids pulling in JWKS plumbing for the protocol layer).
+    async def _claims_from_token(self, token: dict[str, Any]) -> UserClaims:
+        """Verify the id_token signature against the IdP's JWKS and return claims.
+
+        Replaces the old MVP base64-decode-without-verification path.
+        ``jwks_uri`` and ``issuer`` come from the already-discovered metadata;
+        ``audience`` is this provider's ``client_id``.
+        """
         id_token = token.get("id_token")
         if not id_token:
             raise OidcError("token response missing 'id_token'")
+        meta = await self._discover()
+        jwks_uri = meta.get("jwks_uri")
+        issuer = meta.get("issuer")
+        if not jwks_uri or not issuer:
+            raise OidcError("oidc metadata missing 'jwks_uri' or 'issuer'")
         try:
-            _, payload_b64, _ = id_token.split(".")
-        except ValueError as exc:
-            raise OidcError("malformed id_token") from exc
-        padded = payload_b64 + "=" * (-len(payload_b64) % 4)
-        import json
-
-        raw = json.loads(base64.urlsafe_b64decode(padded))
-        sub = raw.get("sub")
-        email = raw.get("email")
-        if not sub or not email:
-            raise OidcError("id_token missing 'sub' or 'email'")
-        groups_raw = raw.get("groups") or ()
-        groups = tuple(groups_raw) if isinstance(groups_raw, (list, tuple)) else ()
-        return UserClaims(
-            subject=str(sub),
-            email=str(email),
-            name=raw.get("name"),
-            groups=groups,
-            raw=raw,
-        )
+            payload = verify_id_token(
+                id_token,
+                jwks_uri=jwks_uri,
+                issuer=issuer,
+                audience=self.client_id,
+            )
+        except Exception as exc:
+            raise OidcError(f"id_token verification failed: {exc}") from exc
+        return make_claims(payload)
 
 
 # Register on import so consumers only need `import ai_portal.auth.idp.providers`.
