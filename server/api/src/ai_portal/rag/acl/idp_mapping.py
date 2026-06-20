@@ -109,9 +109,12 @@ class IdpMapper:
     def resolve_group(self, source_group_id: str) -> str | None:
         """Return the internal group id (as string) or ``None``.
 
-        No group resolver is wired (SCIM removed); always returns None.
+        OIDC group resolution uses an identity match: the connector group id
+        must equal the IdP group name stored in ``users.idp_groups``.
+        Returns ``source_group_id`` unchanged so ACL membership checks compare
+        the raw group name directly against ``user.idp_groups``.
         """
-        return None
+        return source_group_id
 
     # ---------------------------------------------------------------- AclSet
 

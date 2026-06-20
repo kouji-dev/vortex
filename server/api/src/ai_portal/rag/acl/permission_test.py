@@ -16,8 +16,10 @@ import uuid as _uuid
 from dataclasses import dataclass
 from typing import Iterable
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ai_portal.auth.model import User
 from ai_portal.knowledge_base.model import KbDocument
 from ai_portal.rag.acl.service import visible_document_ids
 
@@ -39,12 +41,16 @@ class PermissionTestOutcome:
 
 
 def _load_user_group_ids(db: Session, user_id: int) -> list[str]:
-    """Return group ids the user belongs to (as strings).
+    """Return OIDC group names the user belongs to (as strings).
 
-    SCIM group membership was removed; returns empty list until a
-    replacement group-membership mechanism is wired up.
+    Reads ``users.idp_groups`` — the list of IdP group names stored during
+    JIT provisioning from OIDC ``groups`` claims.
+    # connector group id must equal the IdP group name (identity match assumed)
     """
-    return []
+    row = db.execute(select(User.idp_groups).where(User.id == user_id)).first()
+    if row is None:
+        return []
+    return list(row[0] or [])
 
 
 def run_permission_test(
