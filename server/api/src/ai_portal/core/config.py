@@ -1,4 +1,5 @@
 import os
+import uuid
 from pathlib import Path
 from typing import Any, Literal
 
@@ -157,6 +158,13 @@ class Settings(BaseSettings):
         default="dev",
         validation_alias=AliasChoices("DEPLOYMENT_MODE"),
     )
+
+    # Enterprise OIDC bearer authentication settings.
+    oidc_issuer: str = Field(default="", validation_alias=AliasChoices("OIDC_ISSUER"))
+    oidc_jwks_uri: str = Field(default="", validation_alias=AliasChoices("OIDC_JWKS_URI"))
+    oidc_client_id: str = Field(default="", validation_alias=AliasChoices("OIDC_CLIENT_ID"))
+    oidc_default_org_id: uuid.UUID | None = Field(default=None, validation_alias=AliasChoices("OIDC_DEFAULT_ORG_ID"))
+    oidc_group_role_map: dict[str, str] = Field(default_factory=dict)
 
     # Required for local auth JWT signing.
     # Generate with: python -c "import secrets; print(secrets.token_hex(32))"
