@@ -10,8 +10,6 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
 import * as React from 'react'
 import type { QueryClient } from '@tanstack/react-query'
-import { EntraRoot } from '~/auth/EntraRoot'
-import { getAuthMode } from '~/auth/msalConfig'
 import { DefaultCatchBoundary } from '~/components/DefaultCatchBoundary'
 import { AppShell } from '~/components/layout/AppShell'
 import { MobileAppShell } from '~/components/layout/MobileAppShell'
@@ -90,7 +88,7 @@ export const Route = createRootRouteWithContext<{
   component: RootComponent,
 })
 
-const AUTH_ROUTE_RE = /^\/(login|register|setup)(\/|$)/
+const AUTH_ROUTE_RE = /^\/(login|register|auth|invite)(\/|$)/
 
 function RootComponent() {
   // Deterministic hydration marker for E2E: a useEffect commits only after the
@@ -124,7 +122,7 @@ function RootComponent() {
 
   return (
     <RootDocument>
-      {getAuthMode() === 'entra' ? <EntraRoot>{content}</EntraRoot> : content}
+      {content}
     </RootDocument>
   )
 }
