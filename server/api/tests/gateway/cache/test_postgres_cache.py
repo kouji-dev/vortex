@@ -39,7 +39,7 @@ def _async_pg_url() -> str | None:
 async def session_factory():
     url = _async_pg_url()
     if not url:
-        pytest.skip("DATABASE_URL not set or non-postgres")
+        pytest.fail("DATABASE_URL not set or non-postgres")
     engine = create_async_engine(url, pool_pre_ping=True)
     try:
         async with engine.connect() as conn:
@@ -49,12 +49,12 @@ async def session_factory():
                 text("SELECT to_regclass('public.prompt_cache_entries') IS NOT NULL")
             )
             if not res.scalar():
-                pytest.skip(
+                pytest.fail(
                     "prompt_cache_entries table not present (migration not applied)"
                 )
     except OSError:
         await engine.dispose()
-        pytest.skip("Postgres unreachable")
+        pytest.fail("Postgres unreachable")
     factory = async_sessionmaker(engine, expire_on_commit=False)
     yield factory
     await engine.dispose()

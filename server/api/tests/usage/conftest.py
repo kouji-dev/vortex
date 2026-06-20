@@ -49,7 +49,7 @@ def _async_url() -> str:
 def async_engine():
     url = _async_url()
     if not url:
-        pytest.skip("DATABASE_URL not set")
+        pytest.fail("DATABASE_URL not set")
     engine = create_async_engine(url, pool_pre_ping=True)
     yield engine
 

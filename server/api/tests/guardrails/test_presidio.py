@@ -139,7 +139,7 @@ async def test_presidio_real_analyzer_if_available():
             GuardrailContext(),
         )
     except Exception:  # spaCy model not installed
-        pytest.skip("presidio runtime model missing")
+        pytest.fail("presidio runtime model missing")
     # Real analyzer should catch the email.
     assert v.decision in {"redact", "block"}
     assert any(m.kind == "EMAIL_ADDRESS" for m in v.matches)

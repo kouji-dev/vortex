@@ -36,10 +36,11 @@ test.describe('Enterprise SSO (Keycloak acme-corp)', () => {
   // Start logged-out; the SSO flow establishes the session itself.
   test.use({ storageState: { cookies: [], origins: [] } })
 
-  test.skip(
-    !KEYCLOAK_ON,
-    'requires Keycloak test IdP + selfhosted OIDC backend; set E2E_KEYCLOAK=1 (see tests/keycloak/README.md)',
-  )
+  test.beforeAll(() => {
+    if (!process.env.E2E_KEYCLOAK) {
+      throw new Error('enterprise-sso requires E2E_KEYCLOAK=1 + Keycloak up (tests/keycloak) + backend in selfhosted OIDC mode')
+    }
+  })
 
   /** Drive the Keycloak hosted login form once redirected to the IdP. */
   async function loginAtKeycloak(

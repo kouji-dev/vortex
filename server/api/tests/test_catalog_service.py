@@ -39,7 +39,7 @@ def test_validate_catalog_model_id_empty_raises():
 def test_validate_catalog_model_id_optional_id_passes():
     from ai_portal.catalog.definitions import OPTIONAL_CATALOG_API_MODEL_IDS
     if not OPTIONAL_CATALOG_API_MODEL_IDS:
-        pytest.skip("No optional IDs defined")
+        pytest.fail("No optional IDs defined")
     first = next(iter(OPTIONAL_CATALOG_API_MODEL_IDS))
     validate_catalog_model_id(first)  # Should not raise
 

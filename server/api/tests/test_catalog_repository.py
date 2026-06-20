@@ -19,7 +19,7 @@ def test_get_active_catalog_model_by_slug_existing():
         result = get_active_catalog_model_by_slug(db, "anthropic-claude-haiku-4-5")
         # If no catalog models seeded, skip gracefully
         if result is None:
-            pytest.skip("No catalog models in test DB")
+            pytest.fail("No catalog models in test DB")
         assert result.slug == "anthropic-claude-haiku-4-5"
         assert result.is_active is True
     finally:

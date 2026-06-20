@@ -55,8 +55,8 @@ def postgres_available() -> bool:
 
 
 requires_postgres = pytest.mark.skipif(
-    not postgres_available(),
-    reason="DATABASE_URL not set or Postgres unreachable",
+    False,
+    reason="postgres required; tests must not skip",
 )
 
 
@@ -112,18 +112,18 @@ def mock_jwks_client(rsa_key):
 def sync_engine():
     url = _postgres_url()
     if not url:
-        pytest.skip("DATABASE_URL not set or Postgres unreachable")
+        pytest.fail("DATABASE_URL not set or Postgres unreachable")
     # Replace async driver with sync psycopg driver if needed
     sync_url = url.replace("+asyncpg", "+psycopg").replace(
         "postgresql+psycopg2", "postgresql+psycopg"
     )
     if not sync_url.startswith("postgresql"):
-        pytest.skip("DATABASE_URL not set or Postgres unreachable")
+        pytest.fail("DATABASE_URL not set or Postgres unreachable")
     eng = create_engine(sync_url, pool_pre_ping=True)
     try:
         with eng.connect() as conn:
             conn.execute(text("SELECT 1"))
     except OSError:
-        pytest.skip("Postgres unreachable")
+        pytest.fail("Postgres unreachable")
     yield eng
     eng.dispose()

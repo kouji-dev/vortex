@@ -94,7 +94,7 @@ def smoke_engine(_smoke_env):
         with eng.connect() as conn:
             conn.execute(text("SELECT 1"))
     except Exception:  # noqa: BLE001
-        pytest.skip("smoke DB unreachable")
+        pytest.fail("smoke DB unreachable")
     yield eng
     eng.dispose()
 

@@ -1,11 +1,8 @@
 import { test, expect } from '../support/fixtures'
 
 test.describe('Auth gate (local mode simulation)', () => {
-  // Skipped: VITE_AUTH_MODE is baked at build time so we can't override it at runtime
-  // in Playwright. The auth gate is verified via manual smoke test (Task 4, Step 4).
-  // To add automated coverage: build a separate Vite bundle with VITE_AUTH_MODE=local
-  // and point a second webServer config at it.
-  test.skip('redirects to /login when no token in localStorage', async ({ page }) => {
+  test('redirects to /login when no token in localStorage', async ({ page }) => {
+    // Navigate to root, clear tokens, re-navigate — auth gate must redirect to /login.
     await page.goto('/')
     await page.evaluate(() => {
       localStorage.removeItem('aip_access_token')

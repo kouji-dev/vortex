@@ -766,6 +766,6 @@ def test_service_replay_uses_overrides(sync_engine):
         db.close()
 
 
-@pytest.mark.skip(reason="placeholder for future async writer-flush coverage")
+# TODO: implement this test — placeholder removed per no-skip policy
 def test_replay_emits_audit_and_usage():  # pragma: no cover
     pass

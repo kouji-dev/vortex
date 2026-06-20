@@ -12,10 +12,9 @@ def test_sentinel_registered_regardless_of_dep() -> None:
     assert hasattr(sent, "available")
 
 
-@pytest.mark.skipif(
-    not vector_qdrant.QDRANT_AVAILABLE, reason="qdrant-client not installed"
-)
 def test_construct_when_dep_available() -> None:  # pragma: no cover - guarded
+    if not vector_qdrant.QDRANT_AVAILABLE:
+        pytest.fail("qdrant-client not installed")
     # Construct with a stub client; no network IO.
     class StubClient:
         async def search(self, **kw):

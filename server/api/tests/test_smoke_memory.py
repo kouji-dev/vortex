@@ -83,7 +83,7 @@ def _purge(client) -> None:
 def test_smoke_golden_path(client):
     """1-7: create → list → recall → uses → delete → list-empty."""
     if "ai_portal_smoke_mem" not in (os.environ.get("DATABASE_URL") or ""):
-        pytest.skip("requires ai_portal_smoke_mem database")
+        pytest.fail("requires ai_portal_smoke_mem database")
     HDR = _hdr()
     _purge(client)
 
@@ -137,7 +137,7 @@ def test_smoke_golden_path(client):
 def test_smoke_byok_encryption(client):
     """8. Enable BYOK for org → write memory → raw DB shows `enc:v1:`."""
     if "ai_portal_smoke_mem" not in (os.environ.get("DATABASE_URL") or ""):
-        pytest.skip("requires ai_portal_smoke_mem database")
+        pytest.fail("requires ai_portal_smoke_mem database")
     # MEMORY_KEK must be valid Fernet — clear cache so env is re-read.
     from ai_portal.memory import encryption as enc_mod
     enc_mod._reset_kek_cache()

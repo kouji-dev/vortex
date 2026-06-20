@@ -51,7 +51,7 @@ def _async_url() -> str:
 def async_engine():
     url = _async_url()
     if not url:
-        pytest.skip("DATABASE_URL not set or Postgres unreachable")
+        pytest.fail("DATABASE_URL not set or Postgres unreachable")
     engine = create_async_engine(url, pool_pre_ping=True)
     yield engine
     # cleanup happens via event loop
