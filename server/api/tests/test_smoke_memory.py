@@ -65,13 +65,18 @@ def client(monkeypatch):
     yield TestClient(app)
 
 
-# TODO(auth-rework): smoke auth needs real JWT — dev bearer removed in Phase 2
-HDR = {"Authorization": "Bearer devtoken"}
+def _hdr() -> dict[str, str]:
+    # Real SaaS HS256 JWT for the seeded dev user (signed with the smoke
+    # SECRET_KEY). Dev bearer was removed in the auth rework.
+    from tests._smoke_auth import auth_headers
+
+    return auth_headers()
 
 
 def _purge(client) -> None:
-    for m in client.get("/v1/memories", headers=HDR).json():
-        client.delete(f"/v1/memories/{m['id']}", headers=HDR)
+    hdr = _hdr()
+    for m in client.get("/v1/memories", headers=hdr).json():
+        client.delete(f"/v1/memories/{m['id']}", headers=hdr)
 
 
 @requires_postgres
@@ -79,6 +84,7 @@ def test_smoke_golden_path(client):
     """1-7: create → list → recall → uses → delete → list-empty."""
     if "ai_portal_smoke_mem" not in (os.environ.get("DATABASE_URL") or ""):
         pytest.skip("requires ai_portal_smoke_mem database")
+    HDR = _hdr()
     _purge(client)
 
     # 2. create
@@ -137,6 +143,7 @@ def test_smoke_byok_encryption(client):
     enc_mod._reset_kek_cache()
     assert os.environ.get("MEMORY_KEK"), "MEMORY_KEK must be set"
 
+    HDR = _hdr()
     _purge(client)
 
     # Find the dev user's org_id via the legacy /api/users/me/memories shape.

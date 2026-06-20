@@ -66,8 +66,11 @@ def _client() -> TestClient:
 
 
 def _auth_headers() -> dict[str, str]:
-    # TODO(auth-rework): smoke auth needs real JWT — dev bearer removed in Phase 2
-    return {"Authorization": "Bearer devtoken"}
+    # Mint a real SaaS HS256 JWT for the seeded dev user (signed with the smoke
+    # SECRET_KEY). Dev bearer was removed in the auth rework.
+    from tests._smoke_auth import auth_headers  # noqa: PLC0415
+
+    return auth_headers()
 
 
 def _unique(prefix: str) -> str:
