@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid as _uuid
+from datetime import UTC, datetime
 
 import jwt
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
@@ -17,7 +18,6 @@ from ai_portal.auth.mfa_totp import (
     user_has_confirmed_totp,
 )
 from ai_portal.auth.schemas import (
-    AcceptInviteRequest,
     LoginRequest,
     RefreshRequest,
     RegisterRequest,
@@ -259,8 +259,6 @@ def accept_invite_authenticated(
 
     Returns 400 if the invite is expired, 409 if already used, 410 if revoked.
     """
-    from datetime import UTC, datetime
-
     # ── authenticate caller ─────────────────────────────────────────────────
     _require_local_auth()
     if not authorization or not authorization.lower().startswith("bearer "):
@@ -298,6 +296,10 @@ def accept_invite_authenticated(
     if invite.expires_at.replace(tzinfo=UTC) < datetime.now(UTC):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Invite has expired")
 
+    # Email ownership check — invite must be addressed to the authenticated user
+    if invite.invited_email.lower() != user.email.lower():
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Invite is for a different email address")
+
     # ── attach user to org ──────────────────────────────────────────────────
     user.org_id = invite.org_id
     user.role = invite.role
@@ -307,46 +309,3 @@ def accept_invite_authenticated(
 
     return {"detail": "invite accepted", "org_id": str(invite.org_id), "role": invite.role}
 
-
-@router.post("/accept-invite", status_code=status.HTTP_201_CREATED, response_model=TokenResponse)
-def accept_invite(
-    body: AcceptInviteRequest,
-    request: Request,
-    db: Session = Depends(get_db),
-) -> TokenResponse:
-    """Accept an org invite and create an account (or migrate an existing one)."""
-    from datetime import UTC, datetime
-
-    invite = repo.get_pending_invite_by_token(db, body.token)
-    if invite is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Invite not found or expired")
-    if invite.expires_at.replace(tzinfo=UTC) < datetime.now(UTC):
-        raise HTTPException(status.HTTP_410_GONE, detail="Invite has expired")
-
-    settings = get_settings()
-    manager = UserManager(db=db, secret=settings.secret_key)
-
-    # Check if user already exists (migrate) or create new
-    existing_user = repo.get_user_by_email(db, invite.invited_email)
-
-    if existing_user:
-        # Migrate to new org — archive old personal org if it exists
-        old_org = repo.get_personal_org_for_user(db, existing_user)
-        if old_org and old_org.slug.startswith(existing_user.email.split("@")[0]):
-            old_org.archived_at = datetime.now(UTC)
-        existing_user.org_id = invite.org_id
-        existing_user.role = invite.role
-        user = existing_user
-    else:
-        try:
-            user = manager.register(
-                email=invite.invited_email,
-                password=body.password,
-                org_id=invite.org_id,
-                role=invite.role,
-            )
-        except RegistrationError as e:
-            raise HTTPException(status.HTTP_409_CONFLICT, detail=str(e))
-
-    repo.accept_invite_and_commit(db, invite, user)
-    return _issue_session_tokens(manager, user, db, request=request)
