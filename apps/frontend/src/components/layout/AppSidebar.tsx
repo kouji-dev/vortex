@@ -6,6 +6,7 @@ import * as React from 'react'
 import { useConversationsListQuery } from '~/hooks/useConversationsListQuery'
 import { useMeQuery } from '~/hooks/useMeQuery'
 import { isAdminActor } from '~/lib/admin-permissions'
+import { tokenStore } from '~/auth/tokenStore'
 
 const LANDING_URL = import.meta.env.VITE_LANDING_URL ?? '/'
 
@@ -154,7 +155,10 @@ export function AppSidebar() {
               <a
                 href={LANDING_URL}
                 className="avatar-menu-item"
-                onClick={() => setMenuOpen(false)}
+                onClick={() => {
+                  setMenuOpen(false)
+                  tokenStore.clear()
+                }}
               >
                 <LogOut className="size-3.5 shrink-0" aria-hidden />
                 Log out
