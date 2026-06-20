@@ -29,6 +29,22 @@ services:
         sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
+      # ── Social OAuth (GitHub) ──────────────────────────────────────────
+      - key: SOCIAL_GITHUB_CLIENT_ID
+        sync: false          # From GitHub OAuth App settings
+      - key: SOCIAL_GITHUB_CLIENT_SECRET
+        sync: false
+      # ── Social OAuth (Google) ─────────────────────────────────────────
+      - key: SOCIAL_GOOGLE_CLIENT_ID
+        sync: false          # From Google Cloud Console OAuth 2.0 credentials
+      - key: SOCIAL_GOOGLE_CLIENT_SECRET
+        sync: false
+      # ── Social provider list (comma-separated) ────────────────────────
+      - key: AUTH_SOCIAL_PROVIDERS
+        value: "github,google"    # enables social login buttons; must match configured credentials
+      # ── Frontend origin for OAuth redirect-back ───────────────────────
+      - key: FRONTEND_URL
+        sync: false          # e.g. https://ai-portal-app.onrender.com
 
   # ── Frontend App ─────────────────────────────────────────────────────────
   - type: web
@@ -39,8 +55,6 @@ services:
     startCommand: pnpm run start
     plan: starter
     envVars:
-      - key: VITE_AUTH_MODE
-        value: local
       - key: VITE_API_URL
         sync: false          # e.g. https://ai-portal-api.onrender.com
       - key: NODE_VERSION

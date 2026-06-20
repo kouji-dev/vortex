@@ -19,4 +19,4 @@ COPY alembic/ ./alembic/
 ENV PORT=8000
 ENV PYTHONUNBUFFERED=1
 
-CMD ["sh", "-c", "python -m alembic upgrade head && uvicorn ai_portal.main:app --host 0.0.0.0 --port $PORT"]
+CMD ["sh", "-c", "python -m alembic upgrade head && uvicorn ai_portal.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips='*'"]
