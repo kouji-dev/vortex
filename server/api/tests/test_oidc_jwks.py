@@ -5,22 +5,16 @@ def _jwks(key, kid="k1"):
     jwk = json.loads(jwt.algorithms.RSAAlgorithm.to_jwk(key.public_key())); jwk["kid"] = kid
     return {"keys": [jwk]}
 
-@respx.mock
-def test_verifies_valid_token(rsa_key):
-    respx.get("https://idp.test/jwks").respond(json=_jwks(rsa_key))
+def test_verifies_valid_token(rsa_key, mock_jwks_client):
     tok = jwt.encode({"sub":"u1","email":"a@b.c","iss":"https://idp.test","aud":"vortex-app"}, rsa_key, algorithm="RS256", headers={"kid":"k1"})
     assert verify_id_token(tok, jwks_uri="https://idp.test/jwks", issuer="https://idp.test", audience="vortex-app")["sub"] == "u1"
 
-@respx.mock
-def test_rejects_wrong_audience(rsa_key):
-    respx.get("https://idp.test/jwks").respond(json=_jwks(rsa_key))
+def test_rejects_wrong_audience(rsa_key, mock_jwks_client):
     tok = jwt.encode({"sub":"u1","email":"a@b.c","iss":"https://idp.test","aud":"other"}, rsa_key, algorithm="RS256", headers={"kid":"k1"})
     with pytest.raises(jwt.InvalidAudienceError):
         verify_id_token(tok, jwks_uri="https://idp.test/jwks", issuer="https://idp.test", audience="vortex-app")
 
-@respx.mock
-def test_rejects_wrong_issuer(rsa_key):
-    respx.get("https://idp.test/jwks").respond(json=_jwks(rsa_key))
+def test_rejects_wrong_issuer(rsa_key, mock_jwks_client):
     tok = jwt.encode({"sub":"u1","email":"a@b.c","iss":"https://evil.test","aud":"vortex-app"}, rsa_key, algorithm="RS256", headers={"kid":"k1"})
     with pytest.raises(jwt.InvalidIssuerError):
         verify_id_token(tok, jwks_uri="https://idp.test/jwks", issuer="https://idp.test", audience="vortex-app")

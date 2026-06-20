@@ -83,6 +83,31 @@ def rsa_key():
     return rsa.generate_private_key(public_exponent=65537, key_size=2048)
 
 
+@pytest.fixture
+def mock_jwks_client(rsa_key):
+    """Bypass PyJWKClient's urllib fetch: pre-populate the global cache with a fake
+    client that returns a signing key built from the test RSA key (kid 'k1')."""
+    import json as _json
+    import jwt as _jwt
+    from unittest.mock import MagicMock
+    from jwt import PyJWK
+    import ai_portal.auth.oidc.jwks as _jwks_mod
+
+    jwk = _json.loads(_jwt.algorithms.RSAAlgorithm.to_jwk(rsa_key.public_key()))
+    jwk["kid"] = "k1"
+    fake = MagicMock()
+    fake.get_signing_key_from_jwt.return_value = PyJWK.from_dict(jwk)
+    saved = dict(_jwks_mod._clients)
+    # any jwks_uri used in tests resolves to the same fake client
+    _jwks_mod._clients.clear()
+    orig_client = _jwks_mod._client
+    _jwks_mod._client = lambda uri: fake
+    yield fake
+    _jwks_mod._client = orig_client
+    _jwks_mod._clients.clear()
+    _jwks_mod._clients.update(saved)
+
+
 @pytest.fixture(scope="module")
 def sync_engine():
     url = _postgres_url()

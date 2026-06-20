@@ -22,6 +22,7 @@ from typing import Any
 from urllib.parse import urlencode
 
 import httpx
+import jwt
 
 from ai_portal.auth.idp.protocol import IdentityProvider, UserClaims
 from ai_portal.auth.idp.registry import register_provider
@@ -192,7 +193,7 @@ class OidcProvider(IdentityProvider):
                 issuer=issuer,
                 audience=self.client_id,
             )
-        except Exception as exc:
+        except jwt.PyJWTError as exc:
             raise OidcError(f"id_token verification failed: {exc}") from exc
         return make_claims(payload)
 

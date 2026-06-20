@@ -133,12 +133,11 @@ async def test_initiate_discovery_cached():
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_complete_returns_verified_claims(rsa_key):
+async def test_complete_returns_verified_claims(rsa_key, mock_jwks_client):
     """Happy-path: valid code → token exchange → verified id_token → UserClaims."""
     id_token = _make_id_token(rsa_key, groups=["IT-Admins"])
 
     respx.get(DISCOVERY_URL).respond(json=DISCOVERY_DOC)
-    respx.get(JWKS_URI).respond(json=_jwks(rsa_key))
     respx.post(TOKEN_ENDPOINT).respond(
         json={"id_token": id_token, "access_token": "at", "token_type": "bearer"}
     )
@@ -164,12 +163,11 @@ async def test_complete_returns_verified_claims(rsa_key):
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_complete_user_claims_no_groups(rsa_key):
+async def test_complete_user_claims_no_groups(rsa_key, mock_jwks_client):
     """id_token without groups claim → groups tuple is empty."""
     id_token = _make_id_token(rsa_key)  # no groups
 
     respx.get(DISCOVERY_URL).respond(json=DISCOVERY_DOC)
-    respx.get(JWKS_URI).respond(json=_jwks(rsa_key))
     respx.post(TOKEN_ENDPOINT).respond(
         json={"id_token": id_token, "access_token": "at", "token_type": "bearer"}
     )
@@ -188,16 +186,15 @@ async def test_complete_user_claims_no_groups(rsa_key):
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_complete_rejects_token_signed_by_wrong_key(rsa_key):
+async def test_complete_rejects_token_signed_by_wrong_key(rsa_key, mock_jwks_client):
     """id_token signed by a different key → OidcError (sig verification fails)."""
     from cryptography.hazmat.primitives.asymmetric import rsa as _rsa
 
     wrong_key = _rsa.generate_private_key(public_exponent=65537, key_size=2048)
     id_token = _make_id_token(wrong_key)  # signed by wrong_key
 
-    # But JWKS exposes rsa_key's public key → mismatch → rejection
+    # mock_jwks_client exposes rsa_key's public key → mismatch → rejection
     respx.get(DISCOVERY_URL).respond(json=DISCOVERY_DOC)
-    respx.get(JWKS_URI).respond(json=_jwks(rsa_key))
     respx.post(TOKEN_ENDPOINT).respond(
         json={"id_token": id_token, "access_token": "at", "token_type": "bearer"}
     )
@@ -213,12 +210,11 @@ async def test_complete_rejects_token_signed_by_wrong_key(rsa_key):
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_complete_rejects_wrong_audience(rsa_key):
+async def test_complete_rejects_wrong_audience(rsa_key, mock_jwks_client):
     """id_token with wrong audience → OidcError."""
     id_token = _make_id_token(rsa_key, aud="other-app")
 
     respx.get(DISCOVERY_URL).respond(json=DISCOVERY_DOC)
-    respx.get(JWKS_URI).respond(json=_jwks(rsa_key))
     respx.post(TOKEN_ENDPOINT).respond(
         json={"id_token": id_token, "access_token": "at", "token_type": "bearer"}
     )
@@ -234,12 +230,11 @@ async def test_complete_rejects_wrong_audience(rsa_key):
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_complete_rejects_wrong_issuer(rsa_key):
+async def test_complete_rejects_wrong_issuer(rsa_key, mock_jwks_client):
     """id_token with wrong issuer → OidcError."""
     id_token = _make_id_token(rsa_key, iss="https://evil.test")
 
     respx.get(DISCOVERY_URL).respond(json=DISCOVERY_DOC)
-    respx.get(JWKS_URI).respond(json=_jwks(rsa_key))
     respx.post(TOKEN_ENDPOINT).respond(
         json={"id_token": id_token, "access_token": "at", "token_type": "bearer"}
     )
@@ -261,7 +256,6 @@ async def test_complete_rejects_wrong_issuer(rsa_key):
 async def test_complete_missing_id_token(rsa_key):
     """Token endpoint response without id_token → OidcError."""
     respx.get(DISCOVERY_URL).respond(json=DISCOVERY_DOC)
-    respx.get(JWKS_URI).respond(json=_jwks(rsa_key))
     respx.post(TOKEN_ENDPOINT).respond(
         json={"access_token": "at", "token_type": "bearer"}  # no id_token
     )
