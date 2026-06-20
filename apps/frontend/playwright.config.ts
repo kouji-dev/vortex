@@ -27,7 +27,26 @@ export default defineConfig({
     // saves the session here, so every test starts authenticated.
     storageState: STORAGE_STATE,
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+      // Exclude the enterprise-SSO spec — it requires a real Keycloak + backend in
+      // selfhosted OIDC mode.  Run it via: pnpm test:e2e:enterprise
+      testIgnore: ['**/enterprise-sso.spec.ts'],
+    },
+    {
+      // Opt-in project for enterprise SSO tests.
+      // Prerequisites:
+      //   docker compose -f tests/keycloak/docker-compose.yml up -d
+      //   Backend env: DEPLOYMENT_MODE=selfhosted OIDC_ISSUER=... OIDC_CLIENT_ID=...
+      //   Playwright env: E2E_KEYCLOAK=1 E2E_BASE_URL=<real frontend URL>
+      // Run: pnpm test:e2e:enterprise
+      name: 'enterprise',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: ['**/enterprise-sso.spec.ts'],
+    },
+  ],
   // Start Vite on 5175 via scripts/e2e-vite.mjs so `VITE_DEV_API_PROXY_TARGET` is set reliably
   // (Windows often drops env through `pnpm dev`). Do not reuse 5173/5174 dev servers — they
   // may proxy to the wrong API port.

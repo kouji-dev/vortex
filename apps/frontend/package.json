@@ -10,7 +10,8 @@
     "start": "pnpx srvx --prod -s ../client dist/server/server.js",
     "test:e2e": "playwright test",
     "test:e2e:filter": "playwright test --grep",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:enterprise": "playwright test --project=enterprise"
   },
   "dependencies": {
     "@radix-ui/react-popover": "^1.1.15",

@@ -1,25 +1,30 @@
 /**
  * Enterprise SSO (OIDC) — end-to-end against a Keycloak test IdP.
  *
+ * OPT-IN: this spec is NOT part of the default `pnpm test:e2e` run.
+ * It lives in the `enterprise` Playwright project and must be invoked explicitly:
+ *
+ *   pnpm test:e2e:enterprise
+ *
  * Documented flow (selfhosted deployment_mode):
  *   /login → click enterprise SSO → redirect to Keycloak (realm `acme-corp`)
  *   → authenticate `alice@acme.test` → callback to the app → JIT-provisioned
  *   → group `IT-Admins` maps to role `admin` → an admin-only action is allowed.
  *
- * REQUIREMENTS (this spec is SKIPPED unless they are met — see skip-guard):
- *   - Keycloak running:  docker compose -f tests/keycloak/docker-compose.yml up -d
- *   - Backend reconfigured for OIDC against the acme-corp realm:
- *       DEPLOYMENT_MODE=selfhosted
- *       OIDC_ISSUER=http://localhost:8080/realms/acme-corp
- *       OIDC_CLIENT_ID=vortex-app
- *       OIDC_CLIENT_SECRET=acme-enterprise-secret
- *       OIDC_GROUPS_CLAIM=groups
- *       OIDC_ADMIN_GROUPS=IT-Admins
- *   - Playwright env:  E2E_KEYCLOAK=1   (un-skips this spec)
+ * REQUIREMENTS (beforeAll throws if unmet — no skip, fail loudly):
+ *   1. Keycloak:  docker compose -f tests/keycloak/docker-compose.yml up -d
+ *   2. Backend env (selfhosted OIDC mode):
+ *        DEPLOYMENT_MODE=selfhosted
+ *        OIDC_ISSUER=http://localhost:8080/realms/acme-corp
+ *        OIDC_CLIENT_ID=vortex-app
+ *        OIDC_CLIENT_SECRET=acme-enterprise-secret
+ *        OIDC_GROUPS_CLAIM=groups
+ *        OIDC_ADMIN_GROUPS=IT-Admins
+ *   3. Playwright env:
+ *        E2E_KEYCLOAK=1
+ *        E2E_BASE_URL=<real frontend URL>   (points at the real backend, not the mock)
  *
- * See tests/keycloak/README.md. Standing up Keycloak + reconfiguring the backend
- * is NOT done by the default `pnpm test:e2e` run, so without E2E_KEYCLOAK the
- * whole describe is skipped and the suite stays green.
+ * See tests/keycloak/README.md for Keycloak setup details.
  *
  * Serial: the JIT-provision + role-mapping assertions share IdP/org state.
  */
