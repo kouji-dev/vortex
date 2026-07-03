@@ -1,1 +1,0 @@
-E2E fixture document for knowledge base upload tests.
