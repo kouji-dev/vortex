@@ -1,0 +1,96 @@
+import type { CanonicalChatRequest, Usage } from "@vortex/shared";
+import { iterSSELines, sseData } from "../sse.js";
+import {
+  estTokens,
+  type OpenAIChatCompletion,
+  type ProviderAdapter,
+  type StreamTransformResult,
+} from "./types.js";
+
+// OpenAI is the canonical format → this adapter is (almost) a passthrough.
+export const openaiAdapter: ProviderAdapter = {
+  id: "openai",
+  chatCapability: "chat",
+
+  toProviderBody(req: CanonicalChatRequest, model, streaming) {
+    const body: Record<string, unknown> = {
+      model,
+      messages: req.messages,
+    };
+    if (req.temperature !== undefined) body.temperature = req.temperature;
+    if (req.maxTokens !== undefined) body.max_tokens = req.maxTokens;
+    if (req.tools !== undefined) body.tools = req.tools;
+    if (streaming) {
+      body.stream = true;
+      // Force a trailing usage chunk so we can meter streamed responses.
+      body.stream_options = { include_usage: true };
+    }
+    return body;
+  },
+
+  fromProviderResponse(raw, model) {
+    const r = (raw ?? {}) as Record<string, unknown>;
+    const u = (r.usage ?? {}) as Record<string, number>;
+    const usage: Usage = {
+      promptTokens: u.prompt_tokens ?? 0,
+      completionTokens: u.completion_tokens ?? 0,
+      totalTokens:
+        u.total_tokens ?? (u.prompt_tokens ?? 0) + (u.completion_tokens ?? 0),
+    };
+    return { openai: { ...(r as object), model } as OpenAIChatCompletion, usage };
+  },
+
+  streamTransform(upstream, _model): StreamTransformResult {
+    let resolve!: (u: Usage) => void;
+    const usage = new Promise<Usage>((r) => (resolve = r));
+    let settled = false;
+    let promptTokens = 0;
+    let completionChars = 0;
+    const done = (u: Usage) => {
+      if (settled) return;
+      settled = true;
+      resolve(u);
+    };
+
+    const stream = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        const enc = new TextEncoder();
+        try {
+          for await (const line of iterSSELines(upstream)) {
+            controller.enqueue(enc.encode(line + "\n"));
+            const data = sseData(line);
+            if (!data) continue;
+            try {
+              const j = JSON.parse(data) as any;
+              if (j.usage) {
+                promptTokens = j.usage.prompt_tokens ?? 0;
+                done({
+                  promptTokens,
+                  completionTokens: j.usage.completion_tokens ?? 0,
+                  totalTokens:
+                    j.usage.total_tokens ??
+                    (j.usage.prompt_tokens ?? 0) +
+                      (j.usage.completion_tokens ?? 0),
+                });
+              }
+              const delta = j.choices?.[0]?.delta?.content;
+              if (typeof delta === "string") completionChars += delta.length;
+            } catch {
+              /* ignore malformed chunk */
+            }
+          }
+        } finally {
+          const est = estTokens(completionChars);
+          done({
+            promptTokens,
+            completionTokens: est,
+            totalTokens: promptTokens + est,
+          });
+          controller.close();
+        }
+      },
+    });
+
+    return { stream, usage };
+  },
+};

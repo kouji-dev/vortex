@@ -1,0 +1,1275 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="ds/styles.css">
+<script src="ds/_ds_bundle.js"></script>
+<style>
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;}
+  body{background:var(--vx-bg);color:var(--vx-ink);font-family:var(--vx-font-sans);font-size:13px;-webkit-font-smoothing:antialiased;transition:background .25s var(--vx-ease),color .25s var(--vx-ease);}
+  ::selection{background:var(--vx-accent-soft);}
+  ::-webkit-scrollbar{width:10px;height:10px;}
+  ::-webkit-scrollbar-thumb{background:var(--vx-line-2);border-radius:8px;border:2px solid transparent;background-clip:padding-box;}
+  ::-webkit-scrollbar-thumb:hover{background:var(--vx-line-3);background-clip:padding-box;}
+  .vx-mono{font-family:var(--vx-font-mono);}
+  .vx-disp{font-family:var(--vx-font-display);letter-spacing:-.03em;}
+  @keyframes vx-spin{to{transform:rotate(360deg);}}
+  @keyframes vx-pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+  @keyframes vx-shimmer{0%{background-position:100% 0;}100%{background-position:-100% 0;}}
+  @keyframes vx-rise{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
+  @keyframes vx-toastin{from{opacity:0;transform:translateX(20px);}to{opacity:1;transform:none;}}
+  @keyframes vx-drawin{from{transform:translateX(100%);}to{transform:none;}}
+  @keyframes vx-blink{0%,100%{opacity:1;}50%{opacity:0;}}
+  .vx-sk{background:linear-gradient(90deg,var(--vx-bg-2) 25%,var(--vx-line) 37%,var(--vx-bg-2) 63%);background-size:400% 100%;animation:vx-shimmer 1.4s infinite;border-radius:6px;}
+  [data-density="compact"] .vx-table td{padding:5px 12px !important;}
+  [data-density="compact"] .vx-table th{padding:5px 12px !important;}
+  [data-density="comfortable"] .vx-table td{padding:11px 14px !important;}
+  [data-density="comfortable"] .vx-table th{padding:9px 14px !important;}
+  [data-density="comfortable"] .vx-side-item{min-height:32px !important;}
+  .vx-navitem-collapsed span.lbl,.vx-navitem-collapsed span.cnt{display:none !important;}
+</style>
+</helmet>
+<div style="min-height:100vh">{{ app }}</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;100%&quot;,&quot;height&quot;:&quot;100%&quot;}}">
+class Component extends DCLogic {
+  state = {
+    ready:false, err:null,
+    screen:'overview', theme:'light', density:'comfortable',
+    navCollapsed:false, auth:null,
+    role:'owner', costDim:'member', appTab:'overview',
+    drawer:null, modal:null, menu:null, toasts:[],
+    scr:{}, sort:{}, page:{}, tab:{}, sw:{},
+  };
+
+  // ---- merged tabbed hubs: parent id -> tabs [id,label,method] ----
+  get GROUPS(){ return {
+    g_usage:{tabs:[['usage','Usage','scrUsage'],['budgets','Budgets','scrBudgets']]},
+    g_people:{tabs:[['teams','Teams','scrTeams'],['members','Members & Roles','scrMembers']]},
+    g_models:{tabs:[['credentials','Credentials','scrProviders'],['models','Models','scrModels']]},
+    g_audit:{tabs:[['audit','Audit','scrAudit'],['alerts','Alerts','scrAlerts']]},
+  };}
+
+  // ---- org roles (single org, no switcher) ----
+  get ROLES(){ return {
+    owner:{label:'Owner',tone:'pink',desc:'Full control · billing · delete org',surface:'admin'},
+    admin:{label:'Admin',tone:'accent',desc:'Manage everything except ownership',surface:'admin'},
+    member:{label:'Member',tone:'blue',desc:'Own workspace — usage, keys, apps, chat',surface:'member'},
+  };}
+  // who is "me" for each persona (drives the member workspace + sidebar)
+  get ME(){ return {
+    owner:{name:'Dana Cho',email:'dana@northwind.ai',role:'owner',team:'Platform'},
+    admin:{name:'Priya Raman',email:'priya@northwind.ai',role:'admin',team:'Data Science'},
+    member:{name:'Leo Martins',email:'leo@northwind.ai',role:'member',team:'Mobile'},
+  };}
+  me(){ return this.ME[this.state.role]; }
+  isAdmin(){ return this.ROLES[this.state.role].surface==='admin'; }
+  canOwn(){ return this.state.role==='owner'; } // owner-only actions (danger, transfer)
+
+  componentDidMount(){
+    document.documentElement.setAttribute('data-theme', this.state.theme);
+    document.documentElement.setAttribute('data-density', this.state.density);
+    try{ window.React = window.React || React; if(typeof ReactDOM!=='undefined') window.ReactDOM = window.ReactDOM || ReactDOM; }catch(e){}
+    if(window.Vortex_469485 && window.Vortex_469485.Button){ this.setState({ready:true}); return; }
+    const s=document.createElement('script');
+    s.src='ds/_ds_bundle.js';
+    s.onload=()=>{ this.setState({ready:true}); };
+    s.onerror=()=>{ this.setState({err:'Failed to load Vortex design-system bundle.'}); };
+    document.head.appendChild(s);
+  }
+
+  // ---------- state helpers ----------
+  go(id){ let screen=id,tab=null; const G=this.GROUPS;
+    for(const pid in G){ if(G[pid].tabs.some(t=>t[0]===id)){ tab=id; screen=pid; break; } }
+    this.setState(s=>({screen, menu:null, tab: tab?{...s.tab,[screen]:tab}:s.tab}));
+    const c=document.querySelector('#vx-content'); if(c) c.scrollTop=0; }
+  setTheme(t){ document.documentElement.setAttribute('data-theme',t); this.setState({theme:t}); }
+  setDensity(d){ document.documentElement.setAttribute('data-density',d); this.setState({density:d}); }
+  toast(msg,kind='info'){ const id=Date.now()+Math.random(); this.setState(s=>({toasts:[...s.toasts,{id,msg,kind}]})); setTimeout(()=>this.setState(s=>({toasts:s.toasts.filter(t=>t.id!==id)})),2600); }
+  openDrawer(d){ this.setState({drawer:d}); }
+  openModal(m){ this.setState({modal:m}); }
+  closeOverlays(){ this.setState({drawer:null, modal:null, menu:null}); }
+  setScrState(id,v){ this.setState(s=>({scr:{...s.scr,[id]:v}})); }
+  scrState(id){ return this.state.scr[id]||'data'; }
+  toggleSw(id){ this.setState(s=>({sw:{...s.sw,[id]:!s.sw[id]}})); }
+  swOn(id,def){ return this.state.sw[id]===undefined?!!def:this.state.sw[id]; }
+  copy(txt){ try{navigator.clipboard&&navigator.clipboard.writeText(txt);}catch(e){} this.toast('Copied to clipboard','ok'); }
+
+  // ============================================================
+  //  DATA — single org · teams · members(human/technical) · apps · member-owned keys
+  // ============================================================
+  get DATA(){ if(this._data) return this._data; return this._data={
+    org:{name:'Northwind AI',plan:'Enterprise',members:142,id:'org_4kf9x2'},
+    teams:[
+      {name:'Platform',id:'t_plat',def:1500,enf:'hard',members:14,admin:'Dana Cho',spend:18240},
+      {name:'Data Science',id:'t_ds',def:2000,enf:'soft',members:9,admin:'Priya Raman',spend:9820},
+      {name:'Mobile',id:'t_mob',def:800,enf:'hard',members:6,admin:'Leo Martins',spend:6140},
+      {name:'Research',id:'t_res',def:1200,enf:'soft',members:5,admin:'Wei Zhang',spend:3210},
+      {name:'Finance',id:'t_fin',def:400,enf:'soft',members:3,admin:'Sara Okafor',spend:1000},
+    ],
+    members:[
+      {name:'Dana Cho',email:'dana@northwind.ai',type:'human',role:'owner',team:'Platform',teamRole:'team_admin',bsrc:'default',budget:1500,spent:1180,status:'active',seen:'now'},
+      {name:'Priya Raman',email:'priya@northwind.ai',type:'human',role:'admin',team:'Data Science',teamRole:'team_admin',bsrc:'override',budget:3000,spent:2410,status:'active',seen:'12m ago'},
+      {name:'Leo Martins',email:'leo@northwind.ai',type:'human',role:'admin',team:'Mobile',teamRole:'team_admin',bsrc:'default',budget:800,spent:640,status:'active',seen:'2h ago'},
+      {name:'Wei Zhang',email:'wei@northwind.ai',type:'human',role:'member',team:'Research',teamRole:'team_admin',bsrc:'default',budget:1200,spent:980,status:'active',seen:'4h ago'},
+      {name:'Sara Okafor',email:'sara@northwind.ai',type:'human',role:'member',team:'Finance',teamRole:'team_admin',bsrc:'default',budget:400,spent:120,status:'active',seen:'1d ago'},
+      {name:'Marcus Reed',email:'marcus@northwind.ai',type:'human',role:'member',team:'Platform',teamRole:'member',bsrc:'override',budget:2500,spent:2380,status:'active',seen:'20m ago'},
+      {name:'Aisha Khan',email:'aisha@northwind.ai',type:'human',role:'member',team:'Mobile',teamRole:'member',bsrc:'default',budget:800,spent:0,status:'invited',seen:'—'},
+      {name:'Tomas Berg',email:'tomas@contractor.io',type:'human',role:'member',team:'Research',teamRole:'member',bsrc:'default',budget:1200,spent:0,status:'suspended',seen:'2w ago'},
+      {name:'svc-chat',email:'chat@svc.northwind.ai',type:'technical',role:'member',team:'Platform',teamRole:'member',bsrc:'override',budget:12000,spent:9420,status:'active',seen:'now',app:'Chat'},
+      {name:'svc-support',email:'support@svc.northwind.ai',type:'technical',role:'member',team:'Data Science',teamRole:'member',bsrc:'override',budget:8000,spent:6240,status:'active',seen:'3m ago',app:'Support Copilot'},
+      {name:'svc-analytics',email:'analytics@svc.northwind.ai',type:'technical',role:'member',team:'Platform',teamRole:'member',bsrc:'override',budget:6000,spent:4100,status:'active',seen:'8m ago',app:'Analytics ETL'},
+    ],
+    apps:[
+      {name:'Chat',kind:'system',owner:'Vortex',tech:'svc-chat',access:'Whole org',grants:12,spend:9420,status:'active',policy:'claude-sonnet-4.5 → gpt-4o'},
+      {name:'Support Copilot',kind:'service',owner:'Priya Raman',tech:'svc-support',access:'Data Science, Mobile',grants:2,spend:6240,status:'active',policy:'gpt-4o → claude-haiku-4'},
+      {name:'Analytics ETL',kind:'service',owner:'Dana Cho',tech:'svc-analytics',access:'Platform',grants:1,spend:4100,status:'active',policy:'gemini-2.5-pro'},
+      {name:'Leo\u2019s Playground',kind:'personal',owner:'Leo Martins',tech:'\u2014',access:'Leo Martins',grants:1,spend:180,status:'active',policy:'claude-sonnet-4.5'},
+      {name:'Research Notebook',kind:'personal',owner:'Wei Zhang',tech:'\u2014',access:'Wei Zhang',grants:1,spend:210,status:'paused',policy:'claude-haiku-4'},
+    ],
+    keys:[
+      {name:'default',mask:'vtx_live_\u2022\u2022\u2022\u20224a9f',owner:'Dana Cho',kind:'default',status:'active',rules:'All models',rate:'600 RPM',used:'2m ago'},
+      {name:'ci-pipeline',mask:'vtx_live_\u2022\u2022\u2022\u20227c21',owner:'Dana Cho',kind:'personal',status:'active',rules:'3 models · IP allowlist',rate:'300 RPM',used:'18m ago'},
+      {name:'default',mask:'vtx_live_\u2022\u2022\u2022\u20221d0e',owner:'Priya Raman',kind:'default',status:'active',rules:'All models',rate:'600 RPM',used:'1h ago'},
+      {name:'default',mask:'vtx_live_\u2022\u2022\u2022\u202255af',owner:'Leo Martins',kind:'default',status:'active',rules:'All models',rate:'600 RPM',used:'5m ago'},
+      {name:'mobile-tests',mask:'vtx_test_\u2022\u2022\u2022\u20229be3',owner:'Leo Martins',kind:'personal',status:'active',rules:'gpt-4o-mini only',rate:'120 RPM',used:'6h ago'},
+      {name:'default',mask:'vtx_live_\u2022\u2022\u2022\u2022e740',owner:'svc-chat',kind:'default',status:'active',rules:'sonnet, gpt-4o',rate:'6,000 RPM',used:'now'},
+      {name:'default',mask:'vtx_live_\u2022\u2022\u2022\u20222b8c',owner:'svc-support',kind:'default',status:'active',rules:'gpt-4o, haiku',rate:'2,000 RPM',used:'3m ago'},
+      {name:'legacy',mask:'vtx_live_\u2022\u2022\u2022\u202299ab',owner:'svc-analytics',kind:'personal',status:'stale',rules:'gemini',rate:'1,000 RPM',used:'3mo ago'},
+    ],
+    models:[
+      {alias:'claude-sonnet-4.5',prov:'anthropic',name:'Claude Sonnet 4.5',in:3.00,out:15.00,ctx:'200k',on:true,share:34},
+      {alias:'gpt-4o',prov:'openai',name:'GPT-4o',in:2.50,out:10.00,ctx:'128k',on:true,share:23},
+      {alias:'gemini-2.5-pro',prov:'google',name:'Gemini 2.5 Pro',in:1.25,out:5.00,ctx:'1M',on:true,share:15},
+      {alias:'claude-haiku-4',prov:'anthropic',name:'Claude Haiku 4',in:0.80,out:4.00,ctx:'200k',on:true,share:12},
+      {alias:'gpt-4o-mini',prov:'openai',name:'GPT-4o mini',in:0.15,out:0.60,ctx:'128k',on:true,share:9},
+      {alias:'mistral-large',prov:'mistral',name:'Mistral Large 2',in:2.00,out:6.00,ctx:'128k',on:false,share:4},
+      {alias:'llama-3.3-70b',prov:'meta',name:'Llama 3.3 70B',in:0.20,out:0.20,ctx:'128k',on:false,share:3},
+    ],
+    providers:[
+      {prov:'anthropic',name:'Anthropic',scope:'Organization',status:'valid',keys:2,updated:'3d ago'},
+      {prov:'openai',name:'OpenAI',scope:'Organization',status:'valid',keys:1,updated:'1w ago'},
+      {prov:'google',name:'Google Vertex AI',scope:'App · Analytics ETL',status:'valid',keys:1,updated:'2w ago'},
+      {prov:'mistral',name:'Mistral AI',scope:'Organization',status:'failed',keys:1,updated:'5d ago'},
+    ],
+    audit:[
+      {actor:'Dana Cho',action:'team.budget.update',target:'Platform \u00b7 default $1,500/mo',time:'14:32:08',ip:'10.4.2.19'},
+      {actor:'Priya Raman',action:'member.override.set',target:'Marcus Reed \u2192 $2,500/mo',time:'13:58:44',ip:'10.4.2.31'},
+      {actor:'system',action:'provider.credential.invalid',target:'Mistral AI',time:'11:20:02',ip:'\u2014'},
+      {actor:'Leo Martins',action:'app.access.grant',target:'Support Copilot \u2192 Mobile team',time:'10:11:37',ip:'10.4.2.44'},
+      {actor:'Dana Cho',action:'member.role.change',target:'Wei Zhang \u2192 member',time:'09:47:19',ip:'10.4.2.19'},
+      {actor:'system',action:'budget.hardcap.block',target:'Marcus Reed \u00b7 402',time:'Yesterday 17:03',ip:'\u2014'},
+      {actor:'Priya Raman',action:'key.rotate',target:'svc-support \u00b7 default',time:'Yesterday 15:22',ip:'10.4.2.31'},
+      {actor:'system',action:'budget.threshold.alert',target:'Marcus Reed \u00b7 95%',time:'Yesterday 12:00',ip:'\u2014'},
+    ],
+  };}
+  humans(){ return this.DATA.members.filter(m=>m.type==='human'); }
+  techs(){ return this.DATA.members.filter(m=>m.type==='technical'); }
+  activeMembers(){ return this.DATA.members.filter(m=>m.status==='active'); }
+  sumBudgets(){ return this.activeMembers().reduce((a,m)=>a+m.budget,0); }
+  sumSpent(){ return this.DATA.members.reduce((a,m)=>a+m.spent,0); }
+  keysOf(name){ return this.DATA.keys.filter(k=>k.owner===name); }
+  teamOf(name){ return this.DATA.teams.find(t=>t.name===name); }
+
+  // ---------- NAV (role-scoped) ----------
+  get NAV(){
+    if(this.isAdmin()) return [
+      {group:'Admin Console', items:[
+        {id:'overview',label:'Overview',icon:'home'},
+        {id:'g_usage',label:'Usage & Budgets',icon:'cpu'},
+        {id:'g_people',label:'Teams & Members',icon:'team',cnt:this.DATA.org.members},
+        {id:'apps',label:'Apps',icon:'library',cnt:this.DATA.apps.length},
+        {id:'g_models',label:'Providers & Models',icon:'database'},
+        {id:'g_audit',label:'Audit & Alerts',icon:'gov',cnt:3},
+        {id:'settings',label:'Settings',icon:'wrench'},
+      ]},
+    ];
+    return [
+      {group:'Workspace', items:[
+        {id:'mhome',label:'Home',icon:'home'},
+        {id:'musage',label:'My Usage & Budget',icon:'cpu'},
+        {id:'mkeys',label:'My Keys',icon:'key',cnt:this.keysOf(this.me().name).length},
+        {id:'mapps',label:'My Apps',icon:'library'},
+        {id:'mchat',label:'Chat',icon:'chat',badge:'Preview'},
+        {id:'mprofile',label:'Profile & Settings',icon:'wrench'},
+      ]},
+    ];
+  }
+  visibleScreens(){ return this.NAV.flatMap(g=>g.items).map(it=>it.id); }
+  setRole(role){ this.setState({role,menu:null,drawer:null,modal:null},()=>{ this.go(this.isAdmin()?'overview':'mhome'); }); }
+
+  // ============================================================
+  //  FORMAT / BADGES
+  // ============================================================
+  money(n,d=2){ return '$'+n.toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d}); }
+  compact(n){ return n>=1e9?(n/1e9).toFixed(2)+'B':n>=1e6?(n/1e6).toFixed(2)+'M':n>=1e3?(n/1e3).toFixed(1)+'k':''+n; }
+  roleTone(r){ return {owner:'pink',admin:'accent',member:'blue',team_admin:'accent',app_admin:'accent',app_member:'neutral'}[r]||'neutral'; }
+  provColor(p){ return {anthropic:'var(--vx-prov-anthropic)',openai:'var(--vx-prov-openai)',google:'var(--vx-prov-google)',mistral:'var(--vx-prov-mistral)',meta:'#4267b2'}[p]||'var(--vx-ink-4)'; }
+  provLetter(p){ return {anthropic:'A',openai:'O',google:'G',mistral:'M',meta:'L'}[p]||'?'; }
+  pmark(p,size=16){ const V=window.Vortex_469485;
+    if(p==='meta') return React.createElement('span',{style:{width:size,height:size,borderRadius:3,display:'grid',placeItems:'center',fontWeight:700,fontSize:Math.round(size*0.6),color:'#fff',fontFamily:'var(--vx-font-mono)',flexShrink:0,background:'#4267b2'}},'L');
+    return React.createElement(V.ProviderMark,{provider:p,size}); }
+  // member-type badge (human / technical) — badged distinctly
+  mtype(t){ const V=window.Vortex_469485; return t==='technical'
+    ? React.createElement(V.Tag,{tone:'accent'},React.createElement(React.Fragment,null,React.createElement(V.Icon,{name:'cpu',size:10}),'Service acct'))
+    : React.createElement(V.Tag,{tone:'neutral'},'Human'); }
+  appKind(k){ const V=window.Vortex_469485; const map={system:['accent','System'],service:['blue','Service'],personal:['neutral','Personal']}; const[t,l]=map[k]||['neutral',k]; return React.createElement(V.Badge,{tone:t},l); }
+  roleBadge(r){ const V=window.Vortex_469485; return React.createElement(V.Badge,{tone:this.roleTone(r)}, r[0].toUpperCase()+r.slice(1)); }
+
+  // ============================================================
+  //  CHART BUILDERS
+  // ============================================================
+  svg(html,style){ return React.createElement('div',{style:{...style},dangerouslySetInnerHTML:{__html:html}}); }
+  areaChart(series,opts={}){
+    const w=opts.w||760,h=opts.h||220,pad={l:44,r:12,t:14,b:26};
+    const iw=w-pad.l-pad.r,ih=h-pad.t-pad.b;
+    const all=series.flatMap(s=>s.data); const mx=opts.max||Math.max(...all)*1.1,mn=0;
+    const n=series[0].data.length;
+    const X=i=>pad.l+i/(n-1)*iw, Y=v=>pad.t+ih-((v-mn)/(mx-mn))*ih;
+    let grid='';
+    for(let g=0;g<=4;g++){ const y=pad.t+ih-g/4*ih; const val=mn+(mx-mn)*g/4;
+      grid+=`<line x1="${pad.l}" y1="${y}" x2="${w-pad.r}" y2="${y}" stroke="var(--vx-line)" stroke-width="1"/><text x="${pad.l-8}" y="${y+3}" text-anchor="end" font-size="9" font-family="var(--vx-font-mono)" fill="var(--vx-ink-4)">${opts.fmt?opts.fmt(val):Math.round(val)}</text>`; }
+    let xl=''; (opts.labels||[]).forEach((l,i)=>{ if(l) xl+=`<text x="${X(i)}" y="${h-8}" text-anchor="middle" font-size="9" font-family="var(--vx-font-mono)" fill="var(--vx-ink-4)">${l}</text>`; });
+    let paths='';
+    series.forEach((s,si)=>{ const id='ar'+si+Math.floor(Math.random()*1e5);
+      const line=s.data.map((v,i)=>(i?'L':'M')+X(i).toFixed(1)+' '+Y(v).toFixed(1)).join(' ');
+      const area=line+`L${X(n-1)} ${pad.t+ih}L${X(0)} ${pad.t+ih}Z`;
+      paths+=`<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${s.color}" stop-opacity=".2"/><stop offset="1" stop-color="${s.color}" stop-opacity="0"/></linearGradient></defs>`;
+      if(s.fill!==false) paths+=`<path d="${area}" fill="url(#${id})"/>`;
+      paths+=`<path d="${line}" fill="none" stroke="${s.color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`; });
+    return this.svg(`<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="width:100%;height:${h}px;display:block;overflow:visible">${grid}${xl}${paths}</svg>`);
+  }
+  donut(segs,size=148){
+    const r=size/2-14,cx=size/2,cy=size/2,C=2*Math.PI*r; const tot=segs.reduce((a,s)=>a+s.v,0);
+    let off=0,arcs='';
+    segs.forEach(s=>{ const len=s.v/tot*C; arcs+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${s.color}" stroke-width="16" stroke-dasharray="${len} ${C-len}" stroke-dashoffset="${-off}" transform="rotate(-90 ${cx} ${cy})"/>`; off+=len; });
+    return this.svg(`<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${arcs}<text x="${cx}" y="${cy-2}" text-anchor="middle" font-size="20" font-family="var(--vx-font-display)" font-weight="600" fill="var(--vx-ink)">${tot>=1000?this.compact(tot):tot}</text><text x="${cx}" y="${cy+14}" text-anchor="middle" font-size="9" font-family="var(--vx-font-mono)" fill="var(--vx-ink-4)">TOTAL</text></svg>`);
+  }
+  gauge(frac,size=130,label='OF BUDGET'){
+    const r=size/2-9,cx=size/2,cy=size/2,C=2*Math.PI*r; const len=Math.min(frac,1)*C*.75, full=C*.75;
+    const col=frac>=.95?'var(--vx-err)':frac>=.8?'var(--vx-warn)':'var(--vx-good)';
+    return this.svg(`<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--vx-bg-2)" stroke-width="9" stroke-dasharray="${full} ${C}" stroke-linecap="round" transform="rotate(135 ${cx} ${cy})"/><circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${col}" stroke-width="9" stroke-dasharray="${len} ${C}" stroke-linecap="round" transform="rotate(135 ${cx} ${cy})"/><text x="${cx}" y="${cy}" text-anchor="middle" font-size="21" font-family="var(--vx-font-display)" font-weight="600" fill="var(--vx-ink)">${Math.round(frac*100)}%</text><text x="${cx}" y="${cy+16}" text-anchor="middle" font-size="8.5" font-family="var(--vx-font-mono)" fill="var(--vx-ink-4)">${label}</text></svg>`);
+  }
+  gridbars(rows,fmt){
+    const mx=Math.max(...rows.map(r=>r.v));
+    return React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:10}},
+      rows.map((r,i)=>React.createElement('div',{key:i,style:{display:'grid',gridTemplateColumns:'132px 1fr 76px',alignItems:'center',gap:12,fontSize:12}},
+        React.createElement('span',{style:{display:'flex',alignItems:'center',gap:7,color:'var(--vx-ink-2)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}, r.mark||null, r.label),
+        React.createElement('div',{style:{height:9,borderRadius:6,background:'var(--vx-bg-2)',overflow:'hidden'}}, React.createElement('div',{style:{height:'100%',width:(r.v/mx*100).toFixed(1)+'%',borderRadius:6,background:r.color||'var(--vx-accent)'}})),
+        React.createElement('span',{style:{textAlign:'right',fontFamily:'var(--vx-font-mono)',fontSize:11.5,color:'var(--vx-ink)'}}, fmt?fmt(r.v):r.v)
+      )));
+  }
+  costSeries(total,seed,n=30){ let s=(Math.abs(Math.round(seed))*9301+49297)%233280||7; const rnd=()=>{s=(s*9301+49297)%233280;return s/233280;};
+    const base=total/n, trend=0.7+rnd()*0.8, arr=[];
+    for(let i=0;i<n;i++){ const wob=1+Math.sin(i/3+seed)*0.26+(rnd()-0.5)*0.3, grow=1+(i/(n-1))*(trend-1); arr.push(Math.max(base*0.12, base*wob*grow)); }
+    return arr; }
+  stackedArea(series,opts={}){
+    const w=opts.w||760,h=opts.h||200,pad={l:46,r:12,t:14,b:26},iw=w-pad.l-pad.r,ih=h-pad.t-pad.b,n=series[0].data.length;
+    const totals=series[0].data.map((_,i)=>series.reduce((a,s)=>a+s.data[i],0)), mx=(opts.max||Math.max(...totals)*1.14),mn=0;
+    const X=i=>pad.l+i/(n-1)*iw, Y=v=>pad.t+ih-((v-mn)/(mx-mn))*ih;
+    let grid=''; for(let g=0;g<=4;g++){ const y=pad.t+ih-g/4*ih,val=mn+(mx-mn)*g/4; grid+=`<line x1="${pad.l}" y1="${y}" x2="${w-pad.r}" y2="${y}" stroke="var(--vx-line)" stroke-width="1"/><text x="${pad.l-8}" y="${y+3}" text-anchor="end" font-size="9" font-family="var(--vx-font-mono)" fill="var(--vx-ink-4)">${opts.fmt?opts.fmt(val):Math.round(val)}</text>`; }
+    let xl=''; (opts.labels||[]).forEach((l,i)=>{ if(l) xl+=`<text x="${X(i)}" y="${h-8}" text-anchor="middle" font-size="9" font-family="var(--vx-font-mono)" fill="var(--vx-ink-4)">${l}</text>`; });
+    let paths=''; const lower=series[0].data.map(()=>0);
+    series.forEach(s=>{ const top=lower.map((b,i)=>b+s.data[i]); let d='M'+X(0).toFixed(1)+' '+Y(top[0]).toFixed(1); for(let i=1;i<n;i++) d+=' L'+X(i).toFixed(1)+' '+Y(top[i]).toFixed(1); for(let i=n-1;i>=0;i--) d+=' L'+X(i).toFixed(1)+' '+Y(lower[i]).toFixed(1); d+=' Z'; paths+=`<path d="${d}" fill="${s.color}" fill-opacity="0.9" stroke="var(--vx-panel)" stroke-width="0.6"/>`; for(let i=0;i<n;i++) lower[i]=top[i]; });
+    return this.svg(`<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="width:100%;height:${h}px;display:block;overflow:visible">${grid}${xl}${paths}</svg>`);
+  }
+  legend(items){ return items.map(([l,c])=>React.createElement('span',{key:l,style:{display:'flex',alignItems:'center',gap:6,fontSize:11.5,color:'var(--vx-ink-2)'}}, React.createElement('span',{style:{width:9,height:9,borderRadius:3,background:c}}), l)); }
+
+  // ============================================================
+  //  SPLASH
+  // ============================================================
+  splash(){
+    return React.createElement('div',{style:{minHeight:'100vh',display:'grid',placeItems:'center',background:'var(--vx-bg)'}},
+      React.createElement('div',{style:{textAlign:'center'}},
+        React.createElement('div',{style:{width:48,height:48,margin:'0 auto',border:'2px solid var(--vx-line-2)',borderTopColor:'var(--vx-accent)',borderRadius:'50%',animation:'vx-spin .8s linear infinite'}}),
+        React.createElement('div',{style:{marginTop:16,fontFamily:'var(--vx-font-mono)',fontSize:11,color:'var(--vx-ink-3)',letterSpacing:'.1em',textTransform:'uppercase'}},'Loading Vortex console')));
+  }
+
+  // ============================================================
+  //  APP ROOT
+  // ============================================================
+  app(){
+    if(this.state.auth) return React.createElement(React.Fragment,null, this.authScreen(), this.toastLayer());
+    const full=['g_usage','g_people','g_models','apps','g_audit','musage','mchat','appdetail'].includes(this.state.screen);
+    return React.createElement('div',{style:{display:'grid',gridTemplateColumns:(this.state.navCollapsed?'60px':'236px')+' 1fr',height:'100vh',overflow:'hidden'}},
+      this.sidebar(),
+      React.createElement('div',{style:{display:'flex',flexDirection:'column',minWidth:0,overflow:'hidden'}},
+        this.topbar(),
+        React.createElement('main',{id:'vx-content',style:{flex:1,overflowY:'auto'}},
+          React.createElement('div',{key:this.state.screen+this.state.role,style:{padding:this.state.screen==='mchat'?0:'22px 26px 60px',maxWidth:full?'100%':1440,margin:'0 auto',height:this.state.screen==='mchat'?'100%':'auto',animation:'vx-rise .28s var(--vx-ease)'}}, this.screen()))
+      ),
+      this.overlays(), this.toastLayer()
+    );
+  }
+
+  // ---------- SIDEBAR ----------
+  sidebar(){
+    const V=window.Vortex_469485, col=this.state.navCollapsed;
+    return React.createElement('aside',{style:{background:'var(--vx-panel)',borderRight:'1px solid var(--vx-line)',display:'flex',flexDirection:'column',overflow:'hidden'}},
+      React.createElement('div',{style:{display:'flex',alignItems:'center',gap:10,padding:'0 14px',height:'var(--vx-topbar-h)',borderBottom:'1px solid var(--vx-line)',flexShrink:0}},
+        React.createElement(V.PrismLogo,{state:'idle',size:22}),
+        !col&&React.createElement(V.Wordmark,{variant:'ink',size:17}),
+        React.createElement('span',{style:{marginLeft:'auto'}}, React.createElement(V.IconButton,{title:'Collapse',size:'sm',onClick:()=>this.setState(s=>({navCollapsed:!s.navCollapsed}))}, React.createElement(V.Icon,{name:col?'chevron-right':'chevron-down',size:14})))
+      ),
+      React.createElement('nav',{style:{flex:1,overflowY:'auto',padding:'8px 8px 16px'}},
+        this.NAV.map((g,gi)=>React.createElement('div',{key:gi},
+          g.group&&!col?React.createElement('div',{style:{fontFamily:'var(--vx-font-mono)',fontSize:9.5,letterSpacing:'.13em',textTransform:'uppercase',color:'var(--vx-ink-4)',padding:'10px 8px 6px'}},g.group):(g.group&&col?React.createElement('div',{style:{height:14}}):null),
+          g.items.map(it=>React.createElement('div',{key:it.id,className:col?'vx-navitem-collapsed':'', style:col?{display:'flex',justifyContent:'center'}:null},
+            React.createElement(V.SidebarItem,{icon:React.createElement(V.Icon,{name:it.icon,size:15}),label:col?'':it.label,count:col?null:(it.badge?null:it.cnt),active:this.state.screen===it.id||(this.GROUPS[this.state.screen]&&false),onClick:()=>this.go(it.id)},
+              !col&&it.badge?React.createElement('span',{style:{marginLeft:'auto',fontFamily:'var(--vx-font-mono)',fontSize:9,padding:'1px 6px',borderRadius:20,background:'var(--vx-accent-soft)',color:'var(--vx-accent)',letterSpacing:'.04em'}},it.badge):null)
+          ))
+        ))
+      ),
+      React.createElement('div',{style:{padding:10,borderTop:'1px solid var(--vx-line)',flexShrink:0}},
+        React.createElement('div',{style:{display:'flex',alignItems:'center',gap:9,padding:'4px 6px',cursor:'pointer',borderRadius:'var(--vx-radius-sm)'},onClick:e=>this.openUserMenu(e)},
+          React.createElement(V.Avatar,{name:this.me().name,size:24}), !col&&React.createElement('div',{style:{lineHeight:1.15,overflow:'hidden'}}, React.createElement('div',{style:{fontSize:12,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}},this.me().name), React.createElement('div',{style:{fontSize:10,color:'var(--vx-ink-4)',fontFamily:'var(--vx-font-mono)'}},this.ROLES[this.state.role].label))))
+    );
+  }
+
+  // ---------- TOPBAR (no org switcher — single org) ----------
+  topbar(){
+    const V=window.Vortex_469485;
+    return React.createElement('header',{style:{height:'var(--vx-topbar-h)',flexShrink:0,borderBottom:'1px solid var(--vx-line)',background:'var(--vx-panel)',display:'flex',alignItems:'center',gap:8,padding:'0 14px'}},
+      React.createElement('div',{style:{display:'flex',alignItems:'center',gap:8,height:30,padding:'0 10px',borderRadius:'var(--vx-radius-sm)',border:'1px solid var(--vx-line-2)',background:'var(--vx-panel-2)',maxWidth:230}},
+        React.createElement('span',{style:{width:20,height:20,borderRadius:5,display:'grid',placeItems:'center',fontSize:10,fontWeight:700,color:'#fff',background:'linear-gradient(135deg,#a78bfa,#60a5fa)',flexShrink:0}},'N'),
+        React.createElement('span',{style:{display:'flex',flexDirection:'column',lineHeight:1.15,overflow:'hidden'}},
+          React.createElement('span',{style:{fontWeight:600,fontSize:12.5,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}},this.DATA.org.name),
+          React.createElement('span',{style:{color:'var(--vx-ink-4)',fontSize:10,fontFamily:'var(--vx-font-mono)'}}, this.isAdmin()?this.DATA.org.plan+' \u00b7 '+this.DATA.org.members:('You \u00b7 '+this.me().team+' team')))),
+      React.createElement('div',{onClick:()=>this.toast('Global search \u2014 prototype','info'),style:{flex:1,maxWidth:440,display:'flex',alignItems:'center',gap:9,height:30,padding:'0 12px',marginLeft:12,borderRadius:'var(--vx-radius-sm)',border:'1px solid var(--vx-line-2)',background:'var(--vx-bg-2)',color:'var(--vx-ink-3)',fontSize:12.5,cursor:'text'}},
+        React.createElement(V.Icon,{name:'search',size:14,style:{flexShrink:0}}), React.createElement('span',{style:{flex:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}, this.isAdmin()?'Search members, apps, teams, models\u2026':'Search my keys, apps, usage\u2026'),
+        React.createElement('kbd',{style:{marginLeft:'auto',fontFamily:'var(--vx-font-mono)',fontSize:10,padding:'1px 5px',borderRadius:4,border:'1px solid var(--vx-line-2)',background:'var(--vx-panel)'}},'\u2318K')),
+      React.createElement('div',{style:{flex:1}}),
+      React.createElement('button',{onClick:e=>this.openRoleMenu(e),title:'View as role',style:{display:'flex',alignItems:'center',gap:7,height:30,padding:'0 10px',borderRadius:'var(--vx-radius-sm)',border:'1px solid var(--vx-line-2)',background:'var(--vx-panel-2)',color:'var(--vx-ink)',fontSize:12,fontWeight:500,cursor:'pointer'}},
+        React.createElement(V.Icon,{name:'eye',size:14,style:{color:'var(--vx-ink-3)'}}),
+        React.createElement('span',{style:{color:'var(--vx-ink-4)',fontFamily:'var(--vx-font-mono)',fontSize:10}},'VIEW AS'),
+        React.createElement(V.Badge,{tone:this.ROLES[this.state.role].tone},this.ROLES[this.state.role].label),
+        React.createElement(V.Icon,{name:'chevron-down',size:12,style:{color:'var(--vx-ink-3)'}})),
+      React.createElement('div',{style:{display:'inline-flex',background:'var(--vx-bg-2)',border:'1px solid var(--vx-line-2)',borderRadius:'var(--vx-radius-sm)',padding:2,gap:2}},
+        ['comfortable','compact'].map(d=>React.createElement('button',{key:d,onClick:()=>this.setDensity(d),title:d,style:{height:24,padding:'0 9px',border:'none',background:this.state.density===d?'var(--vx-panel)':'transparent',color:this.state.density===d?'var(--vx-ink)':'var(--vx-ink-3)',borderRadius:5,fontSize:11,fontWeight:600,boxShadow:this.state.density===d?'var(--vx-shadow-md)':'none',cursor:'pointer'}}, d==='comfortable'?'Comfort':'Compact'))),
+      React.createElement(V.IconButton,{title:'Toggle theme',onClick:()=>this.setTheme(this.state.theme==='light'?'dark':'light')}, React.createElement(V.Icon,{name:this.state.theme==='light'?'moon':'sun',size:16})),
+      React.createElement(V.IconButton,{title:'Alerts',onClick:()=>{ this.isAdmin()?this.go('alerts'):this.toast('No new alerts','info'); }}, React.createElement(V.Icon,{name:'bell',size:16})),
+      React.createElement('span',{onClick:e=>this.openUserMenu(e),style:{cursor:'pointer'}}, React.createElement(V.Avatar,{name:this.me().name,size:26}))
+    );
+  }
+
+  // ---------- OVERLAYS ----------
+  overlays(){
+    const d=this.state.drawer,m=this.state.modal,mn=this.state.menu;
+    const layers=[];
+    if(d||m||mn) layers.push(React.createElement('div',{key:'scrim',onClick:()=>this.closeOverlays(),style:{position:'fixed',inset:0,background:'var(--vx-scrim,rgba(6,6,16,.5))',backdropFilter:'blur(2px)',zIndex:50}}));
+    if(d) layers.push(this.drawerEl(d));
+    if(m) layers.push(this.modalEl(m));
+    if(mn) layers.push(this.menuEl(mn));
+    return React.createElement(React.Fragment,null,layers);
+  }
+  drawerEl(d){
+    const V=window.Vortex_469485;
+    return React.createElement('div',{key:'drawer',style:{position:'fixed',top:0,right:0,bottom:0,width:'min('+(d.wide?680:520)+'px,96vw)',background:'var(--vx-panel)',borderLeft:'1px solid var(--vx-line)',boxShadow:'var(--vx-shadow-lg)',zIndex:60,display:'flex',flexDirection:'column',animation:'vx-drawin .28s var(--vx-ease)'}},
+      React.createElement('div',{style:{display:'flex',alignItems:'flex-start',gap:12,padding:'16px 22px',borderBottom:'1px solid var(--vx-line)',flexShrink:0}},
+        React.createElement('div',{style:{flex:1}},
+          d.crumb&&React.createElement('div',{style:{display:'flex',alignItems:'center',gap:6,fontFamily:'var(--vx-font-mono)',fontSize:10,letterSpacing:'.08em',textTransform:'uppercase',color:'var(--vx-ink-4)',marginBottom:5}}, d.crumb),
+          React.createElement('h2',{style:{fontSize:16,fontFamily:'var(--vx-font-display)',letterSpacing:'-.02em',margin:0}},d.title),
+          d.sub&&React.createElement('p',{style:{margin:'3px 0 0',color:'var(--vx-ink-3)',fontSize:11.5}},d.sub)),
+        React.createElement(V.IconButton,{title:'Close',onClick:()=>this.closeOverlays()},React.createElement(V.Icon,{name:'x',size:16}))),
+      React.createElement('div',{style:{flex:1,overflowY:'auto',padding:22}}, d.body),
+      d.foot&&React.createElement('div',{style:{display:'flex',gap:10,alignItems:'center',padding:'14px 22px',borderTop:'1px solid var(--vx-line)',flexShrink:0,background:'var(--vx-panel-2)'}}, d.foot));
+  }
+  modalEl(m){
+    const V=window.Vortex_469485;
+    return React.createElement('div',{key:'modal',style:{position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',width:'min('+(m.wide?560:460)+'px,94vw)',background:'var(--vx-panel)',border:'1px solid var(--vx-line-2)',borderRadius:'var(--vx-radius-xl)',boxShadow:'var(--vx-shadow-lg)',zIndex:61}},
+      React.createElement('div',{style:{padding:24}},
+        m.icon&&React.createElement('div',{style:{width:42,height:42,borderRadius:'var(--vx-radius-lg)',display:'grid',placeItems:'center',marginBottom:14,background:m.tone==='danger'?'rgba(var(--vx-err-rgb),.12)':m.tone==='warn'?'rgba(var(--vx-warn-rgb),.14)':'rgba(var(--vx-good-rgb),.12)',color:m.tone==='danger'?'var(--vx-err)':m.tone==='warn'?'var(--vx-warn)':'var(--vx-good)'}}, React.createElement(V.Icon,{name:m.icon,size:20})),
+        React.createElement('h2',{style:{fontSize:17,fontFamily:'var(--vx-font-display)',margin:'0 0 8px'}},m.title),
+        m.body),
+      m.foot&&React.createElement('div',{style:{display:'flex',gap:10,justifyContent:'flex-end',padding:'16px 24px',borderTop:'1px solid var(--vx-line)'}}, m.foot));
+  }
+  menuEl(mn){ return React.createElement('div',{key:'menu',style:{position:'fixed',...mn.pos,background:'var(--vx-elev)',border:'1px solid var(--vx-line-2)',borderRadius:'var(--vx-radius-sm)',boxShadow:'var(--vx-shadow-pop)',padding:5,minWidth:mn.w||210,zIndex:62,animation:'vx-rise .14s var(--vx-ease)'}}, mn.items); }
+  menuItem(label,icon,onClick,opt={}){ const V=window.Vortex_469485;
+    return React.createElement('div',{key:(typeof label==='string'?label:'')+Math.random(),onClick,style:{display:'flex',alignItems:'center',gap:10,padding:'8px 10px',borderRadius:'var(--vx-radius-xs)',fontSize:12.5,color:opt.danger?'var(--vx-err)':'var(--vx-ink-2)',cursor:'pointer'},onMouseEnter:e=>e.currentTarget.style.background='var(--vx-bg-2)',onMouseLeave:e=>e.currentTarget.style.background='transparent'},
+      icon&&React.createElement(V.Icon,{name:icon,size:15,style:{color:opt.danger?'var(--vx-err)':'var(--vx-ink-3)'}}), React.createElement('span',{style:{flex:1}},label), opt.right); }
+  menuLabel(t){ return React.createElement('div',{key:t,style:{fontFamily:'var(--vx-font-mono)',fontSize:9,letterSpacing:'.1em',textTransform:'uppercase',color:'var(--vx-ink-4)',padding:'8px 10px 4px'}},t); }
+  menuSep(){ return React.createElement('div',{key:'sep'+Math.random(),style:{height:1,background:'var(--vx-line)',margin:'5px 0'}}); }
+  openMenuAt(e,items,w){ const r=e.currentTarget.getBoundingClientRect(); const left=Math.min(r.left,window.innerWidth-(w||220)-12);
+    const pos=r.top>window.innerHeight/2?{left,bottom:window.innerHeight-r.top+6}:{left,top:r.bottom+6};
+    this.setState({menu:{pos,items,w}}); }
+  openUserMenu(e){ this.openMenuAt(e,[
+    this.menuLabel(this.me().name+' \u00b7 '+this.ROLES[this.state.role].label),
+    this.menuItem(this.isAdmin()?'Settings':'Profile & settings','wrench',()=>{this.go(this.isAdmin()?'settings':'mprofile');this.closeOverlays();}),
+    this.menuSep(), this.menuLabel('Prototype \u2014 auth screens'),
+    this.menuItem('Sign in','lock',()=>{this.setState({auth:'login',menu:null});}),
+    this.menuItem('Create account','plus',()=>{this.setState({auth:'register',menu:null});}),
+    this.menuItem('Accept invite','link',()=>{this.setState({auth:'invite',menu:null});}),
+    this.menuSep(), this.menuItem('Sign out','lock',()=>{this.setState({auth:'login',menu:null});},{danger:true})
+  ],240); }
+  openRoleMenu(e){ this.openMenuAt(e,[ this.menuLabel('View as role \u2014 demo RBAC'),
+    ...Object.keys(this.ROLES).map(r=>this.menuItem(
+      React.createElement('span',{style:{display:'flex',flexDirection:'column'}}, React.createElement('span',{style:{fontWeight:600}},this.ROLES[r].label), React.createElement('span',{style:{fontSize:10.5,color:'var(--vx-ink-4)'}},this.ROLES[r].desc)),
+      this.state.role===r?'check':null, ()=>this.setRole(r)))
+  ],260); }
+
+  // ---------- ACTION GATING ----------
+  gate(ownerOnly,btn){ if(!ownerOnly||this.canOwn()) return btn;
+    return React.cloneElement(btn,{disabled:true,title:'Owner only',onClick:()=>this.toast('Owner-only action','err')}); }
+
+  // ---------- TOASTS ----------
+  toastLayer(){
+    const V=window.Vortex_469485;
+    return React.createElement('div',{style:{position:'fixed',bottom:22,right:22,zIndex:80,display:'flex',flexDirection:'column',gap:10,alignItems:'flex-end'}},
+      this.state.toasts.map(t=>React.createElement('div',{key:t.id,style:{display:'flex',alignItems:'center',gap:11,padding:'12px 15px',background:'var(--vx-elev)',border:'1px solid var(--vx-line-2)',borderRadius:'var(--vx-radius)',boxShadow:'var(--vx-shadow-pop)',fontSize:12.5,minWidth:250,animation:'vx-toastin .3s var(--vx-ease)'}},
+        React.createElement(V.Icon,{name:t.kind==='ok'?'check':t.kind==='err'?'x':'bell',size:16,style:{color:t.kind==='ok'?'var(--vx-good)':t.kind==='err'?'var(--vx-err)':'var(--vx-accent)'}}),
+        React.createElement('span',null,t.msg))));
+  }
+
+  // ============================================================
+  //  SHARED UI HELPERS
+  // ============================================================
+  pageHead(title,desc,actions){
+    return React.createElement('div',{style:{display:'flex',alignItems:'flex-start',gap:16,marginBottom:20}},
+      React.createElement('div',null,
+        React.createElement('h1',{style:{fontSize:22,fontFamily:'var(--vx-font-display)',letterSpacing:'-.025em',margin:0}},title),
+        desc&&React.createElement('p',{style:{margin:'5px 0 0',color:'var(--vx-ink-3)',fontSize:12.5,maxWidth:640},dangerouslySetInnerHTML:typeof desc==='string'?{__html:desc}:undefined},typeof desc==='string'?undefined:desc)),
+      actions&&React.createElement('div',{style:{marginLeft:'auto',display:'flex',gap:8,flexShrink:0}},actions));
+  }
+  crumbs(items){ const V=window.Vortex_469485; return React.createElement('div',{style:{display:'flex',alignItems:'center',gap:8,fontFamily:'var(--vx-font-mono)',fontSize:11,color:'var(--vx-ink-4)',marginBottom:6}},
+    items.map((it,i)=>React.createElement(React.Fragment,{key:i}, i>0&&React.createElement(V.Icon,{name:'chevron-right',size:11}), it.onClick?React.createElement('a',{style:{cursor:'pointer',color:'var(--vx-ink-3)'},onClick:it.onClick},it.label):React.createElement('span',{style:{color:'var(--vx-ink-2)'}},it.label)))); }
+  sectionTitle(t){ return React.createElement('div',{style:{fontFamily:'var(--vx-font-mono)',fontSize:10,letterSpacing:'.13em',textTransform:'uppercase',color:'var(--vx-ink-3)',margin:'26px 0 12px'}},t); }
+  kicker(t){ return React.createElement('div',{style:{display:'flex',alignItems:'center',gap:6,fontFamily:'var(--vx-font-mono)',fontSize:10,letterSpacing:'.08em',textTransform:'uppercase',color:'var(--vx-ink-4)',marginBottom:5}},t); }
+  kpiTile(o){ const V=window.Vortex_469485; return React.createElement(V.Card,{key:o.label,style:{overflow:'hidden'}}, React.createElement(V.Stat,{label:o.label,value:o.value,delta:o.delta,trend:o.trend||'flat',spark:o.spark,seed:o.seed||1})); }
+
+  table(cfg){
+    const V=window.Vortex_469485;
+    const tid=cfg.id;
+    const sort=this.state.sort[tid], page=this.state.page[tid]||0, per=cfg.per||8;
+    let rows=[...cfg.rows];
+    if(sort){ const c=cfg.cols.find(c=>c.key===sort.key); rows.sort((a,b)=>{ let x=c.sortVal?c.sortVal(a):a[sort.key], y=c.sortVal?c.sortVal(b):b[sort.key]; if(typeof x==='string'){x=x.toLowerCase();y=y.toLowerCase();} return x<y?-sort.dir:x>y?sort.dir:0; }); }
+    const total=rows.length, pages=cfg.paginate===false?1:Math.ceil(total/per);
+    const shown=cfg.paginate===false?rows:rows.slice(page*per,page*per+per);
+    const columns=cfg.cols.map(c=>({label:React.createElement('span',{onClick:c.key?()=>this.sortBy(tid,c.key):undefined,style:{cursor:c.key?'pointer':'default',display:'inline-flex',alignItems:'center',gap:4,color:sort&&sort.key===c.key?'var(--vx-accent)':undefined}}, c.label, c.key&&React.createElement('span',{style:{fontSize:8,opacity:sort&&sort.key===c.key?1:.4}}, sort&&sort.key===c.key?(sort.dir>0?'\u25b2':'\u25bc'):'\u2195')),align:c.align,width:c.width}));
+    const tableRows=shown.map(r=>cfg.cols.map(c=>c.render(r)));
+    return React.createElement('div',{style:{border:'1px solid var(--vx-line)',borderRadius:'var(--vx-radius-lg)',overflow:'hidden',background:'var(--vx-panel)',boxShadow:'var(--vx-shadow-sm)'}},
+      cfg.toolbar&&React.createElement('div',{style:{display:'flex',alignItems:'center',gap:8,padding:'10px 12px',borderBottom:'1px solid var(--vx-line)',flexWrap:'wrap'}}, cfg.toolbar),
+      React.createElement('div',{style:{overflowX:'auto'}}, React.createElement(V.DataTable,{columns,rows:tableRows,onRowClick:cfg.onRowClick?(ri=>cfg.onRowClick(shown[ri])):undefined})),
+      cfg.paginate===false?null:React.createElement('div',{style:{display:'flex',alignItems:'center',gap:10,padding:'9px 12px',borderTop:'1px solid var(--vx-line)',color:'var(--vx-ink-3)',fontSize:11.5}},
+        React.createElement('span',null, (total?page*per+1:0)+'\u2013'+Math.min((page+1)*per,total)+' of '+total),
+        React.createElement('div',{style:{marginLeft:'auto',display:'flex',gap:4}},
+          Array.from({length:pages}).map((_,p)=>React.createElement('button',{key:p,onClick:()=>this.setState(s=>({page:{...s.page,[tid]:p}})),style:{width:26,height:26,borderRadius:'var(--vx-radius-xs)',border:'1px solid var(--vx-line-2)',background:p===page?'var(--vx-accent)':'var(--vx-panel)',color:p===page?'var(--vx-accent-ink)':'var(--vx-ink-2)',cursor:'pointer',fontSize:11}}, p+1)))));
+  }
+  sortBy(tid,key){ this.setState(s=>{ const cur=s.sort[tid]; const nx=cur&&cur.key===key?{key,dir:cur.dir*-1}:{key,dir:1}; return {sort:{...s.sort,[tid]:nx}}; }); }
+  searchInput(ph){ const V=window.Vortex_469485; return React.createElement('div',{style:{display:'flex',alignItems:'center',gap:8,height:30,padding:'0 10px',borderRadius:'var(--vx-radius-sm)',border:'1px solid var(--vx-line-2)',background:'var(--vx-panel)',minWidth:200}}, React.createElement(V.Icon,{name:'search',size:14,style:{color:'var(--vx-ink-4)'}}), React.createElement('input',{placeholder:ph,style:{border:'none',background:'transparent',outline:'none',color:'var(--vx-ink)',fontSize:12.5,width:'100%'}})); }
+  dateRange(){ const V=window.Vortex_469485; return React.createElement(V.FilterChip,{label:'Month',value:'Apr 2026'}); }
+  spacer(){ return React.createElement('div',{style:{flex:1}}); }
+  segRadio(opts,val,onPick){ return React.createElement('div',{style:{display:'inline-flex',background:'var(--vx-bg-2)',border:'1px solid var(--vx-line-2)',borderRadius:'var(--vx-radius-sm)',padding:2}}, opts.map(o=>React.createElement('button',{key:o,onClick:()=>onPick&&onPick(o),style:{height:26,padding:'0 12px',border:'none',background:o===val?'var(--vx-panel)':'transparent',color:o===val?'var(--vx-ink)':'var(--vx-ink-3)',borderRadius:5,fontSize:12,fontWeight:600,cursor:'pointer',boxShadow:o===val?'var(--vx-shadow-md)':'none'}},o))); }
+  copyField(txt){ const V=window.Vortex_469485; return React.createElement('div',{style:{display:'flex',alignItems:'center',border:'1px solid var(--vx-line-2)',borderRadius:'var(--vx-radius-sm)',overflow:'hidden',background:'var(--vx-bg-2)'}},
+    React.createElement('code',{style:{flex:1,padding:'0 12px',fontFamily:'var(--vx-font-mono)',fontSize:12,color:'var(--vx-ink)',height:'var(--vx-control-h)',display:'flex',alignItems:'center',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},txt),
+    React.createElement('button',{onClick:()=>this.copy(txt),style:{height:'var(--vx-control-h)',border:'none',borderLeft:'1px solid var(--vx-line-2)',background:'var(--vx-panel)',color:'var(--vx-ink-2)',padding:'0 12px',display:'flex',alignItems:'center',gap:6,fontSize:11.5,fontWeight:600,cursor:'pointer'}}, React.createElement(V.Icon,{name:'copy',size:13}),'Copy')); }
+  warnbar(tone,children){ const V=window.Vortex_469485; const c={warn:['var(--vx-warn-rgb)','var(--vx-warn)'],info:['var(--vx-violet-rgb)','var(--vx-accent)'],danger:['var(--vx-err-rgb)','var(--vx-err)'],ok:['var(--vx-good-rgb)','var(--vx-good)']}[tone];
+    return React.createElement('div',{style:{display:'flex',gap:11,padding:'12px 14px',borderRadius:'var(--vx-radius)',fontSize:12,lineHeight:1.5,alignItems:'flex-start',background:'rgba('+c[0]+',.1)',border:'1px solid rgba('+c[0]+',.28)',color:'var(--vx-ink)'}},
+      React.createElement(V.Icon,{name:tone==='info'?'gov':tone==='ok'?'check':'lock',size:16,style:{color:c[1],flexShrink:0,marginTop:1}}), React.createElement('span',null,children)); }
+
+  // ---------- STATE SWITCHER ----------
+  stateSwitcher(id){
+    const cur=this.scrState(id);
+    const opts=[['data','data'],['empty','empty'],['loading','loading'],['error','error'],['denied','no-access']];
+    return React.createElement('div',{style:{display:'inline-flex',gap:2,background:'var(--vx-bg-2)',border:'1px solid var(--vx-line-2)',borderRadius:'var(--vx-radius-sm)',padding:2}},
+      opts.map(([v,lbl])=>React.createElement('button',{key:v,onClick:()=>this.setScrState(id,v),style:{height:25,padding:'0 9px',border:'none',background:cur===v?'var(--vx-panel)':'transparent',color:cur===v?'var(--vx-ink)':'var(--vx-ink-4)',borderRadius:5,fontSize:10.5,fontWeight:600,fontFamily:'var(--vx-font-mono)',cursor:'pointer',boxShadow:cur===v?'var(--vx-shadow-md)':'none'}},lbl)));
+  }
+  stateWrap(id,map){ const s=this.scrState(id); return React.createElement('div',{style:{marginTop:14}}, map[s]||map.data); }
+  emptyState(o){ const V=window.Vortex_469485; return React.createElement('div',{style:{textAlign:'center',padding:'56px 24px',border:'1px dashed var(--vx-line-2)',borderRadius:'var(--vx-radius-lg)',background:'var(--vx-panel)'}},
+    React.createElement('div',{style:{width:52,height:52,borderRadius:'var(--vx-radius-lg)',background:'var(--vx-bg-2)',display:'grid',placeItems:'center',margin:'0 auto 16px',color:'var(--vx-ink-3)'}}, React.createElement(V.Icon,{name:o.icon||'home',size:24})),
+    React.createElement('h3',{style:{fontSize:15,margin:'0 0 6px'}},o.title),
+    React.createElement('p',{style:{color:'var(--vx-ink-3)',fontSize:12.5,maxWidth:360,margin:'0 auto 18px',lineHeight:1.55}},o.desc),
+    o.cta&&React.createElement(V.Button,{variant:'accent',iconLeft:React.createElement(V.Icon,{name:'plus',size:14}),onClick:o.onClick||(()=>{})},o.cta)); }
+  loadingTable(cols=6,rows=6){ return React.createElement('div',{style:{border:'1px solid var(--vx-line)',borderRadius:'var(--vx-radius-lg)',overflow:'hidden',background:'var(--vx-panel)'}},
+    React.createElement('div',{style:{display:'flex',gap:8,padding:'10px 12px',borderBottom:'1px solid var(--vx-line)'}}, React.createElement('div',{className:'vx-sk',style:{width:200,height:30}}), React.createElement('div',{style:{flex:1}}), React.createElement('div',{className:'vx-sk',style:{width:90,height:30}})),
+    Array.from({length:rows}).map((_,r)=>React.createElement('div',{key:r,style:{display:'flex',gap:14,padding:'0 14px',height:44,alignItems:'center',borderBottom:'1px solid var(--vx-line)'}}, Array.from({length:cols}).map((_,c)=>React.createElement('div',{key:c,className:'vx-sk',style:{height:11,flex:c===0?2:1}}))))); }
+  errorState(){ const V=window.Vortex_469485; return React.createElement('div',{style:{textAlign:'center',padding:'56px 24px',border:'1px dashed var(--vx-line-2)',borderRadius:'var(--vx-radius-lg)',background:'var(--vx-panel)'}},
+    React.createElement('div',{style:{width:52,height:52,borderRadius:'var(--vx-radius-lg)',background:'rgba(var(--vx-err-rgb),.12)',color:'var(--vx-err)',display:'grid',placeItems:'center',margin:'0 auto 16px'}}, React.createElement(V.Icon,{name:'x',size:24})),
+    React.createElement('h3',{style:{fontSize:15,margin:'0 0 6px'}},"Couldn't load data"),
+    React.createElement('p',{style:{color:'var(--vx-ink-3)',fontSize:12.5,maxWidth:360,margin:'0 auto 18px',lineHeight:1.55}}, React.createElement(React.Fragment,null,'The gateway returned ',React.createElement('span',{className:'vx-mono'},'503 Service Unavailable'),'. This usually clears in a few seconds.')),
+    React.createElement(V.Button,{iconLeft:React.createElement(V.Icon,{name:'loader',size:14}),onClick:()=>this.toast('Retrying\u2026','info')},'Retry')); }
+  deniedState(){ const V=window.Vortex_469485; return React.createElement('div',{style:{textAlign:'center',padding:'56px 24px',border:'1px dashed var(--vx-line-2)',borderRadius:'var(--vx-radius-lg)',background:'var(--vx-panel)'}},
+    React.createElement('div',{style:{width:52,height:52,borderRadius:'var(--vx-radius-lg)',background:'rgba(var(--vx-warn-rgb),.12)',color:'var(--vx-warn)',display:'grid',placeItems:'center',margin:'0 auto 16px'}}, React.createElement(V.Icon,{name:'lock',size:24})),
+    React.createElement('h3',{style:{fontSize:15,margin:'0 0 6px'}},"You don't have access to this"),
+    React.createElement('p',{style:{color:'var(--vx-ink-3)',fontSize:12.5,maxWidth:380,margin:'0 auto 18px',lineHeight:1.55}}, React.createElement(React.Fragment,null,'This view is for ',React.createElement('b',null,'Owners'),' and ',React.createElement('b',null,'Admins'),'. Switch your role to ',React.createElement(V.Badge,{tone:'accent'},'Admin'),' to preview it.')),
+    React.createElement(V.Button,{iconLeft:React.createElement(V.Icon,{name:'eye',size:14}),onClick:()=>this.setRole('admin')},'View as Admin')); }
+  fourStates(id,dataEl,emptyCfg,loadCols){ return this.stateWrap(id,{data:dataEl,empty:this.emptyState(emptyCfg),loading:this.loadingTable(loadCols||6,7),error:this.errorState(),denied:this.deniedState()}); }
+  statusBadge(s){ const V=window.Vortex_469485; return s==='ok'?React.createElement(V.Badge,{tone:'ok',dot:true},'200'):s==='429'?React.createElement(V.Badge,{tone:'warn',dot:true},'429'):React.createElement(V.Badge,{tone:'err',dot:true},'500'); }
+
+  // ---------- SCREEN ROUTER ----------
+  screen(){
+    const s=this.state.screen;
+    if(this.GROUPS[s]) return this.scrGroup(s);
+    const map={overview:'scrOverview',usage:'scrUsage',budgets:'scrBudgets',teams:'scrTeams',members:'scrMembers',apps:'scrApps',appdetail:'scrAppDetail',credentials:'scrProviders',models:'scrModels',audit:'scrAudit',alerts:'scrAlerts',settings:'scrSettings',mhome:'scrMyHome',musage:'scrMyUsage',mkeys:'scrMyKeys',mapps:'scrMyApps',mchat:'scrChat',mprofile:'scrMyProfile'};
+    const fn=map[s];
+    return fn&&this[fn]?this[fn]():React.createElement('div',null,'\u2014');
+  }
+  scrGroup(pid){
+    const V=window.Vortex_469485, g=this.GROUPS[pid];
+    const cur=this.state.tab[pid]||g.tabs[0][0];
+    const active=g.tabs.find(t=>t[0]===cur)||g.tabs[0];
+    return React.createElement(React.Fragment,null,
+      React.createElement('div',{style:{marginBottom:18,borderBottom:'1px solid var(--vx-line)'}},
+        React.createElement(V.Tabs,{items:g.tabs.map(t=>({id:t[0],label:t[1]})),value:cur,onChange:t=>this.setState(s=>({tab:{...s.tab,[pid]:t}}))})),
+      this[active[2]]()
+    );
+  }
+
+  // ============================================================
+  //  COST DIMENSIONS (attribution: team / member / app / api_key / model)
+  // ============================================================
+  get COSTDIMS(){ return {
+    team:this.DATA.teams.map(t=>({label:t.name,v:t.spend})),
+    member:this.DATA.members.filter(m=>m.spent>0).map(m=>({label:m.name,v:m.spent,type:m.type})),
+    app:this.DATA.apps.map(a=>({label:a.name,v:a.spend,kind:a.kind})),
+    api_key:[{label:'svc-chat \u00b7 default',v:9420},{label:'svc-support \u00b7 default',v:6240},{label:'svc-analytics \u00b7 legacy',v:4100},{label:'Priya \u00b7 default',v:2410},{label:'Marcus \u00b7 default',v:2380},{label:'Dana \u00b7 ci-pipeline',v:820}],
+    model:this.DATA.models.filter(m=>m.on).map(m=>({label:m.alias,v:m.share*140,prov:m.prov})),
+  };}
+  get DIMLABEL(){ return {team:'Team',member:'Member',app:'App',api_key:'API key',model:'Model'}; }
+
+  // ============================================================
+  //  HUB 1 · OVERVIEW
+  // ============================================================
+  scrOverview(){
+    const V=window.Vortex_469485;
+    const spent=this.sumSpent(), budgets=this.sumBudgets(), frac=spent/budgets;
+    const kpis=[
+      {label:'Org spend \u00b7 MTD',value:this.money(spent,0),delta:'12.4%',trend:'up',spark:true,seed:3},
+      {label:'Sum of member budgets',value:this.money(budgets,0),delta:'ceiling',trend:'flat',spark:false,seed:5},
+      {label:'Requests',value:'2.84M',delta:'12.4%',trend:'up',spark:true,seed:8},
+      {label:'Tokens',value:'1.92B',delta:'9.1%',trend:'up',spark:true,seed:11},
+      {label:'Active members',value:String(this.activeMembers().length)+' / '+this.DATA.org.members,delta:'+4',trend:'up',spark:false,seed:2},
+      {label:'Open alerts',value:'3',delta:'1 critical',trend:'up',spark:false,seed:7},
+    ];
+    const spend=[820,910,760,1180,990,1290,1120,1480,1310,1620,1440,1710,1590,1284];
+    const prev=[700,760,820,910,880,1010,970,1120,1080,1210,1160,1290,1240,1180];
+    const dim=this.state.costDim, topDim=(this.COSTDIMS[dim]||this.COSTDIMS.member).slice().sort((a,b)=>b.v-a.v).slice(0,6);
+    const palette=['#7c8cf8','#5b8def','#4aa3c7','#6b6f8f','#5f9ea0','#8b7cf0'];
+    const segs=[{label:'Anthropic',v:46,color:'var(--vx-prov-anthropic)'},{label:'OpenAI',v:32,color:'var(--vx-prov-openai)'},{label:'Google',v:15,color:'var(--vx-prov-google)'},{label:'Other',v:7,color:'var(--vx-ink-4)'}];
+    return React.createElement(React.Fragment,null,
+      this.pageHead('Overview','Org-wide spend, traffic and budget health across '+this.DATA.org.name+'. Current billing month.', React.createElement(React.Fragment,null, this.dateRange(), React.createElement(V.Button,{variant:'accent',iconLeft:React.createElement(V.Icon,{name:'cpu',size:14}),onClick:()=>this.go('usage')},'Usage & budgets'))),
+      React.createElement('div',{style:{display:'grid',gap:16,gridTemplateColumns:'repeat(auto-fit,minmax(168px,1fr))'}}, kpis.map(k=>this.kpiTile(k))),
+      React.createElement('div',{style:{display:'grid',gap:16,gridTemplateColumns:'2fr 1fr',marginTop:16}},
+        React.createElement(V.Panel,{title:'Spend over time',sub:'hourly rollup \u00b7 micro-USD',actions:React.createElement('div',{style:{display:'flex',gap:14}},this.legend([['This month','var(--vx-accent)'],['Previous','var(--vx-ink-4)']]))},
+          this.areaChart([{data:prev,color:'var(--vx-ink-4)',fill:false},{data:spend,color:'var(--vx-accent)'}],{h:210,labels:['00','','','06','','','12','','','18','','','','now'],fmt:v=>'$'+this.compact(v)})),
+        React.createElement(V.Panel,{title:'Budget burn',sub:'org spend vs \u03a3 member budgets'},
+          React.createElement('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',textAlign:'center'}},
+            this.gauge(frac,132,'OF BUDGETS'),
+            React.createElement('div',{style:{marginTop:6}}, React.createElement('div',{className:'vx-disp',style:{fontSize:19}},this.money(budgets-spent,0)+' left'), React.createElement('div',{style:{color:'var(--vx-ink-3)',fontSize:11.5}},'of '+this.money(budgets,0)+' \u00b7 resets in 12 days')),
+            React.createElement('div',{style:{marginTop:14,width:'100%'}}, this.warnbar('warn',React.createElement(React.Fragment,null,React.createElement('b',null,'Marcus Reed'),' is at 95% of his override budget. Platform team enforces ',React.createElement('b',null,'hard'),' caps.')))))),
+      React.createElement('div',{style:{display:'grid',gap:16,gridTemplateColumns:'1.4fr 1fr',marginTop:16}},
+        React.createElement(V.Panel,{title:'Top spenders',sub:'this month',actions:React.createElement('div',{style:{display:'flex',gap:6}}, ['team','member','app','model'].map(d=>React.createElement('button',{key:d,onClick:()=>this.setState({costDim:d}),style:{height:24,padding:'0 9px',borderRadius:6,border:'1px solid '+(dim===d?'var(--vx-accent)':'var(--vx-line-2)'),background:dim===d?'var(--vx-accent-soft)':'var(--vx-panel)',color:dim===d?'var(--vx-accent)':'var(--vx-ink-3)',fontSize:11,fontWeight:600,cursor:'pointer'}},this.DIMLABEL[d]))) },
+          this.gridbars(topDim.map((r,i)=>({label:r.label,v:r.v,color:r.prov?this.provColor(r.prov):palette[i%palette.length],mark:r.prov?this.pmark(r.prov,14):null})),v=>this.money(v,0))),
+        React.createElement(V.Panel,{title:'Providers',sub:'request share'}, React.createElement('div',{style:{display:'flex',alignItems:'center',gap:18}}, this.donut(segs), React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:9}}, segs.map(s=>React.createElement('span',{key:s.label,style:{display:'flex',alignItems:'center',gap:6,fontSize:11.5,color:'var(--vx-ink-2)'}}, React.createElement('span',{style:{width:9,height:9,borderRadius:3,background:s.color}}), s.label, React.createElement('b',{style:{marginLeft:4,fontFamily:'var(--vx-font-mono)'}},s.v+'%'))))))),
+      React.createElement('div',{style:{display:'grid',gap:16,gridTemplateColumns:'1fr 1fr',marginTop:16}},
+        React.createElement(V.Panel,{title:'Open alerts',actions:React.createElement(V.Button,{size:'sm',variant:'ghost',onClick:()=>this.go('alerts')},'Inbox')},
+          [['err','Marcus Reed \u2014 402 hard cap hit','12m ago'],['warn','svc-support spend +340% vs baseline','1h ago'],['warn','Marcus Reed budget crossed 95%','Yesterday']].map((a,i)=>React.createElement('div',{key:i,style:{display:'flex',alignItems:'center',gap:10,padding:'8px 0',borderBottom:i<2?'1px solid var(--vx-line)':'none'}}, React.createElement('span',{style:{width:7,height:7,borderRadius:'50%',background:a[0]==='err'?'var(--vx-err)':'var(--vx-warn)',flexShrink:0}}), React.createElement('div',{style:{flex:1,minWidth:0,fontSize:12}},a[1]), React.createElement('span',{className:'vx-mono',style:{color:'var(--vx-ink-4)',fontSize:10}},a[2])))),
+        React.createElement(V.Panel,{title:'Recent activity',actions:React.createElement(V.Button,{size:'sm',variant:'ghost',onClick:()=>this.go('audit')},'Audit log')},
+          this.DATA.audit.slice(0,4).map((a,i)=>React.createElement('div',{key:i,style:{display:'flex',alignItems:'center',gap:10,padding:'8px 0',borderBottom:i<3?'1px solid var(--vx-line)':'none'}}, a.actor==='system'?React.createElement('span',{style:{width:20,height:20,borderRadius:5,background:'var(--vx-ink-4)',color:'#fff',display:'grid',placeItems:'center',fontSize:9,fontFamily:'var(--vx-font-mono)',fontWeight:700,flexShrink:0}},'S'):React.createElement(V.Avatar,{name:a.actor,size:20}), React.createElement('div',{style:{flex:1,minWidth:0}}, React.createElement('span',{className:'vx-mono',style:{fontSize:11,color:'var(--vx-accent)'}},a.action), React.createElement('span',{style:{fontSize:11.5,color:'var(--vx-ink-3)',marginLeft:6}},a.target)), React.createElement('span',{className:'vx-mono',style:{color:'var(--vx-ink-4)',fontSize:10}},a.time)))))
+    );
+  }
+
+  // ============================================================
+  //  HUB 2a · USAGE (cost explorer — sliceable by dimension)
+  // ============================================================
+  scrUsage(){
+    const V=window.Vortex_469485, dim=this.state.costDim;
+    const dims=['team','member','app','api_key','model'];
+    const rows=(this.COSTDIMS[dim]||[]).slice().sort((a,b)=>b.v-a.v);
+    const total=rows.reduce((a,r)=>a+r.v,0)||1;
+    const palette=['#7c8cf8','#5b8def','#4aa3c7','#6b6f8f','#5f9ea0','#8b7cf0'];
+    const colorFor=(r,i)=>r.prov?this.provColor(r.prov):palette[i%palette.length];
+    const topN=rows.slice(0,5), rest=rows.slice(5);
+    const labels=Array.from({length:30},(_,i)=>i%5===0?(i+1):'');
+    const series=topN.map((r,i)=>({data:this.costSeries(r.v,i*7+dim.length*3+1),color:colorFor(r,i),label:r.label}));
+    if(rest.length) series.push({data:this.costSeries(rest.reduce((a,r)=>a+r.v,0),91),color:'var(--vx-ink-4)',label:'Other ('+rest.length+')'});
+    const kpis=[['Total spend \u00b7 MTD',this.money(total,0)],['Segments',String(rows.length)],['Top '+this.DIMLABEL[dim].toLowerCase(),rows[0]?(rows[0].label+' \u00b7 '+(rows[0].v/total*100).toFixed(0)+'%'):'\u2014'],['Anomalies',dim==='member'||dim==='api_key'?'1 spike':'0']];
+    const genRows=rows.map((r,i)=>({...r,rank:i+1,reqs:Math.round(r.v*72),tok:r.v*51000,avg:r.v/Math.max(1,Math.round(r.v*72)),spike:(dim==='api_key'&&i===1)||(dim==='member'&&r.label==='Marcus Reed')}));
+    const tbl=this.table({id:'usage_'+dim,rows:genRows,per:8,onRowClick:dim==='member'?(r=>{const m=this.DATA.members.find(x=>x.name===r.label);if(m)this.openMemberDetail(m);}):(dim==='app'?(r=>{const a=this.DATA.apps.find(x=>x.name===r.label);if(a)this.openApp(a);}):undefined),
+      toolbar:React.createElement(React.Fragment,null, this.searchInput('Search '+this.DIMLABEL[dim].toLowerCase()+'\u2026'), this.dateRange(), this.spacer(), React.createElement('span',{className:'vx-mono',style:{fontSize:11,color:'var(--vx-ink-3)'}},'grouped by '+this.DIMLABEL[dim])),
+      cols:[
+        {label:'#',render:r=>React.createElement('span',{className:'vx-mono',style:{color:'var(--vx-ink-4)'}},r.rank)},
+        {label:this.DIMLABEL[dim],key:'label',render:r=>React.createElement('span',{style:{display:'inline-flex',alignItems:'center',gap:8,fontWeight:600,color:'var(--vx-ink)'}}, r.prov?this.pmark(r.prov,16):null, r.label, r.type==='technical'?React.createElement(V.Icon,{name:'cpu',size:12,style:{color:'var(--vx-accent)'}}):null, r.kind?this.appKind(r.kind):null, r.spike?React.createElement(V.Tag,{tone:'warn'},React.createElement(React.Fragment,null,React.createElement(V.Icon,{name:'sparkle',size:10}),'spike')):null)},
+        {label:'Spend',key:'v',align:'right',render:r=>React.createElement('span',{className:'vx-mono',style:{fontWeight:600}},this.money(r.v,0))},
+        {label:'% of total',key:'v',align:'right',render:r=>React.createElement('span',{className:'vx-mono',style:{color:'var(--vx-ink-3)'}},(r.v/total*100).toFixed(1)+'%')},
+        {label:'Requests',key:'reqs',align:'right',render:r=>React.createElement('span',{className:'vx-mono'},this.compact(r.reqs))},
+        {label:'Tokens',key:'tok',align:'right',render:r=>React.createElement('span',{className:'vx-mono'},this.compact(r.tok))},
+        {label:'Avg/req',key:'avg',align:'right',render:r=>React.createElement('span',{className:'vx-mono',style:{color:'var(--vx-ink-3)'}},this.money(r.avg,4))},
+        dim==='member'?{label:'',render:r=>React.createElement('span',{style:{display:'inline-flex',gap:6,alignItems:'center'}}, React.createElement(V.Button,{size:'sm',variant:'ghost',onClick:e=>{e.stopPropagation&&e.stopPropagation();const m=this.DATA.members.find(x=>x.name===r.label);if(m)this.openOverride(m);}},'Set override'), React.createElement(V.Icon,{name:'chevron-right',size:14,style:{color:'var(--vx-ink-4)'}}))}:{label:'',render:r=>React.createElement('span',null,'')},
+      ]});
+    const data=React.createElement(React.Fragment,null,
+      React.createElement('div',{style:{display:'grid',gap:12,gridTemplateColumns:'repeat(4,1fr)',marginBottom:16}}, kpis.map(([k,v],i)=>React.createElement(V.Card,{key:i,style:{padding:'12px 14px'}}, React.createElement('div',{className:'vx-mono',style:{fontSize:9.5,letterSpacing:'.08em',textTransform:'uppercase',color:'var(--vx-ink-4)'}},k), React.createElement('div',{style:{fontSize:19,fontWeight:600,fontFamily:'var(--vx-font-display)',letterSpacing:'-.02em',marginTop:5,color:'var(--vx-ink)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}},v)))),
+      React.createElement('div',{style:{marginBottom:16}},
+        React.createElement('div',{className:'vx-mono',style:{fontSize:10,letterSpacing:'.1em',textTransform:'uppercase',color:'var(--vx-ink-4)',marginBottom:8}},'Slice by dimension'),
+        React.createElement('div',{style:{display:'flex',gap:6,flexWrap:'wrap'}}, dims.map(d=>React.createElement('button',{key:d,onClick:()=>this.setState({costDim:d}),style:{height:30,padding:'0 12px',borderRadius:'var(--vx-radius-sm)',border:'1px solid '+(dim===d?'var(--vx-accent)':'var(--vx-line-2)'),background:dim===d?'var(--vx-accent-soft)':'var(--vx-panel)',color:dim===d?'var(--vx-accent)':'var(--vx-ink-2)',fontSize:12,fontWeight:600,cursor:'pointer'}},this.DIMLABEL[d])))),
+      React.createElement('div',{style:{display:'grid',gap:16,gridTemplateColumns:'1.5fr 1fr',marginBottom:16}},
+        React.createElement(V.Panel,{title:'Spend over time',sub:'stacked \u00b7 by '+this.DIMLABEL[dim].toLowerCase()}, React.createElement(React.Fragment,null,
+          this.stackedArea(series,{h:200,labels,fmt:v=>'$'+this.compact(v)}),
+          React.createElement('div',{style:{display:'flex',flexWrap:'wrap',gap:'6px 14px',marginTop:12}}, series.map((s,i)=>React.createElement('span',{key:i,style:{display:'inline-flex',alignItems:'center',gap:6,fontSize:11,color:'var(--vx-ink-3)'}}, React.createElement('span',{style:{width:9,height:9,borderRadius:2,background:s.color,flexShrink:0}}), s.label))))),
+        React.createElement(V.Panel,{title:'Breakdown',sub:'top '+this.DIMLABEL[dim].toLowerCase()}, this.gridbars(rows.slice(0,6).map((r,i)=>({label:r.label,v:r.v,color:colorFor(r,i),mark:r.prov?this.pmark(r.prov,14):null})),v=>this.money(v,0)))),
+      dim==='member'?React.createElement('div',{style:{marginBottom:10}}, this.warnbar('info',React.createElement(React.Fragment,null,'Every request is tagged ',React.createElement('b',null,'team / member / app / api_key / model'),'. Click a member to drill into their keys, or ',React.createElement('b',null,'Set override'),' to change their monthly budget.'))):null,
+      tbl);
+    return React.createElement(React.Fragment,null,
+      this.pageHead('Usage','Attribute every dollar along any dimension \u2014 team, member, app, API key or model. Drill down, flag spikes, then export.', React.createElement(React.Fragment,null, React.createElement(V.Button,{iconLeft:React.createElement(V.Icon,{name:'upload',size:14}),onClick:()=>this.toast('Exporting CSV\u2026','info')},'Export CSV'), React.createElement(V.Button,{iconLeft:React.createElement(V.Icon,{name:'bell',size:14}),onClick:()=>this.toast('Scheduled weekly report','ok')},'Schedule'))),
+      this.stateSwitcher('usage'),
+      this.stateWrap('usage',{data,empty:this.emptyState({icon:'cpu',title:'No usage this month',desc:'No requests were attributed in the selected window. Widen the month range or clear filters.',cta:'Reset filters'}),loading:React.createElement('div',{style:{display:'grid',gap:16}}, React.createElement('div',{className:'vx-sk',style:{height:120,borderRadius:12}}), React.createElement('div',{className:'vx-sk',style:{height:240,borderRadius:12}})),error:this.errorState(),denied:this.deniedState()})
+    );
+  }
+
+  // ============================================================
+  //  HUB 2b · BUDGETS (per-member monthly: team default + overrides)
+  // ============================================================
+  memberFrac(m){ return m.budget?m.spent/m.budget:0; }
+  budgetTone(f){ return f>=1?'err':f>=.9?'err':f>=.8?'warn':'ok'; }
+  scrBudgets(){
+    const V=window.Vortex_469485;
+    const teamCards=this.DATA.teams.map((t,i)=>React.createElement(V.Card,{key:i,style:{padding:16,display:'flex',flexDirection:'column',gap:12}},
+      React.createElement('div',{style:{display:'flex',alignItems:'center',gap:10}}, React.createElement('span',{style:{width:26,height:26,borderRadius:6,background:'var(--vx-accent-soft)',color:'var(--vx-accent)',display:'grid',placeItems:'center',fontWeight:700,fontSize:12}},t.name[0]), React.createElement('div',{style:{flex:1}}, React.createElement('div',{style:{fontWeight:600,fontSize:13}},t.name), React.createElement('div',{style:{color:'var(--vx-ink-4)',fontSize:11}},t.members+' members')), t.enf==='hard'?React.createElement(V.Badge,{tone:'err'},React.createElement(React.Fragment,null,React.createElement(V.Icon,{name:'lock',size:10}),'hard')):React.createElement(V.Badge,{tone:'neutral'},'soft')),
+      React.createElement('div',null, React.createElement('div',{className:'vx-mono',style:{fontSize:10,textTransform:'uppercase',color:'var(--vx-ink-4)'}},'Default / member / month'), React.createElement('div',{className:'vx-disp',style:{fontSize:22,marginTop:2}},this.money(t.def,0)), React.createElement('div',{style:{fontSize:11,color:'var(--vx-ink-4)',marginTop:2}}, this.DATA.members.filter(m=>m.team===t.name&&m.bsrc==='override').length+' member-specific rule(s)')),
+      React.createElement('div',{style:{display:'flex',gap:8}}, React.createElement(V.Button,{size:'sm',variant:'ghost',onClick:()=>this.openTeamBudget(t)},'Edit default'), React.createElement(V.Button,{size:'sm',variant:'ghost',onClick:()=>this.openTeamDetail(t)},'Members'))));
+    const overrides=this.DATA.members.filter(m=>m.status!=='invited');
+    const tbl=this.table({id:'budgets',rows:overrides,per:10,paginate:false,onRowClick:r=>this.openMemberDetail(r),
+      toolbar:React.createElement(React.Fragment,null, this.searchInput('Search members\u2026'), React.createElement(V.FilterChip,{label:'Near/over cap',value:'all'}), React.createElement(V.FilterChip,{label:'Source',value:'any'}), this.spacer(), React.createElement('span',{className:'vx-mono',style:{fontSize:11,color:'var(--vx-ink-3)'}},'per-member ceilings')),
+      cols:[
+        {label:'Member',key:'name',render:r=>React.createElement('span',{style:{display:'inline-flex',alignItems:'center',gap:9}}, React.createElement(V.Avatar,{name:r.name,size:24}), React.createElement('div',null, React.createElement('div',{style:{fontWeight:600,color:'var(--vx-ink)',display:'flex',gap:6,alignItems:'center'}},r.name, r.type==='technical'?React.createElement(V.Icon,{name:'cpu',size:11,style:{color:'var(--vx-accent)'}}):null), React.createElement('div',{style:{color:'var(--vx-ink-4)',fontSize:11}},r.team+' team')))},
+        {label:'Source',key:'bsrc',render:r=>r.bsrc==='override'?React.createElement(V.Badge,{tone:'accent'},'Override'):React.createElement(V.Badge,{tone:'neutral'},'Team default')},
+        {label:'Ceiling',key:'budget',align:'right',render:r=>React.createElement('span',{className:'vx-mono',style:{fontWeight:600}},this.money(r.budget,0))},
+        {label:'Burn',key:'spent',render:r=>{const f=this.memberFrac(r),col=f>=.9?'var(--vx-err)':f>=.8?'var(--vx-warn)':'var(--vx-good)';return React.createElement('div',{style:{minWidth:180}}, React.createElement('div',{style:{display:'flex',justifyContent:'space-between',marginBottom:4}}, React.createElement('span',{className:'vx-mono',style:{fontSize:11,color:f>=1?'var(--vx-err)':'var(--vx-ink-2)'}},this.money(r.spent,0)), React.createElement('span',{className:'vx-mono',style:{fontSize:11,color:'var(--vx-ink-4)'}},Math.round(f*100)+'%')), React.createElement('div',{style:{height:7,borderRadius:5,background:'var(--vx-bg-2)',overflow:'hidden'}}, React.createElement('div',{style:{height:'100%',width:Math.min(f*100,100)+'%',background:col,borderRadius:5}})));}},
+        {label:'Enforce',render:r=>{const t=this.teamOf(r.team);return t&&t.enf==='hard'?React.createElement(V.Tag,{tone:'err'},'hard'):React.createElement(V.Tag,{tone:'neutral'},'soft');}},
+        {label:'',render:r=>React.createElement(V.Button,{size:'sm',variant:'ghost',onClick:e=>{e.stopPropagation&&e.stopPropagation();this.openOverride(r);}},'Override')},
+      ]});
+    return React.createElement(React.Fragment,null,
+      this.pageHead('Budgets',null),
+      React.createElement('div',{style:{marginTop:-14,marginBottom:18,color:'var(--vx-ink-3)',fontSize:12.5,maxWidth:680}},'Every budget is ',React.createElement('b',null,'per member, per month'),' \u2014 the team default, or a per-member override. It applies across all apps. Apps and keys never cap; they only show where a member\u2019s budget went.'),
+      React.createElement('div',{style:{display:'flex',alignItems:'center',gap:10,marginBottom:12}}, React.createElement('span',{className:'vx-mono',style:{fontSize:10,letterSpacing:'.13em',textTransform:'uppercase',color:'var(--vx-ink-3)'}},'Team defaults (per member)'), this.spacer(), React.createElement(V.Button,{size:'sm',iconLeft:React.createElement(V.Icon,{name:'gov',size:13}),onClick:()=>this.go('teams')},'Manage teams')),
+      React.createElement('div',{style:{display:'grid',gap:14,gridTemplateColumns:'repeat(auto-fill,minmax(230px,1fr))',marginBottom:8}}, teamCards),
+      this.sectionTitle('Per-member budgets & burn'),
+      this.stateSwitcher('budgets'),
+      this.fourStates('budgets',tbl,{icon:'gov',title:'No budgets configured',desc:'Set a team default-per-member budget to start capping spend.',cta:'Manage teams',onClick:()=>this.go('teams')},6)
+    );
+  }
+  openTeamBudget(t){ const V=window.Vortex_469485; this.openDrawer({crumb:React.createElement(React.Fragment,null,React.createElement(V.Icon,{name:'gov',size:12}),'TEAM DEFAULT BUDGET'),title:t.name,sub:'Applies to every member without an override',
+    body:React.createElement(React.Fragment,null,
+      React.createElement(V.Field,{label:'Default budget / member / month'}, React.createElement('div',{style:{display:'flex',alignItems:'center',border:'1px solid var(--vx-line-2)',borderRadius:'var(--vx-radius-sm)',overflow:'hidden'}}, React.createElement('span',{style:{padding:'0 4px 0 12px',color:'var(--vx-ink-3)'}},'$'), React.createElement(V.Input,{defaultValue:t.def.toLocaleString(),style:{border:'none',boxShadow:'none'}}))),
+      React.createElement(V.Field,{label:'Enforcement',hint:'Hard = block with 402 when a member is exhausted. Soft = alert only.'}, this.segRadio(['Hard cap','Soft (alert)'],t.enf==='hard'?'Hard cap':'Soft (alert)')),
+      React.createElement(V.Field,{label:'Alert thresholds'}, React.createElement('div',{style:{display:'flex',gap:16}}, [50,80,95].map(a=>React.createElement(V.Checkbox,{key:a,checked:[80,95].includes(a),onChange:()=>{},label:a+'%'})))),
+      React.createElement('div',{style:{height:1,background:'var(--vx-line)',margin:'18px 0'}}),
+      this.sectionTitle('Member-specific rules'),
+      React.createElement('div',{style:{color:'var(--vx-ink-3)',fontSize:11.5,margin:'-8px 0 12px',lineHeight:1.5}},'Assign a different monthly budget to one member — or many at once. A rule overrides the team default for just those members.'),
+      React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:8,marginBottom:12}}, (this.DATA.members.filter(m=>m.team===t.name&&m.bsrc==='override').length?this.DATA.members.filter(m=>m.team===t.name&&m.bsrc==='override').map((m,i)=>React.createElement('div',{key:i,style:{display:'flex',alignItems:'center',gap:10,padding:'9px 12px',border:'1px solid var(--vx-line)',borderRadius:'var(--vx-radius)',background:'var(--vx-panel)'}}, m.type==='technical'?React.createElement('span',{style:{width:22,height:22,borderRadius:6,background:'var(--vx-accent-soft)',color:'var(--vx-accent)',display:'grid',placeItems:'center'}},React.createElement(V.Icon,{name:'cpu',size:12})):React.createElement(V.Avatar,{name:m.name,size:22}), React.createElement('span',{style:{flex:1,fontWeight:600,fontSize:12.5}},m.name), React.createElement('span',{className:'vx-mono',style:{fontSize:12,fontWeight:600}},this.money(m.budget,0)+'/mo'), React.createElement(V.IconButton,{size:'sm',title:'Edit rule',onClick:()=>this.openTeamRule(t,m)},React.createElement(V.Icon,{name:'wrench',size:13})), React.createElement(V.IconButton,{size:'sm',title:'Remove rule',onClick:()=>this.toast(m.name+' reverted to team default','ok')},React.createElement(V.Icon,{name:'x',size:13})))):React.createElement('div',{style:{color:'var(--vx-ink-4)',fontSize:12,padding:'8px 0'}},'No member-specific rules — everyone uses the '+this.money(t.def,0)+' default.'))),
+      React.createElement(V.Button,{size:'sm',variant:'ghost',iconLeft:React.createElement(V.Icon,{name:'plus',size:13}),onClick:()=>this.openTeamRule(t)},'Add rule'),
+      React.createElement('div',{style:{marginTop:16}}, this.warnbar('info',React.createElement(React.Fragment,null,'Changing the default updates the ',React.createElement('b',null,t.members-this.DATA.members.filter(m=>m.team===t.name&&m.bsrc==='override').length),' members who inherit it. Members with a rule keep their custom budget.')))),
+    foot:React.createElement(React.Fragment,null, React.createElement(V.Button,{variant:'ghost',onClick:()=>this.closeOverlays()},'Cancel'), this.spacer(), React.createElement(V.Button,{variant:'accent',onClick:()=>{this.closeOverlays();this.toast('Team default updated','ok');}},'Save'))}); }
+  openTeamRule(t,editMember){ const V=window.Vortex_469485; const mem=this.DATA.members.filter(m=>m.team===t.name);
+    this.openModal({wide:true,title:(editMember?'Edit rule \u2014 ':'Add budget rule \u2014 ')+t.name,
+      body:React.createElement(React.Fragment,null,
+        React.createElement('p',{style:{color:'var(--vx-ink-3)',fontSize:12.5,lineHeight:1.55,margin:'0 0 14px'}},'Select one or more members and set their monthly budget. This overrides the ',React.createElement('b',null,this.money(t.def,0)),' team default for just them.'),
+        React.createElement(V.Field,{label:'Apply to members',hint:'Pick one or many.'}, React.createElement('div',{style:{maxHeight:170,overflow:'auto',border:'1px solid var(--vx-line-2)',borderRadius:'var(--vx-radius-sm)',padding:'8px 12px',background:'var(--vx-bg-2)'}}, mem.map((m,i)=>React.createElement('label',{key:i,style:{display:'flex',alignItems:'center',gap:9,padding:'5px 0',cursor:'pointer',fontSize:12.5}}, React.createElement(V.Checkbox,{checked:editMember?m.name===editMember.name:m.bsrc==='override',onChange:()=>{}}), m.type==='technical'?React.createElement(V.Icon,{name:'cpu',size:13,style:{color:'var(--vx-accent)'}}):React.createElement(V.Avatar,{name:m.name,size:20}), React.createElement('span',{style:{flex:1}},m.name), React.createElement('span',{className:'vx-mono',style:{fontSize:11,color:'var(--vx-ink-4)'}},m.bsrc==='override'?this.money(m.budget,0):'default'))))),
+        React.createElement('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}},
+          React.createElement(V.Field,{label:'Monthly budget'}, React.createElement('div',{style:{display:'flex',alignItems:'center',border:'1px solid var(--vx-line-2)',borderRadius:'var(--vx-radius-sm)',overflow:'hidden'}}, React.createElement('span',{style:{padding:'0 4px 0 12px',color:'var(--vx-ink-3)'}},'$'), React.createElement(V.Input,{defaultValue:editMember?editMember.budget.toLocaleString():'2,000',style:{border:'none',boxShadow:'none'}}))),
+          React.createElement(V.Field,{label:'Enforcement'}, this.segRadio(['Inherit','Hard','Soft'],'Inherit')))),
+      foot:React.createElement(React.Fragment,null, React.createElement(V.Button,{variant:'ghost',onClick:()=>this.setState({modal:null})},'Cancel'), React.createElement(V.Button,{variant:'accent',onClick:()=>{this.setState({modal:null});this.toast(editMember?'Rule updated':'Rule added','ok');}},editMember?'Save rule':'Add rule'))}); }
+  openOverride(m){ const V=window.Vortex_469485, t=this.teamOf(m.team);
+    this.openDrawer({crumb:React.createElement(React.Fragment,null,React.createElement(V.Icon,{name:'gov',size:12}),'BUDGET OVERRIDE'),title:m.name,sub:m.team+' team \u00b7 default '+this.money(t?t.def:0,0)+'/mo',
+    body:React.createElement(React.Fragment,null,
+      React.createElement('div',{style:{display:'flex',gap:8,marginBottom:16}}, m.bsrc==='override'?React.createElement(V.Badge,{tone:'accent'},'Currently overridden'):React.createElement(V.Badge,{tone:'neutral'},'On team default'), React.createElement(V.Badge,{tone:this.budgetTone(this.memberFrac(m)),dot:true},Math.round(this.memberFrac(m)*100)+'% used')),
+      React.createElement(V.Field,{label:'Budget source'}, this.segRadio(['Team default','Override'],m.bsrc==='override'?'Override':'Team default')),
+      React.createElement(V.Field,{label:'Monthly budget (override)',hint:'Overrides the '+this.money(t?t.def:0,0)+' team default for this member only.'}, React.createElement('div',{style:{display:'flex',alignItems:'center',border:'1px solid var(--vx-line-2)',borderRadius:'var(--vx-radius-sm)',overflow:'hidden'}}, React.createElement('span',{style:{padding:'0 4px 0 12px',color:'var(--vx-ink-3)'}},'$'), React.createElement(V.Input,{defaultValue:m.budget.toLocaleString(),style:{border:'none',boxShadow:'none'}}))),
+      this.sectionTitle('Current burn'),
+      React.createElement(V.Card,{style:{padding:16,background:'var(--vx-bg-2)'}}, React.createElement('div',{style:{display:'flex',justifyContent:'space-between',marginBottom:8}}, React.createElement('span',{className:'vx-mono',style:{fontWeight:600}},this.money(m.spent)), React.createElement('span',{className:'vx-mono',style:{color:'var(--vx-ink-3)'}},'of '+this.money(m.budget,0))), React.createElement('div',{style:{height:11,borderRadius:6,background:'var(--vx-panel)',overflow:'hidden'}}, React.createElement('div',{style:{height:'100%',width:Math.min(this.memberFrac(m)*100,100)+'%',background:this.memberFrac(m)>=.8?'var(--vx-warn)':'var(--vx-good)'}}))),
+      React.createElement('div',{style:{marginTop:14}}, this.warnbar('info',React.createElement(React.Fragment,null,m.team+' enforces ',React.createElement('b',null,t&&t.enf==='hard'?'hard':'soft'),' caps. ',t&&t.enf==='hard'?'When this member is exhausted, their requests return 402 across all apps.':'When exhausted, owners are alerted but requests continue.')))),
+    foot:React.createElement(React.Fragment,null, React.createElement(V.Button,{variant:'ghost',onClick:()=>{this.closeOverlays();this.toast('Reverted to team default','ok');}},'Revert to default'), this.spacer(), React.createElement(V.Button,{variant:'accent',onClick:()=>{this.closeOverlays();this.toast('Override saved','ok');}},'Save override'))}); }
+
+  // ============================================================
+  //  HUB 3a · TEAMS
+  // ============================================================
+  scrTeams(){
+    const V=window.Vortex_469485;
+    const tbl=this.table({id:'teams',rows:this.DATA.teams,per:8,paginate:false,onRowClick:r=>this.openTeamDetail(r),
+      toolbar:React.createElement(React.Fragment,null, this.searchInput('Search teams\u2026'), this.spacer(), React.createElement(V.Button,{size:'sm',variant:'accent',iconLeft:React.createElement(V.Icon,{name:'plus',size:13}),onClick:()=>this.openTeamDrawer()},'Create team')),
+      cols:[
+        {label:'Team',key:'name',render:r=>React.createElement('span',{style:{display:'inline-flex',alignItems:'center',gap:9}}, React.createElement('span',{style:{width:22,height:22,borderRadius:5,background:'var(--vx-accent-soft)',color:'var(--vx-accent)',display:'grid',placeItems:'center',fontWeight:700,fontSize:11}},r.name[0]), React.createElement('span',{style:{fontWeight:600,color:'var(--vx-ink)'}},r.name))},
+        {label:'Default / member',key:'def',align:'right',render:r=>React.createElement('span',{className:'vx-mono',style:{fontWeight:600}},this.money(r.def,0)+'/mo')},
+        {label:'Enforce',key:'enf',render:r=>r.enf==='hard'?React.createElement(V.Tag,{tone:'err'},'hard'):React.createElement(V.Tag,{tone:'neutral'},'soft')},
+        {label:'Members',key:'members',align:'right',render:r=>React.createElement('span',{className:'vx-mono'},r.members)},
+        {label:'Spend \u00b7 MTD',key:'spend',align:'right',render:r=>React.createElement('span',{className:'vx-mono',style:{fontWeight:600}},this.money(r.spend,0))},
+        {label:'Team admin',key:'admin',render:r=>React.createElement('span',{style:{display:'inline-flex',alignItems:'center',gap:7}}, React.createElement(V.Avatar,{name:r.admin,size:20}), r.admin)},
+        {label:'',render:r=>React.createElement(V.Icon,{name:'chevron-right',size:15,style:{color:'var(--vx-ink-4)'}})},
+      ]});
+    return React.createElement(React.Fragment,null,
+      this.pageHead('Teams',null),
+      React.createElement('div',{style:{marginTop:-14,marginBottom:18,color:'var(--vx-ink-3)',fontSize:12.5,maxWidth:660}},'A team holds people and sets a ',React.createElement('b',null,'default monthly budget per member'),'. A team admin manages membership and the team default. Each member belongs to exactly one team.'),
+      this.stateSwitcher('teams'),
+      this.fourStates('teams',tbl,{icon:'team',title:'No teams yet',desc:'Create a team to group people and set a default per-member budget.',cta:'Create a team',onClick:()=>this.openTeamDrawer()},5)
+    );
+  }
+  openTeamDrawer(){ const V=window.Vortex_469485; this.openDrawer({crumb:React.createElement(React.Fragment,null,React.createElement(V.Icon,{name:'team',size:12}),'NEW TEAM'),title:'Create team',
+    body:React.createElement(React.Fragment,null,
+      React.createElement(V.Field,{label:'Team name'},React.createElement(V.Input,{placeholder:'e.g. Platform'})),
+      React.createElement(V.Field,{label:'Team admin'},React.createElement(V.Select,{}, this.humans().filter(m=>m.status==='active').map(m=>React.createElement('option',{key:m.name},m.name)))),
+      React.createElement('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}, React.createElement(V.Field,{label:'Default budget / member'},React.createElement('div',{style:{display:'flex',alignItems:'center',border:'1px solid var(--vx-line-2)',borderRadius:'var(--vx-radius-sm)',overflow:'hidden'}}, React.createElement('span',{style:{padding:'0 4px 0 12px',color:'var(--vx-ink-3)'}},'$'), React.createElement(V.Input,{defaultValue:'1,000',style:{border:'none',boxShadow:'none'}}))), React.createElement(V.Field,{label:'Enforcement'},this.segRadio(['Hard','Soft'],'Soft')))),
+    foot:React.createElement(React.Fragment,null, React.createElement(V.Button,{variant:'ghost',onClick:()=>this.closeOverlays()},'Cancel'), this.spacer(), React.createElement(V.Button,{variant:'accent',onClick:()=>{this.closeOverlays();this.toast('Team created','ok');}},'Create team'))}); }
+  openTeamDetail(t){ const V=window.Vortex_469485; const mem=this.DATA.members.filter(m=>m.team===t.name); const frac=t.spend/(t.def*t.members);
+    this.openDrawer({wide:true,crumb:React.createElement(React.Fragment,null,React.createElement(V.Icon,{name:'team',size:12}),'TEAM'),title:t.name,sub:t.members+' members \u00b7 admin '+t.admin,
+      body:React.createElement(React.Fragment,null,
+        React.createElement('div',{style:{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,marginBottom:16}}, [['Default / member',this.money(t.def,0)],['Enforcement',t.enf==='hard'?'Hard cap':'Soft'],['Spend \u00b7 MTD',this.money(t.spend,0)]].map(([k,v])=>React.createElement(V.Card,{key:k,style:{padding:14}}, React.createElement('div',{className:'vx-mono',style:{fontSize:10,textTransform:'uppercase',color:'var(--vx-ink-4)'}},k), React.createElement('div',{style:{fontSize:17,fontWeight:600,fontFamily:'var(--vx-font-display)',marginTop:3}},v)))),
+        this.sectionTitle('Spend rollup vs \u03a3 member budgets'),
+        React.createElement(V.Card,{style:{padding:16}}, React.createElement('div',{style:{display:'flex',justifyContent:'space-between',marginBottom:8}}, React.createElement('span',{className:'vx-mono',style:{fontWeight:600}},this.money(t.spend)), React.createElement('span',{className:'vx-mono',style:{color:'var(--vx-ink-3)'}},'of '+this.money(t.def*t.members,0)+' capacity')), React.createElement('div',{style:{height:10,borderRadius:6,background:'var(--vx-bg-2)',overflow:'hidden'}},React.createElement('div',{style:{height:'100%',width:Math.min(frac*100,100)+'%',background:frac>=.8?'var(--vx-warn)':'var(--vx-good)'}}))),
+        this.sectionTitle('Members ('+mem.length+')'),
+        React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:8}}, mem.map((m,i)=>React.createElement('div',{key:i,style:{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',border:'1px solid var(--vx-line)',borderRadius:'var(--vx-radius)',cursor:'pointer'},onClick:()=>{this.closeOverlays();this.openMemberDetail(m);}}, React.createElement(V.Avatar,{name:m.name,size:22}), React.createElement('span',{style:{flex:1,fontWeight:600,fontSize:12.5,display:'flex',gap:6,alignItems:'center'}},m.name, m.type==='technical'?React.createElement(V.Icon,{name:'cpu',size:11,style:{color:'var(--vx-accent)'}}):null), m.teamRole==='team_admin'?React.createElement(V.Badge,{tone:'accent'},'Team admin'):React.createElement(V.Badge,{tone:'neutral'},'Member'), React.createElement('span',{className:'vx-mono',style:{fontSize:11.5,fontWeight:600,minWidth:64,textAlign:'right'}},this.money(m.spent,0)))))),
+      foot:React.createElement(React.Fragment,null, React.createElement(V.Button,{variant:'accent',iconLeft:React.createElement(V.Icon,{name:'gov',size:14}),onClick:()=>{this.closeOverlays();this.openTeamBudget(t);}},'Edit default budget'), this.spacer(), React.createElement(V.Button,{variant:'ghost',onClick:()=>this.closeOverlays()},'Close'))}); }
+
+  // ============================================================
+  //  HUB 3b · MEMBERS & ROLES (human + technical; keys in context)
+  // ============================================================
+  scrMembers(){
+    const V=window.Vortex_469485;
+    const tbl=this.table({id:'members',rows:this.DATA.members,per:11,paginate:false,onRowClick:r=>this.openMemberDetail(r),
+      toolbar:React.createElement(React.Fragment,null, this.searchInput('Search members\u2026'), React.createElement(V.FilterChip,{label:'Type',value:'Any'}), React.createElement(V.FilterChip,{label:'Role',value:'Any'}), React.createElement(V.FilterChip,{label:'Team',value:'Any'}), this.spacer(), React.createElement(V.Button,{size:'sm',variant:'accent',iconLeft:React.createElement(V.Icon,{name:'send',size:13}),onClick:()=>this.openInvite()},'Invite')),
+      cols:[
+        {label:'Member',key:'name',render:r=>React.createElement('span',{style:{display:'inline-flex',alignItems:'center',gap:9}}, r.type==='technical'?React.createElement('span',{style:{width:26,height:26,borderRadius:7,background:'var(--vx-accent-soft)',color:'var(--vx-accent)',display:'grid',placeItems:'center',flexShrink:0}},React.createElement(V.Icon,{name:'cpu',size:14})):React.createElement(V.Avatar,{name:r.name,size:26}), React.createElement('div',null, React.createElement('div',{style:{fontWeight:600,color:'var(--vx-ink)'}},r.name), React.createElement('div',{style:{color:'var(--vx-ink-4)',fontSize:11}},r.type==='technical'?('service acct \u00b7 '+(r.app||'')):r.email)))},
+        {label:'Type',key:'type',render:r=>this.mtype(r.type)},
+        {label:'Org role',key:'role',render:r=>this.roleBadge(r.role)},
+        {label:'Team',key:'team',render:r=>React.createElement('span',{style:{display:'inline-flex',gap:6,alignItems:'center'}}, React.createElement('span',{style:{color:'var(--vx-ink-2)'}},r.team), r.teamRole==='team_admin'?React.createElement(V.Tag,{tone:'accent'},'admin'):null)},
+        {label:'Budget',key:'budget',align:'right',render:r=>React.createElement('span',{style:{display:'inline-flex',flexDirection:'column',alignItems:'flex-end'}}, React.createElement('span',{className:'vx-mono',style:{fontWeight:600}},this.money(r.budget,0)), React.createElement('span',{style:{fontSize:9.5,color:'var(--vx-ink-4)',fontFamily:'var(--vx-font-mono)'}},r.bsrc==='override'?'override':'default'))},
+        {label:'Status',key:'status',render:r=>React.createElement(V.StatusPill,{status:r.status})},
+        {label:'Keys',render:r=>React.createElement('span',{className:'vx-mono',style:{color:'var(--vx-ink-3)'}},this.keysOf(r.name).length)},
+        {label:'Last active',key:'seen',align:'right',render:r=>React.createElement('span',{className:'vx-mono',style:{color:'var(--vx-ink-3)',fontSize:11}},r.seen)},
+        {label:'',render:r=>React.createElement(V.IconButton,{size:'sm',title:'Actions',onClick:e=>this.openMemberMenu(e,r)},React.createElement(V.Icon,{name:'more',size:15}))},
+      ]});
+    const legend=React.createElement(V.Card,{style:{padding:'12px 16px',display:'flex',gap:18,flexWrap:'wrap',alignItems:'center',marginBottom:14}}, React.createElement('span',{className:'vx-mono',style:{fontSize:10,letterSpacing:'.13em',textTransform:'uppercase',color:'var(--vx-ink-3)'}},'Legend'),
+      React.createElement('span',{style:{display:'flex',gap:7,alignItems:'center'}}, this.mtype('human'), React.createElement('span',{style:{color:'var(--vx-ink-3)',fontSize:11}},'a person')),
+      React.createElement('span',{style:{display:'flex',gap:7,alignItems:'center'}}, this.mtype('technical'), React.createElement('span',{style:{color:'var(--vx-ink-3)',fontSize:11}},'auto-created per app \u2014 own budget, sits in a team')),
+      React.createElement('span',{style:{color:'var(--vx-line-3)'}},'|'),
+      [['owner','full control'],['admin','manage everything'],['member','use keys · workspace']].map(([r,d])=>React.createElement('span',{key:r,style:{display:'flex',gap:6,alignItems:'center'}}, this.roleBadge(r), React.createElement('span',{style:{color:'var(--vx-ink-3)',fontSize:11}},d))));
+    return React.createElement(React.Fragment,null,
+      this.pageHead('Members & Roles','Everyone in '+this.DATA.org.name+' \u2014 humans and per-app service accounts. Org role, their one team, effective budget, and their keys. Click a member to manage.', React.createElement(V.Button,{variant:'accent',iconLeft:React.createElement(V.Icon,{name:'send',size:14}),onClick:()=>this.openInvite()},'Invite members')),
+      this.stateSwitcher('members'),
+      this.fourStates('members',React.createElement(React.Fragment,null,legend,tbl),{icon:'team',title:'Just you here',desc:'Invite teammates by email, assign a role and a team.',cta:'Invite members',onClick:()=>this.openInvite()},6)
+    );
+  }
+  openMemberMenu(e,r){ this.openMenuAt(e,[
+    this.menuItem('Open member','team',()=>{this.closeOverlays();this.openMemberDetail(r);}),
+    this.menuItem('Set budget override','gov',()=>{this.closeOverlays();this.openOverride(r);}),
+    this.menuSep(), this.menuLabel('Org role'),
+    ...['owner','admin','member'].map(role=>this.menuItem(role[0].toUpperCase()+role.slice(1),r.role===role?'check':null,()=>{this.closeOverlays();this.toast(r.name+' \u2192 '+role,'ok');})),
+    this.menuSep(),
+    this.menuItem('Move team','arrow-right',()=>{this.closeOverlays();this.toast('Choose a team\u2026','info');}),
+    this.menuItem(r.status==='suspended'?'Reactivate':'Suspend','lock',()=>{this.closeOverlays();this.toast(r.name+(r.status==='suspended'?' reactivated':' suspended'),'info');},{danger:r.status!=='suspended'})
+  ],220); }
+  openInvite(){ const V=window.Vortex_469485; this.openDrawer({crumb:React.createElement(React.Fragment,null,React.createElement(V.Icon,{name:'send',size:12}),'INVITE'),title:'Invite members',sub:'They\u2019ll get an email link to join '+this.DATA.org.name+'.',
+    body:React.createElement(React.Fragment,null,
+      React.createElement(V.Field,{label:'Email addresses',hint:'Comma or newline separated.'},React.createElement(V.Textarea,{mono:false,placeholder:'alice@company.com, bob@company.com'})),
+      React.createElement('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}, React.createElement(V.Field,{label:'Org role'},React.createElement(V.Select,{}, ['member','admin','owner'].map(o=>React.createElement('option',{key:o},o)))), React.createElement(V.Field,{label:'Team'},React.createElement(V.Select,{}, this.DATA.teams.map(t=>React.createElement('option',{key:t.name},t.name))))),
+      this.warnbar('info',React.createElement(React.Fragment,null,'Each new member joins one team and inherits its default budget. A ',React.createElement('span',{className:'vx-mono'},'default'),' API key is created automatically.'))),
+    foot:React.createElement(React.Fragment,null, React.createElement(V.Button,{variant:'ghost',onClick:()=>this.closeOverlays()},'Cancel'), this.spacer(), React.createElement(V.Button,{variant:'accent',iconLeft:React.createElement(V.Icon,{name:'send',size:14}),onClick:()=>{this.closeOverlays();this.toast('Invitations sent','ok');}},'Send invites'))}); }
+  openMemberDetail(m){ const V=window.Vortex_469485, t=this.teamOf(m.team), keys=this.keysOf(m.name), frac=this.memberFrac(m);
+    this.openDrawer({wide:true,crumb:React.createElement(React.Fragment,null,React.createElement(V.Icon,{name:'team',size:12}),m.type==='technical'?'SERVICE ACCOUNT':'MEMBER'),title:m.name,sub:(m.type==='technical'?('service acct \u00b7 '+(m.app||'')):m.email),
+      body:React.createElement(React.Fragment,null,
+        React.createElement('div',{style:{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap'}}, this.mtype(m.type), this.roleBadge(m.role), React.createElement(V.Badge,{tone:'neutral'},m.team+' team'), m.teamRole==='team_admin'?React.createElement(V.Badge,{tone:'accent'},'Team admin'):null, React.createElement(V.StatusPill,{status:m.status})),
+        this.sectionTitle('Monthly budget'),
+        React.createElement(V.Card,{style:{padding:16}}, React.createElement('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}, React.createElement('div',null, React.createElement('span',{className:'vx-disp',style:{fontSize:20}},this.money(m.budget,0)), React.createElement('span',{style:{color:'var(--vx-ink-4)',fontSize:11,marginLeft:8,fontFamily:'var(--vx-font-mono)'}},'/mo \u00b7 '+(m.bsrc==='override'?'override':'team default'))), React.createElement(V.Button,{size:'sm',variant:'ghost',onClick:()=>{this.closeOverlays();this.openOverride(m);}},'Set override')),
+          React.createElement('div',{style:{display:'flex',justifyContent:'space-between',marginBottom:6}}, React.createElement('span',{className:'vx-mono',style:{fontSize:11.5,color:frac>=1?'var(--vx-err)':'var(--vx-ink-2)'}},this.money(m.spent)+' spent'), React.createElement('span',{className:'vx-mono',style:{fontSize:11.5,color:'var(--vx-ink-4)'}},Math.round(frac*100)+'%')),
+          React.createElement('div',{style:{height:9,borderRadius:6,background:'var(--vx-bg-2)',overflow:'hidden'}}, React.createElement('div',{style:{height:'100%',width:Math.min(frac*100,100)+'%',background:frac>=.9?'var(--vx-err)':frac>=.8?'var(--vx-warn)':'var(--vx-good)'}})),
+          React.createElement('div',{style:{marginTop:10,fontSize:11.5,color:'var(--vx-ink-3)'}}, t&&t.enf==='hard'?React.createElement(React.Fragment,null,React.createElement(V.Icon,{name:'lock',size:11,style:{verticalAlign:'-1px'}}),' Hard cap \u2014 requests return 402 across all apps when exhausted.'):'Soft cap \u2014 alert only when exhausted.')),
+        this.sectionTitle(m.type==='technical'?'Service keys (owned by this account)':'API keys ('+keys.length+')'),
+        keys.length?React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:8}}, keys.map((k,i)=>React.createElement('div',{key:i,style:{display:'flex',alignItems:'center',gap:12,padding:'11px 14px',border:'1px solid var(--vx-line)',borderRadius:'var(--vx-radius)',background:'var(--vx-panel)'}}, React.createElement(V.Icon,{name:'key',size:15,style:{color:'var(--vx-ink-3)'}}), React.createElement('div',{style:{flex:1,minWidth:0}}, React.createElement('div',{style:{fontWeight:600,fontSize:12.5,display:'flex',gap:6,alignItems:'center'}},k.name, k.kind==='default'?React.createElement(V.Tag,{tone:'accent'},'default'):React.createElement(V.Tag,{tone:'neutral'},'personal')), React.createElement('div',{className:'vx-mono',style:{fontSize:11,color:'var(--vx-ink-4)'}},k.mask+' \u00b7 '+k.rules+' \u00b7 '+k.rate)), React.createElement(V.StatusPill,{status:k.status}), React.createElement(V.IconButton,{size:'sm',title:'Actions',onClick:e=>this.openKeyMenu(e,k)},React.createElement(V.Icon,{name:'more',size:14}))))):React.createElement('div',{style:{color:'var(--vx-ink-4)',fontSize:12}},'No keys.'),
+        React.createElement('div',{style:{marginTop:12}}, this.warnbar('info','Keys are member-owned and not app-bound \u2014 rules cap models / providers / IP and rate limit, but never budget. Budget is per-member.'))),
+      foot:React.createElement(React.Fragment,null, React.createElement(V.Button,{iconLeft:React.createElement(V.Icon,{name:'gov',size:14}),onClick:()=>{this.closeOverlays();this.openOverride(m);}},'Budget override'), this.spacer(), m.type!=='technical'?React.createElement(V.Button,{variant:'ghost',onClick:()=>{this.closeOverlays();this.toast(m.name+' role menu','info');}},'Change role'):null, React.createElement(V.Button,{variant:'ghost',onClick:()=>this.closeOverlays()},'Close'))}); }
+
+  // ============================================================
+  //  HUB 4 · APPS (system / service / personal)
+  // ============================================================
+  scrApps(){
+    const V=window.Vortex_469485;
+    const tbl=this.table({id:'apps',rows:this.DATA.apps,per:10,paginate:false,onRowClick:r=>this.openApp(r),
+      toolbar:React.createElement(React.Fragment,null, this.searchInput('Search apps\u2026'), React.createElement(V.FilterChip,{label:'Kind',value:'Any'}), React.createElement(V.FilterChip,{label:'Status',value:'Any'}), this.spacer(), React.createElement(V.Button,{size:'sm',variant:'accent',iconLeft:React.createElement(V.Icon,{name:'plus',size:13}),onClick:()=>this.openAppDrawer()},'Deploy app')),
+      cols:[
+        {label:'App',key:'name',render:r=>React.createElement('span',{style:{display:'inline-flex',alignItems:'center',gap:10}}, React.createElement('span',{style:{width:28,height:28,borderRadius:7,display:'grid',placeItems:'center',color:'#fff',background:r.kind==='system'?'linear-gradient(135deg,#a78bfa,#60a5fa)':r.kind==='service'?'#5b8def':'#6b6f8f',flexShrink:0}},React.createElement(V.Icon,{name:r.kind==='system'?'chat':r.kind==='service'?'cpu':'book',size:15})), React.createElement('span',{style:{fontWeight:600,color:'var(--vx-ink)'}},r.name))},
+        {label:'Kind',key:'kind',render:r=>this.appKind(r.kind)},
+        {label:'Owner',key:'owner',render:r=>React.createElement('span',{style:{color:'var(--vx-ink-2)'}},r.owner)},
+        {label:'Technical member',key:'tech',render:r=>r.tech==='\u2014'?React.createElement('span',{style:{color:'var(--vx-ink-4)'}},'\u2014'):React.createElement('span',{style:{display:'inline-flex',alignItems:'center',gap:6}}, React.createElement(V.Icon,{name:'cpu',size:12,style:{color:'var(--vx-accent)'}}), React.createElement('span',{className:'vx-mono',style:{fontSize:11.5}},r.tech))},
+        {label:'Access',key:'access',render:r=>React.createElement('span',{style:{color:'var(--vx-ink-3)',fontSize:11.5}},r.access)},
+        {label:'Spend \u00b7 MTD',key:'spend',align:'right',render:r=>React.createElement('span',{className:'vx-mono',style:{fontWeight:600}},this.money(r.spend,0))},
+        {label:'Status',key:'status',render:r=>React.createElement(V.StatusPill,{status:r.status==='paused'?'stale':'active'},r.status)},
+        {label:'',render:r=>React.createElement(V.Icon,{name:'chevron-right',size:15,style:{color:'var(--vx-ink-4)'}})},
+      ]});
+    return React.createElement(React.Fragment,null,
+      this.pageHead('Apps',null),
+      React.createElement('div',{style:{marginTop:-14,marginBottom:18,color:'var(--vx-ink-3)',fontSize:12.5,maxWidth:680}},'Everything that calls the gateway: the built-in ',React.createElement('b',null,'Chat'),' (system), org-deployed ',React.createElement('b',null,'service'),' apps, and members\u2019 ',React.createElement('b',null,'personal'),' apps. Apps are an attribution dimension, not a budget scope \u2014 each has a technical member, a routing policy and access grants.'),
+      this.stateSwitcher('apps'),
+      this.fourStates('apps',tbl,{icon:'library',title:'No apps yet',desc:'Deploy a service app or let members create personal ones. Chat ships built-in.',cta:'Deploy app',onClick:()=>this.openAppDrawer()},6)
+    );
+  }
+  openApp(a){ this._app=a; this.setState({screen:'appdetail',appTab:'overview',drawer:null,menu:null}); const c=document.querySelector('#vx-content'); if(c) c.scrollTop=0; }
+  openAppDrawer(){ const V=window.Vortex_469485; this.openDrawer({crumb:React.createElement(React.Fragment,null,React.createElement(V.Icon,{name:'library',size:12}),'NEW APP'),title:'Deploy service app',sub:'A technical member (service account) is auto-created for it.',
+    body:React.createElement(React.Fragment,null,
+      React.createElement(V.Field,{label:'App name'},React.createElement(V.Input,{placeholder:'e.g. Support Copilot'})),
+      React.createElement(V.Field,{label:'Owner'},React.createElement(V.Select,{}, this.humans().filter(m=>m.status==='active').map(m=>React.createElement('option',{key:m.name},m.name)))),
+      React.createElement(V.Field,{label:'Technical member\u2019s team',hint:'The service account sits in a team and inherits its default budget (overridable).'},React.createElement(V.Select,{}, this.DATA.teams.map(t=>React.createElement('option',{key:t.name},t.name)))),
+      React.createElement(V.Field,{label:'Default routing policy'},React.createElement(V.Select,{}, ['claude-sonnet-4.5 \u2192 gpt-4o','gpt-4o only','Cost-optimized (haiku / mini)'].map(o=>React.createElement('option',{key:o},o))))),
+    foot:React.createElement(React.Fragment,null, React.createElement(V.Button,{variant:'ghost',onClick:()=>this.closeOverlays()},'Cancel'), this.spacer(), React.createElement(V.Button,{variant:'accent',onClick:()=>{this.closeOverlays();this.toast('App deployed \u00b7 service account created','ok');}},'Deploy app'))}); }
+  scrAppDetail(){
+    const V=window.Vortex_469485, a=this._app||this.DATA.apps[0], tab=this.state.appTab;
+    const tech=this.DATA.members.find(m=>m.name===a.tech);
+    const tabs=[{id:'overview',label:'Overview'},{id:'access',label:'Access'},{id:'routing',label:'Routing'},{id:'keys',label:'Keys'},{id:'usage',label:'Usage'}];
+    let body;
+    if(tab==='overview'){ const frac=tech?this.memberFrac(tech):0;
+      body=React.createElement('div',{style:{display:'grid',gap:16,gridTemplateColumns:'1.4fr 1fr'}},
+        React.createElement('div',{style:{display:'grid',gap:16}},
+          React.createElement(V.Panel,{title:'App'}, React.createElement('dl',{style:{display:'grid',gridTemplateColumns:'auto 1fr',gap:'10px 20px',fontSize:12.5,margin:0}}, [['Kind',this.appKind(a.kind)],['Owner',a.owner],['Technical member',a.tech==='\u2014'?'\u2014 (personal, uses owner\u2019s keys)':React.createElement('span',{style:{display:'inline-flex',gap:6,alignItems:'center'}},React.createElement(V.Icon,{name:'cpu',size:12,style:{color:'var(--vx-accent)'}}),a.tech)],['Access',a.access],['Default routing',React.createElement('span',{className:'vx-mono',style:{fontSize:11.5}},a.policy)],['Status',React.createElement(V.StatusPill,{status:a.status==='paused'?'stale':'active'},a.status)]].map(([k,v])=>React.createElement('div',{key:k,style:{display:'contents'}}, React.createElement('dt',{style:{color:'var(--vx-ink-3)'}},k), React.createElement('dd',{style:{margin:0}},v))))),
+          React.createElement(V.Panel,{title:'Spend \u00b7 MTD',sub:'this app across all members'}, this.areaChart([{data:this.costSeries(a.spend,7),color:'var(--vx-accent)'}],{h:170,labels:[],fmt:v=>'$'+this.compact(v)}))),
+        React.createElement(V.Panel,{title:tech?'Technical member budget':'Budget'}, tech?React.createElement('div',{style:{textAlign:'center'}}, this.gauge(frac,120), React.createElement('div',{style:{marginTop:6}}, React.createElement('div',{className:'vx-disp',style:{fontSize:17}},this.money(tech.budget-tech.spent,0)+' left'), React.createElement('div',{style:{color:'var(--vx-ink-3)',fontSize:11}},'of '+this.money(tech.budget,0)+'/mo \u00b7 '+tech.team+' team'), React.createElement('div',{style:{marginTop:12}}, React.createElement(V.Button,{size:'sm',variant:'ghost',onClick:()=>this.openOverride(tech)},'Adjust budget')))):React.createElement('div',{style:{color:'var(--vx-ink-3)',fontSize:12,lineHeight:1.6}},'Personal apps use the owner\u2019s own keys and budget \u2014 there\u2019s no separate service account.')));
+    } else if(tab==='access'){
+      const grants=a.kind==='system'?[['Whole org','app_member','all 142 members'],['Platform','app_admin','team grant'],['Dana Cho','app_admin','direct']]:a.kind==='service'?[[a.access.split(', ')[0],'app_member','team grant'],[a.owner,'app_admin','direct']]:[[a.owner,'app_admin','direct']];
+      body=React.createElement(React.Fragment,null,
+        React.createElement('div',{style:{display:'flex',marginBottom:12}}, this.spacer(), React.createElement(V.Button,{size:'sm',variant:'accent',iconLeft:React.createElement(V.Icon,{name:'plus',size:13}),onClick:()=>this.openGrant()},'Grant access')),
+        this.table({id:'appaccess',rows:grants.map(g=>({who:g[0],role:g[1],via:g[2]})),per:8,paginate:false,cols:[
+          {label:'Grantee',key:'who',render:r=>React.createElement('span',{style:{fontWeight:600,color:'var(--vx-ink)'}},r.who)},
+          {label:'App role',key:'role',render:r=>React.createElement(V.Badge,{tone:r.role==='app_admin'?'accent':'neutral'},r.role)},
+          {label:'Via',key:'via',render:r=>React.createElement('span',{style:{color:'var(--vx-ink-3)',fontSize:11.5}},r.via)},
+          {label:'',render:r=>React.createElement(V.IconButton,{size:'sm',title:'Remove',onClick:()=>this.toast('Revoke grant','info')},React.createElement(V.Icon,{name:'x',size:14}))},
+        ]}),
+        React.createElement('div',{style:{marginTop:12}}, this.warnbar('info',React.createElement(React.Fragment,null,'Grant to whole ',React.createElement('b',null,'teams'),' or specific ',React.createElement('b',null,'members'),'. ',React.createElement('b',null,'app_admin'),' configures routing / access / keys; ',React.createElement('b',null,'app_member'),' can use the app.'))));
+    } else if(tab==='routing'){ body=this.routingBody(a.policy); }
+    else if(tab==='keys'){ const keys=tech?this.keysOf(tech.name):this.keysOf(a.owner);
+      body=React.createElement(React.Fragment,null,
+        React.createElement('div',{style:{marginBottom:12}}, this.warnbar('info',React.createElement(React.Fragment,null,'These are the ',React.createElement('b',null,'service keys'),' \u2014 keys owned by ',React.createElement('b',null,a.tech==='\u2014'?a.owner:a.tech),'. Keys are member-owned, not app-bound; this app\u2019s traffic uses them.'))),
+        this.table({id:'appkeys',rows:keys,per:8,paginate:false,cols:[
+          {label:'Key',key:'name',render:r=>React.createElement('div',null,React.createElement('div',{style:{fontWeight:600,color:'var(--vx-ink)',display:'flex',gap:6,alignItems:'center'}},r.name, r.kind==='default'?React.createElement(V.Tag,{tone:'accent'},'default'):React.createElement(V.Tag,{tone:'neutral'},'personal')),React.createElement('div',{className:'vx-mono',style:{color:'var(--vx-ink-4)',fontSize:11}},r.mask))},
+          {label:'Rules',key:'rules',render:r=>React.createElement('span',{style:{color:'var(--vx-ink-3)',fontSize:11.5}},r.rules)},
+          {label:'Rate limit',key:'rate',render:r=>React.createElement('span',{className:'vx-mono',style:{fontSize:11.5}},r.rate)},
+          {label:'Status',key:'status',render:r=>React.createElement(V.StatusPill,{status:r.status})},
+          {label:'',render:r=>React.createElement(V.Button,{size:'sm',variant:'ghost',onClick:()=>this.openRotateKey(r)},'Rotate')},
+        ]}));
+    } else { const byMember=this.DATA.members.filter(m=>m.spent>0).slice(0,5).map((m,i)=>({label:m.name,v:Math.round(a.spend*[0.42,0.24,0.16,0.1,0.08][i])}));
+      body=React.createElement('div',{style:{display:'grid',gap:16,gridTemplateColumns:'1fr 1fr'}},
+        React.createElement(V.Panel,{title:'Spend by member',sub:'who used this app'}, this.gridbars(byMember,v=>this.money(v,0))),
+        React.createElement(V.Panel,{title:'Spend by model'}, this.gridbars(this.DATA.models.filter(m=>m.on).slice(0,4).map(m=>({label:m.alias,v:Math.round(a.spend*m.share/70),color:this.provColor(m.prov),mark:this.pmark(m.prov,14)})),v=>this.money(v,0))));
+    }
+    return React.createElement(React.Fragment,null,
+      this.crumbs([{label:'Apps',onClick:()=>this.go('apps')},{label:a.name}]),
+      this.pageHead(a.name,null, React.createElement(React.Fragment,null, this.appKind(a.kind), React.createElement(V.Button,{iconLeft:React.createElement(V.Icon,{name:'cpu',size:14}),onClick:()=>{this.setState({costDim:'app'});this.go('usage');}},'In cost explorer'))),
+      React.createElement('div',{style:{marginBottom:18}}, React.createElement(V.Tabs,{items:tabs,value:tab,onChange:t=>this.setState({appTab:t})})),
+      body
+    );
+  }
+  openGrant(){ const V=window.Vortex_469485; this.openDrawer({crumb:React.createElement(React.Fragment,null,React.createElement(V.Icon,{name:'lock',size:12}),'GRANT ACCESS'),title:'Grant app access',
+    body:React.createElement(React.Fragment,null,
+      React.createElement(V.Field,{label:'Grant to'}, this.segRadio(['Whole team','Specific member'],'Whole team')),
+      React.createElement(V.Field,{label:'Team or member'},React.createElement(V.Select,{}, this.DATA.teams.map(t=>React.createElement('option',{key:t.name},t.name+' (team)')))),
+      React.createElement(V.Field,{label:'App role'}, this.segRadio(['app_member','app_admin'],'app_member'))),
+    foot:React.createElement(React.Fragment,null, React.createElement(V.Button,{variant:'ghost',onClick:()=>this.closeOverlays()},'Cancel'), this.spacer(), React.createElement(V.Button,{variant:'accent',onClick:()=>{this.closeOverlays();this.toast('Access granted','ok');}},'Grant'))}); }
+
+  // ---------- routing body (shared: app routing) ----------
+  routingBody(policy){
+    const V=window.Vortex_469485;
+    const chain=[['claude-sonnet-4.5','anthropic','Primary','Anthropic \u00b7 us-east'],['gpt-4o','openai','Fallback 1','OpenAI \u00b7 org-2'],['gemini-2.5-pro','google','Fallback 2','Vertex \u00b7 app cred']];
+    const node=(c,i)=>React.createElement(React.Fragment,{key:i},
+      i>0&&React.createElement('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',color:'var(--vx-ink-4)',padding:'3px 0 3px 24px'}}, React.createElement(V.Icon,{name:'arrow-up',size:16,style:{transform:'rotate(180deg)'}}), React.createElement('span',{className:'vx-mono',style:{fontSize:9,letterSpacing:'.06em',textTransform:'uppercase'}},'on failure / timeout')),
+      React.createElement('div',{style:{display:'flex',alignItems:'center',gap:12,padding:'12px 14px',border:'1px solid var(--vx-line-2)',borderRadius:'var(--vx-radius)',background:'var(--vx-panel)'}},
+        React.createElement('span',{style:{color:'var(--vx-ink-4)',cursor:'grab'}},React.createElement(V.Icon,{name:'more-v',size:16})),
+        React.createElement('span',{style:{width:22,height:22,borderRadius:6,background:'var(--vx-accent-soft)',color:'var(--vx-accent)',display:'grid',placeItems:'center',fontFamily:'var(--vx-font-mono)',fontWeight:700,fontSize:11}},i+1), this.pmark(c[1],18),
+        React.createElement('div',{style:{flex:1}}, React.createElement('div',{style:{fontWeight:600,fontSize:13}},c[0]), React.createElement('div',{style:{color:'var(--vx-ink-3)',fontSize:11}},c[2]+' \u00b7 binds '+c[3])),
+        React.createElement(V.IconButton,{title:'Remove',onClick:()=>this.toast('Remove candidate','info')},React.createElement(V.Icon,{name:'x',size:15}))));
+    const rule=(t,d,ctrl,border=true)=>React.createElement('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 0',borderBottom:border?'1px solid var(--vx-line)':'none'}}, React.createElement('div',null, React.createElement('div',{style:{fontWeight:600,fontSize:12.5}},t), React.createElement('div',{style:{color:'var(--vx-ink-3)',fontSize:11}},d)), ctrl);
+    return React.createElement('div',{style:{display:'grid',gap:16,gridTemplateColumns:'1.4fr 1fr'}},
+      React.createElement(V.Panel,{title:'Candidate chain',sub:'drag to reorder',actions:React.createElement(V.Button,{size:'sm',iconLeft:React.createElement(V.Icon,{name:'plus',size:13})},'Add model')}, React.createElement('div',null, chain.map(node))),
+      React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:16}},
+        React.createElement(V.Panel,{title:'Provider bindings'}, React.createElement('div',null,
+          rule('Retry primary','before falling through',React.createElement(V.Select,{defaultValue:'3',style:{width:74}},['2','3','5'].map(o=>React.createElement('option',{key:o},o)))),
+          rule('Timeout','per attempt',React.createElement(V.Input,{defaultValue:'30s',style:{width:80,textAlign:'right'}})),
+          rule('Fail on 429','route to fallback on rate-limit',React.createElement(V.Switch,{checked:this.swOn('r429',true),onChange:()=>this.toggleSw('r429')}),false))),
+        React.createElement(V.Panel,{title:'Simulate'}, this.warnbar('info',React.createElement(React.Fragment,null,'If ',React.createElement('b',null,'claude-sonnet-4.5'),' times out, requests route to ',React.createElement('b',null,'gpt-4o'),', then ',React.createElement('b',null,'gemini-2.5-pro'),'. Added latency on failover: ',React.createElement('b',{className:'vx-mono'},'+180ms'),'.')))));
+  }
+
+  // ============================================================
+  //  HUB 5a · CREDENTIALS (BYO provider creds)
+  // ============================================================
+  scrProviders(){
+    const V=window.Vortex_469485;
+    const cards=this.DATA.providers.map((p,i)=>React.createElement(V.Card,{key:i,hover:true,style:{padding:16,display:'flex',flexDirection:'column',gap:12,cursor:'pointer'},onClick:()=>this.openCredentialDetail(p)},
+      React.createElement('div',{style:{display:'flex',alignItems:'center',gap:12}}, this.pmark(p.prov,34), React.createElement('div',{style:{flex:1}}, React.createElement('div',{style:{fontWeight:600,fontSize:13.5}},p.name), React.createElement('div',{style:{color:'var(--vx-ink-3)',fontSize:11.5}},p.scope)), React.createElement(V.IconButton,{title:'Edit',onClick:e=>{e.stopPropagation&&e.stopPropagation();this.openProviderDrawer(p);}},React.createElement(V.Icon,{name:'wrench',size:15}))),
+      React.createElement('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between'}}, React.createElement('span',{style:{display:'flex',gap:6}}, React.createElement(V.StatusPill,{status:p.status==='valid'?'active':'failed'},p.status==='valid'?'valid':'invalid'), React.createElement(V.Tag,{tone:'neutral'},React.createElement(React.Fragment,null,React.createElement(V.Icon,{name:'lock',size:11}),'encrypted'))), React.createElement('span',{className:'vx-mono',style:{fontSize:10.5,color:'var(--vx-ink-4)'}},'updated '+p.updated)),
+      p.status!=='valid'&&this.warnbar('danger','Credential rejected on last check. Requests are failing over.')));
+    const grid=React.createElement('div',{style:{display:'grid',gap:16,gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))'}},cards);
+    return React.createElement(React.Fragment,null,
+      this.pageHead('Provider Credentials',React.createElement(React.Fragment,null,'BYO provider keys, encrypted at rest and scoped ',React.createElement('b',null,'org / team / app'),'. Click a credential for health, rotation, negotiated price overrides and limits.'), React.createElement(V.Button,{variant:'accent',iconLeft:React.createElement(V.Icon,{name:'plus',size:14}),onClick:()=>this.openProviderDrawer()},'Add credential')),
+      this.stateSwitcher('prov'),
+      this.stateWrap('prov',{data:grid,empty:this.emptyState({icon:'database',title:'No provider credentials',desc:'Add at least one provider key so Vortex can route requests.',cta:'Add credential',onClick:()=>this.openProviderDrawer()}),loading:React.createElement('div',{style:{display:'grid',gap:16,gridTemplateColumns:'repeat(3,1fr)'}}, Array.from({length:6}).map((_,i)=>React.createElement('div',{key:i,className:'vx-sk',style:{height:120,borderRadius:12}}))),error:this.errorState(),denied:this.deniedState()})
+    );
+  }
+  openProviderDrawer(p){ const V=window.Vortex_469485, edit=!!p;
+    this.openDrawer({crumb:React.createElement(React.Fragment,null,React.createElement(V.Icon,{name:'database',size:12}),edit?'EDIT CREDENTIAL':'NEW CREDENTIAL'),title:edit?p.name:'Add provider credential',
+      body:React.createElement(React.Fragment,null,
+        React.createElement(V.Field,{label:'Provider'}, React.createElement(V.Select,{defaultValue:edit?p.name:'Anthropic'}, ['Anthropic','OpenAI','Google Vertex AI','Mistral AI','Azure OpenAI','AWS Bedrock'].map(o=>React.createElement('option',{key:o},o)))),
+        React.createElement(V.Field,{label:'API key',hint:'Encrypted with AES-256 before storage.'}, React.createElement('div',{style:{display:'flex',gap:8}}, React.createElement(V.Input,{mono:true,type:'password',defaultValue:edit?'sk-\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022':'',placeholder:'sk-...',style:{flex:1}}), React.createElement(V.IconButton,{variant:'default',title:'Reveal'},React.createElement(V.Icon,{name:'eye',size:15})))),
+        React.createElement(V.Field,{label:'Scope',hint:'Org-scoped credentials are available everywhere unless overridden by team or app.'}, this.segRadio(['Organization','Team','App'],'Organization')),
+        React.createElement('div',{style:{height:1,background:'var(--vx-line)',margin:'18px 0'}}),
+        React.createElement('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between'}}, React.createElement('div',null, React.createElement('div',{style:{fontWeight:600,fontSize:12.5}},'Test connection'), React.createElement('div',{style:{color:'var(--vx-ink-3)',fontSize:11.5}},'Verify the key before saving.')), React.createElement(V.Button,{iconLeft:React.createElement(V.Icon,{name:'sparkle',size:14}),onClick:()=>this.toast('Connection OK \u2713','ok')},'Test'))),
+      foot:React.createElement(React.Fragment,null, React.createElement(V.Button,{variant:'ghost',onClick:()=>this.closeOverlays()},'Cancel'), this.spacer(), React.createElement(V.Button,{variant:'accent',iconLeft:React.createElement(V.Icon,{name:'lock',size:14}),onClick:()=>{this.closeOverlays();this.toast('Credential saved & encrypted','ok');}},'Save credential'))}); }
+  openCredentialDetail(p){ const V=window.Vortex_469485;
+    const kv=(k,v,c)=>React.createElement('div',{key:k,style:{display:'contents'}}, React.createElement('dt',{style:{color:'var(--vx-ink-3)'}},k), React.createElement('dd',{className:'vx-mono',style:{margin:0,textAlign:'right',color:c||'var(--vx-ink)'}},v));
+    this.openDrawer({wide:true,crumb:React.createElement(React.Fragment,null,React.createElement(V.Icon,{name:'database',size:12}),'CREDENTIAL'),title:p.name,sub:p.scope,
+      body:React.createElement(React.Fragment,null,
+        React.createElement('div',{style:{display:'flex',gap:8,marginBottom:16}}, React.createElement(V.StatusPill,{status:p.status==='valid'?'active':'failed'},p.status==='valid'?'valid':'invalid'), React.createElement(V.Tag,{tone:'neutral'},React.createElement(React.Fragment,null,React.createElement(V.Icon,{name:'lock',size:11}),'AES-256 at rest')), React.createElement(V.Tag,{tone:'neutral'},'last-4 \u2022\u20228f2a')),
+        this.sectionTitle('Health'),
+        React.createElement(V.Card,{style:{padding:16}}, React.createElement('dl',{style:{display:'grid',gridTemplateColumns:'auto 1fr',gap:'8px 20px',fontSize:12.5,margin:0}}, kv('Status',p.status==='valid'?'Valid':'Invalid \u2014 skipped in failover',p.status==='valid'?'var(--vx-good)':'var(--vx-err)'), kv('Last checked','2 min ago'), kv('Region','us-east-1'), kv('Resolution order','App \u2192 Team \u2192 Org')), React.createElement('div',{style:{marginTop:12}},React.createElement(V.Button,{size:'sm',iconLeft:React.createElement(V.Icon,{name:'sparkle',size:13}),onClick:()=>this.toast('Connection OK \u2713','ok')},'Test connection'))),
+        this.sectionTitle('Negotiated price override'),
+        this.warnbar('info','Enterprise rates drive cost calc instead of list price.'),
+        React.createElement('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginTop:10}}, React.createElement(V.Field,{label:'Input $/1M (override)'},React.createElement(V.Input,{mono:true,defaultValue:'2.40'})), React.createElement(V.Field,{label:'Output $/1M (override)'},React.createElement(V.Input,{mono:true,defaultValue:'12.00'}))),
+        this.sectionTitle('Rotation history'),
+        React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:8}}, [['Rotated by Dana Cho','3d ago','\u2022\u20228f2a'],['Rotated by Priya Raman','2mo ago','\u2022\u20221c40'],['Created by Dana Cho','Jan 2025','\u2022\u202299ab']].map((h,i)=>React.createElement('div',{key:i,style:{display:'flex',alignItems:'center',gap:10,fontSize:12,padding:'8px 0',borderBottom:i<2?'1px solid var(--vx-line)':'none'}}, React.createElement('span',{style:{width:6,height:6,borderRadius:'50%',background:i===0?'var(--vx-good)':'var(--vx-ink-4)'}}), React.createElement('span',{style:{flex:1}},h[0]), React.createElement('span',{className:'vx-mono',style:{fontSize:11,color:'var(--vx-ink-4)'}},h[2]), React.createElement('span',{className:'vx-mono',style:{fontSize:11,color:'var(--vx-ink-4)'}},h[1]))))),
+      foot:React.createElement(React.Fragment,null, React.createElement(V.Button,{variant:'accent',iconLeft:React.createElement(V.Icon,{name:'loader',size:14}),onClick:()=>this.toast('Zero-downtime rotation started','ok')},'Rotate key'), this.spacer(), React.createElement(V.Button,{variant:'ghost',onClick:()=>this.closeOverlays()},'Close'))}); }
+
+  // ============================================================
+  //  HUB 5b · MODELS
+  // ============================================================
+  scrModels(){
+    const V=window.Vortex_469485;
+    const tbl=this.table({id:'models',rows:this.DATA.models,per:10,paginate:false,
+      toolbar:React.createElement(React.Fragment,null, this.searchInput('Search models\u2026'), React.createElement(V.FilterChip,{label:'Provider',value:'Any'}), React.createElement(V.FilterChip,{label:'Enabled',value:'yes',active:true}), this.spacer(), React.createElement('span',{style:{fontSize:11.5,color:'var(--vx-ink-3)'}},this.DATA.models.filter(m=>m.on).length+' enabled \u00b7 '+this.DATA.models.length+' total')),
+      cols:[
+        {label:'Model',key:'name',render:r=>React.createElement('span',{style:{display:'inline-flex',alignItems:'center',gap:9}}, this.pmark(r.prov,22), React.createElement('div',null, React.createElement('div',{style:{fontWeight:600,color:'var(--vx-ink)'}},r.name), React.createElement('div',{className:'vx-mono',style:{color:'var(--vx-ink-4)',fontSize:11}},r.alias)))},
+        {label:'Provider',key:'prov',render:r=>React.createElement(V.Tag,{tone:'neutral'},r.prov)},
+        {label:'Input',key:'in',align:'right',render:r=>React.createElement('span',{className:'vx-mono'},'$'+r.in.toFixed(2))},
+        {label:'Output',key:'out',align:'right',render:r=>React.createElement('span',{className:'vx-mono'},'$'+r.out.toFixed(2))},
+        {label:'Context',key:'ctx',align:'right',render:r=>React.createElement('span',{className:'vx-mono'},r.ctx)},
+        {label:'30d share',key:'share',align:'right',render:r=>r.on?React.createElement('span',{className:'vx-mono'},r.share+'%'):React.createElement('span',{style:{color:'var(--vx-ink-4)'}},'\u2014')},
+        {label:'Enabled',key:'on',align:'center',sortVal:r=>r.on?1:0,render:r=>React.createElement(V.Switch,{checked:this.swOn('m_'+r.alias,r.on),onChange:()=>{this.toggleSw('m_'+r.alias);this.toast(r.alias+(this.swOn('m_'+r.alias,r.on)?' disabled':' enabled'),'ok');}})},
+      ]});
+    return React.createElement(React.Fragment,null,
+      this.pageHead('Model Catalog','Every model available through the gateway, with in/out price, context window and per-model enablement + routing defaults.', React.createElement(V.Button,{iconLeft:React.createElement(V.Icon,{name:'loader',size:14})},'Sync catalog')),
+      this.stateSwitcher('models'),
+      this.fourStates('models',tbl,{icon:'cpu',title:'No models enabled',desc:'Connect a provider credential to populate the catalog, then enable the models teams can use.',cta:'Add provider',onClick:()=>this.go('credentials')},6)
+    );
+  }
+
+  // ============================================================
+  //  KEY MANAGEMENT (member-owned) — menu / drawer / rotate / secret
+  // ============================================================
+  openKeyMenu(e,k){ this.openMenuAt(e,[
+    this.menuItem('Edit rules','wrench',()=>{this.closeOverlays();this.openKeyDrawer(k);}),
+    this.menuItem('Rotate key','loader',()=>{this.closeOverlays();this.openRotateKey(k);}),
+    this.menuItem('Copy prefix','copy',()=>this.copy(k.mask)),
+    this.menuSep(),
+    k.kind==='personal'?this.menuItem('Revoke key','x',()=>{this.closeOverlays();this.confirmRevoke(k.name);},{danger:true}):this.menuItem('Default key \u2014 can\u2019t revoke','lock',()=>{this.closeOverlays();this.toast('The default key can\u2019t be revoked','info');})
+  ],200); }
+  confirmRevoke(name){ const V=window.Vortex_469485; this.openModal({icon:'lock',tone:'danger',title:'Revoke '+name+'?',
+    body:React.createElement('p',{style:{color:'var(--vx-ink-2)',fontSize:12.5,lineHeight:1.55,margin:0}}, 'Requests using this key immediately receive ',React.createElement('span',{className:'vx-mono'},'401 Unauthorized'),'. This cannot be undone.'),
+    foot:React.createElement(React.Fragment,null, React.createElement(V.Button,{variant:'ghost',onClick:()=>this.closeOverlays()},'Cancel'), React.createElement(V.Button,{variant:'danger',iconLeft:React.createElement(V.Icon,{name:'lock',size:14}),onClick:()=>{this.closeOverlays();this.toast('Key revoked','ok');}},'Revoke key'))}); }
+  openKeyDrawer(k){ const V=window.Vortex_469485, edit=!!k;
+    const modelRow=(m,on)=>React.createElement('label',{key:m.alias,style:{display:'flex',alignItems:'center',gap:9,padding:'5px 0',cursor:'pointer',fontSize:12.5}}, React.createElement(V.Checkbox,{checked:on,onChange:()=>{}}), this.pmark(m.prov,16), React.createElement('span',{className:'vx-mono',style:{fontSize:12}},m.alias), React.createElement('span',{style:{marginLeft:'auto',color:'var(--vx-ink-3)',fontSize:11}},'$'+m.in+'/$'+m.out));
+    this.openDrawer({crumb:React.createElement(React.Fragment,null,React.createElement(V.Icon,{name:'key',size:12}),edit?'EDIT KEY':'NEW PERSONAL KEY'),title:edit?k.name:'Create personal key',sub:'Keys are member-owned. Rules cap models / providers / IP + rate limit \u2014 never budget.',
+      body:React.createElement(React.Fragment,null,
+        React.createElement(V.Field,{label:'Key name',hint:'A human label. Shown in logs and audit.'}, React.createElement(V.Input,{defaultValue:edit?k.name:'',placeholder:'e.g. ci-pipeline'})),
+        React.createElement(V.Field,{label:'Allowed models',hint:'Requests to any other model return 403.'}, React.createElement('div',{style:{background:'var(--vx-bg-2)',border:'1px solid var(--vx-line-2)',borderRadius:'var(--vx-radius-sm)',padding:'8px 12px',maxHeight:190,overflow:'auto'}}, this.DATA.models.filter(m=>m.on).map((m,i)=>modelRow(m,i<3)))),
+        React.createElement(V.Field,{label:'Allowed providers'}, React.createElement('div',{style:{display:'flex',gap:16,flexWrap:'wrap'}}, ['Anthropic','OpenAI','Google','Mistral'].map((e,i)=>React.createElement(V.Checkbox,{key:e,checked:i<3,onChange:()=>{},label:e})))),
+        React.createElement('div',{style:{height:1,background:'var(--vx-line)',margin:'2px 0 16px'}}),
+        this.sectionTitle('Rate limit'),
+        React.createElement('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}},
+          React.createElement(V.Field,{label:'Requests / min (RPM)'}, React.createElement(V.Input,{mono:true,defaultValue:edit?k.rate.replace(' RPM',''):'600'})),
+          React.createElement(V.Field,{label:'Tokens / min (TPM)'}, React.createElement(V.Input,{mono:true,defaultValue:'400,000'}))),
+        React.createElement(V.Field,{label:'IP allowlist (optional)'}, React.createElement(V.Input,{mono:true,placeholder:'10.4.0.0/16, 34.120.0.0/24'})),
+        this.warnbar('info',React.createElement(React.Fragment,null,'No per-key budget. Spend is governed by the ',React.createElement('b',null,'owner\u2019s monthly budget'),' across all their keys and apps.'))),
+      foot:React.createElement(React.Fragment,null, React.createElement(V.Button,{variant:'ghost',onClick:()=>this.closeOverlays()},'Cancel'), this.spacer(), React.createElement(V.Button,{variant:'accent',onClick:()=>{ edit?(this.closeOverlays(),this.toast('Key updated','ok')):this.showSecretModal(); }},edit?'Save changes':'Create key'))}); }
+  openRotateKey(k){ const V=window.Vortex_469485;
+    this.openModal({wide:true,icon:'loader',tone:'warn',title:'Rotate '+k.name+'?',
+      body:React.createElement(React.Fragment,null,
+        React.createElement('p',{style:{color:'var(--vx-ink-2)',fontSize:12.5,lineHeight:1.55,margin:'0 0 14px'}},'A new secret is generated and revealed once. The old key keeps working during an optional grace window so you can roll deployments without downtime.'),
+        React.createElement(V.Field,{label:'Grace window (old key stays valid)'}, this.segRadio(['None','1 hour','24 hours','7 days'],'24 hours')),
+        this.warnbar('warn','After the grace window the old secret is permanently disabled.')),
+      foot:React.createElement(React.Fragment,null, React.createElement(V.Button,{variant:'ghost',onClick:()=>this.closeOverlays()},'Cancel'), React.createElement(V.Button,{variant:'accent',iconLeft:React.createElement(V.Icon,{name:'loader',size:14}),onClick:()=>this.showSecretModal()},'Rotate & reveal'))}); }
+  showSecretModal(){ const V=window.Vortex_469485, secret='vtx_live_9f2a7c4e18bd0a6f3e5c9b2d4a7f1e0c';
+    this.openModal({icon:'check',tone:'good',title:'Key created',wide:true,
+      body:React.createElement(React.Fragment,null,
+        React.createElement('p',{style:{color:'var(--vx-ink-2)',fontSize:12.5,lineHeight:1.55,margin:'0 0 4px'}}, 'Copy your secret key now. ',React.createElement('b',null,"You won't be able to see it again"),' \u2014 store it in your secrets manager.'),
+        React.createElement('div',{style:{margin:'16px 0 12px'}}, this.copyField(secret)),
+        this.warnbar('warn','This is the only time the full secret is shown. Vortex stores only a hash.')),
+      foot:React.createElement(V.Button,{variant:'accent',iconLeft:React.createElement(V.Icon,{name:'check',size:14}),onClick:()=>{this.closeOverlays();this.toast('Key created \u2014 secret stored','ok');}},"I've stored it safely")}); }
+
+  // ============================================================
+  //  HUB 6a · AUDIT (hash-chained)
+  // ============================================================
+  scrAudit(){
+    const V=window.Vortex_469485;
+    const tbl=this.table({id:'audit',rows:this.DATA.audit,per:8,onRowClick:r=>this.openAuditDetail(r),
+      toolbar:React.createElement(React.Fragment,null, this.searchInput('Search actor, target\u2026'), React.createElement(V.FilterChip,{label:'Actor',value:'Any'}), React.createElement(V.FilterChip,{label:'Action',value:'Any'}), this.dateRange(), this.spacer()),
+      cols:[
+        {label:'Time',key:'time',render:r=>React.createElement('span',{className:'vx-mono',style:{color:'var(--vx-ink-2)',fontSize:11.5}},r.time)},
+        {label:'Actor',key:'actor',render:r=>r.actor==='system'?React.createElement('span',{style:{display:'inline-flex',alignItems:'center',gap:7,color:'var(--vx-ink-3)'}}, React.createElement('span',{style:{width:20,height:20,borderRadius:5,background:'var(--vx-ink-4)',color:'#fff',display:'grid',placeItems:'center',fontSize:9,fontFamily:'var(--vx-font-mono)',fontWeight:700}},'S'),'system'):React.createElement('span',{style:{display:'inline-flex',alignItems:'center',gap:7}}, React.createElement(V.Avatar,{name:r.actor,size:20}), r.actor)},
+        {label:'Action',key:'action',render:r=>React.createElement('span',{className:'vx-mono',style:{fontSize:11.5,color:'var(--vx-accent)'}},r.action)},
+        {label:'Target',key:'target',render:r=>r.target},
+        {label:'IP',key:'ip',align:'right',render:r=>React.createElement('span',{className:'vx-mono',style:{color:'var(--vx-ink-4)',fontSize:11}},r.ip)},
+        {label:'',render:r=>React.createElement(V.Badge,{tone:'ok',dot:true},'linked')},
+      ]});
+    const chain=React.createElement('div',{style:{display:'flex',gap:12,flexWrap:'wrap',marginBottom:14,alignItems:'center'}},
+      React.createElement('div',{style:{display:'inline-flex',alignItems:'center',gap:7,padding:'6px 12px',borderRadius:'var(--vx-radius-sm)',background:'rgba(var(--vx-good-rgb),.1)',border:'1px solid rgba(var(--vx-good-rgb),.28)',color:'var(--vx-good)',fontSize:12,fontWeight:600}}, React.createElement(V.Icon,{name:'gov',size:15}),'Hash chain verified \u00b7 48,201 entries'),
+      React.createElement('span',{style:{color:'var(--vx-ink-3)',fontSize:11.5}},'Last verified 2 min ago \u00b7 SHA-256 linked'));
+    return React.createElement(React.Fragment,null,
+      this.pageHead('Audit Log','Tamper-evident record of every privileged action. Each entry is hash-chained to the previous one.', React.createElement(React.Fragment,null, React.createElement(V.Button,{iconLeft:React.createElement(V.Icon,{name:'gov',size:14}),onClick:()=>this.toast('Chain verified \u2713','ok')},'Verify chain'), React.createElement(V.Button,{iconLeft:React.createElement(V.Icon,{name:'upload',size:14})},'Export'))),
+      this.stateSwitcher('audit'),
+      this.fourStates('audit',React.createElement(React.Fragment,null,chain,tbl),{icon:'gov',title:'No audit entries',desc:'Privileged actions \u2014 budget edits, role grants, key rotations \u2014 are recorded here with a verifiable hash chain.'},5)
+    );
+  }
+  openAuditDetail(a){ const V=window.Vortex_469485, i=this.DATA.audit.indexOf(a);
+    const hash=n=>'0x'+Array.from({length:12},(_,k)=>'0123456789abcdef'[(i*7+n*3+k*5)%16]).join('');
+    const kv=(k,v,c)=>React.createElement('div',{key:k,style:{display:'contents'}}, React.createElement('dt',{style:{color:'var(--vx-ink-3)'}},k), React.createElement('dd',{className:'vx-mono',style:{margin:0,textAlign:'right',color:c||'var(--vx-ink)',maxWidth:220,whiteSpace:'normal'}},v));
+    const hl=(lbl,h,accent)=>React.createElement('div',{style:{display:'flex',alignItems:'center',gap:8,fontFamily:'var(--vx-font-mono)',fontSize:11,color:accent?'var(--vx-accent)':'var(--vx-ink-3)'}}, React.createElement('span',{style:{width:52,color:accent?'var(--vx-accent)':'var(--vx-ink-4)'}},lbl), React.createElement('span',null,h));
+    this.openDrawer({crumb:React.createElement(React.Fragment,null,React.createElement(V.Icon,{name:'gov',size:12}),'AUDIT ENTRY'),title:'evt_'+(48201-i),sub:a.time,
+      body:React.createElement(React.Fragment,null,
+        React.createElement('div',{style:{display:'inline-flex',alignItems:'center',gap:7,padding:'6px 12px',borderRadius:'var(--vx-radius-sm)',background:'rgba(var(--vx-good-rgb),.1)',border:'1px solid rgba(var(--vx-good-rgb),.28)',color:'var(--vx-good)',fontSize:12,fontWeight:600,marginBottom:18}}, React.createElement(V.Icon,{name:'check',size:15}),'This entry is intact \u2014 hash matches the chain'),
+        React.createElement(V.Card,{style:{padding:16}}, React.createElement('dl',{style:{display:'grid',gridTemplateColumns:'auto 1fr',gap:'8px 20px',fontSize:12.5,margin:0}}, kv('Actor',a.actor), kv('Action',a.action,'var(--vx-accent)'), kv('Target',a.target), kv('Source IP',a.ip), kv('Session','ses_9f2a\u20264c1e'))),
+        this.sectionTitle('Metadata'),
+        React.createElement('pre',{className:'vx-mono',style:{background:'var(--vx-panel)',border:'1px solid var(--vx-line)',borderRadius:'var(--vx-radius)',padding:14,fontSize:11,color:'var(--vx-ink-2)',overflow:'auto',lineHeight:1.6,margin:0}}, '{\n  "before": { "budget": 1500 },\n  "after":  { "budget": 2500 },\n  "via": "console"\n}'),
+        this.sectionTitle('Hash chain'),
+        React.createElement(V.Card,{style:{padding:16,display:'flex',flexDirection:'column',gap:10}}, hl('prev',hash(0)+'\u2026'+hash(9).slice(-4)), hl('this',hash(3)+'\u2026'+hash(7).slice(-4),true), hl('next',hash(5)+'\u2026'+hash(2).slice(-4))),
+        React.createElement('div',{style:{marginTop:14}}, this.warnbar('info','Each entry hashes its own contents plus the previous entry\u2019s hash. Any tampering breaks the chain and is detected on verify.'))),
+      foot:React.createElement(React.Fragment,null, React.createElement(V.Button,{iconLeft:React.createElement(V.Icon,{name:'copy',size:14}),onClick:()=>this.copy('evt_'+(48201-i))},'Copy entry hash'), this.spacer(), React.createElement(V.Button,{variant:'ghost',onClick:()=>this.closeOverlays()},'Close'))}); }
+
+  // ============================================================
+  //  HUB 6b · ALERTS
+  // ============================================================
+  scrAlerts(){
+    const V=window.Vortex_469485;
+    const items=[
+      {sev:'err',kind:'402 Hard cap',title:'Marcus Reed exhausted his budget',desc:'Marcus hit his $2,500/mo override on the Platform team (hard cap). New requests return 402 across all apps until reset.',when:'12m ago',tags:['budget','member']},
+      {sev:'warn',kind:'Spike',title:'svc-support spend +340% vs baseline',desc:'Service account svc-support (Support Copilot) spent $1,240 in 1h vs a $290 rolling baseline. Possible runaway job.',when:'1h ago',tags:['anomaly','app']},
+      {sev:'warn',kind:'Threshold',title:'Marcus Reed crossed 95%',desc:'Marcus reached 95% of his monthly budget. Owners & team admin notified via email + webhook.',when:'Yesterday',tags:['budget','member']},
+      {sev:'info',kind:'Idle',title:'1 key unused for 30+ days',desc:'svc-analytics \u00b7 legacy has had no traffic in 30 days. Consider revoking to reduce attack surface.',when:'2d ago',tags:['waste','key']},
+      {sev:'info',kind:'Under budget',title:'Sara Okafor far under budget',desc:'Sara has used 30% of her $400/mo across the month. Her ceiling may be higher than needed.',when:'3d ago',tags:['waste','member']},
+    ];
+    const card=(a,i)=>React.createElement(V.Card,{key:i,style:{padding:16,display:'flex',gap:14,alignItems:'flex-start'}},
+      React.createElement('span',{style:{width:34,height:34,borderRadius:8,display:'grid',placeItems:'center',flexShrink:0,background:a.sev==='err'?'rgba(var(--vx-err-rgb),.12)':a.sev==='warn'?'rgba(var(--vx-warn-rgb),.14)':'var(--vx-accent-soft)',color:a.sev==='err'?'var(--vx-err)':a.sev==='warn'?'var(--vx-warn)':'var(--vx-accent)'}}, React.createElement(V.Icon,{name:a.sev==='info'?'sparkle':'gov',size:17})),
+      React.createElement('div',{style:{flex:1,minWidth:0}}, React.createElement('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:3}}, React.createElement(V.Badge,{tone:a.sev==='err'?'err':a.sev==='warn'?'warn':'accent'},a.kind), React.createElement('span',{style:{fontWeight:600,fontSize:13}},a.title)), React.createElement('div',{style:{color:'var(--vx-ink-3)',fontSize:12,lineHeight:1.5}},a.desc), React.createElement('div',{style:{display:'flex',gap:6,marginTop:8}}, a.tags.map(t=>React.createElement(V.Tag,{key:t,tone:'neutral'},t)))),
+      React.createElement('div',{style:{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:8}}, React.createElement('span',{className:'vx-mono',style:{fontSize:10.5,color:'var(--vx-ink-4)'}},a.when), React.createElement(V.Button,{size:'sm',variant:'ghost',onClick:()=>this.toast('Acknowledged','ok')},'Ack')));
+    return React.createElement(React.Fragment,null,
+      this.pageHead('Alerts','Spend spikes vs each entity\u2019s baseline, budget-threshold breaches, 402 cap events, and idle / waste signals (unused keys, members far under budget).', React.createElement(V.Button,{iconLeft:React.createElement(V.Icon,{name:'wrench',size:14}),onClick:()=>this.go('budgets')},'Alert rules')),
+      React.createElement('div',{style:{display:'flex',gap:6,marginBottom:16}}, React.createElement(V.Badge,{tone:'err',dot:true},'1 critical'), React.createElement(V.Badge,{tone:'warn',dot:true},'2 warnings'), React.createElement(V.Badge,{tone:'accent'},'2 signals')),
+      React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:12}}, items.map(card))
+    );
+  }
+
+  // ============================================================
+  //  HUB 7 · SETTINGS (org profile · security roadmap · danger zone)
+  // ============================================================
+  scrSettings(){
+    const V=window.Vortex_469485;
+    const stat=(k,v)=>React.createElement(V.Card,{style:{padding:14,background:'var(--vx-bg-2)'}}, React.createElement('div',{className:'vx-mono',style:{fontSize:10,textTransform:'uppercase',letterSpacing:'.06em',color:'var(--vx-ink-4)'}},k), React.createElement('div',{style:{fontSize:15,fontWeight:600,marginTop:4}},v));
+    const secRow=(t,d,ctrl,live)=>React.createElement('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,padding:'12px 0',borderBottom:'1px solid var(--vx-line)'}}, React.createElement('div',{style:{maxWidth:520}}, React.createElement('div',{style:{fontWeight:600,fontSize:12.5,display:'flex',alignItems:'center',gap:8}},t, live?null:React.createElement(V.Badge,{tone:'neutral'},'Roadmap')), React.createElement('div',{style:{color:'var(--vx-ink-3)',fontSize:11.5,marginTop:2}},d)), ctrl);
+    return React.createElement(React.Fragment,null,
+      this.pageHead('Settings','Organization profile, security and lifecycle. '+this.DATA.org.name+' is a single organization \u2014 there is no org switcher.'),
+      React.createElement('div',{style:{display:'grid',gap:16,maxWidth:860}},
+        React.createElement(V.Panel,{title:'Organization profile'}, React.createElement(React.Fragment,null,
+          React.createElement('div',{style:{display:'flex',alignItems:'center',gap:16,marginBottom:18}}, React.createElement('span',{style:{width:52,height:52,borderRadius:12,display:'grid',placeItems:'center',fontSize:22,fontWeight:700,color:'#fff',background:'linear-gradient(135deg,#a78bfa,#60a5fa)'}},'N'), React.createElement('div',null, React.createElement('div',{style:{fontWeight:600,fontSize:15}},this.DATA.org.name), React.createElement('div',{className:'vx-mono',style:{fontSize:11.5,color:'var(--vx-ink-4)'}},this.DATA.org.id+' \u00b7 created Jan 2025')), React.createElement('span',{style:{marginLeft:'auto'}},React.createElement(V.Button,{size:'sm'},'Change logo'))),
+          React.createElement('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}, React.createElement(V.Field,{label:'Organization name'},React.createElement(V.Input,{defaultValue:this.DATA.org.name})), React.createElement(V.Field,{label:'Billing email'},React.createElement(V.Input,{defaultValue:'billing@northwind.ai'}))),
+          React.createElement(V.Button,{variant:'accent',onClick:()=>this.toast('Organization updated','ok')},'Save changes'))),
+        React.createElement(V.Panel,{title:'Plan'}, React.createElement('div',{style:{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14}}, stat('Plan',this.DATA.org.plan), stat('Members',this.DATA.org.members+' / 200'), stat('Contract','12-mo term'))),
+        React.createElement(V.Panel,{title:'Security'}, React.createElement('div',null,
+          secRow('Allowed email domains','Restrict invites to verified domains.',React.createElement(V.Input,{defaultValue:'northwind.ai',style:{width:180}}),true),
+          secRow('Session timeout','Idle logout for the console.',React.createElement(V.Select,{defaultValue:'8 hours',style:{width:120}},['1 hour','8 hours','24 hours'].map(o=>React.createElement('option',{key:o},o))),true),
+          secRow('SSO / SAML','Single sign-on via your IdP.',React.createElement(V.Switch,{checked:false,onChange:()=>{}})),
+          secRow('SCIM provisioning','Auto-provision & deprovision members.',React.createElement(V.Switch,{checked:false,onChange:()=>{}})))),
+        React.createElement(V.Card,{style:{borderColor:'rgba(var(--vx-err-rgb),.3)'}}, React.createElement(React.Fragment,null,
+          React.createElement('div',{style:{padding:'10px 16px',borderBottom:'1px solid rgba(var(--vx-err-rgb),.2)'}}, React.createElement('span',{style:{fontWeight:600,fontSize:12,color:'var(--vx-err)'}},'Danger zone')),
+          React.createElement('div',{style:{padding:16}},
+            React.createElement('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 0',borderBottom:'1px solid var(--vx-line)'}}, React.createElement('div',null,React.createElement('div',{style:{fontWeight:600,fontSize:12.5}},'Transfer ownership'),React.createElement('div',{style:{color:'var(--vx-ink-3)',fontSize:11.5}},'Hand this org to another owner.')), this.gate(true,React.createElement(V.Button,{},'Transfer'))),
+            React.createElement('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 0 4px'}}, React.createElement('div',null,React.createElement('div',{style:{fontWeight:600,fontSize:12.5,color:'var(--vx-err)'}},'Delete organization'),React.createElement('div',{style:{color:'var(--vx-ink-3)',fontSize:11.5}},'Permanently remove the org, all teams, apps, keys and logs.')), this.gate(true,React.createElement(V.Button,{variant:'danger',iconLeft:React.createElement(V.Icon,{name:'x',size:14}),onClick:()=>this.confirmDeleteOrg()},'Delete'))))))
+      ));
+  }
+  confirmDeleteOrg(){ const V=window.Vortex_469485; this.openModal({icon:'x',tone:'danger',title:'Delete '+this.DATA.org.name+'?',
+    body:React.createElement(React.Fragment,null, React.createElement('p',{style:{color:'var(--vx-ink-2)',fontSize:12.5,lineHeight:1.55,margin:'0 0 14px'}}, 'This deletes ',React.createElement('b',null,this.DATA.org.members+' members'),', all teams, apps, keys, budgets and logs. This cannot be undone.'), React.createElement(V.Field,{label:'Type DELETE to confirm'}, React.createElement(V.Input,{placeholder:'DELETE'}))),
+    foot:React.createElement(React.Fragment,null, React.createElement(V.Button,{variant:'ghost',onClick:()=>this.closeOverlays()},'Cancel'), React.createElement(V.Button,{variant:'danger',onClick:()=>{this.closeOverlays();this.toast('Deletion scheduled','err');}},'Delete forever'))}); }
+
+  // ============================================================
+  //  MEMBER WORKSPACE
+  // ============================================================
+  myRec(){ return this.DATA.members.find(m=>m.name===this.me().name)||this.DATA.members[2]; }
+  myApps(){ const me=this.me().name, myTeam=this.me().team;
+    return this.DATA.apps.filter(a=>a.kind==='system'||a.owner===me||a.access.split(', ').includes(myTeam)||a.access===me); }
+
+  scrMyHome(){
+    const V=window.Vortex_469485, m=this.myRec(), frac=this.memberFrac(m), t=this.teamOf(m.team);
+    const keys=this.keysOf(m.name), apps=this.myApps();
+    const kpis=[
+      {label:'My spend \u00b7 MTD',value:this.money(m.spent,0),delta:'6.1%',trend:'up',spark:true,seed:4},
+      {label:'My budget',value:this.money(m.budget,0),delta:m.bsrc==='override'?'override':'team default',trend:'flat',spark:false,seed:1},
+      {label:'My requests',value:'184k',delta:'8.0%',trend:'up',spark:true,seed:6},
+      {label:'My keys',value:String(keys.length),delta:'0',trend:'flat',spark:false,seed:2},
+    ];
+    return React.createElement(React.Fragment,null,
+      this.pageHead('Home','Welcome back, '+m.name.split(' ')[0]+'. Your spend, budget, apps and keys \u2014 scoped to you.', React.createElement(V.Button,{variant:'accent',iconLeft:React.createElement(V.Icon,{name:'chat',size:14}),onClick:()=>this.go('mchat')},'Open Chat')),
+      React.createElement('div',{style:{display:'grid',gap:16,gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))'}}, kpis.map(k=>this.kpiTile(k))),
+      React.createElement('div',{style:{display:'grid',gap:16,gridTemplateColumns:'1fr 1.4fr',marginTop:16}},
+        React.createElement(V.Panel,{title:'My monthly budget',sub:m.team+' team \u00b7 '+(t&&t.enf==='hard'?'hard cap':'soft cap')}, React.createElement('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',textAlign:'center'}},
+          this.gauge(frac,130,'OF BUDGET'),
+          React.createElement('div',{style:{marginTop:6}}, React.createElement('div',{className:'vx-disp',style:{fontSize:19}},this.money(m.budget-m.spent,0)+' left'), React.createElement('div',{style:{color:'var(--vx-ink-3)',fontSize:11.5}},'of '+this.money(m.budget,0)+'/mo \u00b7 resets in 12 days')),
+          React.createElement('div',{style:{marginTop:12,width:'100%'}}, frac>=.8?this.warnbar('warn',React.createElement(React.Fragment,null,'You\u2019re at ',React.createElement('b',null,Math.round(frac*100)+'%'),'. ',t&&t.enf==='hard'?'At 100% new requests are blocked (402).':'You\u2019ll keep working past 100%, but owners are alerted.')):this.warnbar('ok','You\u2019re comfortably within budget this month.')))),
+        React.createElement(V.Panel,{title:'My spend',sub:'last 14 days'}, this.areaChart([{data:[120,140,110,180,160,200,190,220,210,240,220,260,240,280].map(v=>v*2.3),color:'var(--vx-accent)'}],{h:200,labels:[],fmt:v=>'$'+this.compact(v)}))),
+      React.createElement('div',{style:{display:'grid',gap:16,gridTemplateColumns:'1fr 1fr',marginTop:16}},
+        React.createElement(V.Panel,{title:'My apps',actions:React.createElement(V.Button,{size:'sm',variant:'ghost',onClick:()=>this.go('mapps')},'All')}, apps.slice(0,3).map((a,i)=>React.createElement('div',{key:i,style:{display:'flex',alignItems:'center',gap:12,padding:'10px 0',borderBottom:i<Math.min(apps.length,3)-1?'1px solid var(--vx-line)':'none',cursor:'pointer'},onClick:()=>this.go('mapps')}, React.createElement('span',{style:{width:30,height:30,borderRadius:7,display:'grid',placeItems:'center',color:'#fff',background:a.kind==='system'?'linear-gradient(135deg,#a78bfa,#60a5fa)':a.kind==='service'?'#5b8def':'#6b6f8f'}},React.createElement(V.Icon,{name:a.kind==='system'?'chat':a.kind==='service'?'cpu':'book',size:15})), React.createElement('div',{style:{flex:1}}, React.createElement('div',{style:{fontWeight:600,fontSize:13}},a.name), React.createElement('div',{style:{fontSize:11,color:'var(--vx-ink-4)'}},a.access===this.me().name?'Personal':a.owner==='Vortex'?'Built-in':'Shared')), this.appKind(a.kind)))),
+        React.createElement(V.Panel,{title:'My keys',actions:React.createElement(V.Button,{size:'sm',variant:'ghost',onClick:()=>this.go('mkeys')},'Manage')}, keys.map((k,i)=>React.createElement('div',{key:i,style:{display:'flex',alignItems:'center',gap:12,padding:'10px 0',borderBottom:i<keys.length-1?'1px solid var(--vx-line)':'none'}}, React.createElement(V.Icon,{name:'key',size:15,style:{color:'var(--vx-ink-3)'}}), React.createElement('div',{style:{flex:1}}, React.createElement('div',{style:{fontWeight:600,fontSize:12.5,display:'flex',gap:6,alignItems:'center'}},k.name, k.kind==='default'?React.createElement(V.Tag,{tone:'accent'},'default'):React.createElement(V.Tag,{tone:'neutral'},'personal')), React.createElement('div',{className:'vx-mono',style:{fontSize:11,color:'var(--vx-ink-4)'}},k.mask)), React.createElement(V.StatusPill,{status:k.status})))))
+    );
+  }
+
+  scrMyUsage(){
+    const V=window.Vortex_469485, m=this.myRec(), frac=this.memberFrac(m), t=this.teamOf(m.team);
+    const days=Array.from({length:30},(_,i)=>18+Math.round(Math.sin(i/3)*7+i*0.4+(i%7<2?-6:3)));
+    const byApp=this.myApps().map((a,i)=>({label:a.name,v:[280,180,120,60][i]||40}));
+    const byModel=this.DATA.models.filter(x=>x.on).slice(0,4).map(x=>({label:x.alias,v:x.share*7,color:this.provColor(x.prov),mark:this.pmark(x.prov,14)}));
+    return React.createElement(React.Fragment,null,
+      this.pageHead('My Usage & Budget','Your spend sliced by app and model, and your monthly ceiling. Your budget is read-only \u2014 it\u2019s set by your team default or an admin override.', React.createElement(V.Button,{iconLeft:React.createElement(V.Icon,{name:'upload',size:14}),onClick:()=>this.toast('Exporting\u2026','info')},'Export')),
+      React.createElement('div',{style:{display:'grid',gap:16,gridTemplateColumns:'1.4fr 1fr'}},
+        React.createElement(V.Panel,{title:'My spend over time',sub:'daily \u00b7 Apr 2026'}, this.areaChart([{data:days,color:'var(--vx-accent)'}],{h:220,labels:days.map((_,i)=>i%4===0?i+1:''),fmt:v=>'$'+this.compact(v)})),
+        React.createElement(V.Panel,{title:'Budget'}, React.createElement('div',{style:{textAlign:'center'}}, this.gauge(frac,120), React.createElement('div',{style:{marginTop:8}}, React.createElement('div',{className:'vx-disp',style:{fontSize:18}},this.money(m.budget-m.spent,0)+' left'), React.createElement('div',{style:{color:'var(--vx-ink-3)',fontSize:11}},'of '+this.money(m.budget,0)+'/mo')), React.createElement('div',{style:{marginTop:12}}, this.warnbar('info',React.createElement(React.Fragment,null,'Set by ',React.createElement('b',null,m.bsrc==='override'?'an admin override':m.team+' team default'),'. Contact your team admin to change it.')))))),
+      React.createElement('div',{style:{display:'grid',gap:16,gridTemplateColumns:'1fr 1fr',marginTop:16}},
+        React.createElement(V.Panel,{title:'Spend by app'}, this.gridbars(byApp,v=>this.money(v,0))),
+        React.createElement(V.Panel,{title:'Spend by model'}, this.gridbars(byModel,v=>this.money(v,0))))
+    );
+  }
+
+  scrMyKeys(){
+    const V=window.Vortex_469485, m=this.myRec(), keys=this.keysOf(m.name);
+    const tbl=this.table({id:'mykeys',rows:keys,per:8,paginate:false,
+      toolbar:React.createElement(React.Fragment,null, this.searchInput('Search my keys\u2026'), this.spacer(), React.createElement(V.Button,{size:'sm',variant:'accent',iconLeft:React.createElement(V.Icon,{name:'plus',size:13}),onClick:()=>this.openKeyDrawer()},'Create personal key')),
+      cols:[
+        {label:'Key',key:'name',render:r=>React.createElement('div',null, React.createElement('div',{style:{fontWeight:600,color:'var(--vx-ink)',display:'flex',gap:6,alignItems:'center'}},r.name, r.kind==='default'?React.createElement(V.Tag,{tone:'accent'},'default'):React.createElement(V.Tag,{tone:'neutral'},'personal')), React.createElement('div',{className:'vx-mono',style:{color:'var(--vx-ink-4)',fontSize:11}},r.mask))},
+        {label:'Rules',key:'rules',render:r=>React.createElement('span',{style:{color:'var(--vx-ink-3)',fontSize:11.5}},r.rules)},
+        {label:'Rate limit',key:'rate',render:r=>React.createElement('span',{className:'vx-mono',style:{fontSize:11.5}},r.rate)},
+        {label:'Status',key:'status',render:r=>React.createElement(V.StatusPill,{status:r.status})},
+        {label:'Last used',key:'used',align:'right',render:r=>React.createElement('span',{className:'vx-mono',style:{color:'var(--vx-ink-3)',fontSize:11}},r.used)},
+        {label:'',render:r=>React.createElement(V.IconButton,{size:'sm',title:'Actions',onClick:e=>this.openKeyMenu(e,r)},React.createElement(V.Icon,{name:'more',size:15}))},
+      ]});
+    return React.createElement(React.Fragment,null,
+      this.pageHead('My Keys',null),
+      React.createElement('div',{style:{marginTop:-14,marginBottom:16,color:'var(--vx-ink-3)',fontSize:12.5,maxWidth:640}},'Your ',React.createElement('b',null,'default'),' key plus any ',React.createElement('b',null,'personal'),' keys. Each has its own rules (models / providers / IP) and rate limit \u2014 but no budget; spend counts against your monthly budget.'),
+      this.stateSwitcher('mykeys'),
+      this.fourStates('mykeys',tbl,{icon:'key',title:'No keys',desc:'You always have a default key. Create a personal key for a specific integration.',cta:'Create personal key',onClick:()=>this.openKeyDrawer()},5)
+    );
+  }
+
+  scrMyApps(){
+    const V=window.Vortex_469485, me=this.me().name, apps=this.myApps();
+    const cards=apps.map((a,i)=>{ const isOwner=a.owner===me, isAdmin=isOwner||a.kind==='system'&&false;
+      return React.createElement(V.Card,{key:i,hover:true,style:{padding:16,display:'flex',flexDirection:'column',gap:12}},
+        React.createElement('div',{style:{display:'flex',alignItems:'center',gap:11}}, React.createElement('span',{style:{width:32,height:32,borderRadius:7,display:'grid',placeItems:'center',color:'#fff',background:a.kind==='system'?'linear-gradient(135deg,#a78bfa,#60a5fa)':a.kind==='service'?'#5b8def':'#6b6f8f'}},React.createElement(V.Icon,{name:a.kind==='system'?'chat':a.kind==='service'?'cpu':'book',size:16})), React.createElement('div',{style:{flex:1}}, React.createElement('div',{style:{fontWeight:600,fontSize:13.5}},a.name), React.createElement('div',{style:{fontSize:11,color:'var(--vx-ink-4)'}},a.policy)), this.appKind(a.kind)),
+        React.createElement('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between'}}, React.createElement(V.Badge,{tone:isOwner?'accent':'neutral'},isOwner?'app_admin':'app_member'), a.kind==='system'?React.createElement(V.Button,{size:'sm',variant:'accent',onClick:()=>this.go('mchat')},'Open'):isOwner?React.createElement(V.Button,{size:'sm',variant:'ghost',onClick:()=>this.toast('Configure '+a.name,'info')},'Configure'):React.createElement('span',{style:{fontSize:11,color:'var(--vx-ink-4)'}},'View only')));
+    });
+    return React.createElement(React.Fragment,null,
+      this.pageHead('My Apps','Apps you can use \u2014 the built-in Chat, service apps you\u2019re granted, and your own personal apps. If you\u2019re an app_admin you can configure routing, access and keys.', React.createElement(V.Button,{variant:'accent',iconLeft:React.createElement(V.Icon,{name:'plus',size:14}),onClick:()=>this.openPersonalApp()},'Create personal app')),
+      React.createElement('div',{style:{display:'grid',gap:16,gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))'}}, cards)
+    );
+  }
+  openPersonalApp(){ const V=window.Vortex_469485; this.openDrawer({crumb:React.createElement(React.Fragment,null,React.createElement(V.Icon,{name:'book',size:12}),'NEW PERSONAL APP'),title:'Create personal app',sub:'A personal app uses your own keys and budget.',
+    body:React.createElement(React.Fragment,null,
+      React.createElement(V.Field,{label:'App name'},React.createElement(V.Input,{placeholder:'e.g. My Notebook'})),
+      React.createElement(V.Field,{label:'Default routing policy'},React.createElement(V.Select,{}, ['claude-sonnet-4.5','gpt-4o','claude-haiku-4'].map(o=>React.createElement('option',{key:o},o)))),
+      this.warnbar('info','Personal apps don\u2019t create a service account \u2014 they run on your default key and count against your monthly budget.')),
+    foot:React.createElement(React.Fragment,null, React.createElement(V.Button,{variant:'ghost',onClick:()=>this.closeOverlays()},'Cancel'), this.spacer(), React.createElement(V.Button,{variant:'accent',onClick:()=>{this.closeOverlays();this.toast('Personal app created','ok');}},'Create app'))}); }
+
+  scrChat(){
+    const V=window.Vortex_469485;
+    const bubble=(role,txt,tool)=>React.createElement('div',{style:{display:'flex',gap:12,maxWidth:760,margin:'0 auto',width:'100%',padding:'6px 0'}},
+      role==='user'?React.createElement(V.Avatar,{name:this.me().name,size:26}):React.createElement('span',{style:{width:26,height:26,flexShrink:0,display:'grid',placeItems:'center'}},React.createElement(V.PrismLogo,{state:'idle',size:22})),
+      React.createElement('div',{style:{flex:1}}, React.createElement('div',{style:{fontSize:11,fontWeight:700,color:'var(--vx-ink-3)',marginBottom:4}},role==='user'?this.me().name:'Vortex \u00b7 claude-sonnet-4.5'),
+        tool?React.createElement('div',{style:{display:'inline-flex',alignItems:'center',gap:7,padding:'5px 10px',borderRadius:8,background:'var(--vx-accent-soft)',color:'var(--vx-accent)',fontSize:11.5,fontFamily:'var(--vx-font-mono)',marginBottom:8}},React.createElement(V.Icon,{name:'database',size:13}),tool):null,
+        React.createElement('div',{style:{fontSize:13.5,lineHeight:1.6,color:'var(--vx-ink)'}},txt)));
+    return React.createElement('div',{style:{display:'flex',flexDirection:'column',height:'100%',minHeight:0}},
+      React.createElement('div',{style:{display:'flex',alignItems:'center',gap:12,padding:'12px 22px',borderBottom:'1px solid var(--vx-line)',flexShrink:0}},
+        React.createElement('div',{style:{flex:1}}, React.createElement('div',{style:{fontWeight:600,fontSize:14,fontFamily:'var(--vx-font-display)',display:'flex',alignItems:'center',gap:8}},'Chat', React.createElement('span',{style:{fontFamily:'var(--vx-font-mono)',fontSize:9,padding:'2px 7px',borderRadius:20,background:'var(--vx-accent-soft)',color:'var(--vx-accent)'}},'PREVIEW')), React.createElement('div',{style:{fontSize:11,color:'var(--vx-ink-4)'}},'Built-in Chat app \u00b7 streaming')),
+        React.createElement('button',{onClick:()=>this.toast('Model picker \u2014 prototype','info'),style:{display:'flex',alignItems:'center',gap:8,height:30,padding:'0 10px',borderRadius:'var(--vx-radius-sm)',border:'1px solid var(--vx-line-2)',background:'var(--vx-panel-2)',color:'var(--vx-ink)',fontSize:12,cursor:'pointer'}}, this.pmark('anthropic',16), React.createElement('span',{className:'vx-mono',style:{fontSize:11.5}},'claude-sonnet-4.5'), React.createElement(V.Icon,{name:'chevron-down',size:12,style:{color:'var(--vx-ink-3)'}}))),
+      React.createElement('div',{style:{flex:1,overflowY:'auto',padding:'20px 22px'}},
+        React.createElement('div',{style:{maxWidth:760,margin:'0 auto 18px',textAlign:'center'}}, this.warnbar('info',React.createElement(React.Fragment,null,React.createElement('b',null,'Chat UI ships after core.'),' The gateway backend is v1 \u2014 this is a layout preview of the streaming chat surface.'))),
+        bubble('user','Summarize our Q1 support ticket trends and flag the top three drivers.'),
+        bubble('assistant','Searching the Support KB and last quarter\u2019s tickets\u2026','knowledge_base.search \u00b7 1,204 tickets'),
+        bubble('assistant','Q1 volume rose 18% QoQ. The top three drivers were: billing discrepancies (31%), onboarding friction on SSO (22%), and mobile sync errors (14%). Billing tickets spiked in March around the plan change \u2014 I can break that out by week if useful.')),
+      React.createElement('div',{style:{flexShrink:0,padding:'12px 22px 20px',borderTop:'1px solid var(--vx-line)'}},
+        React.createElement('div',{style:{maxWidth:760,margin:'0 auto'}},
+          React.createElement('div',{style:{display:'flex',alignItems:'flex-end',gap:10,border:'1px solid var(--vx-line-2)',borderRadius:'var(--vx-radius-lg)',background:'var(--vx-panel)',padding:'10px 12px'}},
+            React.createElement(V.IconButton,{title:'Attach'},React.createElement(V.Icon,{name:'paperclip',size:16})),
+            React.createElement('div',{style:{flex:1,color:'var(--vx-ink-4)',fontSize:13.5,padding:'6px 0'}},'Ask anything\u2026'),
+            React.createElement(V.Button,{variant:'accent',iconLeft:React.createElement(V.Icon,{name:'send',size:14}),onClick:()=>this.toast('Chat preview \u2014 not wired','info')},'Send')),
+          React.createElement('div',{style:{textAlign:'center',fontSize:10.5,color:'var(--vx-ink-4)',marginTop:8,fontFamily:'var(--vx-font-mono)'}},'Usage counts against your monthly budget \u00b7 attributed to app=Chat')))
+    );
+  }
+
+  scrMyProfile(){
+    const V=window.Vortex_469485, m=this.myRec();
+    const rule=(t,d,ctrl,border=true)=>React.createElement('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 0',borderBottom:border?'1px solid var(--vx-line)':'none'}}, React.createElement('div',null, React.createElement('div',{style:{fontWeight:600,fontSize:12.5}},t), React.createElement('div',{style:{color:'var(--vx-ink-3)',fontSize:11.5}},d)), ctrl);
+    return React.createElement(React.Fragment,null,
+      this.pageHead('Profile & Settings','Your profile, password and interface defaults.'),
+      React.createElement('div',{style:{display:'grid',gap:16,maxWidth:760}},
+        React.createElement(V.Panel,{title:'Profile'}, React.createElement(React.Fragment,null,
+          React.createElement('div',{style:{display:'flex',alignItems:'center',gap:16,marginBottom:18}}, React.createElement(V.Avatar,{name:m.name,size:52}), React.createElement('div',null, React.createElement('div',{style:{fontWeight:600,fontSize:15}},m.name), React.createElement('div',{style:{fontSize:11.5,color:'var(--vx-ink-3)',display:'flex',alignItems:'center',gap:6}},m.email,' \u00b7 ',this.roleBadge('member'),' \u00b7 ',React.createElement(V.Badge,{tone:'neutral'},m.team+' team'))), React.createElement('span',{style:{marginLeft:'auto'}},React.createElement(V.Button,{size:'sm'},'Change photo'))),
+          React.createElement('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}, React.createElement(V.Field,{label:'Full name'},React.createElement(V.Input,{defaultValue:m.name})), React.createElement(V.Field,{label:'Email'},React.createElement(V.Input,{defaultValue:m.email}))),
+          React.createElement(V.Button,{variant:'accent',onClick:()=>this.toast('Profile saved','ok')},'Save profile'))),
+        React.createElement(V.Panel,{title:'Password'}, React.createElement(React.Fragment,null,
+          React.createElement('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}, React.createElement(V.Field,{label:'Current password'},React.createElement(V.Input,{type:'password',defaultValue:'\u00b7\u00b7\u00b7\u00b7\u00b7\u00b7\u00b7\u00b7'})), React.createElement(V.Field,{label:'New password'},React.createElement(V.Input,{type:'password',placeholder:'12+ characters'}))),
+          React.createElement('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between'}}, React.createElement(V.Button,{onClick:()=>this.toast('Password updated','ok')},'Update password'), React.createElement(V.Checkbox,{checked:true,onChange:()=>{},label:'Two-factor enabled'})))),
+        React.createElement(V.Panel,{title:'Interface & notifications'}, React.createElement(React.Fragment,null,
+          rule('Theme','Console appearance',this.segRadio(['Light','Dark'],this.state.theme==='dark'?'Dark':'Light',v=>this.setTheme(v.toLowerCase()))),
+          rule('Density','Table & control spacing',this.segRadio(['Comfortable','Compact'],this.state.density==='compact'?'Compact':'Comfortable',v=>this.setDensity(v.toLowerCase()==='comfortable'?'comfortable':'compact'))),
+          rule('Budget alerts','Email me at 80% and 100% of my budget',React.createElement(V.Switch,{checked:this.swOn('n_budget',true),onChange:()=>this.toggleSw('n_budget')})),
+          rule('Weekly usage digest','A summary of my spend every Monday',React.createElement(V.Switch,{checked:this.swOn('n_digest',false),onChange:()=>this.toggleSw('n_digest')}),false)))
+      ));
+  }
+
+  // ============================================================
+  //  AUTH / ONBOARDING (prototype)
+  // ============================================================
+  authScreen(){
+    const V=window.Vortex_469485, view=this.state.auth;
+    const shell=(inner)=>React.createElement('div',{style:{minHeight:'100vh',display:'grid',placeItems:'center',background:'var(--vx-bg)',position:'relative',overflow:'hidden'}},
+      React.createElement('div',{style:{position:'absolute',inset:0,background:'radial-gradient(600px 400px at 20% 0%,rgba(167,139,250,.10),transparent),radial-gradient(500px 400px at 90% 100%,rgba(96,165,250,.08),transparent)',pointerEvents:'none'}}),
+      React.createElement('div',{style:{position:'relative',width:'100%',maxWidth:400,padding:32}},inner),
+      React.createElement('div',{style:{position:'absolute',top:20,right:22}}, React.createElement(V.IconButton,{title:'Theme',onClick:()=>this.setTheme(this.state.theme==='light'?'dark':'light')},React.createElement(V.Icon,{name:this.state.theme==='light'?'moon':'sun',size:16}))));
+    if(view==='register') return shell(React.createElement(React.Fragment,null,
+      React.createElement('div',{style:{textAlign:'center',marginBottom:24}}, React.createElement(V.PrismLogo,{size:40}), React.createElement('div',{className:'vx-disp',style:{fontSize:22,marginTop:10}},'Create your account'), React.createElement('p',{style:{color:'var(--vx-ink-3)',fontSize:12.5,margin:'6px 0 0'}},'Join your organization on Vortex.')),
+      React.createElement(V.Card,{style:{padding:26}},
+        React.createElement('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}, React.createElement(V.Field,{label:'First name'},React.createElement(V.Input,{placeholder:'Dana'})), React.createElement(V.Field,{label:'Last name'},React.createElement(V.Input,{placeholder:'Cho'}))),
+        React.createElement(V.Field,{label:'Work email'},React.createElement(V.Input,{placeholder:'you@company.com'})),
+        React.createElement(V.Field,{label:'Password',hint:'12+ characters.'},React.createElement(V.Input,{type:'password',placeholder:'At least 12 characters'})),
+        React.createElement('div',{style:{marginBottom:16}},React.createElement(V.Checkbox,{checked:true,onChange:()=>{},label:'I agree to the Terms & DPA'})),
+        React.createElement(V.Button,{variant:'accent',style:{width:'100%'},iconRight:React.createElement(V.Icon,{name:'arrow-right',size:14}),onClick:()=>this.setState({auth:null})},'Create account')),
+      React.createElement('p',{style:{textAlign:'center',marginTop:18,fontSize:12.5,color:'var(--vx-ink-3)'}},'Already have an account? ',React.createElement('a',{style:{color:'var(--vx-accent)',fontWeight:600,cursor:'pointer'},onClick:()=>this.setState({auth:'login'})},'Sign in'))));
+    if(view==='invite') return shell(React.createElement(React.Fragment,null,
+      React.createElement('div',{style:{textAlign:'center',marginBottom:24}}, React.createElement(V.PrismLogo,{size:40})),
+      React.createElement(V.Card,{style:{padding:28,textAlign:'center'}},
+        React.createElement('span',{style:{width:44,height:44,borderRadius:11,display:'grid',placeItems:'center',fontSize:18,fontWeight:700,color:'#fff',background:'linear-gradient(135deg,#a78bfa,#60a5fa)',margin:'0 auto 14px'}},'N'),
+        React.createElement('h2',{className:'vx-disp',style:{fontSize:20}},'Join '+this.DATA.org.name+' on Vortex'),
+        React.createElement('p',{style:{color:'var(--vx-ink-3)',fontSize:13,margin:'8px 0 20px'}}, React.createElement('b',{style:{color:'var(--vx-ink)'}},'Dana Cho'),' invited you to the ',React.createElement('b',{style:{color:'var(--vx-ink)'}},'Mobile'),' team.'),
+        React.createElement(V.Card,{style:{background:'var(--vx-bg-2)',textAlign:'left',padding:16,marginBottom:20}},
+          React.createElement('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}, React.createElement('span',{style:{color:'var(--vx-ink-3)',fontSize:12}},'Org role'), this.roleBadge('member')),
+          React.createElement('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between'}}, React.createElement('span',{style:{color:'var(--vx-ink-3)',fontSize:12}},'Monthly budget'), React.createElement('span',{style:{fontSize:12,fontWeight:600}},'$800 (Mobile team default)'))),
+        React.createElement('div',{style:{textAlign:'left'}},React.createElement(V.Field,{label:'Confirm your name'},React.createElement(V.Input,{defaultValue:'Aisha Khan'}))),
+        React.createElement(V.Button,{variant:'accent',style:{width:'100%'},iconRight:React.createElement(V.Icon,{name:'arrow-right',size:14}),onClick:()=>{this.setState({auth:null,role:'member',screen:'mhome'});this.toast('Welcome to '+this.DATA.org.name,'ok');}},'Accept invite'),
+        React.createElement('p',{style:{color:'var(--vx-ink-4)',fontSize:11,margin:'14px 0 0'}},'Invite expires in 6 days \u00b7 ',React.createElement('span',{className:'vx-mono'},'inv_4kd9x2')))));
+    return shell(React.createElement(React.Fragment,null,
+      React.createElement('div',{style:{textAlign:'center',marginBottom:28}}, React.createElement(V.PrismLogo,{size:40}), React.createElement('div',{className:'vx-disp',style:{fontSize:22,marginTop:10}},'Sign in to Vortex'), React.createElement('p',{style:{color:'var(--vx-ink-3)',fontSize:12.5,margin:'6px 0 0'}},'The control plane for your AI spend & access.')),
+      React.createElement(V.Card,{style:{padding:26}},
+        React.createElement(V.Field,{label:'Work email'},React.createElement(V.Input,{defaultValue:'dana@northwind.ai'})),
+        React.createElement(V.Field,{label:'Password'},React.createElement(V.Input,{type:'password',defaultValue:'\u00b7\u00b7\u00b7\u00b7\u00b7\u00b7\u00b7\u00b7'})),
+        React.createElement('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',margin:'-4px 0 16px'}}, React.createElement(V.Checkbox,{checked:true,onChange:()=>{},label:'Remember me'}), React.createElement('a',{className:'vx-mono',style:{fontSize:11.5,color:'var(--vx-accent)',cursor:'pointer'}},'Forgot?')),
+        React.createElement(V.Button,{variant:'accent',style:{width:'100%'},iconRight:React.createElement(V.Icon,{name:'arrow-right',size:14}),onClick:()=>this.setState({auth:null})},'Sign in'),
+        React.createElement('div',{style:{display:'flex',alignItems:'center',gap:12,margin:'18px 0',color:'var(--vx-ink-4)',fontSize:11}}, React.createElement('div',{style:{flex:1,height:1,background:'var(--vx-line)'}}),'OR',React.createElement('div',{style:{flex:1,height:1,background:'var(--vx-line)'}})),
+        React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:10}},
+          React.createElement(V.Button,{style:{width:'100%',justifyContent:'center',gap:9},onClick:()=>this.setState({auth:null})},React.createElement('svg',{width:15,height:15,viewBox:'0 0 24 24',fill:'currentColor','aria-hidden':true},React.createElement('path',{d:'M12 .5C5.37.5 0 5.87 0 12.5c0 5.3 3.44 9.8 8.21 11.39.6.11.82-.26.82-.58 0-.29-.01-1.04-.02-2.05-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.2.08 1.84 1.24 1.84 1.24 1.07 1.83 2.81 1.3 3.5.99.11-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.11-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.29-1.55 3.3-1.23 3.3-1.23.65 1.66.24 2.88.12 3.18.77.84 1.23 1.91 1.23 3.22 0 4.61-2.81 5.63-5.49 5.92.43.37.81 1.1.81 2.22 0 1.61-.01 2.9-.01 3.29 0 .32.21.7.82.58A12 12 0 0 0 24 12.5C24 5.87 18.63.5 12 .5Z'})),'Continue with GitHub'),
+          React.createElement(V.Button,{style:{width:'100%',justifyContent:'center',gap:9},onClick:()=>this.setState({auth:null})},React.createElement('svg',{width:15,height:15,viewBox:'0 0 24 24','aria-hidden':true},React.createElement('path',{fill:'#4285f4',d:'M23.52 12.27c0-.82-.07-1.6-.2-2.36H12v4.46h6.47a5.53 5.53 0 0 1-2.4 3.63v3.02h3.88c2.27-2.09 3.57-5.17 3.57-8.75Z'}),React.createElement('path',{fill:'#34a853',d:'M12 24c3.24 0 5.96-1.08 7.95-2.91l-3.88-3.02c-1.08.72-2.45 1.15-4.07 1.15-3.13 0-5.78-2.11-6.73-4.96H1.28v3.12A12 12 0 0 0 12 24Z'}),React.createElement('path',{fill:'#fbbc05',d:'M5.27 14.26a7.2 7.2 0 0 1 0-4.52V6.62H1.28a12 12 0 0 0 0 10.76l3.99-3.12Z'}),React.createElement('path',{fill:'#ea4335',d:'M12 4.75c1.77 0 3.35.61 4.6 1.8l3.44-3.44A11.98 11.98 0 0 0 12 0 12 12 0 0 0 1.28 6.62l3.99 3.12C6.22 6.86 8.87 4.75 12 4.75Z'})),'Continue with Google'))),
+      React.createElement('p',{style:{textAlign:'center',marginTop:18,fontSize:12.5,color:'var(--vx-ink-3)'}},'New here? ',React.createElement('a',{style:{color:'var(--vx-accent)',fontWeight:600,cursor:'pointer'},onClick:()=>this.setState({auth:'register'})},'Create an account'))));
+  }
+
+  renderVals(){
+    if(this.state.err) return { app: React.createElement('div',{style:{padding:40,fontFamily:'var(--vx-font-mono)',color:'var(--vx-err)'}}, this.state.err) };
+    if(!this.state.ready) return { app: this.splash() };
+    return { app: this.app() };
+  }
+}
+</script>
+</body>
+</html>

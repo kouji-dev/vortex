@@ -1,0 +1,156 @@
+/* Shared platform-console primitives: KPI tiles, toolbars, data tables.
+   Referenced (alongside a feature's own css) via component styleUrls, so
+   emulated encapsulation scopes them to each screen's template. */
+
+/* ── KPI tiles ── */
+.kpi-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+}
+.kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  background: var(--vx-panel);
+  border: 1px solid var(--vx-line);
+  border-radius: var(--vx-radius);
+  box-shadow: var(--vx-shadow-sm);
+}
+.kpi-value {
+  font-size: var(--vx-text-2xl);
+  font-weight: var(--vx-w-semibold);
+  color: var(--vx-ink);
+  line-height: var(--vx-lh-tight);
+}
+.kpi-sub {
+  font-size: var(--vx-text-xs);
+  color: var(--vx-ink-3);
+}
+
+/* ── Section card ── */
+.card {
+  background: var(--vx-panel);
+  border: 1px solid var(--vx-line);
+  border-radius: var(--vx-radius);
+  padding: 16px 18px;
+}
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.card-head h2 {
+  margin: 0;
+  font-size: var(--vx-text-md);
+  font-weight: var(--vx-w-semibold);
+  color: var(--vx-ink);
+}
+
+/* ── Toolbar (filters + actions) ── */
+.toolbar {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.toolbar .spacer {
+  flex: 1;
+}
+.filter {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.filter select,
+.inline-input {
+  height: 30px;
+  padding: 0 9px;
+  border-radius: var(--vx-radius-sm);
+  border: 1px solid var(--vx-line-2, var(--vx-line));
+  background: var(--vx-panel);
+  color: var(--vx-ink);
+  font-size: var(--vx-text-sm);
+  min-width: 150px;
+}
+
+/* ── Data table ── */
+.tbl-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--vx-line);
+  border-radius: var(--vx-radius);
+  background: var(--vx-panel);
+}
+table.tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--vx-text-sm);
+}
+.tbl thead th {
+  text-align: left;
+  padding: 10px 14px;
+  font-family: var(--vx-font-mono);
+  font-size: var(--vx-text-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--vx-track-label);
+  color: var(--vx-ink-3);
+  border-bottom: 1px solid var(--vx-line);
+  white-space: nowrap;
+}
+.tbl tbody td {
+  padding: 11px 14px;
+  color: var(--vx-ink-2);
+  border-bottom: 1px solid var(--vx-line);
+  white-space: nowrap;
+}
+.tbl tbody tr:last-child td {
+  border-bottom: none;
+}
+.tbl tbody tr:hover td {
+  background: var(--vx-bg-2);
+}
+.tbl .num {
+  text-align: right;
+  font-family: var(--vx-font-mono);
+  color: var(--vx-ink);
+}
+.tbl .strong {
+  color: var(--vx-ink);
+  font-weight: var(--vx-w-medium);
+}
+.mono {
+  font-family: var(--vx-font-mono);
+}
+
+/* Row action buttons cluster */
+.row-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+/* Empty / loading state */
+.empty {
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--vx-ink-3);
+  font-size: var(--vx-text-sm);
+}
+
+/* Error banner */
+.banner {
+  padding: 10px 14px;
+  border-radius: var(--vx-radius-sm);
+  font-size: var(--vx-text-sm);
+  background: var(--vx-accent-soft);
+  color: var(--vx-accent);
+  border: 1px solid var(--vx-line);
+}
+.banner.err {
+  background: rgba(var(--vx-red-rgb, 220, 60, 60), 0.1);
+  color: var(--vx-danger, #c0392b);
+}

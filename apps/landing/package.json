@@ -1,0 +1,6 @@
+{
+  "name": "@vortex/landing",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Vortex marketing landing page (Angular). Built from the ROOT Angular workspace: `ng build landing` / `ng serve landing`."
+}

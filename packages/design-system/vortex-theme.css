@@ -1,0 +1,136 @@
+/* ============================================================
+   Vortex — app-local kouji-ui theme.
+   Declares the kouji semantic contract under [data-theme="vortex"],
+   mapped from the Vortex design tokens (styles/tokens/*.css).
+
+   Also pins the console to the LIGHT surface palette (light-default,
+   per the design brief) so it wins over colors.css's dark `:root`
+   defaults — this file is imported after the tokens.
+   ============================================================ */
+
+@layer kj.shared {
+  [data-theme='vortex'] {
+    /* ── Vortex light surfaces (product / governance console) ── */
+    --vx-bg: #f7f7fb;
+    --vx-bg-2: #f0f0f6;
+    --vx-bg-3: #e9e9f2;
+    --vx-panel: #ffffff;
+    --vx-panel-2: #fbfbfe;
+    --vx-elev: #ffffff;
+
+    --vx-line: #e4e4ef;
+    --vx-line-2: #d6d6e4;
+    --vx-line-3: #c4c4d6;
+
+    --vx-ink: #1a1830;
+    --vx-ink-2: #4a4766;
+    --vx-ink-3: #6b6885;
+    --vx-ink-4: #a2a0b8;
+
+    --vx-accent: var(--vx-violet-deep);
+    --vx-accent-ink: #ffffff;
+    --vx-accent-soft: rgba(124, 58, 237, 0.1);
+    --vx-hl: rgba(124, 58, 237, 0.07);
+    --vx-grid: rgba(20, 24, 40, 0.03);
+    color-scheme: light;
+  }
+
+  /* kouji semantic contract. Every value maps onto a --vx-* token, so it
+     adapts automatically to whichever palette is active — light (vortex) or
+     the dark surfaces from colors.css. Bound to all three console themes so
+     the theme toggle (dark ⇄ light) keeps kouji components fully styled. */
+  [data-theme='vortex'],
+  [data-theme='dark'],
+  [data-theme='light'] {
+    /* ── shape — small & technical (effects.css) ── */
+    --kj-radius-box: var(--vx-radius);
+    --kj-radius-field: var(--vx-radius-sm);
+    --kj-radius-selector: var(--vx-radius-sm);
+    --kj-radius-box-lg: var(--vx-radius-lg);
+    --kj-border: 1px;
+    --kj-depth: 1;
+
+    /* ── type ── */
+    --kj-font-sans: var(--vx-font-sans);
+    --kj-font-mono: var(--vx-font-mono);
+    --kj-font-display: var(--vx-font-display);
+    --kj-display-weight: var(--vx-w-semibold);
+    --kj-letter-spacing: var(--vx-track-ui);
+
+    /* ── motion ── */
+    --kj-transition: 0.12s var(--vx-ease);
+
+    /* ── backgrounds ── */
+    --kj-bg-body: var(--vx-bg);
+    --kj-bg-surface: var(--vx-panel);
+    --kj-bg-field: var(--vx-panel);
+    --kj-bg-elevated: var(--vx-elev);
+    --kj-bg-overlay: rgba(26, 24, 48, 0.5);
+    --kj-bg-inverse: var(--vx-ink);
+    --kj-bg-disabled: var(--vx-bg-3);
+
+    --kj-bg-primary: var(--vx-accent);
+    --kj-bg-primary-subtle: var(--vx-accent-soft);
+    --kj-bg-accent: var(--vx-accent);
+    --kj-bg-accent-subtle: var(--vx-accent-soft);
+
+    --kj-bg-info: var(--vx-info);
+    --kj-bg-info-subtle: rgba(96, 165, 250, 0.12);
+    --kj-bg-success: var(--vx-good);
+    --kj-bg-success-subtle: rgba(var(--vx-good-rgb), 0.12);
+    --kj-bg-warning: var(--vx-warn);
+    --kj-bg-warning-subtle: rgba(var(--vx-warn-rgb), 0.14);
+    --kj-bg-danger: var(--vx-err);
+    --kj-bg-danger-subtle: rgba(var(--vx-err-rgb), 0.12);
+
+    /* ── foregrounds ── */
+    --kj-fg-default: var(--vx-ink);
+    --kj-fg-muted: var(--vx-ink-2);
+    --kj-fg-subtle: var(--vx-ink-3);
+    --kj-fg-disabled: var(--vx-ink-4);
+
+    --kj-fg-on-primary: var(--vx-accent-ink);
+    --kj-fg-on-accent: var(--vx-accent-ink);
+    --kj-fg-on-info: #ffffff;
+    --kj-fg-on-success: #ffffff;
+    --kj-fg-on-warning: #1a1830;
+    --kj-fg-on-danger: #ffffff;
+    --kj-fg-on-inverse: #ffffff;
+
+    --kj-fg-primary: var(--vx-accent);
+    --kj-fg-accent: var(--vx-accent);
+    --kj-fg-info: var(--vx-blue-deep);
+    --kj-fg-success: #0a8f5e;
+    --kj-fg-warning: #92400e;
+    --kj-fg-danger: #b4232a;
+
+    /* ── borders ── */
+    --kj-border-default: var(--vx-line);
+    --kj-border-muted: var(--vx-line);
+    --kj-border-strong: var(--vx-line-2);
+    --kj-border-focus: var(--vx-accent);
+    --kj-border-disabled: var(--vx-line);
+    --kj-border-primary: var(--vx-accent);
+    --kj-border-danger: var(--vx-err);
+
+    /* ── shadows ── */
+    --kj-shadow-sm: 0 1px 2px rgba(26, 24, 48, 0.05);
+    --kj-shadow-md: 0 6px 16px rgba(26, 24, 48, 0.08);
+    --kj-shadow-lg: 0 20px 48px rgba(26, 24, 48, 0.14);
+    --kj-shadow-focus: var(--vx-glow-ring);
+
+    --kj-button-bg-hover: var(--vx-violet);
+  }
+}
+
+/* Light-tuned elevation. effects.css ships dark-stage shadows (black-based,
+   rgba(0,0,0,0.4–0.6)) that look harsh on white surfaces. Override for both
+   light themes with soft navy shadows. Placed OUTSIDE @layer and with
+   :root[data-theme] specificity so it beats effects.css's unlayered :root. */
+:root[data-theme='vortex'],
+:root[data-theme='light'] {
+  --vx-shadow-sm: 0 1px 2px rgba(26, 24, 48, 0.05);
+  --vx-shadow-md: 0 1px 2px rgba(26, 24, 48, 0.06), 0 12px 28px -14px rgba(26, 24, 48, 0.16);
+  --vx-shadow-lg: 0 28px 64px -28px rgba(26, 24, 48, 0.2);
+  --vx-shadow-pop: 0 12px 40px -12px rgba(26, 24, 48, 0.16);
+}

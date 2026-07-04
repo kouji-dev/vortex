@@ -1,0 +1,943 @@
+/* ============================================================
+   Vortex — marketing landing (dark brand stage).
+   Design tokens (colours, type, effects) come from the shared
+   design-system/vortex.css under [data-theme="dark"]; this file
+   holds only the landing-specific brand + section styles ported
+   from design/…/project/landing.html. Glowing gradient CTAs and
+   the Prism glow are marketing-only brand moments.
+   ============================================================ */
+
+/* ============================================================
+   Landing token overrides — EXACT values from
+   design/…/project/landing.html `<style> :root {}`, inlined here
+   AFTER the shared design-system/vortex.css @import (angular.json
+   loads vortex.css first, then this file) so the design's own
+   token values win for the landing and every class renders with
+   the intended colours/spacing/type — not the DS approximations.
+
+   Theme-invariant brand tokens live under :root; the dark brand
+   stage surfaces live under [data-theme="dark"] so the light
+   theme falls back to the DS `[data-theme="light"]` palette.
+   ============================================================ */
+:root {
+  /* brand spectrum */
+  --vx-pink:#f472b6; --vx-violet:#a78bfa; --vx-blue:#60a5fa;
+  --vx-pink-deep:#db2777; --vx-violet-deep:#7c3aed; --vx-blue-deep:#2563eb;
+  --vx-core:#e0d7ff;
+  --vx-pink-rgb:244,114,182; --vx-violet-rgb:167,139,250; --vx-blue-rgb:96,165,250;
+  --vx-grad:linear-gradient(90deg,#f472b6 0%,#a78bfa 50%,#60a5fa 100%);
+  --vx-grad-br:linear-gradient(135deg,#f472b6 0%,#a78bfa 55%,#60a5fa 100%);
+  --vx-good:#22c55e; --vx-warn:#f5b544; --vx-err:#f2555a; --vx-info:#60a5fa;
+  --vx-prov-anthropic:#cc785c; --vx-prov-openai:#10a37f; --vx-prov-google:#4285f4;
+
+  /* type */
+  --vx-font-display:'Space Grotesk','IBM Plex Sans',-apple-system,sans-serif;
+  --vx-font-sans:'IBM Plex Sans',-apple-system,'Segoe UI',sans-serif;
+  --vx-font-mono:'IBM Plex Mono',ui-monospace,'SF Mono',Menlo,monospace;
+
+  /* effects */
+  --vx-radius-sm:5px; --vx-radius:8px; --vx-radius-lg:12px; --vx-radius-xl:14px; --vx-radius-pill:999px;
+  --vx-glow-violet:0 0 24px -4px rgba(var(--vx-violet-rgb),0.5);
+  --vx-glow-soft:0 0 120px -30px rgba(var(--vx-violet-rgb),0.35);
+  --vx-shadow-lg:0 40px 80px -30px rgba(0,0,0,0.6);
+  --vx-ease:cubic-bezier(0.2,0.8,0.2,1);
+  --vx-dur:200ms;
+}
+
+/* dark brand stage surfaces (default theme) */
+:root[data-theme="dark"] {
+  --vx-bg:#040407; --vx-bg-2:#07070e; --vx-bg-3:#0b0b16;
+  --vx-panel:#0d0d1a; --vx-panel-2:#12122a; --vx-elev:#161630;
+  --vx-line:#161628; --vx-line-2:#1e1e35; --vx-line-3:#2a2a3e;
+  --vx-ink:#e8e4ff; --vx-ink-2:#b8b4d8; --vx-ink-3:#8b93a7; --vx-ink-4:#4d5262;
+  --vx-accent:var(--vx-violet); --vx-accent-soft:rgba(167,139,250,0.14);
+  --vx-grid:rgba(255,255,255,0.03);
+  color-scheme:dark;
+}
+
+/* Universal border-box reset — landing.html's <style> opens with
+   `*{box-sizing:border-box}`. The port dropped it, so every padded full-width
+   element (most visibly the pricing CTAs) rendered content-box and overflowed
+   its container by the padding width. Restoring it matches the design exactly. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--vx-bg);
+  color: var(--vx-ink);
+  font-family: var(--vx-font-sans);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+a {
+  color: inherit;
+  text-decoration: none;
+}
+::selection {
+  background: rgba(var(--vx-violet-rgb), 0.3);
+}
+
+/* --- background layers: atmosphere + masked grid --- */
+.vx-atmosphere {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 900px 700px at 8% -5%, rgba(var(--vx-pink-rgb), 0.1), transparent 60%),
+    radial-gradient(ellipse 800px 700px at 100% 6%, rgba(var(--vx-blue-rgb), 0.09), transparent 60%),
+    radial-gradient(ellipse 900px 640px at 55% 118%, rgba(var(--vx-violet-rgb), 0.1), transparent 60%);
+}
+.vx-grid {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, var(--vx-grid) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--vx-grid) 1px, transparent 1px);
+  background-size: 64px 64px;
+  -webkit-mask-image: radial-gradient(ellipse 90% 70% at 50% 30%, #000 55%, transparent 100%);
+  mask-image: radial-gradient(ellipse 90% 70% at 50% 30%, #000 55%, transparent 100%);
+}
+/* The landing reuses .page as a full-bleed brand stage. Reset the shared
+   console chrome (design-system/chrome.css sets max-width/padding/flex-gap)
+   so the announce bar, sticky nav and hero span edge-to-edge. */
+.page {
+  position: relative;
+  z-index: 1;
+  display: block;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  gap: 0;
+}
+.wrap {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 32px;
+}
+
+/* --- shared type helpers --- */
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--vx-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--vx-ink-3);
+}
+.eyebrow .tick {
+  width: 22px;
+  height: 1px;
+  background: var(--vx-accent);
+}
+.h-display {
+  font-family: var(--vx-font-display);
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.02;
+  margin: 0;
+}
+.grad-text {
+  background: var(--vx-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.lede {
+  color: var(--vx-ink-2);
+  font-size: 17px;
+  line-height: 1.6;
+}
+
+/* --- buttons --- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--vx-font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: var(--vx-radius-sm);
+  border: 1px solid transparent;
+  padding: 0 18px;
+  height: 42px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    transform var(--vx-dur) var(--vx-ease),
+    background var(--vx-dur) var(--vx-ease),
+    border-color var(--vx-dur) var(--vx-ease),
+    box-shadow var(--vx-dur) var(--vx-ease);
+}
+.btn-sm {
+  height: 34px;
+  padding: 0 14px;
+  font-size: 13px;
+}
+.btn-lg {
+  height: 48px;
+  padding: 0 24px;
+  font-size: 15px;
+}
+/* gradient — the brand glow moment (hero + CTAs only) */
+.btn-gradient {
+  color: #0b0b16;
+  background: var(--vx-grad-br);
+  box-shadow:
+    0 0 0 1px rgba(var(--vx-violet-rgb), 0.4),
+    var(--vx-glow-violet);
+}
+.btn-gradient:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 0 0 1px rgba(var(--vx-violet-rgb), 0.6),
+    0 0 32px -2px rgba(var(--vx-violet-rgb), 0.6);
+  filter: brightness(1.06);
+}
+/* solid line button */
+.btn-line {
+  color: var(--vx-ink);
+  background: var(--vx-panel);
+  border-color: var(--vx-line-2);
+}
+.btn-line:hover {
+  background: var(--vx-panel-2);
+  border-color: var(--vx-line-3);
+}
+/* ghost */
+.btn-ghost {
+  color: var(--vx-ink-2);
+  background: transparent;
+}
+.btn-ghost:hover {
+  color: var(--vx-ink);
+  background: var(--vx-panel);
+}
+
+/* --- Prism animation (from PrismLogo, idle sway + core pulse) --- */
+.vx-prism-box {
+  transform-origin: 40px 40px;
+  animation: vxPrismSway 5s ease-in-out infinite;
+}
+.vx-prism-core {
+  animation: vxPrismCore 3.4s ease-in-out infinite;
+}
+@keyframes vxPrismSway {
+  0%,
+  100% {
+    transform: rotate(-5deg);
+  }
+  50% {
+    transform: rotate(5deg);
+  }
+}
+@keyframes vxPrismCore {
+  0%,
+  100% {
+    r: 4;
+    filter: drop-shadow(0 0 3px #a78bfa);
+  }
+  50% {
+    r: 7;
+    filter: drop-shadow(0 0 10px #a78bfa);
+  }
+}
+
+/* --- entrance reveal --- */
+.reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity 0.6s var(--vx-ease),
+    transform 0.6s var(--vx-ease);
+}
+.reveal.in {
+  opacity: 1;
+  transform: none;
+}
+
+/* --- nav --- */
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  background: rgba(4, 4, 7, 0.72);
+  border-bottom: 1px solid var(--vx-line);
+}
+.nav-inner {
+  display: flex;
+  align-items: center;
+  gap: 30px;
+  height: 64px;
+}
+.nav-links {
+  display: flex;
+  gap: 26px;
+  font-size: 14px;
+  color: var(--vx-ink-2);
+}
+.nav-links a {
+  transition: color var(--vx-dur) var(--vx-ease);
+}
+.nav-links a:hover {
+  color: var(--vx-ink);
+}
+.nav-cta {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.wordmark {
+  font-family: var(--vx-font-display);
+  font-weight: 600;
+  font-size: 19px;
+  letter-spacing: -0.02em;
+}
+
+/* --- announce bar --- */
+.announce {
+  border-bottom: 1px solid var(--vx-line);
+  background: linear-gradient(
+    90deg,
+    rgba(var(--vx-pink-rgb), 0.07),
+    rgba(var(--vx-violet-rgb), 0.07),
+    rgba(var(--vx-blue-rgb), 0.07)
+  );
+}
+.announce-inner {
+  text-align: center;
+  padding: 9px 32px;
+  font-size: 13px;
+  color: var(--vx-ink-2);
+}
+.announce-inner b {
+  color: var(--vx-ink);
+  font-weight: 600;
+}
+
+/* --- sections --- */
+section {
+  position: relative;
+}
+.section-pad {
+  padding: 112px 0;
+}
+.section-head {
+  max-width: 640px;
+}
+.section-head h2 {
+  font-size: 44px;
+  margin: 16px 0 0;
+}
+.section-head p {
+  margin: 16px 0 0;
+}
+
+/* --- trust strip --- */
+.trust {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 44px;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--vx-font-mono);
+  font-size: 12.5px;
+  color: var(--vx-ink-2);
+  background: var(--vx-panel);
+  border: 1px solid var(--vx-line-2);
+  border-radius: var(--vx-radius-pill);
+  padding: 8px 15px;
+}
+.chip .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--vx-accent);
+  box-shadow: 0 0 8px rgba(var(--vx-violet-rgb), 0.7);
+}
+.chip b {
+  color: var(--vx-ink);
+  font-weight: 600;
+}
+
+/* --- code block --- */
+.code-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-top: 44px;
+}
+.code-card {
+  background: var(--vx-panel);
+  border: 1px solid var(--vx-line-2);
+  border-radius: var(--vx-radius-lg);
+  overflow: hidden;
+}
+.code-card.after {
+  border-color: rgba(var(--vx-violet-rgb), 0.4);
+  box-shadow: 0 0 40px -22px rgba(var(--vx-violet-rgb), 0.6);
+}
+.code-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--vx-line);
+}
+.code-label {
+  font-family: var(--vx-font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--vx-ink-3);
+}
+.code-tag {
+  margin-left: auto;
+  font-family: var(--vx-font-mono);
+  font-size: 11px;
+  padding: 3px 9px;
+  border-radius: var(--vx-radius-pill);
+}
+.code-tag.muted {
+  color: var(--vx-ink-3);
+  background: var(--vx-bg-3);
+  border: 1px solid var(--vx-line-2);
+}
+.code-tag.live {
+  color: var(--vx-violet);
+  background: rgba(var(--vx-violet-rgb), 0.12);
+  border: 1px solid rgba(var(--vx-violet-rgb), 0.35);
+}
+.code-body {
+  padding: 18px 20px;
+  overflow-x: auto;
+}
+pre {
+  margin: 0;
+  font-family: var(--vx-font-mono);
+  font-size: 13px;
+  line-height: 1.9;
+  color: var(--vx-ink);
+  white-space: pre;
+}
+.cmt {
+  color: var(--vx-ink-4);
+}
+.k-red {
+  color: #f2939a;
+}
+.k-grn {
+  color: #7ee0a8;
+}
+.k-vio {
+  color: #c4b5fd;
+}
+.k-dim {
+  color: var(--vx-ink-3);
+}
+.strike {
+  color: var(--vx-ink-4);
+  text-decoration: line-through;
+}
+.works-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 26px;
+  justify-content: center;
+}
+.works-pill {
+  font-family: var(--vx-font-mono);
+  font-size: 12px;
+  color: var(--vx-ink-2);
+  border: 1px solid var(--vx-line-2);
+  border-radius: var(--vx-radius-sm);
+  padding: 7px 12px;
+  background: var(--vx-panel);
+}
+.works-pill span {
+  color: var(--vx-good);
+}
+
+/* --- providers --- */
+.prov-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 40px;
+}
+.prov {
+  flex: 1 1 150px;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  background: var(--vx-panel);
+  border: 1px solid var(--vx-line-2);
+  border-radius: var(--vx-radius-lg);
+  padding: 18px 20px;
+  transition:
+    border-color var(--vx-dur) var(--vx-ease),
+    background var(--vx-dur) var(--vx-ease);
+}
+.prov:hover {
+  border-color: var(--vx-line-3);
+  background: var(--vx-panel-2);
+}
+.prov-mark {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--vx-font-mono);
+  font-weight: 600;
+  font-size: 16px;
+  color: #fff;
+}
+.prov-name {
+  font-weight: 600;
+  font-size: 14.5px;
+}
+.prov-kind {
+  font-family: var(--vx-font-mono);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--vx-ink-3);
+  margin-top: 2px;
+}
+.byok-note {
+  margin-top: 22px;
+  font-size: 14px;
+  color: var(--vx-ink-2);
+}
+.byok-note b {
+  color: var(--vx-ink);
+  font-weight: 600;
+}
+
+/* --- governance cards --- */
+.gov-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 18px;
+  margin-top: 44px;
+}
+.gov-card {
+  background: var(--vx-panel);
+  border: 1px solid var(--vx-line-2);
+  border-radius: var(--vx-radius-lg);
+  padding: 26px 26px 28px;
+  transition:
+    border-color var(--vx-dur) var(--vx-ease),
+    transform var(--vx-dur) var(--vx-ease);
+}
+.gov-card:hover {
+  border-color: var(--vx-line-3);
+  transform: translateY(-2px);
+}
+.gov-icon {
+  width: 38px;
+  height: 38px;
+  color: var(--vx-accent);
+  margin-bottom: 18px;
+}
+.gov-card h3 {
+  font-family: var(--vx-font-display);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin: 0 0 10px;
+}
+.gov-card p {
+  margin: 0;
+  color: var(--vx-ink-2);
+  font-size: 14.5px;
+  line-height: 1.6;
+}
+.gov-card .meta {
+  margin-top: 16px;
+  font-family: var(--vx-font-mono);
+  font-size: 11.5px;
+  color: var(--vx-ink-3);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.gov-card .meta span {
+  border: 1px solid var(--vx-line-2);
+  border-radius: var(--vx-radius-pill);
+  padding: 3px 9px;
+}
+
+/* --- how it works --- */
+.steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-top: 44px;
+}
+.step {
+  position: relative;
+  padding: 28px 24px;
+  border: 1px solid var(--vx-line);
+  border-radius: var(--vx-radius-lg);
+  background: var(--vx-bg-2);
+}
+.step-num {
+  font-family: var(--vx-font-mono);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  color: var(--vx-accent);
+}
+.step h3 {
+  font-family: var(--vx-font-display);
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin: 14px 0 8px;
+}
+.step p {
+  margin: 0;
+  color: var(--vx-ink-2);
+  font-size: 14px;
+}
+
+/* --- deploy --- */
+.deploy-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-top: 44px;
+}
+.deploy {
+  border: 1px solid var(--vx-line-2);
+  border-radius: var(--vx-radius-lg);
+  padding: 30px 30px 34px;
+  background: var(--vx-panel);
+  position: relative;
+  overflow: hidden;
+}
+.deploy .glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.5;
+}
+.deploy h3 {
+  font-family: var(--vx-font-display);
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  margin: 0 0 6px;
+  position: relative;
+}
+.deploy .tagline {
+  font-family: var(--vx-font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--vx-ink-3);
+  position: relative;
+}
+.deploy ul {
+  list-style: none;
+  margin: 22px 0 0;
+  padding: 0;
+  position: relative;
+}
+.deploy li {
+  display: flex;
+  gap: 11px;
+  align-items: flex-start;
+  padding: 9px 0;
+  font-size: 14.5px;
+  color: var(--vx-ink-2);
+  border-top: 1px solid var(--vx-line);
+}
+.deploy li:first-child {
+  border-top: 0;
+}
+.deploy li b {
+  color: var(--vx-ink);
+  font-weight: 600;
+}
+.deploy .check {
+  flex: none;
+  width: 17px;
+  height: 17px;
+  margin-top: 2px;
+  color: var(--vx-accent);
+}
+
+/* --- pricing --- */
+.price-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-top: 44px;
+}
+.plan {
+  border: 1px solid var(--vx-line-2);
+  border-radius: var(--vx-radius-lg);
+  padding: 28px;
+  background: var(--vx-panel);
+  display: flex;
+  flex-direction: column;
+}
+.plan.featured {
+  border-color: rgba(var(--vx-violet-rgb), 0.45);
+  box-shadow: 0 0 50px -26px rgba(var(--vx-violet-rgb), 0.7);
+  background: var(--vx-panel-2);
+}
+.plan-name {
+  font-family: var(--vx-font-mono);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--vx-ink-3);
+}
+.plan.featured .plan-name {
+  color: var(--vx-violet);
+}
+.plan-price {
+  font-family: var(--vx-font-display);
+  font-size: 38px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  margin: 14px 0 2px;
+}
+.plan-price small {
+  font-family: var(--vx-font-sans);
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--vx-ink-3);
+  letter-spacing: 0;
+}
+.plan-desc {
+  color: var(--vx-ink-2);
+  font-size: 14px;
+  min-height: 42px;
+}
+.plan ul {
+  list-style: none;
+  margin: 20px 0 26px;
+  padding: 0;
+  flex: 1;
+}
+.plan li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 7px 0;
+  font-size: 13.5px;
+  color: var(--vx-ink-2);
+}
+.plan li .check {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  margin-top: 3px;
+  color: var(--vx-accent);
+}
+.plan .btn {
+  width: 100%;
+}
+.price-note {
+  margin-top: 22px;
+  text-align: center;
+  font-family: var(--vx-font-mono);
+  font-size: 12.5px;
+  color: var(--vx-ink-3);
+}
+
+/* --- final CTA --- */
+.cta-band {
+  text-align: center;
+  padding: 130px 0 140px;
+  position: relative;
+}
+.cta-band .glow {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 900px;
+  height: 520px;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, rgba(var(--vx-violet-rgb), 0.18), transparent 62%);
+}
+.cta-band h2 {
+  font-size: 60px;
+  position: relative;
+}
+.cta-band .btn {
+  margin-top: 36px;
+  position: relative;
+}
+
+/* --- footer --- */
+footer {
+  border-top: 1px solid var(--vx-line);
+  background: var(--vx-bg-2);
+  padding: 64px 0 40px;
+}
+.foot-grid {
+  display: grid;
+  grid-template-columns: 1.6fr repeat(4, 1fr);
+  gap: 36px;
+}
+.foot-brand p {
+  color: var(--vx-ink-3);
+  font-size: 13.5px;
+  max-width: 230px;
+  margin: 16px 0 0;
+}
+.foot-col h4 {
+  font-family: var(--vx-font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--vx-ink-3);
+  margin: 0 0 16px;
+}
+.foot-col a {
+  display: block;
+  color: var(--vx-ink-2);
+  font-size: 14px;
+  padding: 5px 0;
+  transition: color var(--vx-dur) var(--vx-ease);
+}
+.foot-col a:hover {
+  color: var(--vx-ink);
+}
+.foot-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 56px;
+  padding-top: 26px;
+  border-top: 1px solid var(--vx-line);
+  font-size: 13px;
+  color: var(--vx-ink-3);
+  font-family: var(--vx-font-mono);
+}
+
+/* --- responsive --- */
+@media (max-width: 900px) {
+  .nav-links {
+    display: none;
+  }
+  .section-pad {
+    padding: 80px 0;
+  }
+  .section-head h2 {
+    font-size: 34px;
+  }
+  .code-grid,
+  .gov-grid,
+  .steps,
+  .deploy-grid,
+  .price-grid {
+    grid-template-columns: 1fr;
+  }
+  .foot-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .cta-band h2 {
+    font-size: 40px;
+  }
+}
+@media (max-width: 560px) {
+  .wrap {
+    padding: 0 20px;
+  }
+  .hero-h1 {
+    font-size: 44px !important;
+  }
+  .foot-grid {
+    grid-template-columns: 1fr;
+  }
+  .plan-price {
+    font-size: 32px;
+  }
+}
+/* --- theme toggle (nav icon button) --- */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  padding: 0;
+  border-radius: var(--vx-radius-sm);
+  border: 1px solid var(--vx-line-2);
+  background: var(--vx-panel);
+  color: var(--vx-ink-2);
+  cursor: pointer;
+  transition:
+    color var(--vx-dur) var(--vx-ease),
+    background var(--vx-dur) var(--vx-ease),
+    border-color var(--vx-dur) var(--vx-ease);
+}
+.theme-toggle:hover {
+  color: var(--vx-ink);
+  background: var(--vx-panel-2);
+  border-color: var(--vx-line-3);
+}
+.theme-toggle svg {
+  width: 17px;
+  height: 17px;
+}
+
+/* --- light theme: landing-specific overrides ---
+   Surface/ink/line/accent tokens come from the DS [data-theme="light"]
+   palette. Here we only re-tune the brand-stage textures + dark-hardcoded
+   chrome so the page reads as a real light surface. The gradient CTAs and
+   Prism accents stay full-strength in both themes. */
+:root[data-theme="light"] .vx-atmosphere {
+  opacity: 0.45;
+}
+:root[data-theme="light"] .vx-grid {
+  opacity: 0.6;
+}
+:root[data-theme="light"] .nav {
+  background: rgba(247, 247, 251, 0.72);
+}
+:root[data-theme="light"] .theme-toggle {
+  color: var(--vx-ink-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vx-prism-box,
+  .vx-prism-core {
+    animation: none !important;
+  }
+  .reveal {
+    transition: none;
+    opacity: 1;
+    transform: none;
+  }
+}

@@ -1,0 +1,59 @@
+/* Forgot password — reuses the shared auth chrome (.auth-screen / .auth-card /
+   .auth-body live in packages/design-system/chrome.css). Glow, theme toggle and
+   brand lockup mirror login.css. */
+.auth-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 600px 420px at 30% 0%, rgba(var(--vx-violet-rgb), 0.16), transparent 60%),
+    radial-gradient(ellipse 500px 400px at 100% 20%, rgba(var(--vx-blue-rgb), 0.12), transparent 60%);
+}
+.auth-theme-toggle {
+  position: absolute;
+  top: 20px;
+  right: 22px;
+  z-index: 1;
+}
+.auth-head {
+  align-items: center;
+  text-align: center;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.brand-word {
+  font-size: var(--vx-text-2xl);
+  font-weight: var(--vx-w-semibold);
+  color: var(--vx-ink);
+}
+
+/* Calm confirmation after a reset link is requested. */
+.auth-sent {
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: var(--vx-radius-md);
+  background: var(--vx-bg-2);
+  border: 1px solid var(--vx-line);
+  font-size: var(--vx-text-sm);
+  color: var(--vx-ink-2, var(--vx-ink));
+  text-align: center;
+}
+
+/* "← Back to sign in" — centred link below the card. */
+.auth-back {
+  text-align: center;
+  margin-top: 18px;
+  font-size: var(--vx-text-sm);
+}
+.auth-back a {
+  color: var(--vx-accent);
+  font-weight: var(--vx-w-semibold);
+  text-decoration: none;
+  cursor: pointer;
+}
+.auth-back a:hover {
+  text-decoration: underline;
+}

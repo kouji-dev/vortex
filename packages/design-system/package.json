@@ -1,0 +1,22 @@
+{
+  "name": "@vortex/design-system",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Vortex shared design system — canonical tokens, kouji theme mapping, and app chrome CSS.",
+  "type": "module",
+  "exports": {
+    "./vortex.css": "./vortex.css",
+    "./vortex-theme.css": "./vortex-theme.css",
+    "./chrome.css": "./chrome.css",
+    "./tokens/*": "./tokens/*"
+  },
+  "files": [
+    "vortex.css",
+    "vortex-theme.css",
+    "chrome.css",
+    "tokens"
+  ],
+  "sideEffects": [
+    "*.css"
+  ]
+}

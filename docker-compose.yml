@@ -1,0 +1,40 @@
+name: local-dev
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: local-dev-vortex-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: vortex
+      POSTGRES_PASSWORD: vortex
+      POSTGRES_DB: vortex
+    ports:
+      - "5433:5432"
+    volumes:
+      - vortex_pg:/var/lib/postgresql/data
+      # creates the non-superuser `vortex_app` role on first init (RLS applies to it)
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vortex -d vortex"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: local-dev-vortex-redis
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    volumes:
+      - vortex_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  vortex_pg:
+  vortex_redis:

@@ -1,0 +1,238 @@
+/* Vortex tenant console shell — left sidebar + topbar + routed content.
+   Light-default console surfaces (design tokens). */
+.shell {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--vx-bg);
+}
+
+/* ── Sidebar ── */
+.sidebar {
+  width: var(--vx-sidebar-w, 220px);
+  flex-shrink: 0;
+  background: var(--vx-panel);
+  border-right: 1px solid var(--vx-line);
+  display: flex;
+  flex-direction: column;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 14px 16px;
+  height: var(--vx-topbar-h, 44px);
+  border-bottom: 1px solid var(--vx-line);
+}
+.brand-word {
+  font-size: var(--vx-text-lg);
+  font-weight: var(--vx-w-semibold);
+  color: var(--vx-ink);
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 10px;
+  overflow-y: auto;
+  flex: 1;
+}
+.nav-group-label {
+  padding: 12px 8px 6px;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  min-height: 30px;
+  border-radius: var(--vx-radius-sm);
+  color: var(--vx-ink-2);
+  font-size: var(--vx-text-ui);
+  font-weight: var(--vx-w-medium);
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background var(--vx-dur-fast) var(--vx-ease),
+    color var(--vx-dur-fast) var(--vx-ease);
+}
+.nav-item:hover {
+  background: var(--vx-bg-2);
+  color: var(--vx-ink);
+}
+.nav-item.active {
+  background: var(--vx-accent-soft);
+  color: var(--vx-accent);
+  font-weight: var(--vx-w-semibold);
+}
+.nav-icon {
+  flex-shrink: 0;
+  color: currentColor;
+}
+.nav-label {
+  flex: 1;
+  min-width: 0;
+}
+.nav-badge {
+  font-family: var(--vx-font-mono);
+  font-size: var(--vx-text-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--vx-track-caps);
+  color: var(--vx-accent);
+  background: var(--vx-accent-soft);
+  padding: 1px 5px;
+  border-radius: var(--vx-radius-pill);
+}
+
+.sidebar-foot {
+  padding: 12px;
+  border-top: 1px solid var(--vx-line);
+  position: relative;
+}
+
+/* Account dropdown — rises above the avatar trigger (design openUserMenu). */
+.account-menu {
+  position: absolute;
+  bottom: calc(100% - 6px);
+  left: 12px;
+  right: 12px;
+  z-index: 40;
+  padding: 5px;
+  background: var(--vx-elev);
+  border: 1px solid var(--vx-line-2);
+  border-radius: var(--vx-radius-sm);
+  box-shadow: var(--vx-shadow-pop, 0 12px 32px rgba(0, 0, 0, 0.3));
+}
+.account-menu-label {
+  font-family: var(--vx-font-mono);
+  font-size: var(--vx-text-2xs);
+  letter-spacing: var(--vx-track-label);
+  text-transform: uppercase;
+  color: var(--vx-ink-4);
+  padding: 8px 10px 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.account-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  border-radius: var(--vx-radius-sm);
+  background: transparent;
+  color: var(--vx-ink-2);
+  font: inherit;
+  font-size: var(--vx-text-ui);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--vx-dur-fast) var(--vx-ease);
+}
+.account-menu-item:hover {
+  background: var(--vx-bg-2);
+  color: var(--vx-ink);
+}
+.account-menu-item.danger {
+  color: var(--vx-err);
+}
+.account-menu-item.danger:hover {
+  background: rgba(var(--vx-err-rgb), 0.1);
+}
+.account-menu-sep {
+  height: 1px;
+  background: var(--vx-line);
+  margin: 5px 0;
+}
+.who {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--vx-radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background var(--vx-dur-fast) var(--vx-ease),
+    border-color var(--vx-dur-fast) var(--vx-ease);
+}
+.who:hover {
+  background: var(--vx-bg-2);
+  border-color: var(--vx-line);
+}
+.who:focus-visible {
+  outline: 2px solid var(--vx-accent);
+  outline-offset: 2px;
+}
+.who[aria-expanded='true'] {
+  background: var(--vx-bg-2);
+  border-color: var(--vx-line);
+}
+.who-caret {
+  flex-shrink: 0;
+  color: var(--vx-ink-3);
+}
+.who-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.who-name {
+  font-size: var(--vx-text-sm);
+  font-weight: var(--vx-w-medium);
+  color: var(--vx-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.who-role {
+  font-size: var(--vx-text-xs);
+  color: var(--vx-ink-3);
+}
+
+/* ── Content column ── */
+.content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.topbar {
+  height: var(--vx-topbar-h, 44px);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 18px;
+  background: var(--vx-panel);
+  border-bottom: 1px solid var(--vx-line);
+}
+.org {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.org-name {
+  font-size: var(--vx-text-md);
+  font-weight: var(--vx-w-semibold);
+  color: var(--vx-ink);
+}
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.main {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--vx-bg);
+}

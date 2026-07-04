@@ -1,0 +1,112 @@
+# Vortex — Render blueprint. Deploys the whole product (preesm-style: the API
+# serves the built consoles same-origin so auth cookies stay first-party).
+#
+#   • vortex-db       — managed Postgres (its user is a non-superuser owner, so
+#                       `FORCE ROW LEVEL SECURITY` enforces RLS without a second role)
+#   • vortex-redis    — managed Key Value (Redis) for spend counters / cache
+#   • vortex-api      — API + gateway, and serves the tenant console at `/`
+#                       and the platform console at `/admin`
+#   • vortex-landing  — the SSR marketing landing page (its own Node service)
+#
+# Free tier: services sleep on inactivity (cold starts); no preDeploy — so
+# migrate + seed run inside buildCommand. Free Postgres/Key Value have small limits.
+
+databases:
+  - name: vortex-db
+    plan: free
+    region: frankfurt
+
+services:
+  # ── Redis (spend counters, cache) ──────────────────────────
+  - type: keyvalue
+    name: vortex-redis
+    plan: free
+    region: frankfurt
+    ipAllowList: [] # internal only
+    maxmemoryPolicy: noeviction
+
+  # ── API + gateway + both consoles (same-origin) ────────────
+  - type: web
+    name: vortex-api
+    runtime: node
+    region: frankfurt
+    plan: free
+    branch: main
+    autoDeploy: true
+    healthCheckPath: /health
+    buildCommand: |
+      corepack enable
+      pnpm install --frozen-lockfile
+      pnpm build:api
+      pnpm exec ng build web
+      pnpm exec ng build platform --base-href=/admin/
+      pnpm db:migrate
+      pnpm db:seed
+    startCommand: pnpm --filter @vortex/api start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TENANCY_MODE
+        value: multi
+      - key: WEB_DIST
+        value: ./dist/web/browser
+      - key: PLATFORM_DIST
+        value: ./dist/platform/browser
+      - key: DATABASE_URL
+        fromDatabase: { name: vortex-db, property: connectionString }
+      - key: APP_DATABASE_URL # managed PG user is non-superuser → FORCE RLS applies
+        fromDatabase: { name: vortex-db, property: connectionString }
+      - key: REDIS_URL
+        fromService: { type: keyvalue, name: vortex-redis, property: connectionString }
+      - key: BETTER_AUTH_SECRET
+        generateValue: true
+      - key: ENCRYPTION_KEY
+        generateValue: true
+      # WEB_ORIGIN / PLATFORM_ORIGIN / BETTER_AUTH_URL default to RENDER_EXTERNAL_URL
+      # (same-origin) — override only if you serve consoles on other domains.
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: AZURE_OPENAI_RESOURCE
+        sync: false
+      - key: AZURE_OPENAI_API_KEY
+        sync: false
+      - key: AWS_BEDROCK_API_KEY
+        sync: false
+      - key: GOOGLE_VERTEX_PROJECT
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: GITHUB_CLIENT_ID
+        sync: false
+      - key: GITHUB_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+
+  # ── Marketing landing (Angular SSR) ────────────────────────
+  - type: web
+    name: vortex-landing
+    runtime: node
+    region: frankfurt
+    plan: free
+    branch: main
+    autoDeploy: true
+    buildCommand: |
+      corepack enable
+      pnpm install --frozen-lockfile
+      pnpm exec ng build landing
+    startCommand: node dist/landing/server/server.mjs
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Angular SSR prod host check — set to the landing service host (or "*").
+      - key: NG_ALLOWED_HOSTS
+        sync: false

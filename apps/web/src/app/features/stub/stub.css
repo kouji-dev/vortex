@@ -1,0 +1,28 @@
+/* Stub / placeholder screen. */
+.placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+  padding: 64px 24px;
+  background: var(--vx-panel);
+  border: 1px dashed var(--vx-line-2);
+  border-radius: var(--vx-radius-lg);
+}
+.placeholder-icon {
+  color: var(--vx-ink-4);
+  margin-bottom: 4px;
+}
+.placeholder-title {
+  font-family: var(--vx-font-display);
+  font-size: var(--vx-text-lg);
+  font-weight: var(--vx-w-semibold);
+  color: var(--vx-ink);
+}
+.placeholder-sub {
+  font-size: var(--vx-text-sm);
+  color: var(--vx-ink-3);
+  max-width: 360px;
+}

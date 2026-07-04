@@ -1,0 +1,30 @@
+# deps
+node_modules/
+.pnpm-store/
+
+# build
+dist/
+.angular/
+*.tsbuildinfo
+
+# env / secrets
+.env
+.env.*
+!.env.example
+
+# logs
+*.log
+logs/
+
+# test artifacts
+playwright-report/
+test-results/
+coverage/
+
+# os / editor
+.DS_Store
+Thumbs.db
+
+# scratch
+tmp/
+.turbo/

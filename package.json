@@ -1,0 +1,59 @@
+{
+  "name": "vortex",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Vortex — Enterprise LLM Gateway (multi-tenant SaaS + self-host)",
+  "type": "module",
+  "packageManager": "pnpm@11.7.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev:api": "pnpm --filter @vortex/api dev",
+    "dev:web": "ng serve web",
+    "dev:platform": "ng serve platform",
+    "dev:landing": "ng serve landing",
+    "build": "pnpm -r build",
+    "build:api": "pnpm --filter @vortex/api build",
+    "build:web": "ng build web",
+    "build:platform": "ng build platform",
+    "build:landing": "ng build landing",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:generate": "pnpm --filter @vortex/db generate",
+    "db:migrate": "pnpm --filter @vortex/db migrate",
+    "db:seed": "pnpm --filter @vortex/db seed",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@angular/cdk": "^22.0.3",
+    "@angular/common": "^22.0.0",
+    "@angular/compiler": "^22.0.0",
+    "@angular/core": "^22.0.0",
+    "@angular/forms": "^22.0.0",
+    "@angular/platform-browser": "^22.0.0",
+    "@angular/platform-server": "^22.0.0",
+    "@angular/router": "^22.0.0",
+    "@angular/ssr": "^22.0.4",
+    "@kouji-ui/components": "0.4.3",
+    "@kouji-ui/core": "0.2.0",
+    "@kouji-ui/themes": "0.0.6",
+    "express": "^4.21.2",
+    "rxjs": "~7.8.0",
+    "tslib": "^2.3.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.1",
+    "postgres": "^3.4.5",
+    "@angular/build": "^22.0.4",
+    "@angular/cli": "^22.0.4",
+    "@angular/compiler-cli": "^22.0.0",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.2",
+    "typescript": "~6.0.2"
+  }
+}

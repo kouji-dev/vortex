@@ -1,0 +1,130 @@
+/* ============================================================
+   Vortex — shared app primitives (auth shell + page chrome).
+   Feature CSS lives beside each component; this holds only the
+   cross-screen scaffolding.
+   ============================================================ */
+
+/* ── Auth (login) ── */
+.auth-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--vx-bg-2);
+  position: relative;
+  overflow: hidden;
+}
+/* Column wrapper: stacks the card and the alt-action line ("New here?" /
+   "Already have an account?") vertically, centred within the auth screen. */
+.auth-body {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+}
+.auth-card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 400px;
+  background: var(--vx-panel);
+  border: 1px solid var(--vx-line);
+  border-radius: var(--vx-radius-lg);
+  box-shadow: var(--vx-shadow-md, 0 20px 48px rgba(26, 24, 48, 0.12));
+  padding: 32px 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.auth-head {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.auth-head h1 {
+  margin: 0;
+  font-family: var(--vx-font-display);
+  font-size: var(--vx-text-xl);
+  font-weight: var(--vx-w-semibold);
+  letter-spacing: var(--vx-track-display);
+  color: var(--vx-ink);
+}
+.auth-head p {
+  margin: 0;
+  font-size: var(--vx-text-sm);
+  color: var(--vx-ink-3);
+}
+
+/* Alt-action line below the card ("New here?" / "Already have an account?"). */
+.auth-alt {
+  text-align: center;
+  margin-top: 18px;
+  font-size: var(--vx-text-sm);
+  color: var(--vx-ink-3);
+}
+.auth-alt a {
+  color: var(--vx-accent);
+  font-weight: var(--vx-w-semibold);
+  text-decoration: none;
+  cursor: pointer;
+}
+.auth-alt a:hover {
+  text-decoration: underline;
+}
+
+/* Shared mono eyebrow label (design .vx-label). */
+.vx-label {
+  font-family: var(--vx-font-mono);
+  font-size: var(--vx-text-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--vx-track-label);
+  color: var(--vx-ink-3);
+}
+.vx-mono {
+  font-family: var(--vx-font-mono);
+}
+.vx-display {
+  font-family: var(--vx-font-display);
+  letter-spacing: var(--vx-track-display);
+}
+.vx-grad-text {
+  background: var(--vx-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ── Page chrome (routed content inside the shell) ── */
+.page {
+  box-sizing: border-box;
+  padding: 24px 28px 56px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 100%;
+  max-width: var(--vx-max-content);
+  margin: 0 auto;
+}
+.page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.page-head h1 {
+  margin: 0;
+  font-family: var(--vx-font-display);
+  font-size: var(--vx-text-2xl);
+  font-weight: var(--vx-w-semibold);
+  letter-spacing: var(--vx-track-display);
+  color: var(--vx-ink);
+}
+.page-head p {
+  margin: 4px 0 0;
+  font-size: var(--vx-text-md);
+  color: var(--vx-ink-3);
+  max-width: var(--vx-max-prose);
+}

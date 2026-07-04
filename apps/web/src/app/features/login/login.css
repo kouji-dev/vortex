@@ -1,0 +1,113 @@
+/* Login — auth card centred over a soft prism glow.
+   .auth-screen / .auth-card / .auth-head live in the shared chrome.
+   CANONICAL: apps/web and apps/platform keep this file byte-identical. */
+.auth-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 600px 420px at 30% 0%, rgba(var(--vx-violet-rgb), 0.16), transparent 60%),
+    radial-gradient(ellipse 500px 400px at 100% 20%, rgba(var(--vx-blue-rgb), 0.12), transparent 60%);
+}
+
+/* Theme toggle — pinned top-right of the auth screen (design: top 20 / right 22). */
+.auth-theme-toggle {
+  position: absolute;
+  top: 20px;
+  right: 22px;
+  z-index: 1;
+}
+
+/* Centred brand lockup + heading, mirroring the design's auth screen. */
+.auth-head {
+  align-items: center;
+  text-align: center;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.brand-word {
+  font-size: var(--vx-text-2xl);
+  font-weight: var(--vx-w-semibold);
+  color: var(--vx-ink);
+}
+/* Platform badge in the brand lockup (rendered only on the platform console). */
+.platform-tag {
+  padding: 2px 7px;
+  border-radius: var(--vx-radius-pill);
+  color: var(--vx-accent);
+  background: var(--vx-accent-soft);
+}
+
+/* "or continue with" — hairline rule with a centred mono label.
+   Mirrors the design's OR divider (Vortex.dc.html auth card). */
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 2px 0;
+}
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--vx-line);
+}
+.auth-divider span {
+  flex: none;
+  font-family: var(--vx-font-mono);
+  font-size: var(--vx-text-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--vx-track-label);
+  color: var(--vx-ink-4);
+  white-space: nowrap;
+}
+
+/* Social sign-in — full-width secondary buttons stacked vertically. */
+.auth-social {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+/* kouji's loaded theme maps the 'secondary' variant to the same accent fill as
+   primary, so the social buttons would look identical to the Sign in CTA.
+   Retint them via kouji's button custom properties (they're set on the button
+   element itself, so reach it with ::ng-deep) into a muted, hairline-bordered
+   secondary that keeps the primary CTA dominant. */
+.auth-social ::ng-deep .kj-button {
+  --kj-button-bg: rgba(255, 255, 255, 0.06);
+  --kj-button-fg: var(--vx-ink);
+  border-color: var(--vx-line) !important;
+  gap: 8px;
+}
+.auth-social ::ng-deep .kj-button:hover {
+  --kj-button-bg: rgba(255, 255, 255, 0.1);
+}
+/* Brand marks inside the social buttons — GitHub (mono) + Google (multicolor). */
+.social-ic {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+/* Remember-me / Forgot? row — sits between the password field and the CTA
+   (design: checkbox left, mono accent link right). */
+.auth-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: -2px 0 2px;
+}
+.auth-forgot {
+  font-size: var(--vx-text-2xs);
+  color: var(--vx-accent);
+  text-decoration: none;
+  cursor: pointer;
+}
+.auth-forgot:hover {
+  text-decoration: underline;
+}

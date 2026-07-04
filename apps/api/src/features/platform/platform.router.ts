@@ -1,0 +1,251 @@
+import { Hono } from "hono";
+import { createMiddleware } from "hono/factory";
+import { desc, eq, sql } from "drizzle-orm";
+import {
+  withBypass,
+  organizations,
+  memberships,
+  apps,
+  usageRecords,
+  plans,
+  platformAdmins,
+  platformAuditLogs,
+  users,
+} from "@vortex/db";
+import { createHash } from "node:crypto";
+import { env } from "@vortex/core";
+import { type AppEnv } from "../../shared/ctx.js";
+import { createTenantOrg } from "../provisioning/provisioning.service.js";
+
+const configuredAdminEmails = (env.PLATFORM_ADMIN_EMAIL ?? "")
+  .split(",")
+  .map((e) => e.trim().toLowerCase())
+  .filter(Boolean);
+
+/** Vendor super-admin only (SaaS). Requires the user to be a platform_admin. */
+export const requirePlatformAdmin = createMiddleware<AppEnv>(async (c, next) => {
+  const user = c.get("user");
+  if (!user) return c.json({ error: "unauthorized" }, 401);
+  const ok = await withBypass(async (tx) => {
+    const [pa] = await tx
+      .select()
+      .from(platformAdmins)
+      .where(eq(platformAdmins.userId, user.id))
+      .limit(1);
+    if (pa) return true;
+    // Auto-promote: a signed-in user whose email matches a configured platform
+    // admin becomes one. This is what lets social sign-in (GitHub/Google) with
+    // the superadmin email reach the platform console.
+    if (configuredAdminEmails.includes(user.email.toLowerCase())) {
+      await tx
+        .insert(platformAdmins)
+        .values({ userId: user.id, role: "platform_admin" });
+      return true;
+    }
+    return false;
+  });
+  if (!ok) return c.json({ error: "forbidden" }, 403);
+  await next();
+});
+
+async function auditPlatform(
+  userId: string,
+  action: string,
+  targetOrg?: string,
+  metadata: Record<string, unknown> = {},
+) {
+  await withBypass(async (tx) => {
+    const [last] = await tx
+      .select({ h: platformAuditLogs.entryHash })
+      .from(platformAuditLogs)
+      .orderBy(desc(platformAuditLogs.createdAt))
+      .limit(1);
+    const prevHash = last?.h ?? null;
+    const [pa] = await tx
+      .select()
+      .from(platformAdmins)
+      .where(eq(platformAdmins.userId, userId))
+      .limit(1);
+    const entryHash = createHash("sha256")
+      .update(JSON.stringify({ action, targetOrg, metadata, prevHash }))
+      .digest("hex");
+    await tx.insert(platformAuditLogs).values({
+      platformAdminId: pa?.id ?? null,
+      action,
+      targetOrg: targetOrg ?? null,
+      metadata,
+      prevHash,
+      entryHash,
+    });
+  });
+}
+
+export const platform = new Hono<AppEnv>();
+platform.use("*", requirePlatformAdmin);
+
+// ── tenants ──────────────────────────────────────────────────
+platform.get("/tenants", async (c) => {
+  const rows = await withBypass(async (tx) => {
+    const orgs = await tx.select().from(organizations);
+    return Promise.all(
+      orgs.map(async (o) => {
+        const [mc] = await tx
+          .select({ n: sql<number>`count(*)::int` })
+          .from(memberships)
+          .where(eq(memberships.orgId, o.id));
+        const [ac] = await tx
+          .select({ n: sql<number>`count(*)::int` })
+          .from(apps)
+          .where(eq(apps.orgId, o.id));
+        const [sp] = await tx
+          .select({ s: sql<number>`coalesce(sum(${usageRecords.costMicro}),0)::bigint` })
+          .from(usageRecords)
+          .where(eq(usageRecords.orgId, o.id));
+        return {
+          id: o.id,
+          name: o.name,
+          status: o.status,
+          planId: o.planId,
+          createdAt: o.createdAt,
+          members: mc?.n ?? 0,
+          apps: ac?.n ?? 0,
+          spendMicro: Number(sp?.s ?? 0),
+        };
+      }),
+    );
+  });
+  return c.json({ tenants: rows });
+});
+
+platform.post("/tenants", async (c) => {
+  const { name } = (await c.req.json().catch(() => ({}))) as { name?: string };
+  if (!name) return c.json({ error: "name_required" }, 400);
+  const orgId = await createTenantOrg(name);
+  await auditPlatform(c.get("user")!.id, "tenant.provision", orgId, { name });
+  return c.json({ id: orgId, name });
+});
+
+async function setStatus(orgId: string, status: "active" | "suspended") {
+  await withBypass((tx) =>
+    tx.update(organizations).set({ status }).where(eq(organizations.id, orgId)),
+  );
+}
+
+platform.post("/tenants/:id/suspend", async (c) => {
+  const id = c.req.param("id");
+  await setStatus(id, "suspended");
+  await auditPlatform(c.get("user")!.id, "tenant.suspend", id);
+  return c.json({ ok: true });
+});
+
+platform.post("/tenants/:id/reactivate", async (c) => {
+  const id = c.req.param("id");
+  await setStatus(id, "active");
+  await auditPlatform(c.get("user")!.id, "tenant.reactivate", id);
+  return c.json({ ok: true });
+});
+
+platform.delete("/tenants/:id", async (c) => {
+  const id = c.req.param("id");
+  await withBypass((tx) =>
+    tx.delete(organizations).where(eq(organizations.id, id)),
+  );
+  await auditPlatform(c.get("user")!.id, "tenant.delete", id);
+  return c.json({ ok: true });
+});
+
+// ── cross-tenant usage ───────────────────────────────────────
+platform.get("/usage", async (c) => {
+  const rows = await withBypass((tx) =>
+    tx
+      .select({
+        orgId: usageRecords.orgId,
+        provider: usageRecords.provider,
+        model: usageRecords.model,
+        requests: sql<number>`count(*)::int`,
+        totalTokens: sql<number>`coalesce(sum(${usageRecords.totalTokens}),0)::int`,
+        costMicro: sql<number>`coalesce(sum(${usageRecords.costMicro}),0)::bigint`,
+      })
+      .from(usageRecords)
+      .groupBy(usageRecords.orgId, usageRecords.provider, usageRecords.model),
+  );
+  return c.json({
+    rows: rows.map((r) => ({ ...r, costMicro: Number(r.costMicro) })),
+  });
+});
+
+// ── plans / admins / audit ───────────────────────────────────
+platform.get("/plans", async (c) =>
+  c.json({ plans: await withBypass((tx) => tx.select().from(plans)) }),
+);
+
+platform.post("/plans", async (c) => {
+  const b = (await c.req.json().catch(() => ({}))) as {
+    name?: string;
+    stripePriceId?: string;
+    priceMicro?: number;
+    limits?: Record<string, unknown>;
+  };
+  if (!b.name) return c.json({ error: "name_required" }, 400);
+  const [p] = await withBypass((tx) =>
+    tx
+      .insert(plans)
+      .values({
+        name: b.name!,
+        stripePriceId: b.stripePriceId,
+        priceMicro: b.priceMicro,
+        limits: b.limits ?? {},
+      })
+      .returning(),
+  );
+  return c.json(p);
+});
+
+platform.get("/admins", async (c) => {
+  const rows = await withBypass((tx) =>
+    tx
+      .select({
+        id: platformAdmins.id,
+        role: platformAdmins.role,
+        email: users.email,
+        name: users.name,
+      })
+      .from(platformAdmins)
+      .leftJoin(users, eq(users.id, platformAdmins.userId)),
+  );
+  return c.json({ admins: rows });
+});
+
+platform.post("/admins", async (c) => {
+  const { email, role } = (await c.req.json().catch(() => ({}))) as {
+    email?: string;
+    role?: "platform_owner" | "platform_admin" | "support";
+  };
+  if (!email) return c.json({ error: "email_required" }, 400);
+  const created = await withBypass(async (tx) => {
+    const [u] = await tx.select().from(users).where(eq(users.email, email)).limit(1);
+    if (!u) return null;
+    const [pa] = await tx
+      .insert(platformAdmins)
+      .values({ userId: u.id, role: role ?? "platform_admin" })
+      .returning();
+    return pa;
+  });
+  if (!created) return c.json({ error: "user_not_found" }, 404);
+  return c.json(created);
+});
+
+platform.get("/audit", async (c) => {
+  const rows = await withBypass((tx) =>
+    tx
+      .select()
+      .from(platformAuditLogs)
+      .orderBy(desc(platformAuditLogs.createdAt))
+      .limit(200),
+  );
+  return c.json({ entries: rows });
+});
+
+export const platformRouters: Array<[string, Hono<AppEnv>]> = [
+  ["/platform", platform],
+];

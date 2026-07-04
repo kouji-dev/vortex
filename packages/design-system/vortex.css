@@ -1,0 +1,57 @@
+/* ============================================================
+   @vortex/design-system — shared design system.
+   Single stylesheet consumed by every Vortex frontend (apps/web
+   tenant console, apps/platform super-admin console, apps/landing).
+   Referenced once per app in angular.json `styles`; never duplicated.
+
+   Canonical + self-contained: the design tokens live in ./tokens
+   (authored here, no longer imported from the design/ handoff).
+
+   Layering:
+     1. kouji-ui base primitives + icon styles
+     2. Vortex design tokens (colours, type, spacing, effects, fonts)
+     3. Vortex kouji theme  — maps the kouji semantic contract onto
+        the Vortex tokens, per [data-theme]
+     4. Shared app chrome (auth shell, page + section primitives)
+   ============================================================ */
+
+/* 1 — kouji-ui base tokens + icon styles. */
+@import '@kouji-ui/themes/base.css';
+@import '@kouji-ui/core/icon/icon.css';
+
+/* 2 — Vortex design tokens (canonical, authored in this package). */
+@import './tokens/fonts.css';
+@import './tokens/colors.css';
+@import './tokens/typography.css';
+@import './tokens/spacing.css';
+@import './tokens/effects.css';
+
+/* 3 — Vortex kouji theme mapping. */
+@import './vortex-theme.css';
+
+/* 4 — Shared app chrome. */
+@import './chrome.css';
+
+/* Universal border-box — the design authors every box border-box; without this
+   padded full-width elements (e.g. the auth social buttons, pricing CTAs) render
+   content-box and overflow their containers. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+body {
+  font-family: var(--vx-font-sans);
+  font-size: var(--vx-text-ui);
+  line-height: var(--vx-lh-body);
+  color: var(--vx-ink);
+  background: var(--vx-bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}

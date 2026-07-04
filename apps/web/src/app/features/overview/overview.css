@@ -1,0 +1,118 @@
+/* Overview — KPI tiles + governance panels. */
+.kpi-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+}
+.kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  background: var(--vx-panel);
+  border: 1px solid var(--vx-line);
+  border-radius: var(--vx-radius);
+  box-shadow: var(--vx-shadow-sm);
+}
+.kpi-value {
+  font-size: var(--vx-text-2xl);
+  font-weight: var(--vx-w-semibold);
+  color: var(--vx-ink);
+  line-height: var(--vx-lh-tight);
+}
+.kpi-delta-icon {
+  margin-right: 3px;
+}
+
+.panel-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1.4fr 1fr;
+}
+@media (max-width: 860px) {
+  .panel-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.panel {
+  background: var(--vx-panel);
+  border: 1px solid var(--vx-line);
+  border-radius: var(--vx-radius);
+  padding: 16px 18px;
+}
+.panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.panel-head h2 {
+  margin: 0;
+  font-size: var(--vx-text-md);
+  font-weight: var(--vx-w-semibold);
+  color: var(--vx-ink);
+}
+
+/* horizontal bars */
+.bars {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.bar-row {
+  display: grid;
+  grid-template-columns: 120px 1fr auto;
+  align-items: center;
+  gap: 10px;
+}
+.bar-label {
+  font-size: var(--vx-text-sm);
+  color: var(--vx-ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bar-track {
+  height: 8px;
+  border-radius: var(--vx-radius-pill);
+  background: var(--vx-bg-3);
+  overflow: hidden;
+}
+.bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--vx-radius-pill);
+  background: var(--vx-grad);
+}
+.bar-value {
+  font-size: var(--vx-text-sm);
+  color: var(--vx-ink);
+}
+
+/* provider legend */
+.legend {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.legend-row .dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  background: var(--vx-accent);
+}
+.legend-label {
+  flex: 1;
+  font-size: var(--vx-text-sm);
+  color: var(--vx-ink-2);
+}
+.legend-value {
+  font-size: var(--vx-text-sm);
+  color: var(--vx-ink);
+}
