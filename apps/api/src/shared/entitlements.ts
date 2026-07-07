@@ -110,8 +110,12 @@ export type PlanCatalogEntry = {
   }[];
 };
 
-/** Public pricing catalog: every plan + its entitlements + graduated tiers. */
-export async function getPlanCatalog(): Promise<PlanCatalogEntry[]> {
+/** Public pricing catalog: every plan + its entitlements + graduated tiers (cached 60s). */
+export function getPlanCatalog(): Promise<PlanCatalogEntry[]> {
+  return planCatalog("catalog");
+}
+
+const planCatalog = ttlMemo(60_000, async (_: string): Promise<PlanCatalogEntry[]> => {
   return withBypass(async (tx) => {
     const planRows = await tx.select().from(plans);
     const entRows = await tx.select().from(planEntitlements);
@@ -145,4 +149,4 @@ export async function getPlanCatalog(): Promise<PlanCatalogEntry[]> {
       } satisfies PlanCatalogEntry;
     });
   });
-}
+});

@@ -1,11 +1,42 @@
-import { and, eq, desc } from "drizzle-orm";
 import { withBypass, models } from "@vortex/db";
+import { ttlMemo } from "@vortex/core";
 import type { CanonicalChatRequest, Usage } from "@vortex/shared";
 
 export type Price = {
   inputPer1kMicro: number;
   outputPer1kMicro: number;
 };
+
+type ModelRow = typeof models.$inferSelect;
+
+/**
+ * In-memory model catalog, cached 60s (the `models` table is small and changes
+ * ~never). Backs both `lookupPrice` and `resolveModel` so neither hits the DB
+ * on the request path. Keeps only the latest-`effectiveAt` row per model.
+ */
+const CATALOG_KEY = "catalog";
+const catalog = ttlMemo(60_000, async (_: string) => {
+  const rows = await withBypass((tx) => tx.select().from(models));
+  const latest = new Map<string, ModelRow>();
+  for (const r of rows) {
+    const k = `${r.provider}/${r.modelName}`;
+    const cur = latest.get(k);
+    if (!cur || new Date(r.effectiveAt) > new Date(cur.effectiveAt)) {
+      latest.set(k, r);
+    }
+  }
+  return { rows, latest };
+});
+
+/** All catalog rows (cached). Used by resolveModel for in-memory name matching. */
+export async function catalogRows(): Promise<ModelRow[]> {
+  return (await catalog(CATALOG_KEY)).rows;
+}
+
+/** Drop the catalog cache after a model/pricing mutation (seed/admin). */
+export function clearCatalog(): void {
+  catalog.clear();
+}
 
 /** Rough token estimate from character count (≈ chars / 4). */
 export function estTokensFromChars(chars: number): number {
@@ -37,15 +68,7 @@ export async function lookupPrice(
       outputPer1kMicro: override.outputPer1k,
     };
   }
-  const row = await withBypass(async (tx) => {
-    const [r] = await tx
-      .select()
-      .from(models)
-      .where(and(eq(models.provider, provider), eq(models.modelName, model)))
-      .orderBy(desc(models.effectiveAt))
-      .limit(1);
-    return r;
-  });
+  const row = (await catalog(CATALOG_KEY)).latest.get(`${provider}/${model}`);
   if (!row) return null;
   return {
     inputPer1kMicro: row.inputPer1kMicro,

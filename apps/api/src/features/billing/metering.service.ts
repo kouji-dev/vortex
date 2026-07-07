@@ -1,4 +1,4 @@
-import { and, gte, lt, sql } from "drizzle-orm";
+import { and, count, gte, lt, sql } from "drizzle-orm";
 import { withOrg, usageRecords, usageRollups, memberships } from "@vortex/db";
 
 function currentMonth(): string {
@@ -48,16 +48,19 @@ export async function rollupOrg(
       .where(
         and(gte(usageRecords.createdAt, start), lt(usageRecords.createdAt, end)),
       );
-    const memberRows = await tx
-      .select({ type: memberships.type })
-      .from(memberships);
+    const memberCounts = await tx
+      .select({ type: memberships.type, n: count() })
+      .from(memberships)
+      .groupBy(memberships.type);
+    const byType = (t: string) =>
+      Number(memberCounts.find((r) => r.type === t)?.n ?? 0);
     return {
       requests: Number(agg?.requests ?? 0),
       inputTokens: Number(agg?.inputTokens ?? 0),
       outputTokens: Number(agg?.outputTokens ?? 0),
       costMicro: Number(agg?.costMicro ?? 0),
-      seats: memberRows.filter((r) => r.type === "human").length,
-      serviceAccounts: memberRows.filter((r) => r.type === "technical").length,
+      seats: byType("human"),
+      serviceAccounts: byType("technical"),
     };
   });
 
@@ -70,17 +73,15 @@ export async function rollupOrg(
     service_accounts: summary.serviceAccounts,
   };
 
-  await withOrg(orgId, async (tx) => {
-    for (const meter of METERS) {
-      await tx
-        .insert(usageRollups)
-        .values({ orgId, period: month, meter, value: values[meter] })
-        .onConflictDoUpdate({
-          target: [usageRollups.orgId, usageRollups.period, usageRollups.meter],
-          set: { value: values[meter], updatedAt: new Date() },
-        });
-    }
-  });
+  await withOrg(orgId, (tx) =>
+    tx
+      .insert(usageRollups)
+      .values(METERS.map((meter) => ({ orgId, period: month, meter, value: values[meter] })))
+      .onConflictDoUpdate({
+        target: [usageRollups.orgId, usageRollups.period, usageRollups.meter],
+        set: { value: sql`excluded.value`, updatedAt: new Date() },
+      }),
+  );
 
   return { period: month, ...summary };
 }

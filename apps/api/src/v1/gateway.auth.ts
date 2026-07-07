@@ -48,18 +48,13 @@ export const gatewayAuth = createMiddleware<GatewayEnv>(async (c, next) => {
   const keyHash = hashApiKey(plaintext);
 
   const resolved = await withBypass(async (tx) => {
-    const [k] = await tx
-      .select()
+    const [row] = await tx
+      .select({ k: apiKeys, m: memberships })
       .from(apiKeys)
+      .leftJoin(memberships, eq(memberships.id, apiKeys.ownerMemberId))
       .where(eq(apiKeys.keyHash, keyHash))
       .limit(1);
-    if (!k) return null;
-    const [m] = await tx
-      .select()
-      .from(memberships)
-      .where(eq(memberships.id, k.ownerMemberId))
-      .limit(1);
-    return { k, m };
+    return row ? { k: row.k, m: row.m } : null;
   });
 
   if (!resolved?.k) {

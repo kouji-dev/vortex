@@ -108,8 +108,9 @@ export async function acquireConcurrency(
   if (ent.concurrency == null) return { ok: true, release: async () => {} };
   const key = rlKey("key", apiKeyId, "conc");
   try {
-    const n = await redis.incr(key);
-    await redis.expire(key, 300); // safety net against leaked slots
+    // INCR + EXPIRE in one round-trip.
+    const res = await redis.multi().incr(key).expire(key, 300).exec();
+    const n = Number(res?.[0]?.[1] ?? 0); // safety net against leaked slots
     if (n > ent.concurrency) {
       await redis.decr(key);
       return { ok: false, release: async () => {} };

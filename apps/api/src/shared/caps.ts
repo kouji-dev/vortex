@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, count } from "drizzle-orm";
 import { withBypass, withOrg, memberships, apps } from "@vortex/db";
 import { resolveEntitlements } from "./entitlements.js";
 
@@ -18,11 +18,12 @@ export async function assertSeatAvailable(orgId: string): Promise<void> {
   if (ent.seatsPerOrg == null) return;
   const rows = await withBypass((tx) =>
     tx
-      .select({ id: memberships.id })
+      .select({ n: count() })
       .from(memberships)
       .where(and(eq(memberships.orgId, orgId), eq(memberships.type, "human"))),
   );
-  if (rows.length >= ent.seatsPerOrg) {
+  const n = rows[0]?.n ?? 0;
+  if (n >= ent.seatsPerOrg) {
     throw new CapExceededError("seats", `seat limit reached (${ent.seatsPerOrg})`);
   }
 }
@@ -36,11 +37,12 @@ export async function assertServiceQuota(
   if (ent.servicePerMember == null) return;
   const rows = await withOrg(orgId, (tx) =>
     tx
-      .select({ id: apps.id })
+      .select({ n: count() })
       .from(apps)
       .where(and(eq(apps.kind, "service"), eq(apps.ownerMemberId, memberId))),
   );
-  if (rows.length >= ent.servicePerMember) {
+  const n = rows[0]?.n ?? 0;
+  if (n >= ent.servicePerMember) {
     throw new CapExceededError(
       "services",
       `service limit per member reached (${ent.servicePerMember})`,

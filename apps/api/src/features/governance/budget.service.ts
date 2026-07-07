@@ -2,6 +2,7 @@ import { and, eq, gte, lt, sql } from "drizzle-orm";
 import { withOrg, teams, usageRecords } from "@vortex/db";
 import { redis, budgetKey } from "@vortex/core";
 import { resolveEntitlements } from "../../shared/entitlements.js";
+import { requestMemo } from "../../shared/request-context.js";
 
 export class BudgetExceededError extends Error {
   scope: string;
@@ -16,7 +17,7 @@ function currentMonth(): string {
   return new Date().toISOString().slice(0, 7); // YYYY-MM
 }
 
-type Pool = {
+export type Pool = {
   scope: "team" | "org";
   scopeId: string;
   limit: number | null;
@@ -27,8 +28,20 @@ type Pool = {
  * The budget pool a request bills against. Team-level when the member has a
  * team (cap = team.budgetMicro ?? plan entitlement), else an org-wide pool at
  * the plan default. Enforced in BOTH managed and self-hosted deployments.
+ *
+ * Memoized PER REQUEST (not TTL) so a pre-check + its post-commit share one
+ * lookup, while every new request still reflects the latest budget config.
  */
-async function resolvePool(orgId: string, teamId: string | null): Promise<Pool> {
+export async function resolvePool(
+  orgId: string,
+  teamId: string | null,
+): Promise<Pool> {
+  return requestMemo(`pool:${orgId}:${teamId ?? "org"}`, () =>
+    loadPool(orgId, teamId),
+  );
+}
+
+async function loadPool(orgId: string, teamId: string | null): Promise<Pool> {
   const ent = await resolveEntitlements(orgId);
   if (!teamId) {
     return { scope: "org", scopeId: orgId, limit: ent.teamBudgetMicro, hard: true };

@@ -2,9 +2,7 @@ import { randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import {
   withOrg,
-  withBypass,
   apps,
-  models,
   organizations,
   providerCredentials,
   managedProviderKeys,
@@ -44,6 +42,7 @@ import {
   costMicro,
   estimatePromptTokens,
   lookupPrice,
+  catalogRows,
   type Price,
 } from "./cost.js";
 
@@ -131,10 +130,9 @@ async function resolveModel(
   }
   const enabled = listEnabledProviders().map((p) => p.id);
   if (enabled.length === 0) return null;
-  // 1) exact catalog match, 2) model-family inference, 3) first enabled.
-  const rows = await withBypass((tx) =>
-    tx.select().from(models).where(eq(models.modelName, modelStr)),
-  );
+  // 1) exact catalog match (in-memory, cached), 2) model-family inference,
+  // 3) first enabled.
+  const rows = (await catalogRows()).filter((r) => r.modelName === modelStr);
   const hit = rows.find((r) => enabled.includes(r.provider));
   if (hit) return { provider: hit.provider, model: modelStr };
   const inferred = inferProvider(modelStr);
@@ -295,6 +293,8 @@ async function finalize(
       actualTokens: usage.totalTokens,
     });
   }
+  // Price comes from the cached catalog (in-memory); pool is memoized per
+  // request — both cheap, so no threading needed.
   let price: Price | null = null;
   try {
     price = await lookupPrice(target.provider, target.model, target.priceOverride);
@@ -547,7 +547,10 @@ export async function handleChat(
     const { stream, usage } = adapter.streamTransform(resp.body, target.model);
     // Finalize (release slot + meter) once the stream is fully consumed.
     void usage.then((u) =>
-      finalize(ctx, target, u, Date.now() - started, "success", { slot, estTokens }),
+      finalize(ctx, target, u, Date.now() - started, "success", {
+        slot,
+        estTokens,
+      }),
     );
     return { kind: "stream", stream, model: target.model, headers };
   }

@@ -10,6 +10,7 @@ import {
   type CanonicalChatRequest,
 } from "@vortex/shared";
 import { gatewayAuth, type GatewayEnv } from "./gateway.auth.js";
+import { runWithRequestCache } from "../shared/request-context.js";
 import { handleChat, handleEmbeddings, type ChatResult } from "./core.js";
 import {
   messagesToCanonical,
@@ -65,6 +66,8 @@ function chatToCanonical(req: ChatCompletionRequest): CanonicalChatRequest {
 
 export const gatewayRouter = new Hono<GatewayEnv>();
 
+// Per-request memo scope (budget pool etc. dedup within a request).
+gatewayRouter.use("*", (_c, next) => runWithRequestCache(() => next()));
 gatewayRouter.use("*", gatewayAuth);
 
 // ── POST /v1/chat/completions (canonical OpenAI Chat) ─────────

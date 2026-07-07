@@ -2,7 +2,8 @@ import { Hono } from "hono";
 import { desc, eq } from "drizzle-orm";
 import { withOrg, teams, memberships, auditLogs } from "@vortex/db";
 import { requireMember, type AppEnv } from "../../shared/ctx.js";
-import { poolSpend, reconcileMonth } from "./budget.service.js";
+import { redis, budgetKey } from "@vortex/core";
+import { reconcileMonth } from "./budget.service.js";
 import { appendAudit } from "./audit.service.js";
 
 function isAdmin(role: string): boolean {
@@ -21,16 +22,20 @@ budgets.get("/", async (c) => {
     const memberRows = await tx.select().from(memberships);
     return { teamRows, memberRows };
   });
-  const teamList = await Promise.all(
-    data.teamRows.map(async (t) => ({
-      id: t.id,
-      name: t.name,
-      budgetMicro: t.budgetMicro,
-      defaultMemberBudgetMicro: t.defaultMemberBudgetMicro,
-      enforcement: t.budgetEnforcement,
-      spentMicro: await poolSpend(orgId, t.id),
-    })),
+  // Batch the per-team spend in one Redis MGET (no per-team DB query).
+  const month = new Date().toISOString().slice(0, 7);
+  const spendKeys = data.teamRows.map((t) =>
+    budgetKey(orgId, "team", t.id, month),
   );
+  const spents = spendKeys.length ? await redis.mget(...spendKeys) : [];
+  const teamList = data.teamRows.map((t, i) => ({
+    id: t.id,
+    name: t.name,
+    budgetMicro: t.budgetMicro,
+    defaultMemberBudgetMicro: t.defaultMemberBudgetMicro,
+    enforcement: t.budgetEnforcement,
+    spentMicro: Number(spents[i]) || 0,
+  }));
   return c.json({
     teams: teamList,
     members: data.memberRows.map((m) => ({
