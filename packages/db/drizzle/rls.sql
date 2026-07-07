@@ -28,7 +28,8 @@ DECLARE
   org_col text;
   tenant_tables text[] := ARRAY[
     'organizations','subscriptions','teams','memberships','apps','app_access',
-    'api_keys','provider_credentials','usage_records','audit_logs'
+    'api_keys','provider_credentials','usage_records','audit_logs',
+    'contracts','usage_rollups','credit_wallets','credit_ledger'
   ];
 BEGIN
   FOREACH t IN ARRAY tenant_tables LOOP

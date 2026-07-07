@@ -9,6 +9,8 @@ export type GatewayCtx = {
   orgId: string;
   memberId: string;
   teamId: string | null;
+  /** Custom per-key RPM cap (null = plan default only). */
+  rateLimitRpm: number | null;
   /** `x-vortex-user` — human this app is acting on behalf of (attribution). */
   actingUserId: string | null;
   /** `x-vortex-app` — acting app slug/name (attribution). */
@@ -76,6 +78,7 @@ export const gatewayAuth = createMiddleware<GatewayEnv>(async (c, next) => {
     orgId: k.orgId,
     memberId: k.ownerMemberId,
     teamId: m?.teamId ?? null,
+    rateLimitRpm: k.rateLimitRpm ?? null,
     actingUserId: c.req.header("x-vortex-user")?.trim() || null,
     actingAppSlug: c.req.header("x-vortex-app")?.trim() || null,
   });

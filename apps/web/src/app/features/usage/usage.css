@@ -1,0 +1,530 @@
+/* Usage & Budgets — cost explorer, budgets, request logs.
+   Reuses the overview panel / bar / KPI visual language. */
+
+.head-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ── Panels ── */
+.panel {
+  background: var(--vx-panel);
+  border: 1px solid var(--vx-line);
+  border-radius: var(--vx-radius);
+  padding: 16px 18px;
+}
+.panel + .panel {
+  margin-top: 2px;
+}
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.panel-head h2 {
+  margin: 0;
+  font-size: var(--vx-text-md);
+  font-weight: var(--vx-w-semibold);
+  color: var(--vx-ink);
+}
+.section-label {
+  display: block;
+  margin: 20px 0 10px;
+}
+
+/* ── Segmented range toggle ── */
+.range-toggle {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--vx-bg-3);
+  border-radius: var(--vx-radius-sm);
+}
+.seg {
+  height: 26px;
+  padding: 0 12px;
+  border: none;
+  background: transparent;
+  border-radius: calc(var(--vx-radius-sm) - 2px);
+  font-size: var(--vx-text-sm);
+  font-weight: var(--vx-w-semibold);
+  color: var(--vx-ink-3);
+  cursor: pointer;
+}
+.seg.on {
+  background: var(--vx-panel);
+  color: var(--vx-ink);
+  box-shadow: var(--vx-shadow-sm);
+}
+
+/* ── Dimension tabs ── */
+.dim-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.dim-tab {
+  height: 30px;
+  padding: 0 14px;
+  border-radius: var(--vx-radius-sm);
+  border: 1px solid var(--vx-line-2);
+  background: var(--vx-panel);
+  color: var(--vx-ink-2);
+  font-size: var(--vx-text-sm);
+  font-weight: var(--vx-w-semibold);
+  cursor: pointer;
+}
+.dim-tab.on {
+  border-color: var(--vx-accent);
+  background: var(--vx-accent-soft);
+  color: var(--vx-accent);
+}
+
+/* ── KPI tiles ── */
+.kpi-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+  margin-bottom: 18px;
+}
+.kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  background: var(--vx-bg-2);
+  border: 1px solid var(--vx-line);
+  border-radius: var(--vx-radius);
+}
+.kpi-value {
+  font-size: var(--vx-text-xl);
+  font-weight: var(--vx-w-semibold);
+  color: var(--vx-ink);
+  line-height: var(--vx-lh-tight);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Spend chart ── */
+.chart-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 160px;
+  padding-top: 6px;
+}
+.chart-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  height: 100%;
+  min-width: 0;
+}
+.chart-bar {
+  width: 100%;
+  max-width: 34px;
+  min-height: 3px;
+  border-radius: var(--vx-radius-sm) var(--vx-radius-sm) 2px 2px;
+  background: var(--vx-grad);
+  transition: opacity 0.15s ease;
+}
+.chart-col:hover .chart-bar {
+  opacity: 0.82;
+}
+.chart-tick {
+  font-size: var(--vx-text-2xs);
+  color: var(--vx-ink-4);
+  height: 12px;
+  white-space: nowrap;
+}
+
+/* ── Tables ── */
+.table-wrap {
+  overflow-x: auto;
+}
+.vx-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--vx-text-sm);
+}
+.vx-table th {
+  text-align: left;
+  padding: 8px 12px;
+  font-family: var(--vx-font-mono);
+  font-size: var(--vx-text-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--vx-track-label);
+  color: var(--vx-ink-4);
+  border-bottom: 1px solid var(--vx-line);
+  white-space: nowrap;
+}
+.vx-table td {
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--vx-line);
+  color: var(--vx-ink-2);
+  vertical-align: middle;
+}
+.vx-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.vx-table tbody tr:hover {
+  background: var(--vx-bg-2);
+}
+.vx-table .num {
+  text-align: right;
+}
+.vx-table .strong {
+  color: var(--vx-ink);
+  font-weight: var(--vx-w-semibold);
+}
+.vx-table .muted {
+  color: var(--vx-ink-3);
+}
+
+.cell-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.cell-label {
+  font-weight: var(--vx-w-semibold);
+  color: var(--vx-ink);
+}
+.cell-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--vx-text-2xs);
+  color: var(--vx-ink-4);
+}
+.glyph {
+  color: var(--vx-accent);
+  flex-shrink: 0;
+}
+
+/* share bar in breakdown table */
+.share {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.share-track {
+  width: 64px;
+  height: 6px;
+  border-radius: var(--vx-radius-pill);
+  background: var(--vx-bg-3);
+  overflow: hidden;
+}
+.share-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--vx-radius-pill);
+  background: var(--vx-grad);
+}
+
+/* ── Budgets ── */
+.org-budget {
+  padding: 14px 16px;
+  background: var(--vx-bg-2);
+  border: 1px solid var(--vx-line);
+  border-radius: var(--vx-radius);
+  margin-bottom: 6px;
+}
+.org-budget-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.budget-track {
+  display: block;
+  height: 8px;
+  border-radius: var(--vx-radius-pill);
+  background: var(--vx-bg-3);
+  overflow: hidden;
+}
+.budget-track.lg {
+  height: 12px;
+}
+.budget-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--vx-radius-pill);
+}
+.fill-ok {
+  background: var(--vx-good);
+}
+.fill-warn {
+  background: var(--vx-warn);
+}
+.fill-err {
+  background: var(--vx-err);
+}
+
+.team-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+}
+.team-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: var(--vx-bg-2);
+  border: 1px solid var(--vx-line);
+  border-radius: var(--vx-radius);
+}
+.team-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.team-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: var(--vx-accent-soft);
+  color: var(--vx-accent);
+  display: grid;
+  place-items: center;
+  font-weight: var(--vx-w-bold);
+  font-size: var(--vx-text-sm);
+  flex-shrink: 0;
+}
+.team-meta {
+  flex: 1;
+  min-width: 0;
+}
+.team-name {
+  display: block;
+  font-weight: var(--vx-w-semibold);
+  font-size: var(--vx-text-sm);
+  color: var(--vx-ink);
+}
+.team-sub {
+  font-size: var(--vx-text-2xs);
+  color: var(--vx-ink-4);
+}
+.team-figure {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.team-figure .vx-display {
+  font-size: var(--vx-text-xl);
+  font-weight: var(--vx-w-semibold);
+  color: var(--vx-ink);
+}
+.team-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.burn {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 168px;
+}
+.burn-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--vx-text-2xs);
+  color: var(--vx-ink-2);
+}
+.burn-head .over {
+  color: var(--vx-err);
+  font-weight: var(--vx-w-semibold);
+}
+
+/* ── Status / enforce pills ── */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 20px;
+  padding: 0 9px;
+  border-radius: var(--vx-radius-pill);
+  font-size: var(--vx-text-2xs);
+  font-weight: var(--vx-w-semibold);
+  white-space: nowrap;
+}
+.pill-ok {
+  background: color-mix(in srgb, var(--vx-good) 15%, transparent);
+  color: var(--vx-good);
+}
+.pill-warn {
+  background: color-mix(in srgb, var(--vx-warn) 18%, transparent);
+  color: var(--vx-warn);
+}
+.pill-err {
+  background: color-mix(in srgb, var(--vx-err) 15%, transparent);
+  color: var(--vx-err);
+}
+.pill-neutral {
+  background: var(--vx-bg-3);
+  color: var(--vx-ink-3);
+}
+
+/* ── Search box ── */
+.search {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--vx-line-2);
+  border-radius: var(--vx-radius-sm);
+  background: var(--vx-panel);
+  color: var(--vx-ink-3);
+}
+.search:focus-within {
+  border-color: var(--vx-accent);
+}
+.search input {
+  border: none;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  font-size: var(--vx-text-sm);
+  color: var(--vx-ink);
+  width: 220px;
+  max-width: 46vw;
+}
+.search input::placeholder {
+  color: var(--vx-ink-4);
+}
+
+.vx-table .empty {
+  text-align: center;
+  color: var(--vx-ink-4);
+  padding: 28px 12px;
+}
+
+@media (max-width: 720px) {
+  .panel-head {
+    flex-wrap: wrap;
+  }
+}
+
+/* ============================================================
+   Member (scrMyUsage) — SVG area chart + budget gauge
+   ============================================================ */
+.my-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1.4fr 1fr;
+  margin-bottom: 16px;
+}
+@media (max-width: 900px) {
+  .my-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.panel-head > div h2 {
+  margin: 0;
+  font-size: var(--vx-text-md);
+  font-weight: var(--vx-w-semibold);
+  color: var(--vx-ink);
+}
+.panel-head > div .vx-label {
+  display: block;
+  margin-top: 2px;
+}
+
+/* ── Area chart ── */
+.area-svg {
+  width: 100%;
+  height: 220px;
+  display: block;
+  overflow: visible;
+}
+.area-grid {
+  stroke: var(--vx-line);
+  stroke-width: 1;
+}
+.area-axis {
+  fill: var(--vx-ink-4);
+  font-size: 9px;
+  font-family: var(--vx-font-mono);
+}
+.area-line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.area-line.accent {
+  stroke: var(--vx-accent);
+}
+
+/* ── Gauge ── */
+.gauge-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.gauge-val {
+  fill: var(--vx-ink);
+  font-size: 21px;
+  font-weight: 600;
+  font-family: var(--vx-font-display);
+}
+.gauge-lbl {
+  fill: var(--vx-ink-4);
+  font-size: 8.5px;
+  font-family: var(--vx-font-mono);
+}
+.gauge-meta {
+  margin-top: 6px;
+}
+.gauge-left {
+  display: block;
+  font-size: var(--vx-text-lg);
+  color: var(--vx-ink);
+}
+
+/* ── Warn bar ── */
+.warnbar {
+  display: flex;
+  gap: 11px;
+  align-items: flex-start;
+  margin-top: 14px;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: var(--vx-radius);
+  font-size: var(--vx-text-sm);
+  line-height: 1.5;
+  text-align: left;
+  color: var(--vx-ink);
+}
+.warnbar.info {
+  background: color-mix(in srgb, var(--vx-accent) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--vx-accent) 28%, transparent);
+}
+.warnbar .warn-ico {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--vx-accent);
+}

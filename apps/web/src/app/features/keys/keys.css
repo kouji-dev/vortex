@@ -1,0 +1,323 @@
+/* My Keys — budget strip + keys table + create-key modal. */
+
+.page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.head-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ---- budget context strip ---- */
+.budget-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin: 16px 0;
+  padding: 12px 16px;
+  background: var(--vx-bg-2);
+  border: 1px solid var(--vx-line);
+  border-radius: var(--vx-radius);
+}
+.budget-copy {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: var(--vx-text-sm);
+  color: var(--vx-ink-2);
+}
+
+/* ---- progress bar ---- */
+.bar-track {
+  display: block;
+  height: 8px;
+  border-radius: var(--vx-radius-pill);
+  background: var(--vx-bg-3);
+  overflow: hidden;
+}
+.bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--vx-radius-pill);
+  background: var(--vx-grad);
+}
+.bar-fill.bar-warn {
+  background: var(--vx-warn);
+}
+.bar-fill.bar-err {
+  background: var(--vx-err);
+}
+
+/* ---- keys table ---- */
+.table-wrap {
+  overflow-x: auto;
+}
+.tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--vx-text-sm);
+}
+.tbl th {
+  text-align: left;
+  padding: 8px 12px;
+  font-size: var(--vx-text-xs);
+  font-weight: var(--vx-w-medium);
+  color: var(--vx-ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid var(--vx-line);
+  white-space: nowrap;
+}
+.tbl td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--vx-line);
+  vertical-align: middle;
+}
+.tbl tbody tr:hover {
+  background: var(--vx-hl);
+}
+.tbl tr.is-revoked {
+  opacity: 0.5;
+}
+.ar {
+  text-align: right;
+}
+
+.key-id {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.key-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: var(--vx-w-semibold);
+  color: var(--vx-ink);
+}
+.key-mask {
+  font-size: var(--vx-text-xs);
+  color: var(--vx-ink-4);
+}
+.rules {
+  color: var(--vx-ink-3);
+  font-size: var(--vx-text-xs);
+}
+.rate {
+  font-size: var(--vx-text-xs);
+  color: var(--vx-ink-2);
+}
+.meta {
+  font-size: var(--vx-text-xs);
+  color: var(--vx-ink-3);
+}
+
+/* ---- tags ---- */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border-radius: var(--vx-radius-pill);
+  font-size: var(--vx-text-xs);
+  font-weight: var(--vx-w-medium);
+  background: var(--vx-bg-3);
+  color: var(--vx-ink-2);
+  border: 1px solid var(--vx-line-2);
+  white-space: nowrap;
+}
+.tag-accent {
+  background: var(--vx-accent-soft);
+  color: var(--vx-accent);
+  border-color: transparent;
+}
+
+/* ---- status pills ---- */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 9px;
+  border-radius: var(--vx-radius-pill);
+  font-size: var(--vx-text-xs);
+  font-weight: var(--vx-w-medium);
+  background: var(--vx-bg-3);
+  color: var(--vx-ink-2);
+}
+.pill .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.pill-active {
+  color: var(--vx-good);
+}
+.pill-stale {
+  color: var(--vx-warn);
+}
+.pill-revoked {
+  color: var(--vx-err);
+}
+
+/* ---- row kebab menu ---- */
+.kebab-cell {
+  position: relative;
+}
+.kebab {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--vx-radius-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--vx-ink-3);
+  cursor: pointer;
+}
+.kebab:hover {
+  background: var(--vx-bg-3);
+  color: var(--vx-ink);
+}
+.kebab:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.menu {
+  position: absolute;
+  top: 34px;
+  right: 8px;
+  z-index: 20;
+  min-width: 210px;
+  padding: 6px;
+  background: var(--vx-elev);
+  border: 1px solid var(--vx-line-2);
+  border-radius: var(--vx-radius);
+  box-shadow: var(--vx-shadow-lg, 0 12px 32px rgba(0, 0, 0, 0.4));
+  text-align: left;
+}
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  border-radius: var(--vx-radius-sm);
+  font-size: var(--vx-text-sm);
+  color: var(--vx-ink-2);
+  cursor: pointer;
+}
+.menu-item:hover {
+  background: var(--vx-bg-3);
+  color: var(--vx-ink);
+}
+.menu-item.danger {
+  color: var(--vx-err);
+}
+.menu-item.disabled {
+  color: var(--vx-ink-4);
+  cursor: not-allowed;
+}
+.menu-item.disabled:hover {
+  background: transparent;
+  color: var(--vx-ink-4);
+}
+.menu-sep {
+  height: 1px;
+  margin: 5px 4px;
+  background: var(--vx-line);
+}
+
+/* ---- create-key modal ---- */
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+}
+.modal {
+  width: 100%;
+  max-width: 440px;
+  max-height: 90vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px 22px;
+  background: var(--vx-panel);
+  border: 1px solid var(--vx-line-2);
+  border-radius: var(--vx-radius-lg, var(--vx-radius));
+  box-shadow: var(--vx-shadow-lg, 0 24px 60px rgba(0, 0, 0, 0.5));
+}
+.modal-crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.modal-title {
+  margin: 0;
+  font-size: var(--vx-text-lg);
+  font-weight: var(--vx-w-semibold);
+  color: var(--vx-ink);
+}
+.modal-sub {
+  margin: -8px 0 0;
+  font-size: var(--vx-text-sm);
+  color: var(--vx-ink-3);
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.field-label {
+  font-size: var(--vx-text-xs);
+  font-weight: var(--vx-w-medium);
+  color: var(--vx-ink-2);
+}
+.input {
+  width: 100%;
+  padding: 9px 12px;
+  font: inherit;
+  font-size: var(--vx-text-sm);
+  color: var(--vx-ink);
+  background: var(--vx-bg-2);
+  border: 1px solid var(--vx-line-2);
+  border-radius: var(--vx-radius-sm);
+  outline: none;
+}
+.input:focus {
+  border-color: var(--vx-accent);
+}
+.note {
+  padding: 10px 12px;
+  font-size: var(--vx-text-xs);
+  color: var(--vx-ink-2);
+  background: var(--vx-accent-soft);
+  border-radius: var(--vx-radius-sm);
+}
+.modal-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+.spacer {
+  flex: 1;
+}
+
+@media (max-width: 680px) {
+  .page-head {
+    flex-direction: column;
+  }
+}

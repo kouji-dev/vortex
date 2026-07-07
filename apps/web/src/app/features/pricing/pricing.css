@@ -1,0 +1,117 @@
+/* Pricing — 3-tier table, shared by the public page and the billing screen. */
+
+.tiers {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  max-width: 960px;
+}
+@media (max-width: 760px) {
+  .tiers {
+    grid-template-columns: 1fr;
+  }
+}
+
+.tier {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: var(--vx-panel);
+  border: 1px solid var(--vx-line);
+  border-radius: var(--vx-radius);
+  padding: 20px;
+}
+.tier.current {
+  border-color: var(--vx-accent, #6366f1);
+  box-shadow: 0 0 0 1px var(--vx-accent, #6366f1);
+}
+
+.tier-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.tier-name {
+  font-size: var(--vx-text-md);
+  font-weight: var(--vx-w-semibold);
+  color: var(--vx-ink);
+}
+
+.tier-price {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.price-amt {
+  font-size: 28px;
+  font-weight: var(--vx-w-bold, 700);
+  color: var(--vx-ink);
+}
+.price-per {
+  font-size: var(--vx-text-sm, 13px);
+  color: var(--vx-muted, #8b8b9a);
+}
+
+.tier-feats {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  flex: 1;
+}
+.tier-feats li {
+  font-size: var(--vx-text-sm, 13px);
+  color: var(--vx-muted, #8b8b9a);
+  padding-left: 18px;
+  position: relative;
+}
+.tier-feats li::before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  color: var(--vx-accent, #6366f1);
+  font-weight: 700;
+}
+.tier-feats li b {
+  color: var(--vx-ink);
+  font-weight: var(--vx-w-semibold);
+}
+
+/* ---- public landing wrapper ---- */
+.pricing-page {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 56px 24px;
+}
+.pricing-hero {
+  text-align: center;
+  margin-bottom: 32px;
+}
+.pricing-hero h1 {
+  margin: 0 0 8px;
+  font-size: 30px;
+  font-weight: var(--vx-w-bold, 700);
+  color: var(--vx-ink);
+}
+.pricing-hero p {
+  margin: 0;
+  color: var(--vx-muted, #8b8b9a);
+}
+
+.plan-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  align-items: baseline;
+}
+.plan-summary .metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.plan-summary .metric b {
+  font-size: var(--vx-text-md);
+  color: var(--vx-ink);
+}

@@ -4,6 +4,7 @@ import {
   getMembership,
   provisionUser,
 } from "../provisioning/provisioning.service.js";
+import { CapExceededError } from "../../shared/caps.js";
 
 export const account = new Hono<AppEnv>();
 
@@ -27,8 +28,14 @@ account.post("/provision", requireAuth, async (c) => {
     });
   }
   const body = (await c.req.json().catch(() => ({}))) as { orgName?: string };
-  const { ctx, defaultKey } = await provisionUser(user.id, {
-    orgName: body.orgName,
-  });
-  return c.json({ member: ctx, defaultKey, alreadyProvisioned: false });
+  try {
+    const { ctx, defaultKey } = await provisionUser(user.id, {
+      orgName: body.orgName,
+    });
+    return c.json({ member: ctx, defaultKey, alreadyProvisioned: false });
+  } catch (e) {
+    if (e instanceof CapExceededError)
+      return c.json({ error: "plan_limit", cap: e.cap, message: e.message }, 403);
+    throw e;
+  }
 });

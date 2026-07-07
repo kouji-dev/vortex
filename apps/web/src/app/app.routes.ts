@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard, guestGuard } from './shared/auth/auth-guard';
+import { adminGuard } from './shared/auth/admin-guard';
 
 /**
  * Route table for the tenant console. IA follows plan §D1: an admin
@@ -28,6 +29,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/reset/reset').then((m) => m.Reset),
   },
   {
+    // Public pricing (no auth) — the landing pricing table.
+    path: 'pricing',
+    loadComponent: () => import('./features/pricing/pricing').then((m) => m.Pricing),
+  },
+  {
     path: '',
     canActivate: [authGuard],
     loadComponent: () => import('./features/shell/shell').then((m) => m.Shell),
@@ -41,65 +47,44 @@ export const routes: Routes = [
       },
       {
         path: 'usage',
-        data: { title: 'Usage & Budgets', sub: 'Cost explorer sliceable by team, member, app, key and model — plus team-default and per-member budgets.' },
-        loadComponent: () => import('./features/stub/stub').then((m) => m.Stub),
+        loadComponent: () => import('./features/usage/usage').then((m) => m.Usage),
       },
       {
         path: 'teams',
-        data: { title: 'Teams & Members', sub: 'Teams, members and roles — human and technical — with each member’s keys.' },
-        loadComponent: () => import('./features/stub/stub').then((m) => m.Stub),
+        canActivate: [adminGuard],
+        loadComponent: () => import('./features/teams/teams').then((m) => m.Teams),
       },
       {
         path: 'apps',
-        data: { title: 'Apps', sub: 'Per-app access, routing, service keys, technical member and usage.' },
-        loadComponent: () => import('./features/stub/stub').then((m) => m.Stub),
+        loadComponent: () => import('./features/apps/apps').then((m) => m.Apps),
       },
       {
         path: 'providers',
-        data: { title: 'Providers & Models', sub: 'Provider credentials and the enabled model catalog.' },
-        loadComponent: () => import('./features/stub/stub').then((m) => m.Stub),
+        canActivate: [adminGuard],
+        loadComponent: () => import('./features/providers/providers').then((m) => m.Providers),
       },
       {
         path: 'audit',
-        data: { title: 'Audit & Alerts', sub: 'Hash-chained audit log and spend anomaly alerts.' },
-        loadComponent: () => import('./features/stub/stub').then((m) => m.Stub),
+        canActivate: [adminGuard],
+        loadComponent: () => import('./features/audit/audit').then((m) => m.Audit),
       },
       {
         path: 'billing',
-        data: { title: 'Billing', sub: 'Plan, invoices and payment method via the Stripe customer portal (SaaS only).' },
-        loadComponent: () => import('./features/stub/stub').then((m) => m.Stub),
+        canActivate: [adminGuard],
+        loadComponent: () => import('./features/billing/billing').then((m) => m.Billing),
       },
       {
         path: 'settings',
-        data: { title: 'Settings', sub: 'Organisation profile, security and console preferences.' },
-        loadComponent: () => import('./features/stub/stub').then((m) => m.Stub),
+        loadComponent: () => import('./features/settings/settings').then((m) => m.Settings),
       },
 
       // ── Member workspace ──
+      // Member workspace shares the flat admin paths — each screen branches by
+      // role (a member at /usage sees "My Usage & Budget", at /overview sees
+      // "Home", at /settings sees "Profile"). Keys is member-specific.
       {
-        path: 'me/home',
-        data: { title: 'Home', sub: 'Your workspace — usage, budget and quick links.' },
-        loadComponent: () => import('./features/stub/stub').then((m) => m.Stub),
-      },
-      {
-        path: 'me/usage',
-        data: { title: 'My Usage & Budget', sub: 'Your monthly spend against your effective budget ceiling.' },
-        loadComponent: () => import('./features/stub/stub').then((m) => m.Stub),
-      },
-      {
-        path: 'me/keys',
-        data: { title: 'My Keys', sub: 'Your default and personal virtual keys.' },
-        loadComponent: () => import('./features/stub/stub').then((m) => m.Stub),
-      },
-      {
-        path: 'me/apps',
-        data: { title: 'My Apps', sub: 'Apps you can access.' },
-        loadComponent: () => import('./features/stub/stub').then((m) => m.Stub),
-      },
-      {
-        path: 'me/profile',
-        data: { title: 'Profile & Settings', sub: 'Your profile and personal preferences.' },
-        loadComponent: () => import('./features/stub/stub').then((m) => m.Stub),
+        path: 'keys',
+        loadComponent: () => import('./features/keys/keys').then((m) => m.Keys),
       },
     ],
   },

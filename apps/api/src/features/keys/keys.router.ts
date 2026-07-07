@@ -5,6 +5,24 @@ import { withOrg, apiKeys, apiKeyRules } from "@vortex/db";
 import { keyRuleTypeSchema } from "@vortex/shared";
 import { type AppEnv, requireMember } from "../../shared/ctx.js";
 import { generateApiKey } from "./keys.util.js";
+import { resolveEntitlements } from "../../shared/entitlements.js";
+
+/**
+ * Gate + clamp a requested custom per-key RPM against the org plan.
+ * - allowCustomRateLimit flag false → rejected (Pro+ only).
+ * - otherwise clamp to the plan RPM ceiling.
+ */
+async function gateCustomRpm(
+  orgId: string,
+  requested: number,
+): Promise<{ ok: boolean; value?: number; error?: string }> {
+  const ent = await resolveEntitlements(orgId);
+  if (!ent.flags?.allowCustomRateLimit) {
+    return { ok: false, error: "custom_rate_limit_not_allowed" };
+  }
+  const value = ent.rpm != null ? Math.min(requested, ent.rpm) : requested;
+  return { ok: true, value };
+}
 
 const createKeySchema = z.object({
   name: z.string().optional(), // accepted; no dedicated column — informational only
@@ -45,6 +63,13 @@ keys.post("/", async (c) => {
   const ownerMemberId = body.ownerMemberId ?? membershipId;
   const gen = generateApiKey();
 
+  let rateLimitRpm: number | null = null;
+  if (body.rateLimitRpm != null) {
+    const gate = await gateCustomRpm(orgId, body.rateLimitRpm);
+    if (!gate.ok) return c.json({ error: "plan_limit", message: gate.error }, 403);
+    rateLimitRpm = gate.value ?? null;
+  }
+
   const key = await withOrg(orgId, async (tx) => {
     const [row] = await tx
       .insert(apiKeys)
@@ -53,7 +78,7 @@ keys.post("/", async (c) => {
         ownerMemberId,
         keyHash: gen.keyHash,
         keyPrefix: gen.keyPrefix,
-        rateLimitRpm: body.rateLimitRpm ?? null,
+        rateLimitRpm,
         expiresAt: body.expiresAt ? new Date(body.expiresAt) : null,
         createdBy: userId,
       })
@@ -128,6 +153,32 @@ keys.post("/:id/rotate", async (c) => {
     status: result.status,
     key: gen.plaintext,
   });
+});
+
+// PATCH /:id — update a key's custom RPM (Pro+; clamped to plan ceiling).
+keys.patch("/:id", async (c) => {
+  const { orgId, membershipId } = c.get("member");
+  const id = c.req.param("id");
+  const body = z
+    .object({ rateLimitRpm: z.number().int().positive().nullable() })
+    .parse(await c.req.json().catch(() => ({})));
+
+  let rateLimitRpm: number | null = null;
+  if (body.rateLimitRpm != null) {
+    const gate = await gateCustomRpm(orgId, body.rateLimitRpm);
+    if (!gate.ok) return c.json({ error: "plan_limit", message: gate.error }, 403);
+    rateLimitRpm = gate.value ?? null;
+  }
+
+  const [row] = await withOrg(orgId, (tx) =>
+    tx
+      .update(apiKeys)
+      .set({ rateLimitRpm })
+      .where(and(eq(apiKeys.id, id), eq(apiKeys.ownerMemberId, membershipId)))
+      .returning({ id: apiKeys.id, rateLimitRpm: apiKeys.rateLimitRpm }),
+  );
+  if (!row) return c.json({ error: "not_found" }, 404);
+  return c.json({ ok: true, id: row.id, rateLimitRpm: row.rateLimitRpm });
 });
 
 // POST /:id/revoke — disable a key.

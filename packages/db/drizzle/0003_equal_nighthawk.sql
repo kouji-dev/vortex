@@ -1,0 +1,1 @@
+ALTER TABLE "teams" ADD COLUMN "budget_micro" bigint;

@@ -5,7 +5,9 @@ import {
   withBypass,
   apps,
   models,
+  organizations,
   providerCredentials,
+  managedProviderKeys,
   usageRecords,
 } from "@vortex/db";
 import {
@@ -14,6 +16,7 @@ import {
   resolveEndpoint,
   listEnabledProviders,
   decryptForOrg,
+  PLATFORM_SCOPE,
   type Capability,
   type ProviderOptions,
 } from "@vortex/core";
@@ -22,6 +25,19 @@ import {
   assertWithinBudget,
   commitSpend,
 } from "../features/governance/budget.service.js";
+import {
+  checkRateLimits,
+  acquireConcurrency,
+  commitTokenDelta,
+  RateLimitExceededError,
+  type LimitHeaders,
+  type ConcurrencySlot,
+} from "../features/governance/rate-limit.service.js";
+import {
+  assertCredit,
+  deductCredit,
+  CreditExhaustedError,
+} from "../features/billing/credits.service.js";
 import type { GatewayCtx } from "./gateway.auth.js";
 import { getAdapter, type OpenAIChatCompletion } from "./providers/index.js";
 import {
@@ -41,6 +57,9 @@ export type Target = {
   credentialId?: string | null;
   appId: string | null;
   options?: ProviderOptions | null;
+  /** Served from the Vortex-managed pool → deduct credits + markup. */
+  managed?: boolean;
+  markupBps?: number;
 };
 
 function envKeyFor(providerId: string): string | undefined {
@@ -82,6 +101,24 @@ function envOptionsFor(providerId: string): ProviderOptions | undefined {
   }
 }
 
+/**
+ * Infer the provider from a model-name family so unprefixed models route
+ * correctly (e.g. Claude Code sends `claude-*` to /v1/messages with no prefix).
+ */
+function inferProvider(model: string): string | null {
+  const m = model.toLowerCase();
+  if (m.startsWith("claude")) return "anthropic";
+  if (m.startsWith("gemini")) return "google";
+  if (
+    m.startsWith("gpt") ||
+    m.startsWith("chatgpt") ||
+    m.startsWith("text-embedding") ||
+    /^o[1-9]/.test(m) // o1 / o3 / o4 …
+  )
+    return "openai";
+  return null;
+}
+
 /** Resolve `{provider, model}` from a request model string. */
 async function resolveModel(
   modelStr: string,
@@ -94,11 +131,15 @@ async function resolveModel(
   }
   const enabled = listEnabledProviders().map((p) => p.id);
   if (enabled.length === 0) return null;
+  // 1) exact catalog match, 2) model-family inference, 3) first enabled.
   const rows = await withBypass((tx) =>
     tx.select().from(models).where(eq(models.modelName, modelStr)),
   );
   const hit = rows.find((r) => enabled.includes(r.provider));
   if (hit) return { provider: hit.provider, model: modelStr };
+  const inferred = inferProvider(modelStr);
+  if (inferred && enabled.includes(inferred))
+    return { provider: inferred, model: modelStr };
   return { provider: enabled[0]!, model: modelStr };
 }
 
@@ -168,6 +209,41 @@ async function resolveTarget(
       };
     }
 
+    // No BYOK credential → managed pool for managed/hybrid orgs.
+    const [org] = await tx
+      .select({ keyMode: organizations.keyMode, markupBps: organizations.markupBps })
+      .from(organizations)
+      .where(eq(organizations.id, ctx.orgId))
+      .limit(1);
+    if (org && org.keyMode !== "byok") {
+      const [mk] = await tx
+        .select()
+        .from(managedProviderKeys)
+        .where(
+          and(
+            eq(managedProviderKeys.provider, provider),
+            eq(managedProviderKeys.enabled, true),
+          ),
+        )
+        .limit(1);
+      if (mk) {
+        return {
+          provider,
+          model,
+          token: decryptForOrg(PLATFORM_SCOPE, mk.encryptedKey),
+          priceOverride: mk.priceOverride,
+          credentialId: mk.id,
+          appId,
+          options: {
+            ...(mk.options ?? {}),
+            ...(mk.region ? { region: mk.region } : {}),
+          } as ProviderOptions,
+          managed: true,
+          markupBps: org.markupBps,
+        };
+      }
+    }
+
     const envKey = envKeyFor(provider);
     if (!envKey) return null;
     return {
@@ -207,7 +283,18 @@ async function finalize(
   usage: Usage,
   latencyMs: number,
   status: "success" | "error",
+  extra?: { slot?: ConcurrencySlot; estTokens?: number },
 ): Promise<void> {
+  // Release the in-flight slot + reconcile the TPM estimate first (fast, local).
+  if (extra?.slot) await extra.slot.release();
+  if (extra?.estTokens != null) {
+    await commitTokenDelta({
+      orgId: ctx.orgId,
+      apiKeyId: ctx.apiKeyId,
+      estTokens: extra.estTokens,
+      actualTokens: usage.totalTokens,
+    });
+  }
   let price: Price | null = null;
   try {
     price = await lookupPrice(target.provider, target.model, target.priceOverride);
@@ -215,19 +302,33 @@ async function finalize(
     /* price lookup best-effort */
   }
   const cm = costMicro(usage, price);
+  const rid = randomUUID();
   try {
     await commitSpend({
       orgId: ctx.orgId,
-      memberId: ctx.memberId,
+      teamId: ctx.teamId,
       actualMicro: cm,
     });
   } catch {
     /* spend commit best-effort — usage row is still recorded */
   }
+  // Managed pool → bill the org's credit wallet (cost + markup).
+  if (target.managed) {
+    try {
+      await deductCredit({
+        orgId: ctx.orgId,
+        costMicro: cm,
+        markupBps: target.markupBps ?? 0,
+        requestId: rid,
+      });
+    } catch {
+      /* credit deduction best-effort */
+    }
+  }
   try {
     await withOrg(ctx.orgId, (tx) =>
       tx.insert(usageRecords).values({
-        requestId: randomUUID(),
+        requestId: rid,
         orgId: ctx.orgId,
         apiKeyId: ctx.apiKeyId,
         memberId: ctx.memberId,
@@ -252,12 +353,45 @@ async function finalize(
 // ── the single core chat handler ─────────────────────────────
 
 export type ChatResult =
-  | { kind: "json"; openai: OpenAIChatCompletion }
-  | { kind: "stream"; stream: ReadableStream<Uint8Array>; model: string }
-  | { kind: "error"; status: number; body: unknown };
+  | { kind: "json"; openai: OpenAIChatCompletion; headers?: Record<string, string> }
+  | {
+      kind: "stream";
+      stream: ReadableStream<Uint8Array>;
+      model: string;
+      headers?: Record<string, string>;
+    }
+  | { kind: "error"; status: number; body: unknown; headers?: Record<string, string> };
 
 function errBody(message: string, type: string, code?: string) {
   return { error: { message, type, param: null, code: code ?? null } };
+}
+
+/** IETF + legacy rate-limit headers for the RPM bucket. */
+function rateHeaders(h: LimitHeaders): Record<string, string> {
+  if (!h.limit) return {};
+  return {
+    "ratelimit-limit": String(h.limit),
+    "ratelimit-remaining": String(h.remaining),
+    "ratelimit-reset": String(h.resetSec),
+    "x-ratelimit-limit": String(h.limit),
+    "x-ratelimit-remaining": String(h.remaining),
+    "x-ratelimit-reset": String(h.resetSec),
+  };
+}
+
+/** 429 result for a denied rate-limit bucket, with Retry-After. */
+function rateLimitError(e: RateLimitExceededError): ChatResult {
+  const retrySec = Math.max(1, Math.ceil(e.retryAfterMs / 1000));
+  return {
+    kind: "error",
+    status: 429,
+    body: errBody(
+      `Rate limit exceeded (${e.dimension}). Retry in ${retrySec}s.`,
+      "rate_limit_exceeded",
+      "rate_limit_exceeded",
+    ),
+    headers: { "retry-after": String(retrySec) },
+  };
 }
 
 /**
@@ -290,22 +424,61 @@ export async function handleChat(
     target.model,
     target.priceOverride,
   );
+  const promptEst = estimatePromptTokens(canonical);
+  const estTokens = promptEst + (canonical.maxTokens ?? 0);
   const estMicro = costMicro(
-    {
-      promptTokens: estimatePromptTokens(canonical),
-      completionTokens: canonical.maxTokens ?? 0,
-      totalTokens: 0,
-    },
+    { promptTokens: promptEst, completionTokens: canonical.maxTokens ?? 0, totalTokens: 0 },
     price,
   );
+  // Governance order: budget ($/team, 402) → rate limit (RPM/TPM, 429) →
+  // concurrency (429) → proxy. Budget throws (caught upstream as 402).
   await assertWithinBudget({
     orgId: ctx.orgId,
-    memberId: ctx.memberId,
+    teamId: ctx.teamId,
     estimateMicro: estMicro,
   });
 
+  // Managed pool → require credits (402 when exhausted).
+  if (target.managed) {
+    try {
+      await assertCredit(ctx.orgId);
+    } catch (e) {
+      if (e instanceof CreditExhaustedError)
+        return {
+          kind: "error",
+          status: 402,
+          body: errBody("Managed credits exhausted.", "insufficient_quota", "credits_exhausted"),
+        };
+      throw e;
+    }
+  }
+
+  let rlHeaders: LimitHeaders;
+  try {
+    rlHeaders = await checkRateLimits({
+      orgId: ctx.orgId,
+      apiKeyId: ctx.apiKeyId,
+      keyRpm: ctx.rateLimitRpm,
+      estTokens,
+    });
+  } catch (e) {
+    if (e instanceof RateLimitExceededError) return rateLimitError(e);
+    throw e;
+  }
+  const headers = rateHeaders(rlHeaders);
+
+  const slot = await acquireConcurrency(ctx.orgId, ctx.apiKeyId);
+  if (!slot.ok) {
+    return {
+      kind: "error",
+      status: 429,
+      body: errBody("Too many concurrent requests.", "rate_limit_exceeded", "concurrency_limit"),
+      headers: { ...headers, "retry-after": "1" },
+    };
+  }
+
   const body = adapter.toProviderBody(canonical, target.model, streaming);
-  const { url, headers } = buildUpstream({
+  const { url, headers: upstreamHeaders } = buildUpstream({
     provider: target.provider,
     model: target.model,
     capability: adapter.chatCapability,
@@ -319,7 +492,7 @@ export async function handleChat(
   try {
     resp = await fetch(url, {
       method: "POST",
-      headers,
+      headers: upstreamHeaders,
       body: JSON.stringify(body),
     });
   } catch (e) {
@@ -329,6 +502,7 @@ export async function handleChat(
       { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
       Date.now() - started,
       "error",
+      { slot, estTokens },
     );
     return {
       kind: "error",
@@ -337,6 +511,7 @@ export async function handleChat(
         `Upstream request failed: ${(e as Error).message}`,
         "api_error",
       ),
+      headers,
     };
   }
 
@@ -348,6 +523,7 @@ export async function handleChat(
       { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
       Date.now() - started,
       "error",
+      { slot, estTokens },
     );
     let parsed: unknown;
     try {
@@ -355,27 +531,34 @@ export async function handleChat(
     } catch {
       parsed = errBody(text || "Upstream error", "api_error");
     }
-    return { kind: "error", status: resp.status, body: parsed };
+    return { kind: "error", status: resp.status, body: parsed, headers };
   }
 
   if (streaming) {
     if (!resp.body) {
+      await slot.release();
       return {
         kind: "error",
         status: 502,
         body: errBody("Upstream returned no stream body.", "api_error"),
+        headers,
       };
     }
     const { stream, usage } = adapter.streamTransform(resp.body, target.model);
-    // Finalize once the stream is fully consumed downstream.
-    void usage.then((u) => finalize(ctx, target, u, Date.now() - started, "success"));
-    return { kind: "stream", stream, model: target.model };
+    // Finalize (release slot + meter) once the stream is fully consumed.
+    void usage.then((u) =>
+      finalize(ctx, target, u, Date.now() - started, "success", { slot, estTokens }),
+    );
+    return { kind: "stream", stream, model: target.model, headers };
   }
 
   const json = await resp.json().catch(() => ({}));
   const { openai, usage } = adapter.fromProviderResponse(json, target.model);
-  await finalize(ctx, target, usage, Date.now() - started, "success");
-  return { kind: "json", openai };
+  await finalize(ctx, target, usage, Date.now() - started, "success", {
+    slot,
+    estTokens,
+  });
+  return { kind: "json", openai, headers };
 }
 
 // ── embeddings (direct proxy + metering) ─────────────────────
@@ -396,6 +579,30 @@ export async function handleEmbeddings(
       ),
     };
   }
+  // Rate limit (RPM) + concurrency. TPM is metered post-response via the delta.
+  let rlHeaders: LimitHeaders;
+  try {
+    rlHeaders = await checkRateLimits({
+      orgId: ctx.orgId,
+      apiKeyId: ctx.apiKeyId,
+      keyRpm: ctx.rateLimitRpm,
+      estTokens: 0,
+    });
+  } catch (e) {
+    if (e instanceof RateLimitExceededError) return rateLimitError(e);
+    throw e;
+  }
+  const rHeaders = rateHeaders(rlHeaders);
+  const slot = await acquireConcurrency(ctx.orgId, ctx.apiKeyId);
+  if (!slot.ok) {
+    return {
+      kind: "error",
+      status: 429,
+      body: errBody("Too many concurrent requests.", "rate_limit_exceeded", "concurrency_limit"),
+      headers: { ...rHeaders, "retry-after": "1" },
+    };
+  }
+
   const { url, headers } = buildUpstream({
     provider: target.provider,
     model: target.model,
@@ -418,6 +625,7 @@ export async function handleEmbeddings(
       { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
       Date.now() - started,
       "error",
+      { slot, estTokens: 0 },
     );
     let parsed: unknown;
     try {
@@ -425,7 +633,7 @@ export async function handleEmbeddings(
     } catch {
       parsed = errBody(text || "Upstream error", "api_error");
     }
-    return { kind: "error", status: resp.status, body: parsed };
+    return { kind: "error", status: resp.status, body: parsed, headers: rHeaders };
   }
   const json = (await resp.json().catch(() => ({}))) as any;
   const usage: Usage = {
@@ -433,6 +641,9 @@ export async function handleEmbeddings(
     completionTokens: 0,
     totalTokens: json.usage?.total_tokens ?? json.usage?.prompt_tokens ?? 0,
   };
-  await finalize(ctx, target, usage, Date.now() - started, "success");
-  return { kind: "json", openai: json };
+  await finalize(ctx, target, usage, Date.now() - started, "success", {
+    slot,
+    estTokens: 0,
+  });
+  return { kind: "json", openai: json, headers: rHeaders };
 }

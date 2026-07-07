@@ -100,13 +100,42 @@
 /* ── Page chrome (routed content inside the shell) ── */
 .page {
   box-sizing: border-box;
-  padding: 24px 28px 56px;
+  padding: 22px;
   display: flex;
   flex-direction: column;
   gap: 18px;
   width: 100%;
-  max-width: var(--vx-max-content);
-  margin: 0 auto;
+}
+
+/* Multi-content screens use a top tab bar (mockup scrGroup: a bottom-bordered
+   tab strip, then the active sub-view). Shared so every tabbed screen matches. */
+.page-tabs {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid var(--vx-line);
+}
+.page-tab {
+  appearance: none;
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  padding: 9px 14px;
+  font-family: var(--vx-font-sans);
+  font-size: var(--vx-text-sm);
+  font-weight: var(--vx-w-medium);
+  color: var(--vx-ink-3);
+  cursor: pointer;
+  transition:
+    color var(--vx-dur-fast) var(--vx-ease),
+    border-color var(--vx-dur-fast) var(--vx-ease);
+}
+.page-tab:hover {
+  color: var(--vx-ink);
+}
+.page-tab.active {
+  color: var(--vx-ink);
+  border-bottom-color: var(--vx-accent);
 }
 .page-head {
   display: flex;

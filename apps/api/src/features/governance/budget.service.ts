@@ -1,6 +1,7 @@
 import { and, eq, gte, lt, sql } from "drizzle-orm";
-import { withOrg, memberships, teams, usageRecords } from "@vortex/db";
-import { redis, spendKey } from "@vortex/core";
+import { withOrg, teams, usageRecords } from "@vortex/db";
+import { redis, budgetKey } from "@vortex/core";
+import { resolveEntitlements } from "../../shared/entitlements.js";
 
 export class BudgetExceededError extends Error {
   scope: string;
@@ -15,68 +16,65 @@ function currentMonth(): string {
   return new Date().toISOString().slice(0, 7); // YYYY-MM
 }
 
-/** Effective monthly ceiling for a member = override ?? team default. */
-async function effectiveLimit(
-  orgId: string,
-  memberId: string,
-): Promise<{ limit: number | null; hard: boolean }> {
+type Pool = {
+  scope: "team" | "org";
+  scopeId: string;
+  limit: number | null;
+  hard: boolean;
+};
+
+/**
+ * The budget pool a request bills against. Team-level when the member has a
+ * team (cap = team.budgetMicro ?? plan entitlement), else an org-wide pool at
+ * the plan default. Enforced in BOTH managed and self-hosted deployments.
+ */
+async function resolvePool(orgId: string, teamId: string | null): Promise<Pool> {
+  const ent = await resolveEntitlements(orgId);
+  if (!teamId) {
+    return { scope: "org", scopeId: orgId, limit: ent.teamBudgetMicro, hard: true };
+  }
   return withOrg(orgId, async (tx) => {
-    const [m] = await tx
-      .select()
-      .from(memberships)
-      .where(eq(memberships.id, memberId))
-      .limit(1);
-    if (!m) return { limit: null, hard: false };
-    let teamDefault: number | null = null;
-    let hard = true;
-    if (m.teamId) {
-      const [t] = await tx
-        .select()
-        .from(teams)
-        .where(eq(teams.id, m.teamId))
-        .limit(1);
-      if (t) {
-        teamDefault = t.defaultMemberBudgetMicro ?? null;
-        hard = t.budgetEnforcement === "hard";
-      }
-    }
-    const limit = m.budgetOverrideMicro ?? teamDefault;
-    return { limit, hard };
+    const [t] = await tx.select().from(teams).where(eq(teams.id, teamId)).limit(1);
+    const limit = t?.budgetMicro ?? ent.teamBudgetMicro;
+    const hard = (t?.budgetEnforcement ?? "hard") === "hard";
+    return { scope: "team", scopeId: teamId, limit, hard };
   });
 }
 
-/** Pre-request check. Throws BudgetExceededError on a hard cap. (Called by the gateway.) */
+/** Pre-request check. Throws BudgetExceededError on a hard cap. */
 export async function assertWithinBudget(a: {
   orgId: string;
-  memberId: string;
+  teamId: string | null;
   estimateMicro: number;
 }): Promise<void> {
-  const { limit, hard } = await effectiveLimit(a.orgId, a.memberId);
-  if (limit == null || !hard) return;
-  const key = spendKey(a.orgId, a.memberId, currentMonth());
+  const pool = await resolvePool(a.orgId, a.teamId);
+  if (pool.limit == null || !pool.hard) return;
+  const key = budgetKey(a.orgId, pool.scope, pool.scopeId, currentMonth());
   const spent = Number(await redis.get(key)) || 0;
-  if (spent + a.estimateMicro > limit) {
-    throw new BudgetExceededError("member", "member monthly budget exceeded");
+  if (spent + a.estimateMicro > pool.limit) {
+    throw new BudgetExceededError(pool.scope, `${pool.scope} monthly budget exceeded`);
   }
 }
 
-/** Post-response commit of actual cost. (Called by the gateway.) */
+/** Post-response commit of actual cost to the team/org pool. */
 export async function commitSpend(a: {
   orgId: string;
-  memberId: string;
+  teamId: string | null;
   actualMicro: number;
 }): Promise<void> {
-  const key = spendKey(a.orgId, a.memberId, currentMonth());
+  const pool = await resolvePool(a.orgId, a.teamId);
+  const key = budgetKey(a.orgId, pool.scope, pool.scopeId, currentMonth());
   await redis.incrby(key, Math.round(a.actualMicro));
   await redis.expire(key, 60 * 60 * 24 * 40); // ~40d self-clean; reconcile is authoritative
 }
 
-/** Current spend for a member this month (micro-USD). */
-export async function memberSpend(
+/** Current spend for a team (or org pool) this month (micro-USD). */
+export async function poolSpend(
   orgId: string,
-  memberId: string,
+  teamId: string | null,
 ): Promise<number> {
-  const key = spendKey(orgId, memberId, currentMonth());
+  const pool = await resolvePool(orgId, teamId);
+  const key = budgetKey(orgId, pool.scope, pool.scopeId, currentMonth());
   return Number(await redis.get(key)) || 0;
 }
 
@@ -91,7 +89,7 @@ export async function reconcileMonth(
   await withOrg(orgId, async (tx) => {
     const rows = await tx
       .select({
-        memberId: usageRecords.memberId,
+        teamId: usageRecords.teamId,
         total: sql<number>`coalesce(sum(${usageRecords.costMicro}),0)`,
       })
       .from(usageRecords)
@@ -101,10 +99,11 @@ export async function reconcileMonth(
           lt(usageRecords.createdAt, end),
         ),
       )
-      .groupBy(usageRecords.memberId);
+      .groupBy(usageRecords.teamId);
     for (const r of rows) {
-      if (!r.memberId) continue;
-      await redis.set(spendKey(orgId, r.memberId, month), Math.round(r.total));
+      const scope = r.teamId ? "team" : "org";
+      const scopeId = r.teamId ?? orgId;
+      await redis.set(budgetKey(orgId, scope, scopeId, month), Math.round(r.total));
     }
   });
 }

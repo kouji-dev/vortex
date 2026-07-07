@@ -58,6 +58,22 @@ export const keyRuleType = pgEnum("key_rule_type", [
   "ip_cidrs",
 ]);
 export const usageStatus = pgEnum("usage_status", ["success", "error"]);
+export const keyMode = pgEnum("key_mode", ["byok", "managed", "hybrid"]);
+export const meterType = pgEnum("meter_type", [
+  "requests",
+  "input_tokens",
+  "output_tokens",
+  "cost_micro",
+  "seats",
+  "service_accounts",
+]);
+export const pricingScope = pgEnum("pricing_scope", ["plan", "contract"]);
+export const contractStatus = pgEnum("contract_status", [
+  "draft",
+  "active",
+  "expired",
+  "canceled",
+]);
 
 // ── auth (better-auth compatible) ────────────────────────────
 export const users = pgTable("users", {
@@ -159,6 +175,9 @@ export const organizations = pgTable("organizations", {
   name: text("name").notNull(),
   status: orgStatus("status").notNull().default("active"),
   planId: text("plan_id").references(() => plans.id),
+  // BYOK (org keys) | managed (Vortex pool + credits + markup) | hybrid (both)
+  keyMode: keyMode("key_mode").notNull().default("byok"),
+  markupBps: integer("markup_bps").notNull().default(0), // managed-key spend markup
   defaultRoutingPolicy: jsonb("default_routing_policy")
     .$type<RoutingPolicy>()
     .default({ candidates: [] })
@@ -187,6 +206,7 @@ export const teams = pgTable("teams", {
     .references(() => organizations.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   defaultMemberBudgetMicro: money("default_member_budget_micro"),
+  budgetMicro: money("budget_micro"), // team pool cap (aggregate spend/month)
   budgetEnforcement: budgetEnforcement("budget_enforcement")
     .notNull()
     .default("hard"),
@@ -375,6 +395,120 @@ export const auditLogs = pgTable("audit_logs", {
   metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}),
   prevHash: text("prev_hash"),
   entryHash: text("entry_hash").notNull(),
+  createdAt: createdAt(),
+});
+
+// ── entitlements / pricing / metering / credits ──────────────
+// Per-plan governance + limits. Drives budget, seat caps, and rate limits in
+// BOTH deployments. Null column = unlimited.
+export const planEntitlements = pgTable("plan_entitlements", {
+  id: id(),
+  planId: text("plan_id")
+    .notNull()
+    .unique()
+    .references(() => plans.id, { onDelete: "cascade" }),
+  seatsPerOrg: integer("seats_per_org"),
+  servicePerMember: integer("service_per_member"),
+  teamBudgetMicro: money("team_budget_micro"),
+  rpm: integer("rpm"),
+  tpm: integer("tpm"),
+  concurrency: integer("concurrency"),
+  flags: jsonb("flags").$type<Record<string, unknown>>().default({}).notNull(),
+  createdAt: createdAt(),
+});
+
+// Graduated (volume-tiered) unit pricing per meter. Consumed only by the
+// billing plane (managed). `upToQty` null = final unbounded tier.
+export const pricingTiers = pgTable(
+  "pricing_tiers",
+  {
+    id: id(),
+    scopeType: pricingScope("scope_type").notNull(), // plan | contract
+    scopeId: text("scope_id").notNull(),
+    meter: meterType("meter").notNull(),
+    upToQty: bigint("up_to_qty", { mode: "number" }),
+    unitPriceMicro: money("unit_price_micro").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("pricing_tiers_scope_idx").on(t.scopeType, t.scopeId, t.meter)],
+);
+
+// Per-org enterprise contract overrides (committed base, seat commit, term).
+export const contracts = pgTable("contracts", {
+  id: id(),
+  orgId: text("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  baseMicro: money("base_micro"),
+  seatCommit: integer("seat_commit"),
+  status: contractStatus("status").notNull().default("active"),
+  termStart: timestamp("term_start", { withTimezone: true }),
+  termEnd: timestamp("term_end", { withTimezone: true }),
+  createdAt: createdAt(),
+});
+
+// Monthly meter rollups (org × period × meter). Price-tracking source of truth.
+export const usageRollups = pgTable(
+  "usage_rollups",
+  {
+    id: id(),
+    orgId: text("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    period: text("period").notNull(), // YYYY-MM
+    meter: meterType("meter").notNull(),
+    value: money("value").notNull().default(0),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("usage_rollups_uq").on(t.orgId, t.period, t.meter)],
+);
+
+// Managed-mode credit balance + ledger (top-ups + spend deductions).
+export const creditWallets = pgTable("credit_wallets", {
+  id: id(),
+  orgId: text("org_id")
+    .notNull()
+    .unique()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  balanceMicro: money("balance_micro").notNull().default(0),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  createdAt: createdAt(),
+});
+
+export const creditLedger = pgTable(
+  "credit_ledger",
+  {
+    id: id(),
+    orgId: text("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    deltaMicro: money("delta_micro").notNull(), // +topup / -spend
+    reason: text("reason").notNull(), // topup | spend | adjustment
+    requestId: text("request_id"), // links a spend to its usage record
+    createdAt: createdAt(),
+  },
+  (t) => [index("credit_ledger_org_idx").on(t.orgId, t.createdAt)],
+);
+
+// Platform-owned managed provider pool (NOT tenant-scoped; managed mode only).
+export const managedProviderKeys = pgTable("managed_provider_keys", {
+  id: id(),
+  provider: text("provider").notNull(),
+  label: text("label"),
+  region: text("region"),
+  options: jsonb("options").$type<Record<string, unknown>>(),
+  encryptedKey: text("encrypted_key").notNull(),
+  priceOverride: jsonb("price_override").$type<{
+    inputPer1k?: number;
+    outputPer1k?: number;
+  }>(),
+  healthStatus: credHealth("health_status").notNull().default("valid"),
+  enabled: boolean("enabled").notNull().default(true),
   createdAt: createdAt(),
 });
 

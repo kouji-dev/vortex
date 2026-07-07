@@ -2,6 +2,7 @@ import { eq, and, or, inArray } from "drizzle-orm";
 import { withOrg, apps, appAccess, memberships } from "@vortex/db";
 import type { MemberContext } from "../provisioning/provisioning.service.js";
 import type { CreateApp } from "@vortex/shared";
+import { assertServiceQuota } from "../../shared/caps.js";
 
 /** Apps the member may see: owner/admin → all; else owned + granted (member/team). */
 export async function listAccessibleApps(member: MemberContext) {
@@ -46,6 +47,10 @@ export async function listAccessibleApps(member: MemberContext) {
  * - personal: owned by `ownerMemberId` (defaults to the creator).
  */
 export async function createApp(member: MemberContext, input: CreateApp) {
+  // Per-member service-account quota (Free = 1). Checked before we mutate.
+  if (input.kind === "service") {
+    await assertServiceQuota(member.orgId, member.membershipId);
+  }
   return withOrg(member.orgId, async (tx) => {
     let technicalMemberId: string | null = null;
     let ownerMemberId: string | null = null;
@@ -61,6 +66,8 @@ export async function createApp(member: MemberContext, input: CreateApp) {
         })
         .returning();
       technicalMemberId = tech!.id;
+      // The creator owns their service apps → drives the per-member quota + access.
+      if (input.kind === "service") ownerMemberId = member.membershipId;
     } else {
       ownerMemberId = input.ownerMemberId ?? member.membershipId;
     }

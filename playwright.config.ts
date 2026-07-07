@@ -12,13 +12,14 @@ export default defineConfig({
     {
       command: "node e2e/mock-provider.mjs",
       url: "http://localhost:9099/models",
-      reuseExistingServer: true,
+      reuseExistingServer: false,
       timeout: 20_000,
+      env: { MOCK_DELAY_MS: "150" },
     },
     {
       command: "node --import tsx apps/api/src/server.ts",
       url: "http://localhost:8080/health",
-      reuseExistingServer: true,
+      reuseExistingServer: false,
       timeout: 40_000,
       env: {
         OPENAI_BASE_URL: "http://localhost:9099",

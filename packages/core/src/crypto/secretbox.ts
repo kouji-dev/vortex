@@ -13,6 +13,9 @@ import { env } from "../config/env.js";
 // (input keying material) salted with the orgId, so each org's secrets are
 // encrypted under a distinct key without storing per-org key material.
 
+// HKDF scope for platform-owned (managed pool) secrets — not tied to any org.
+export const PLATFORM_SCOPE = "__platform__";
+
 const ALGO = "aes-256-gcm";
 const KEY_LEN = 32; // AES-256
 const IV_LEN = 12; // GCM standard nonce

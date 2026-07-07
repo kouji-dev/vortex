@@ -28,6 +28,13 @@ const SSE_HEADERS = {
   connection: "keep-alive",
 };
 
+function withHeaders(
+  base: Record<string, string>,
+  extra?: Record<string, string>,
+): Record<string, string> {
+  return extra ? { ...base, ...extra } : base;
+}
+
 function errJson(message: string, type: string, code?: string) {
   return { error: { message, type, param: null, code: code ?? null } };
 }
@@ -76,10 +83,13 @@ gatewayRouter.post("/chat/completions", async (c) => {
       return c.json(errJson("Monthly budget exceeded.", "insufficient_quota", "budget_exceeded"), 402);
     throw e;
   }
-  if (result.kind === "error") return c.json(result.body as object, result.status as any);
+  if (result.kind === "error")
+    return c.json(result.body as object, result.status as any, result.headers);
   if (result.kind === "stream")
-    return new Response(result.stream, { headers: SSE_HEADERS });
-  return c.json(result.openai);
+    return new Response(result.stream, {
+      headers: withHeaders(SSE_HEADERS, result.headers),
+    });
+  return c.json(result.openai, 200, result.headers);
 });
 
 // ── POST /v1/messages (Anthropic Messages → canonical) ────────
@@ -98,12 +108,13 @@ gatewayRouter.post("/messages", async (c) => {
       return c.json(errJson("Monthly budget exceeded.", "insufficient_quota", "budget_exceeded"), 402);
     throw e;
   }
-  if (result.kind === "error") return c.json(result.body as object, result.status as any);
+  if (result.kind === "error")
+    return c.json(result.body as object, result.status as any, result.headers);
   if (result.kind === "stream")
     return new Response(canonicalStreamToMessages(result.stream, result.model), {
-      headers: SSE_HEADERS,
+      headers: withHeaders(SSE_HEADERS, result.headers),
     });
-  return c.json(canonicalToMessagesResponse(result.openai));
+  return c.json(canonicalToMessagesResponse(result.openai), 200, result.headers);
 });
 
 // ── POST /v1/responses (OpenAI Responses → canonical) ─────────
@@ -122,12 +133,13 @@ gatewayRouter.post("/responses", async (c) => {
       return c.json(errJson("Monthly budget exceeded.", "insufficient_quota", "budget_exceeded"), 402);
     throw e;
   }
-  if (result.kind === "error") return c.json(result.body as object, result.status as any);
+  if (result.kind === "error")
+    return c.json(result.body as object, result.status as any, result.headers);
   if (result.kind === "stream")
     return new Response(canonicalStreamToResponses(result.stream, result.model), {
-      headers: SSE_HEADERS,
+      headers: withHeaders(SSE_HEADERS, result.headers),
     });
-  return c.json(canonicalToResponses(result.openai));
+  return c.json(canonicalToResponses(result.openai), 200, result.headers);
 });
 
 // ── POST /v1/embeddings ───────────────────────────────────────
@@ -145,8 +157,9 @@ gatewayRouter.post("/embeddings", async (c) => {
       return c.json(errJson("Monthly budget exceeded.", "insufficient_quota", "budget_exceeded"), 402);
     throw e;
   }
-  if (result.kind === "error") return c.json(result.body as object, result.status as any);
-  if (result.kind === "json") return c.json(result.openai);
+  if (result.kind === "error")
+    return c.json(result.body as object, result.status as any, result.headers);
+  if (result.kind === "json") return c.json(result.openai, 200, result.headers);
   return c.json(errJson("Unexpected stream for embeddings.", "api_error"), 500);
 });
 

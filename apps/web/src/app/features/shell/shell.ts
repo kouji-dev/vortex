@@ -39,11 +39,11 @@ const MEMBER_NAV: NavGroup[] = [
   {
     group: 'Workspace',
     items: [
-      { label: 'Home', path: '/me/home', icon: 'home' },
-      { label: 'My Usage & Budget', path: '/me/usage', icon: 'cpu' },
-      { label: 'My Keys', path: '/me/keys', icon: 'key' },
-      { label: 'My Apps', path: '/me/apps', icon: 'layers' },
-      { label: 'Profile & Settings', path: '/me/profile', icon: 'settings' },
+      { label: 'Home', path: '/overview', icon: 'home' },
+      { label: 'My Usage & Budget', path: '/usage', icon: 'cpu' },
+      { label: 'My Keys', path: '/keys', icon: 'key' },
+      { label: 'My Apps', path: '/apps', icon: 'layers' },
+      { label: 'Profile & Settings', path: '/settings', icon: 'settings' },
     ],
   },
 ];
@@ -184,9 +184,7 @@ export class Shell {
   readonly settingsLabel = computed(() =>
     this.auth.isAdmin() ? 'Settings' : 'Profile & settings',
   );
-  private readonly settingsPath = computed(() =>
-    this.auth.isAdmin() ? '/settings' : '/me/profile',
-  );
+  private readonly settingsPath = computed(() => '/settings');
 
   /** Account dropdown — click to open, outside-click + Esc to close. */
   readonly menuOpen = signal(false);

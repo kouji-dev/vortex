@@ -6,6 +6,7 @@ import { createAppSchema, appPrincipalSchema, appRoleSchema } from "@vortex/shar
 import { type AppEnv, requireMember } from "../../shared/ctx.js";
 import { requireRole } from "../../shared/rbac.js";
 import { listAccessibleApps, createApp, getApp } from "./apps.service.js";
+import { CapExceededError } from "../../shared/caps.js";
 
 const grantSchema = z.object({
   principalType: appPrincipalSchema,
@@ -25,8 +26,14 @@ apps_.get("/", async (c) => {
 // POST / — create a service or personal app.
 apps_.post("/", async (c) => {
   const body = createAppSchema.parse(await c.req.json());
-  const app = await createApp(c.get("member"), body);
-  return c.json(app, 201);
+  try {
+    const app = await createApp(c.get("member"), body);
+    return c.json(app, 201);
+  } catch (e) {
+    if (e instanceof CapExceededError)
+      return c.json({ error: "plan_limit", cap: e.cap, message: e.message }, 403);
+    throw e;
+  }
 });
 
 // GET /:id — single app.

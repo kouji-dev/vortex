@@ -26,6 +26,14 @@ const envSchema = z.object({
     .enum(["development", "test", "production"])
     .default("development"),
   TENANCY_MODE: z.enum(["single", "multi"]).default("single"),
+  // managed = Vortex-hosted SaaS (billing plane ON). self_hosted = billing OFF,
+  // only metering + budgeting + rate limiting run.
+  DEPLOYMENT_MODE: z.enum(["managed", "self_hosted"]).default("self_hosted"),
+  // On a Redis error the rate limiter allows the request (availability) vs denies.
+  RATE_LIMIT_FAIL_OPEN: z
+    .enum(["true", "false"])
+    .default("true")
+    .transform((v) => v === "true"),
   API_PORT: z.coerce.number().int().positive().default(8080),
   WEB_ORIGIN: z.string().url(),
   PLATFORM_ORIGIN: z.string().url(),

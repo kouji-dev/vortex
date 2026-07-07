@@ -7,13 +7,14 @@ export const redis = new Redis(env.REDIS_URL, {
 });
 
 /**
- * Org-scoped monthly spend counter key for a member.
- * `month` is a period token, e.g. "2026-07".
+ * Org-scoped monthly spend counter key for a budget pool.
+ * `scope` is "team" | "org"; `month` is a period token, e.g. "2026-07".
  */
-export function spendKey(
+export function budgetKey(
   orgId: string,
-  memberId: string,
+  scope: "team" | "org",
+  scopeId: string,
   month: string,
 ): string {
-  return `spend:${orgId}:member:${memberId}:${month}`;
+  return `spend:${orgId}:${scope}:${scopeId}:${month}`;
 }

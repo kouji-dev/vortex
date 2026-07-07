@@ -10,6 +10,7 @@ import {
 } from "@vortex/db";
 import { env } from "@vortex/core";
 import { generateApiKey } from "../keys/keys.util.js";
+import { assertSeatAvailable } from "../../shared/caps.js";
 
 const SINGLE_ORG_NAME = process.env.SEED_ORG_NAME ?? "Acme";
 const DEFAULT_TEAM_BUDGET_MICRO = 500_000_000; // $500 / member / month
@@ -112,6 +113,14 @@ export async function provisionUser(
   userId: string,
   opts: { orgName?: string } = {},
 ): Promise<{ ctx: MemberContext; defaultKey: string }> {
+  // Single mode: the org already exists → enforce the plan seat cap before we
+  // add another human. Multi mode creates a fresh org (its first/owner seat).
+  if (env.TENANCY_MODE !== "multi") {
+    const [org] = await withBypass((tx) =>
+      tx.select({ id: organizations.id }).from(organizations).limit(1),
+    );
+    if (org) await assertSeatAvailable(org.id);
+  }
   return withBypass(async (tx) => {
     let orgId: string;
     let defaultTeamId: string;

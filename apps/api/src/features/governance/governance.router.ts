@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { desc, eq } from "drizzle-orm";
 import { withOrg, teams, memberships, auditLogs } from "@vortex/db";
 import { requireMember, type AppEnv } from "../../shared/ctx.js";
-import { memberSpend, reconcileMonth } from "./budget.service.js";
+import { poolSpend, reconcileMonth } from "./budget.service.js";
 import { appendAudit } from "./audit.service.js";
 
 function isAdmin(role: string): boolean {
@@ -21,23 +21,24 @@ budgets.get("/", async (c) => {
     const memberRows = await tx.select().from(memberships);
     return { teamRows, memberRows };
   });
-  const members = await Promise.all(
-    data.memberRows.map(async (m) => ({
+  const teamList = await Promise.all(
+    data.teamRows.map(async (t) => ({
+      id: t.id,
+      name: t.name,
+      budgetMicro: t.budgetMicro,
+      defaultMemberBudgetMicro: t.defaultMemberBudgetMicro,
+      enforcement: t.budgetEnforcement,
+      spentMicro: await poolSpend(orgId, t.id),
+    })),
+  );
+  return c.json({
+    teams: teamList,
+    members: data.memberRows.map((m) => ({
       membershipId: m.id,
       teamId: m.teamId,
       type: m.type,
       overrideMicro: m.budgetOverrideMicro,
-      spentMicro: await memberSpend(orgId, m.id),
     })),
-  );
-  return c.json({
-    teams: data.teamRows.map((t) => ({
-      id: t.id,
-      name: t.name,
-      defaultMemberBudgetMicro: t.defaultMemberBudgetMicro,
-      enforcement: t.budgetEnforcement,
-    })),
-    members,
   });
 });
 
@@ -46,6 +47,7 @@ budgets.patch("/team/:teamId", async (c) => {
   if (!isAdmin(m.role)) return c.json({ error: "forbidden" }, 403);
   const teamId = c.req.param("teamId");
   const body = (await c.req.json().catch(() => ({}))) as {
+    budgetMicro?: number | null;
     defaultMemberBudgetMicro?: number | null;
     enforcement?: "hard" | "soft";
   };
@@ -53,6 +55,7 @@ budgets.patch("/team/:teamId", async (c) => {
     await tx
       .update(teams)
       .set({
+        ...(body.budgetMicro !== undefined && { budgetMicro: body.budgetMicro }),
         ...(body.defaultMemberBudgetMicro !== undefined && {
           defaultMemberBudgetMicro: body.defaultMemberBudgetMicro,
         }),
