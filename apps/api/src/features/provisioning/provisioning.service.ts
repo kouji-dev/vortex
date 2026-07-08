@@ -81,6 +81,7 @@ export type MemberContext = {
   orgId: string;
   role: "owner" | "admin" | "member";
   teamId: string | null;
+  teamRole: "team_admin" | "member" | null;
 };
 
 /** Look up a user's membership (single org). */
@@ -99,6 +100,7 @@ export async function getMembership(
       orgId: m.orgId,
       role: (m.role ?? "member") as MemberContext["role"],
       teamId: m.teamId,
+      teamRole: m.teamRole as MemberContext["teamRole"],
     };
   });
 }
@@ -189,6 +191,7 @@ export async function provisionUser(
         orgId,
         role,
         teamId: defaultTeamId,
+        teamRole: membership!.teamRole,
       },
       defaultKey: key.plaintext,
     };

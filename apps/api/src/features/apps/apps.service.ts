@@ -87,6 +87,51 @@ export async function createApp(member: MemberContext, input: CreateApp) {
   });
 }
 
+/**
+ * May the caller edit this app (grant/revoke access, etc.)? Org owner/admin, the
+ * app's `ownerMemberId`, or a member/team holding an `app_admin` grant. A plain
+ * `app_member` grant is not enough.
+ */
+export async function canManageApp(
+  member: MemberContext,
+  appId: string,
+): Promise<boolean> {
+  if (member.role === "owner" || member.role === "admin") return true;
+  return withOrg(member.orgId, async (tx) => {
+    const [app] = await tx
+      .select({ ownerMemberId: apps.ownerMemberId })
+      .from(apps)
+      .where(and(eq(apps.id, appId), eq(apps.orgId, member.orgId)))
+      .limit(1);
+    if (!app) return false;
+    if (app.ownerMemberId && app.ownerMemberId === member.membershipId)
+      return true;
+    const [grant] = await tx
+      .select({ id: appAccess.id })
+      .from(appAccess)
+      .where(
+        and(
+          eq(appAccess.appId, appId),
+          eq(appAccess.role, "app_admin"),
+          or(
+            and(
+              eq(appAccess.principalType, "member"),
+              eq(appAccess.principalId, member.membershipId),
+            ),
+            member.teamId
+              ? and(
+                  eq(appAccess.principalType, "team"),
+                  eq(appAccess.principalId, member.teamId),
+                )
+              : undefined,
+          ),
+        ),
+      )
+      .limit(1);
+    return !!grant;
+  });
+}
+
 /** Fetch one app scoped to the org. */
 export async function getApp(orgId: string, id: string) {
   return withOrg(orgId, async (tx) => {

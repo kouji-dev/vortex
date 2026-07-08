@@ -4,7 +4,7 @@ import { eq, and } from "drizzle-orm";
 import { withOrg, teams } from "@vortex/db";
 import { createTeamSchema, budgetEnforcementSchema } from "@vortex/shared";
 import { type AppEnv, requireMember } from "../../shared/ctx.js";
-import { requireRole } from "../../shared/rbac.js";
+import { requireRole, canManageTeam } from "../../shared/rbac.js";
 
 const updateTeamSchema = z.object({
   name: z.string().min(1).optional(),
@@ -42,12 +42,12 @@ teams_.post("/", async (c) => {
   return c.json(team, 201);
 });
 
-// PATCH /:id — update name / budget defaults (owner/admin).
+// PATCH /:id — update name / budget defaults (org owner/admin, or this team's team_admin).
 teams_.patch("/:id", async (c) => {
-  const forbidden = requireRole(c, ["owner", "admin"]);
-  if (forbidden) return forbidden;
-  const { orgId } = c.get("member");
   const id = c.req.param("id");
+  if (!canManageTeam(c.get("member"), id))
+    return c.json({ error: "forbidden" }, 403);
+  const { orgId } = c.get("member");
   const body = updateTeamSchema.parse(await c.req.json());
 
   const patch: Record<string, unknown> = {};

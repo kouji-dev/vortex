@@ -2,13 +2,14 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { eq, and } from "drizzle-orm";
 import { withOrg, memberships } from "@vortex/db";
-import { orgRoleSchema } from "@vortex/shared";
+import { orgRoleSchema, teamRoleSchema } from "@vortex/shared";
 import { type AppEnv, requireMember } from "../../shared/ctx.js";
 import { requireRole } from "../../shared/rbac.js";
 
 const updateMemberSchema = z.object({
   role: orgRoleSchema.optional(),
   teamId: z.string().nullable().optional(),
+  teamRole: teamRoleSchema.nullable().optional(),
   budgetOverrideMicro: z.number().int().nullish(),
 });
 
@@ -33,6 +34,7 @@ members.patch("/:id", async (c) => {
   const patch: Record<string, unknown> = {};
   if (body.role !== undefined) patch.role = body.role;
   if (body.teamId !== undefined) patch.teamId = body.teamId;
+  if (body.teamRole !== undefined) patch.teamRole = body.teamRole;
   if (body.budgetOverrideMicro !== undefined)
     patch.budgetOverrideMicro = body.budgetOverrideMicro;
   if (Object.keys(patch).length === 0)

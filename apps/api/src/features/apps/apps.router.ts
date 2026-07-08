@@ -4,8 +4,7 @@ import { eq, and } from "drizzle-orm";
 import { withOrg, appAccess } from "@vortex/db";
 import { createAppSchema, appPrincipalSchema, appRoleSchema } from "@vortex/shared";
 import { type AppEnv, requireMember } from "../../shared/ctx.js";
-import { requireRole } from "../../shared/rbac.js";
-import { listAccessibleApps, createApp, getApp } from "./apps.service.js";
+import { listAccessibleApps, createApp, getApp, canManageApp } from "./apps.service.js";
 import { CapExceededError } from "../../shared/caps.js";
 
 const grantSchema = z.object({
@@ -44,12 +43,13 @@ apps_.get("/:id", async (c) => {
   return c.json(app);
 });
 
-// POST /:id/access — grant a team or member access (owner/admin).
+// POST /:id/access — grant a team or member access (org owner/admin, or app owner/app_admin).
 apps_.post("/:id/access", async (c) => {
-  const forbidden = requireRole(c, ["owner", "admin"]);
-  if (forbidden) return forbidden;
-  const { orgId } = c.get("member");
+  const member = c.get("member");
   const appId = c.req.param("id");
+  if (!(await canManageApp(member, appId)))
+    return c.json({ error: "forbidden" }, 403);
+  const { orgId } = member;
   const body = grantSchema.parse(await c.req.json());
 
   const app = await getApp(orgId, appId);
@@ -70,12 +70,13 @@ apps_.post("/:id/access", async (c) => {
   return c.json(grant, 201);
 });
 
-// DELETE /:id/access/:grantId — revoke a grant (owner/admin).
+// DELETE /:id/access/:grantId — revoke a grant (org owner/admin, or app owner/app_admin).
 apps_.delete("/:id/access/:grantId", async (c) => {
-  const forbidden = requireRole(c, ["owner", "admin"]);
-  if (forbidden) return forbidden;
-  const { orgId } = c.get("member");
+  const member = c.get("member");
   const appId = c.req.param("id");
+  if (!(await canManageApp(member, appId)))
+    return c.json({ error: "forbidden" }, 403);
+  const { orgId } = member;
   const grantId = c.req.param("grantId");
 
   const [deleted] = await withOrg(orgId, (tx) =>
