@@ -52,6 +52,48 @@ const openai: ProviderDef = {
   },
 };
 
+/**
+ * Factory for OpenAI-compatible providers (chat/embeddings via the OpenAI wire
+ * format + bearer auth). They reuse the OpenAI adapter (getAdapter default), so
+ * embedding one is just base URL + env key. `pathPrefix` covers the few that
+ * don't mount under `/v1` (defaults to "/v1").
+ */
+function openAICompatible(
+  id: string,
+  defaultBaseUrl: string,
+  opts: { pathPrefix?: string } = {},
+): ProviderDef {
+  const p = opts.pathPrefix ?? "/v1";
+  return {
+    id,
+    defaultBaseUrl,
+    authStyle: "bearer",
+    endpointFor(capability) {
+      switch (capability) {
+        case "chat":
+          return `${p}/chat/completions`;
+        case "embeddings":
+          return `${p}/embeddings`;
+        case "models":
+          return `${p}/models`;
+        default:
+          throw new Error(`${id}: unsupported capability '${capability}'`);
+      }
+    },
+    authHeaders(token) {
+      return { Authorization: `Bearer ${token}` };
+    },
+  };
+}
+
+// Most-used OpenAI-compatible inference providers. Bearer + /v1/chat/completions.
+const groq = openAICompatible("groq", "https://api.groq.com/openai");
+const mistral = openAICompatible("mistral", "https://api.mistral.ai");
+const deepseek = openAICompatible("deepseek", "https://api.deepseek.com");
+const xai = openAICompatible("xai", "https://api.x.ai");
+const together = openAICompatible("together", "https://api.together.xyz");
+const fireworks = openAICompatible("fireworks", "https://api.fireworks.ai/inference");
+
 const anthropic: ProviderDef = {
   id: "anthropic",
   defaultBaseUrl: "https://api.anthropic.com",
@@ -141,6 +183,12 @@ const REGISTRY: Record<string, ProviderDef> = {
   azure,
   bedrock,
   vertex,
+  groq,
+  mistral,
+  deepseek,
+  xai,
+  together,
+  fireworks,
 };
 
 // Per-provider env base-URL override (empty string treated as unset).
@@ -149,6 +197,12 @@ const ENV_BASE_URL: Record<string, string | undefined> = {
   anthropic: env.ANTHROPIC_BASE_URL,
   google: env.GOOGLE_BASE_URL,
   bedrock: env.AWS_BEDROCK_BASE_URL,
+  groq: env.GROQ_BASE_URL,
+  mistral: env.MISTRAL_BASE_URL,
+  deepseek: env.DEEPSEEK_BASE_URL,
+  xai: env.XAI_BASE_URL,
+  together: env.TOGETHER_BASE_URL,
+  fireworks: env.FIREWORKS_BASE_URL,
 };
 
 /** Look up a provider definition by id, or `undefined` if unknown. */

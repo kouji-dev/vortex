@@ -50,6 +50,17 @@ test("gateway: chat completion proxies + records usage & cost", async () => {
   expect(body.usage.total_tokens).toBeGreaterThan(0);
 });
 
+test("gateway routes an OpenAI-compatible provider prefix (groq/*)", async () => {
+  const { ctx, prov } = await signUpAndProvision();
+  const r = await ctx.post(`${BASE}/v1/chat/completions`, {
+    headers: { authorization: `Bearer ${prov.defaultKey}` },
+    data: { model: "groq/llama-3.3-70b-versatile", messages: [{ role: "user", content: "hi" }] },
+  });
+  expect(r.status()).toBe(200);
+  const body = await r.json();
+  expect(body.choices[0].message.content).toBeTruthy();
+});
+
 test("gateway rejects an invalid key with 401", async ({ request }) => {
   const r = await request.post(`${BASE}/v1/chat/completions`, {
     headers: { authorization: "Bearer vtx_bogus" },

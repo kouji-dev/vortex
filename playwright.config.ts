@@ -24,6 +24,10 @@ export default defineConfig({
       env: {
         OPENAI_BASE_URL: "http://localhost:9099",
         OPENAI_API_KEY: "test-mock",
+        // Point an OpenAI-compatible provider (Groq) at the same mock so the
+        // registry/provider-prefix routing is covered E2E.
+        GROQ_BASE_URL: "http://localhost:9099",
+        GROQ_API_KEY: "test-mock",
         TENANCY_MODE: "single",
       },
     },

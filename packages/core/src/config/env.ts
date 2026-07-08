@@ -88,6 +88,19 @@ const envSchema = z.object({
   GOOGLE_VERTEX_PROJECT: z.string().optional(),
   GOOGLE_VERTEX_REGION: z.string().optional(),
   GOOGLE_VERTEX_API_KEY: z.string().optional(),
+  // OpenAI-compatible inference providers (bearer key; base URL overridable)
+  GROQ_API_KEY: z.string().optional(),
+  GROQ_BASE_URL: z.string().url().optional().or(z.literal("")),
+  MISTRAL_API_KEY: z.string().optional(),
+  MISTRAL_BASE_URL: z.string().url().optional().or(z.literal("")),
+  DEEPSEEK_API_KEY: z.string().optional(),
+  DEEPSEEK_BASE_URL: z.string().url().optional().or(z.literal("")),
+  XAI_API_KEY: z.string().optional(),
+  XAI_BASE_URL: z.string().url().optional().or(z.literal("")),
+  TOGETHER_API_KEY: z.string().optional(),
+  TOGETHER_BASE_URL: z.string().url().optional().or(z.literal("")),
+  FIREWORKS_API_KEY: z.string().optional(),
+  FIREWORKS_BASE_URL: z.string().url().optional().or(z.literal("")),
 
   // Stripe (SaaS / multi mode only)
   STRIPE_SECRET_KEY: z.string().optional(),

@@ -75,6 +75,18 @@ function envKeyFor(providerId: string): string | undefined {
       return env.AWS_BEDROCK_API_KEY;
     case "vertex":
       return env.GOOGLE_VERTEX_API_KEY;
+    case "groq":
+      return env.GROQ_API_KEY;
+    case "mistral":
+      return env.MISTRAL_API_KEY;
+    case "deepseek":
+      return env.DEEPSEEK_API_KEY;
+    case "xai":
+      return env.XAI_API_KEY;
+    case "together":
+      return env.TOGETHER_API_KEY;
+    case "fireworks":
+      return env.FIREWORKS_API_KEY;
     default:
       return undefined;
   }
