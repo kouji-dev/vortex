@@ -33,6 +33,23 @@ async function signUpAndProvision(): Promise<{ ctx: APIRequestContext; prov: Pro
   return { ctx, prov };
 }
 
+// ── /me requires auth (401 signed out; 200 with user when signed in) ─────────
+
+test("GET /me is 401 when signed out", async ({ request }) => {
+  const r = await request.get(`${BASE}/api/me`);
+  expect(r.status()).toBe(401);
+});
+
+test("GET /me returns the current user when signed in", async () => {
+  const { ctx } = await signUpAndProvision();
+  const r = await ctx.get(`${BASE}/api/me`);
+  expect(r.status()).toBe(200);
+  const body = await r.json();
+  expect(body.user?.id).toBeTruthy();
+  expect(body.member?.role).toBe("owner");
+  expect(body.needsProvision).toBe(false);
+});
+
 // ── Teams: PATCH = org owner/admin OR this team's team_admin ──────────────────
 
 test("team PATCH: owner may edit the team", async () => {

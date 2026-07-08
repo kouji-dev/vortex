@@ -19,9 +19,10 @@ export interface SignInResult {
   error?: string;
 }
 
-/** Shape of GET /api/me — a wrapper that is 200 with user:null when signed out. */
+/** Shape of GET /api/me — requires auth (401 when signed out); a 200 always
+ *  carries a user, but `member` is null for an authed-but-unprovisioned user. */
 interface MeResponse {
-  user: { id: string; email: string; name?: string | null } | null;
+  user: { id: string; email: string; name?: string | null };
   member: { orgId?: string; role?: OrgRole } | null;
   needsProvision: boolean;
 }
@@ -49,9 +50,8 @@ export class AuthService {
 
   async loadSession(): Promise<SessionUser | null> {
     try {
-      // /api/me returns 200 even when signed out ({ user: null, … }), so we must
-      // read `.user` — treating the wrapper object as the user let the guard
-      // admit unauthenticated visitors.
+      // /api/me requires auth: 401 when signed out → rejected → caught below,
+      // clearing the user. A resolved response always carries `.user`.
       const res = await firstValueFrom(this.http.get<MeResponse>('/api/me'));
       if (!res?.user) {
         this.user.set(null);

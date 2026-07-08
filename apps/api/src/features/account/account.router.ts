@@ -8,10 +8,10 @@ import { CapExceededError } from "../../shared/caps.js";
 
 export const account = new Hono<AppEnv>();
 
-// Current user + membership (null-safe; tells the client if provisioning is needed).
-account.get("/me", async (c) => {
-  const user = c.get("user");
-  if (!user) return c.json({ user: null, member: null, needsProvision: false });
+// Current user + membership (auth required → 401 when signed out). `member` may
+// still be null for an authed-but-unprovisioned user (needsProvision: true).
+account.get("/me", requireAuth, async (c) => {
+  const user = c.get("user")!;
   const member = await getMembership(user.id);
   return c.json({ user, member, needsProvision: !member });
 });
