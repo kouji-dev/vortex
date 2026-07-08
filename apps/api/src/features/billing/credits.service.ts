@@ -21,9 +21,19 @@ export async function walletBalance(orgId: string): Promise<number> {
   });
 }
 
-/** Pre-request gate for managed keys: reject when credits are exhausted. */
-export async function assertCredit(orgId: string): Promise<void> {
-  if ((await walletBalance(orgId)) <= 0) throw new CreditExhaustedError();
+/**
+ * Pre-request gate for managed keys: reject when the wallet can't cover this
+ * request's estimated charge (defaults to "any positive balance"). Bounds
+ * per-request overspend to estimate error. NOTE: concurrent requests each read
+ * the balance independently — a true hold/reservation would need an atomic
+ * decrement; this only guards the single-request case.
+ */
+export async function assertCredit(
+  orgId: string,
+  estChargeMicro = 0,
+): Promise<void> {
+  const balance = await walletBalance(orgId);
+  if (balance <= 0 || balance < estChargeMicro) throw new CreditExhaustedError();
 }
 
 /** Add credits (top-up). Returns the new balance. */

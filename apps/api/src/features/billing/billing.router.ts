@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { withOrg, subscriptions, plans, organizations } from "@vortex/db";
+import { env } from "@vortex/core";
 import { requireMember, type AppEnv } from "../../shared/ctx.js";
 import { walletBalance, topupCredit } from "./credits.service.js";
 import { previewInvoice } from "./invoice.service.js";
@@ -80,6 +81,15 @@ billing.get("/credits", async (c) => {
 billing.post("/credits/topup", async (c) => {
   const m = c.get("member");
   if (m.role !== "owner") return c.json({ error: "forbidden" }, 403);
+  // Managed SaaS: credits are money — a direct grant with no payment is a
+  // billing hole. Purchasing must go through Stripe (TODO: checkout → webhook
+  // credits the wallet). Only self-hosted/dev may grant credits directly.
+  if (env.DEPLOYMENT_MODE === "managed") {
+    return c.json(
+      { error: "payment_required", message: "Top up credits via Stripe checkout." },
+      402,
+    );
+  }
   const { amountMicro } = z
     .object({ amountMicro: z.number().int().positive() })
     .parse(await c.req.json().catch(() => ({})));

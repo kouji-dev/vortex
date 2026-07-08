@@ -1,4 +1,4 @@
-import { and, count, gte, lt, sql } from "drizzle-orm";
+import { and, count, eq, gte, lt, sql } from "drizzle-orm";
 import { withOrg, usageRecords, usageRollups, memberships } from "@vortex/db";
 
 function currentMonth(): string {
@@ -46,7 +46,13 @@ export async function rollupOrg(
       })
       .from(usageRecords)
       .where(
-        and(gte(usageRecords.createdAt, start), lt(usageRecords.createdAt, end)),
+        and(
+          gte(usageRecords.createdAt, start),
+          lt(usageRecords.createdAt, end),
+          // Bill only successful requests — errored calls cost 0 and must not
+          // inflate the `requests` meter.
+          eq(usageRecords.status, "success"),
+        ),
       );
     const memberCounts = await tx
       .select({ type: memberships.type, n: count() })

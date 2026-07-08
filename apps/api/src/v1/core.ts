@@ -207,38 +207,42 @@ async function resolveTarget(
       };
     }
 
-    // No BYOK credential → managed pool for managed/hybrid orgs.
-    const [org] = await tx
-      .select({ keyMode: organizations.keyMode, markupBps: organizations.markupBps })
-      .from(organizations)
-      .where(eq(organizations.id, ctx.orgId))
-      .limit(1);
-    if (org && org.keyMode !== "byok") {
-      const [mk] = await tx
-        .select()
-        .from(managedProviderKeys)
-        .where(
-          and(
-            eq(managedProviderKeys.provider, provider),
-            eq(managedProviderKeys.enabled, true),
-          ),
-        )
+    // No BYOK credential → managed pool for managed/hybrid orgs. Self-hosted has
+    // no billing plane, so skip the org keyMode/markup fetch entirely there and
+    // fall straight through to the env key (saves a query on the hot path).
+    if (env.DEPLOYMENT_MODE === "managed") {
+      const [org] = await tx
+        .select({ keyMode: organizations.keyMode, markupBps: organizations.markupBps })
+        .from(organizations)
+        .where(eq(organizations.id, ctx.orgId))
         .limit(1);
-      if (mk) {
-        return {
-          provider,
-          model,
-          token: decryptForOrg(PLATFORM_SCOPE, mk.encryptedKey),
-          priceOverride: mk.priceOverride,
-          credentialId: mk.id,
-          appId,
-          options: {
-            ...(mk.options ?? {}),
-            ...(mk.region ? { region: mk.region } : {}),
-          } as ProviderOptions,
-          managed: true,
-          markupBps: org.markupBps,
-        };
+      if (org && org.keyMode !== "byok") {
+        const [mk] = await tx
+          .select()
+          .from(managedProviderKeys)
+          .where(
+            and(
+              eq(managedProviderKeys.provider, provider),
+              eq(managedProviderKeys.enabled, true),
+            ),
+          )
+          .limit(1);
+        if (mk) {
+          return {
+            provider,
+            model,
+            token: decryptForOrg(PLATFORM_SCOPE, mk.encryptedKey),
+            priceOverride: mk.priceOverride,
+            credentialId: mk.id,
+            appId,
+            options: {
+              ...(mk.options ?? {}),
+              ...(mk.region ? { region: mk.region } : {}),
+            } as ProviderOptions,
+            managed: true,
+            markupBps: org.markupBps,
+          };
+        }
       }
     }
 
@@ -430,6 +434,21 @@ export async function handleChat(
     { promptTokens: promptEst, completionTokens: canonical.maxTokens ?? 0, totalTokens: 0 },
     price,
   );
+
+  // Managed pool can only serve models it can price — an unpriced model would be
+  // billed at 0 (free). Reject rather than serve unmetered managed usage.
+  if (target.managed && !price) {
+    return {
+      kind: "error",
+      status: 400,
+      body: errBody(
+        `Model '${target.model}' has no managed-pool price.`,
+        "invalid_request_error",
+        "model_not_priced",
+      ),
+    };
+  }
+
   // Governance order: budget ($/team, 402) → rate limit (RPM/TPM, 429) →
   // concurrency (429) → proxy. Budget throws (caught upstream as 402).
   await assertWithinBudget({
@@ -438,10 +457,12 @@ export async function handleChat(
     estimateMicro: estMicro,
   });
 
-  // Managed pool → require credits (402 when exhausted).
+  // Managed pool → require credits to cover this request's estimated charge
+  // (cost + markup), not just a non-empty wallet. 402 when short.
   if (target.managed) {
+    const estCharge = Math.round(estMicro * (1 + (target.markupBps ?? 0) / 10_000));
     try {
-      await assertCredit(ctx.orgId);
+      await assertCredit(ctx.orgId, estCharge);
     } catch (e) {
       if (e instanceof CreditExhaustedError)
         return {

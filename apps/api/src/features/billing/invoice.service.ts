@@ -2,7 +2,6 @@ import { and, eq } from "drizzle-orm";
 import {
   withBypass,
   withOrg,
-  plans,
   contracts,
   pricingTiers,
   usageRollups,
@@ -60,7 +59,7 @@ export async function previewInvoice(orgId: string): Promise<InvoicePreview> {
   const ent = await resolveEntitlements(orgId);
   const month = new Date().toISOString().slice(0, 7);
 
-  const { tierRows, plan, contract } = await withBypass(async (tx) => {
+  const { tierRows, contract } = await withBypass(async (tx) => {
     const [contractRow] = await tx
       .select()
       .from(contracts)
@@ -77,12 +76,7 @@ export async function previewInvoice(orgId: string): Promise<InvoicePreview> {
           eq(pricingTiers.scopeId, scopeId),
         ),
       );
-    const [planRow] = await tx
-      .select()
-      .from(plans)
-      .where(eq(plans.id, ent.planId))
-      .limit(1);
-    return { tierRows: tiers, plan: planRow, contract: contractRow };
+    return { tierRows: tiers, contract: contractRow };
   });
 
   const rollups = await withOrg(orgId, (tx) =>
@@ -100,7 +94,10 @@ export async function previewInvoice(orgId: string): Promise<InvoicePreview> {
     return { meter, quantity, amountMicro: computeGraduatedCharge(tiers, quantity) };
   });
 
-  const baseMicro = contract?.baseMicro ?? plan?.priceMicro ?? 0;
+  // Only the contract's committed base belongs on the usage invoice. A plan's
+  // flat monthly fee is billed separately by Stripe (subscription) — including
+  // plan.priceMicro here would double-charge it.
+  const baseMicro = contract?.baseMicro ?? 0;
   const totalMicro =
     baseMicro + lines.reduce((s, l) => s + l.amountMicro, 0);
 
