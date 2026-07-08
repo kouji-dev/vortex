@@ -64,6 +64,10 @@ const envSchema = z.object({
   // Encryption — per-org key derivation root
   ENCRYPTION_KEY: z.string().min(1),
 
+  // API-key hashing pepper — HMAC secret for virtual-key hashes. Must be stable
+  // across all API replicas; rotating it invalidates every issued key.
+  API_KEY_PEPPER: z.string().min(1),
+
   // Providers — env activates + overrides the code catalog
   ENABLED_PROVIDERS: csv.default(""),
   OPENAI_API_KEY: z.string().optional(),

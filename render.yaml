@@ -62,6 +62,8 @@ services:
         generateValue: true
       - key: ENCRYPTION_KEY
         generateValue: true
+      - key: API_KEY_PEPPER # HMAC pepper for API-key hashes; stable once set
+        generateValue: true
       # WEB_ORIGIN / PLATFORM_ORIGIN / BETTER_AUTH_URL default to RENDER_EXTERNAL_URL
       # (same-origin) — override only if you serve consoles on other domains.
       - key: OPENAI_API_KEY
