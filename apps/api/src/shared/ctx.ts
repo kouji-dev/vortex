@@ -1,3 +1,4 @@
+import type { Context } from "hono";
 import { createMiddleware } from "hono/factory";
 import { auth } from "./auth.js";
 import {
@@ -30,16 +31,22 @@ export const sessionMw = createMiddleware<AppEnv>(async (c, next) => {
   await next();
 });
 
+/** The single auth gate: 401 Response when signed out, else null. */
+const authGate = (c: Context<AppEnv>): Response | null =>
+  c.get("user") ? null : c.json({ error: "unauthorized" }, 401);
+
 export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
-  if (!c.get("user")) return c.json({ error: "unauthorized" }, 401);
+  const denied = authGate(c);
+  if (denied) return denied;
   await next();
 });
 
-/** Require an authenticated, provisioned member; attaches org context. */
+/** Require an authenticated, provisioned member; attaches org context.
+ *  Same auth gate as requireAuth (401), then requires a membership (409). */
 export const requireMember = createMiddleware<AppEnv>(async (c, next) => {
-  const user = c.get("user");
-  if (!user) return c.json({ error: "unauthorized" }, 401);
-  const member = await getMembership(user.id);
+  const denied = authGate(c);
+  if (denied) return denied;
+  const member = await getMembership(c.get("user")!.id);
   if (!member) return c.json({ error: "not_provisioned" }, 409);
   c.set("member", member);
   await next();
