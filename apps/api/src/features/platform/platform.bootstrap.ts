@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { inArray } from "drizzle-orm";
 import { withBypass, users, platformAdmins } from "@vortex/db";
 import { env } from "@vortex/core";
 
@@ -22,24 +22,26 @@ export async function ensurePlatformAdmin(): Promise<void> {
   if (!configuredAdminEmails.length) return;
 
   await withBypass(async (tx) => {
-    for (const email of configuredAdminEmails) {
-      const [user] = await tx
-        .select()
-        .from(users)
-        .where(eq(users.email, email))
-        .limit(1);
-      if (!user) continue;
-      const [existing] = await tx
-        .select()
-        .from(platformAdmins)
-        .where(eq(platformAdmins.userId, user.id))
-        .limit(1);
-      if (!existing) {
-        await tx
-          .insert(platformAdmins)
-          .values({ userId: user.id, role: "platform_admin" });
-      }
-    }
+    // 1 read: users that actually exist for the configured emails.
+    const matched = await tx
+      .select({ id: users.id })
+      .from(users)
+      .where(inArray(users.email, configuredAdminEmails));
+    if (!matched.length) return;
+
+    // 1 read: which of them are already platform admins.
+    const userIds = matched.map((u) => u.id);
+    const existing = await tx
+      .select({ userId: platformAdmins.userId })
+      .from(platformAdmins)
+      .where(inArray(platformAdmins.userId, userIds));
+    const already = new Set(existing.map((e) => e.userId));
+
+    // 1 bulk insert for the remainder.
+    const toInsert = userIds
+      .filter((id) => !already.has(id))
+      .map((userId) => ({ userId, role: "platform_admin" as const }));
+    if (toInsert.length) await tx.insert(platformAdmins).values(toInsert);
   });
 
   console.log(
