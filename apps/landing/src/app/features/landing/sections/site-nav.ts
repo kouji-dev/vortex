@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { RouterLink, RouterLinkActive } from '@angular/router';
 import { Prism } from '../../../shared/prism/prism';
 import { ThemeToggle } from './theme-toggle';
 import { APP_URL } from '../landing.tokens';
@@ -7,7 +8,7 @@ import { APP_URL } from '../landing.tokens';
   selector: 'vx-site-nav',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Prism, ThemeToggle],
+  imports: [Prism, ThemeToggle, RouterLink, RouterLinkActive],
   template: `
     <!-- announce bar -->
     <div class="announce">
@@ -20,15 +21,13 @@ import { APP_URL } from '../landing.tokens';
     <!-- nav (maps to kouji-ui: BrandLockup + Button) -->
     <nav class="nav">
       <div class="wrap nav-inner">
-        <a href="#top" style="display:flex; align-items:center; gap:11px;">
+        <a routerLink="/" style="display:flex; align-items:center; gap:11px;">
           <vx-prism [size]="26" [rays]="true" gradId="pmNav" />
           <span class="wordmark">Vortex</span>
         </a>
         <div class="nav-links">
-          <a href="#product">Product</a>
-          <a href="#providers">Providers</a>
-          <a href="#governance">Governance</a>
-          <a href="#pricing">Pricing</a>
+          <a routerLink="/models" routerLinkActive="active">Models</a>
+          <a routerLink="/" fragment="pricing">Pricing</a>
           <a href="#">Docs</a>
         </div>
         <div class="nav-cta">

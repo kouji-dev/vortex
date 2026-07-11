@@ -10,13 +10,19 @@ import {
 } from "@vortex/db";
 import {
   env,
-  getProvider,
-  resolveEndpoint,
+  getAdapter,
+  getProviderAdapter,
+  inferProviderId,
   listEnabledProviders,
   decryptForOrg,
   PLATFORM_SCOPE,
+  hostMeta,
   type Capability,
+  type ProviderAdapter,
   type ProviderOptions,
+  type ModelFamily,
+  type SupportedFeatures,
+  type OpenAIChatCompletion,
 } from "@vortex/core";
 import type { CanonicalChatRequest, Usage } from "@vortex/shared";
 import {
@@ -37,10 +43,10 @@ import {
   CreditExhaustedError,
 } from "../features/billing/credits.service.js";
 import type { GatewayCtx } from "./gateway.auth.js";
-import { getAdapter, type OpenAIChatCompletion } from "./providers/index.js";
 import {
   costMicro,
   estimatePromptTokens,
+  estTokensFromChars,
   lookupPrice,
   catalogRows,
   type Price,
@@ -49,8 +55,20 @@ import {
 // ── target resolution ────────────────────────────────────────
 
 export type Target = {
+  /** Host id (openai/anthropic/azure/bedrock/vertex/groq…) = credential.provider. */
   provider: string;
+  /** Logical model id (for pricing + usage records). */
   model: string;
+  /** Wire envelope — picks the adapter + endpoint path on multi-family hosts. */
+  family: ModelFamily;
+  /** Provider-specific id sent upstream (pre region-prefix). */
+  upstreamModelId: string;
+  /** Whether the host region-prefixes the model id (Bedrock inference profiles). */
+  regionPrefix?: boolean;
+  /** Per-host cap; reject when the request asks for more. */
+  maxOutput?: number | null;
+  /** Per-host×model capability gate. */
+  supportedFeatures?: SupportedFeatures | null;
   token: string;
   priceOverride?: { inputPer1k?: number; outputPer1k?: number } | null;
   credentialId?: string | null;
@@ -61,106 +79,106 @@ export type Target = {
   markupBps?: number;
 };
 
-function envKeyFor(providerId: string): string | undefined {
-  switch (providerId) {
-    case "openai":
-      return env.OPENAI_API_KEY;
-    case "anthropic":
-      return env.ANTHROPIC_API_KEY;
-    case "google":
-      return env.GOOGLE_API_KEY;
-    case "azure":
-      return env.AZURE_OPENAI_API_KEY;
-    case "bedrock":
-      return env.AWS_BEDROCK_API_KEY;
-    case "vertex":
-      return env.GOOGLE_VERTEX_API_KEY;
-    case "groq":
-      return env.GROQ_API_KEY;
-    case "mistral":
-      return env.MISTRAL_API_KEY;
-    case "deepseek":
-      return env.DEEPSEEK_API_KEY;
-    case "xai":
-      return env.XAI_API_KEY;
-    case "together":
-      return env.TOGETHER_API_KEY;
-    case "fireworks":
-      return env.FIREWORKS_API_KEY;
-    default:
-      return undefined;
-  }
-}
+/** One resolved place a logical model can be served (host + envelope + id). */
+type ModelCandidate = {
+  host: string;
+  family: ModelFamily;
+  model: string; // logical
+  upstreamModelId: string;
+  regionPrefix: boolean;
+  maxOutput: number | null;
+  supportedFeatures: SupportedFeatures | null;
+};
 
-/** Deployment options from env (single-tenant defaults) for a provider. */
-function envOptionsFor(providerId: string): ProviderOptions | undefined {
-  switch (providerId) {
-    case "azure":
-      return {
-        azureResource: env.AZURE_OPENAI_RESOURCE,
-        azureApiVersion: env.AZURE_OPENAI_API_VERSION,
-      };
-    case "bedrock":
-      return { region: env.AWS_BEDROCK_REGION };
-    case "vertex":
-      return {
-        project: env.GOOGLE_VERTEX_PROJECT,
-        region: env.GOOGLE_VERTEX_REGION,
-      };
-    default:
-      return undefined;
-  }
+/** Default wire family for a host (drives inference + unprefixed pins). */
+function hostDefaultFamily(host: string): ModelFamily {
+  return hostMeta(host)?.defaultFamily ?? "openai";
 }
 
 /**
- * Infer the provider from a model-name family so unprefixed models route
- * correctly (e.g. Claude Code sends `claude-*` to /v1/messages with no prefix).
+ * Ordered (host, family, upstreamModelId) candidates for a request model string.
+ * A `{host}/{model}` prefix pins the host; a bare model expands to every enabled
+ * host that serves it (so the credential the org holds decides which is used).
  */
-function inferProvider(model: string): string | null {
-  const m = model.toLowerCase();
-  if (m.startsWith("claude")) return "anthropic";
-  if (m.startsWith("gemini")) return "google";
-  if (
-    m.startsWith("gpt") ||
-    m.startsWith("chatgpt") ||
-    m.startsWith("text-embedding") ||
-    /^o[1-9]/.test(m) // o1 / o3 / o4 …
-  )
-    return "openai";
-  return null;
-}
+async function resolveCandidates(modelStr: string): Promise<ModelCandidate[]> {
+  const rows = await catalogRows();
+  const toCand = (
+    r: (typeof rows)[number],
+    logical: string,
+  ): ModelCandidate => ({
+    host: r.provider,
+    family: (r.family ?? hostDefaultFamily(r.provider)) as ModelFamily,
+    model: logical,
+    upstreamModelId: r.upstreamModelId ?? logical,
+    regionPrefix: Boolean(
+      (r.config as { regionPrefix?: boolean } | null)?.regionPrefix,
+    ),
+    maxOutput: r.maxOutput ?? null,
+    supportedFeatures: r.supportedFeatures ?? null,
+  });
+  const bare = (host: string, logical: string): ModelCandidate => ({
+    host,
+    family: hostDefaultFamily(host),
+    model: logical,
+    upstreamModelId: logical,
+    regionPrefix: false,
+    maxOutput: null,
+    supportedFeatures: null,
+  });
 
-/** Resolve `{provider, model}` from a request model string. */
-async function resolveModel(
-  modelStr: string,
-): Promise<{ provider: string; model: string } | null> {
+  // Explicit `{host}/{model}` pin.
   const slash = modelStr.indexOf("/");
   if (slash > 0) {
-    const provider = modelStr.slice(0, slash);
-    if (getProvider(provider))
-      return { provider, model: modelStr.slice(slash + 1) };
+    const host = modelStr.slice(0, slash);
+    const sub = modelStr.slice(slash + 1);
+    if (getProviderAdapter(host)) {
+      const row = rows.find((r) => r.provider === host && r.modelName === sub);
+      return [row ? toCand(row, sub) : bare(host, sub)];
+    }
   }
-  const enabled = listEnabledProviders().map((p) => p.id);
-  if (enabled.length === 0) return null;
-  // 1) exact catalog match (in-memory, cached), 2) model-family inference,
-  // 3) first enabled.
-  const rows = (await catalogRows()).filter((r) => r.modelName === modelStr);
-  const hit = rows.find((r) => enabled.includes(r.provider));
-  if (hit) return { provider: hit.provider, model: modelStr };
-  const inferred = inferProvider(modelStr);
-  if (inferred && enabled.includes(inferred))
-    return { provider: inferred, model: modelStr };
-  return { provider: enabled[0]!, model: modelStr };
+
+  const enabled = new Set(listEnabledProviders().map((p) => p.id));
+  if (enabled.size === 0) return [];
+  // Bare model → every enabled host that serves it (credential picks the winner).
+  const matches = rows.filter(
+    (r) => r.modelName === modelStr && enabled.has(r.provider),
+  );
+  if (matches.length) return matches.map((r) => toCand(r, modelStr));
+  // Unknown model → infer family-host, else first enabled host.
+  const inferred = inferProviderId(modelStr);
+  if (inferred && enabled.has(inferred)) return [bare(inferred, modelStr)];
+  const first = listEnabledProviders()[0];
+  return first ? [bare(first.id, modelStr)] : [];
 }
 
-/** Resolve a credential (app→org) or fall back to the env provider key. */
+/** Merge a resolved candidate + credential source into a Target. */
+function mkTarget(
+  cand: ModelCandidate,
+  base: Omit<Target, "provider" | "model" | "family" | "upstreamModelId" | "regionPrefix" | "maxOutput" | "supportedFeatures">,
+): Target {
+  return {
+    provider: cand.host,
+    model: cand.model,
+    family: cand.family,
+    upstreamModelId: cand.upstreamModelId,
+    regionPrefix: cand.regionPrefix,
+    maxOutput: cand.maxOutput,
+    supportedFeatures: cand.supportedFeatures,
+    ...base,
+  };
+}
+
+/**
+ * Resolve the upstream target: pick the first candidate host with a usable
+ * credential (BYOK app→org, then managed pool, then env key). Model resolution
+ * and credential selection are joined so the org's credential decides the host.
+ */
 async function resolveTarget(
   ctx: GatewayCtx,
   modelStr: string,
 ): Promise<Target | null> {
-  const resolved = await resolveModel(modelStr);
-  if (!resolved) return null;
-  const { provider, model } = resolved;
+  const candidates = await resolveCandidates(modelStr);
+  if (!candidates.length) return null;
 
   return withOrg(ctx.orgId, async (tx) => {
     let appId: string | null = null;
@@ -173,55 +191,52 @@ async function resolveTarget(
       appId = a?.id ?? null;
     }
 
-    let cred:
-      | typeof providerCredentials.$inferSelect
-      | undefined;
-    if (appId) {
-      [cred] = await tx
-        .select()
-        .from(providerCredentials)
-        .where(
-          and(
-            eq(providerCredentials.provider, provider),
-            eq(providerCredentials.enabled, true),
-            eq(providerCredentials.scopeType, "app"),
-            eq(providerCredentials.scopeId, appId),
-          ),
-        )
-        .limit(1);
-    }
-    if (!cred) {
-      [cred] = await tx
-        .select()
-        .from(providerCredentials)
-        .where(
-          and(
-            eq(providerCredentials.provider, provider),
-            eq(providerCredentials.enabled, true),
-            eq(providerCredentials.scopeType, "org"),
-          ),
-        )
-        .limit(1);
-    }
-
-    if (cred) {
-      return {
-        provider,
-        model,
-        token: decryptForOrg(ctx.orgId, cred.encryptedKey),
-        priceOverride: cred.priceOverride,
-        credentialId: cred.id,
-        appId,
-        options: {
-          ...(cred.options ?? {}),
-          ...(cred.region ? { region: cred.region } : {}),
-        } as ProviderOptions,
-      };
+    // 1) BYOK credential (app→org) — first candidate host that has one.
+    for (const cand of candidates) {
+      let cred: typeof providerCredentials.$inferSelect | undefined;
+      if (appId) {
+        [cred] = await tx
+          .select()
+          .from(providerCredentials)
+          .where(
+            and(
+              eq(providerCredentials.provider, cand.host),
+              eq(providerCredentials.enabled, true),
+              eq(providerCredentials.scopeType, "app"),
+              eq(providerCredentials.scopeId, appId),
+            ),
+          )
+          .limit(1);
+      }
+      if (!cred) {
+        [cred] = await tx
+          .select()
+          .from(providerCredentials)
+          .where(
+            and(
+              eq(providerCredentials.provider, cand.host),
+              eq(providerCredentials.enabled, true),
+              eq(providerCredentials.scopeType, "org"),
+            ),
+          )
+          .limit(1);
+      }
+      if (cred) {
+        return mkTarget(cand, {
+          token: decryptForOrg(ctx.orgId, cred.encryptedKey),
+          priceOverride: cred.priceOverride,
+          credentialId: cred.id,
+          appId,
+          options: {
+            ...(cred.options ?? {}),
+            ...(cred.region ? { region: cred.region } : {}),
+          } as ProviderOptions,
+        });
+      }
     }
 
-    // No BYOK credential → managed pool for managed/hybrid orgs. Self-hosted has
-    // no billing plane, so skip the org keyMode/markup fetch entirely there and
-    // fall straight through to the env key (saves a query on the hot path).
+    // 2) Managed pool (managed/hybrid orgs). Self-hosted skips the billing-plane
+    // query entirely and falls through to the env key (hot-path saving).
     if (env.DEPLOYMENT_MODE === "managed") {
       const [org] = await tx
         .select({ keyMode: organizations.keyMode, markupBps: organizations.markupBps })
@@ -229,63 +244,62 @@ async function resolveTarget(
         .where(eq(organizations.id, ctx.orgId))
         .limit(1);
       if (org && org.keyMode !== "byok") {
-        const [mk] = await tx
-          .select()
-          .from(managedProviderKeys)
-          .where(
-            and(
-              eq(managedProviderKeys.provider, provider),
-              eq(managedProviderKeys.enabled, true),
-            ),
-          )
-          .limit(1);
-        if (mk) {
-          return {
-            provider,
-            model,
-            token: decryptForOrg(PLATFORM_SCOPE, mk.encryptedKey),
-            priceOverride: mk.priceOverride,
-            credentialId: mk.id,
-            appId,
-            options: {
-              ...(mk.options ?? {}),
-              ...(mk.region ? { region: mk.region } : {}),
-            } as ProviderOptions,
-            managed: true,
-            markupBps: org.markupBps,
-          };
+        for (const cand of candidates) {
+          const [mk] = await tx
+            .select()
+            .from(managedProviderKeys)
+            .where(
+              and(
+                eq(managedProviderKeys.provider, cand.host),
+                eq(managedProviderKeys.enabled, true),
+              ),
+            )
+            .limit(1);
+          if (mk) {
+            return mkTarget(cand, {
+              token: decryptForOrg(PLATFORM_SCOPE, mk.encryptedKey),
+              priceOverride: mk.priceOverride,
+              credentialId: mk.id,
+              appId,
+              options: {
+                ...(mk.options ?? {}),
+                ...(mk.region ? { region: mk.region } : {}),
+              } as ProviderOptions,
+              managed: true,
+              markupBps: org.markupBps,
+            });
+          }
         }
       }
     }
 
-    const envKey = envKeyFor(provider);
-    if (!envKey) return null;
-    return {
-      provider,
-      model,
-      token: envKey,
-      appId,
-      options: envOptionsFor(provider),
-    };
+    // 3) Env key — first candidate host with a configured key.
+    for (const cand of candidates) {
+      const provider = getProviderAdapter(cand.host);
+      const envKey = provider?.envKey();
+      if (envKey)
+        return mkTarget(cand, {
+          token: envKey,
+          appId,
+          options: provider?.envOptions(),
+        });
+    }
+    return null;
   });
 }
 
-// ── upstream request builder ─────────────────────────────────
+/** Provider (transport) adapter for a resolved target. */
+function providerFor(target: Target): ProviderAdapter {
+  const p = getProviderAdapter(target.provider);
+  if (!p) throw new Error(`unknown provider '${target.provider}'`);
+  return p;
+}
 
-function buildUpstream(opts: {
-  provider: string;
-  model: string;
-  capability: Capability;
-  streaming: boolean;
-  token: string;
-  options?: ProviderOptions | null;
-}): { url: string; headers: Record<string, string> } {
-  return resolveEndpoint(opts.provider, {
-    token: opts.token,
-    model: opts.model,
-    capability: opts.capability,
-    stream: opts.streaming,
-    options: opts.options ?? null,
+/** Final upstream model id — region-prefixed when the host requires it. */
+function upstreamId(target: Target): string {
+  return providerFor(target).upstreamModelId(target.upstreamModelId, {
+    regionPrefix: target.regionPrefix,
+    region: target.options?.region,
   });
 }
 
@@ -378,6 +392,9 @@ export type ChatResult =
     }
   | { kind: "error"; status: number; body: unknown; headers?: Record<string, string> };
 
+/** The error variant shared by ChatResult + NativeResult (preflight output). */
+type GatewayError = Extract<ChatResult, { kind: "error" }>;
+
 function errBody(message: string, type: string, code?: string) {
   return { error: { message, type, param: null, code: code ?? null } };
 }
@@ -396,7 +413,7 @@ function rateHeaders(h: LimitHeaders): Record<string, string> {
 }
 
 /** 429 result for a denied rate-limit bucket, with Retry-After. */
-function rateLimitError(e: RateLimitExceededError): ChatResult {
+function rateLimitError(e: RateLimitExceededError): GatewayError {
   const retrySec = Math.max(1, Math.ceil(e.retryAfterMs / 1000));
   return {
     kind: "error",
@@ -408,6 +425,101 @@ function rateLimitError(e: RateLimitExceededError): ChatResult {
     ),
     headers: { "retry-after": String(retrySec) },
   };
+}
+
+/**
+ * Shared governance pre-flight for both the canonical and native-passthrough
+ * paths: price → budget (402) → managed credit (402) → rate limit (429) →
+ * concurrency (429). Returns an acquired slot + rate headers, or a ready error.
+ * `assertWithinBudget` throws BudgetExceededError (caught by the router as 402).
+ */
+type Preflight =
+  | { ok: false; result: GatewayError }
+  | { ok: true; headers: Record<string, string>; slot: ConcurrencySlot; estTokens: number };
+
+async function preflight(
+  ctx: GatewayCtx,
+  target: Target,
+  est: { promptTokens: number; maxTokens: number },
+): Promise<Preflight> {
+  const price = await lookupPrice(
+    target.provider,
+    target.model,
+    target.priceOverride,
+  );
+  const estTokens = est.promptTokens + est.maxTokens;
+  const estMicro = costMicro(
+    { promptTokens: est.promptTokens, completionTokens: est.maxTokens, totalTokens: 0 },
+    price,
+  );
+
+  if (target.managed && !price) {
+    return {
+      ok: false,
+      result: {
+        kind: "error",
+        status: 400,
+        body: errBody(
+          `Model '${target.model}' has no managed-pool price.`,
+          "invalid_request_error",
+          "model_not_priced",
+        ),
+      },
+    };
+  }
+
+  await assertWithinBudget({
+    orgId: ctx.orgId,
+    teamId: ctx.teamId,
+    estimateMicro: estMicro,
+  });
+
+  if (target.managed) {
+    const estCharge = Math.round(estMicro * (1 + (target.markupBps ?? 0) / 10_000));
+    try {
+      await assertCredit(ctx.orgId, estCharge);
+    } catch (e) {
+      if (e instanceof CreditExhaustedError)
+        return {
+          ok: false,
+          result: {
+            kind: "error",
+            status: 402,
+            body: errBody("Managed credits exhausted.", "insufficient_quota", "credits_exhausted"),
+          },
+        };
+      throw e;
+    }
+  }
+
+  let rlHeaders: LimitHeaders;
+  try {
+    rlHeaders = await checkRateLimits({
+      orgId: ctx.orgId,
+      apiKeyId: ctx.apiKeyId,
+      keyRpm: ctx.rateLimitRpm,
+      estTokens,
+    });
+  } catch (e) {
+    if (e instanceof RateLimitExceededError)
+      return { ok: false, result: rateLimitError(e) };
+    throw e;
+  }
+  const headers = rateHeaders(rlHeaders);
+
+  const slot = await acquireConcurrency(ctx.orgId, ctx.apiKeyId);
+  if (!slot.ok) {
+    return {
+      ok: false,
+      result: {
+        kind: "error",
+        status: 429,
+        body: errBody("Too many concurrent requests.", "rate_limit_exceeded", "concurrency_limit"),
+        headers: { ...headers, "retry-after": "1" },
+      },
+    };
+  }
+  return { ok: true, headers, slot, estTokens };
 }
 
 /**
@@ -431,92 +543,47 @@ export async function handleChat(
     };
   }
 
-  const adapter = getAdapter(target.provider);
+  const adapter = getAdapter(target.family);
+  const provider = providerFor(target);
   const streaming = canonical.stream === true;
 
-  // Budget pre-check: estimate = prompt tokens (in) + max_tokens (out).
-  const price = await lookupPrice(
-    target.provider,
-    target.model,
-    target.priceOverride,
-  );
-  const promptEst = estimatePromptTokens(canonical);
-  const estTokens = promptEst + (canonical.maxTokens ?? 0);
-  const estMicro = costMicro(
-    { promptTokens: promptEst, completionTokens: canonical.maxTokens ?? 0, totalTokens: 0 },
-    price,
-  );
-
-  // Managed pool can only serve models it can price — an unpriced model would be
-  // billed at 0 (free). Reject rather than serve unmetered managed usage.
-  if (target.managed && !price) {
+  // Capability gate: reject a request that asks for a feature this host×model
+  // does not serve (e.g. tools on a text-only host) before spending anything.
+  if (
+    canonical.tools?.length &&
+    target.supportedFeatures &&
+    target.supportedFeatures.tools === false
+  ) {
     return {
       kind: "error",
       status: 400,
       body: errBody(
-        `Model '${target.model}' has no managed-pool price.`,
+        `Model '${target.model}' on host '${target.provider}' does not support tools.`,
         "invalid_request_error",
-        "model_not_priced",
+        "feature_unsupported",
       ),
     };
   }
 
-  // Governance order: budget ($/team, 402) → rate limit (RPM/TPM, 429) →
-  // concurrency (429) → proxy. Budget throws (caught upstream as 402).
-  await assertWithinBudget({
-    orgId: ctx.orgId,
-    teamId: ctx.teamId,
-    estimateMicro: estMicro,
+  const promptEst = estimatePromptTokens(canonical);
+  const pf = await preflight(ctx, target, {
+    promptTokens: promptEst,
+    maxTokens: canonical.maxTokens ?? 0,
   });
+  if (!pf.ok) return pf.result;
+  const { headers, slot, estTokens } = pf;
 
-  // Managed pool → require credits to cover this request's estimated charge
-  // (cost + markup), not just a non-empty wallet. 402 when short.
-  if (target.managed) {
-    const estCharge = Math.round(estMicro * (1 + (target.markupBps ?? 0) / 10_000));
-    try {
-      await assertCredit(ctx.orgId, estCharge);
-    } catch (e) {
-      if (e instanceof CreditExhaustedError)
-        return {
-          kind: "error",
-          status: 402,
-          body: errBody("Managed credits exhausted.", "insufficient_quota", "credits_exhausted"),
-        };
-      throw e;
-    }
-  }
-
-  let rlHeaders: LimitHeaders;
-  try {
-    rlHeaders = await checkRateLimits({
-      orgId: ctx.orgId,
-      apiKeyId: ctx.apiKeyId,
-      keyRpm: ctx.rateLimitRpm,
-      estTokens,
-    });
-  } catch (e) {
-    if (e instanceof RateLimitExceededError) return rateLimitError(e);
-    throw e;
-  }
-  const headers = rateHeaders(rlHeaders);
-
-  const slot = await acquireConcurrency(ctx.orgId, ctx.apiKeyId);
-  if (!slot.ok) {
-    return {
-      kind: "error",
-      status: 429,
-      body: errBody("Too many concurrent requests.", "rate_limit_exceeded", "concurrency_limit"),
-      headers: { ...headers, "retry-after": "1" },
-    };
-  }
-
-  const body = adapter.toProviderBody(canonical, target.model, streaming);
-  const { url, headers: upstreamHeaders } = buildUpstream({
-    provider: target.provider,
-    model: target.model,
-    capability: adapter.chatCapability,
-    streaming,
+  const wireModel = upstreamId(target);
+  const body = provider.adjustBody(
+    adapter.toProviderBody(canonical, wireModel, streaming),
+    target.family,
+  );
+  const { url, headers: upstreamHeaders } = provider.resolveEndpoint({
     token: target.token,
+    model: wireModel,
+    family: target.family,
+    capability: adapter.chatCapability,
+    stream: streaming,
     options: target.options,
   });
 
@@ -577,7 +644,10 @@ export async function handleChat(
         headers,
       };
     }
-    const { stream, usage } = adapter.streamTransform(resp.body, target.model);
+    const { stream, usage } = adapter.streamTransform(
+      provider.wrapStream(resp.body, target.family),
+      target.model,
+    );
     // Finalize (release slot + meter) once the stream is fully consumed.
     void usage.then((u) =>
       finalize(ctx, target, u, Date.now() - started, "success", {
@@ -615,6 +685,18 @@ export async function handleEmbeddings(
       ),
     };
   }
+  // v1 embeddings: OpenAI-wire hosts only (Google `embedContent` shape differs).
+  if (target.family !== "openai") {
+    return {
+      kind: "error",
+      status: 400,
+      body: errBody(
+        `Embeddings are not supported for host '${target.provider}' (family '${target.family}').`,
+        "invalid_request_error",
+        "embeddings_unsupported",
+      ),
+    };
+  }
   // Rate limit (RPM) + concurrency. TPM is metered post-response via the delta.
   let rlHeaders: LimitHeaders;
   try {
@@ -639,19 +721,20 @@ export async function handleEmbeddings(
     };
   }
 
-  const { url, headers } = buildUpstream({
-    provider: target.provider,
-    model: target.model,
-    capability: "embeddings",
-    streaming: false,
+  const wireModel = upstreamId(target);
+  const { url, headers } = providerFor(target).resolveEndpoint({
     token: target.token,
+    model: wireModel,
+    family: target.family,
+    capability: "embeddings",
+    stream: false,
     options: target.options,
   });
   const started = Date.now();
   const resp = await fetch(url, {
     method: "POST",
     headers,
-    body: JSON.stringify({ ...req, model: target.model }),
+    body: JSON.stringify({ ...req, model: wireModel }),
   });
   if (!resp.ok) {
     const text = await resp.text().catch(() => "");
@@ -683,3 +766,179 @@ export async function handleEmbeddings(
   });
   return { kind: "json", openai: json, headers: rHeaders };
 }
+
+// ── native passthrough (faithful same-family forwarding) ─────
+// Forward a client's OWN request format straight to the matching-family host,
+// unchanged (tools / images / thinking / caching intact) — only the model id and
+// host-specific tweaks are applied. Response/stream are returned verbatim; usage
+// is sniffed (read-only) for metering. Cross-format routing is deferred.
+
+export type NativeResult =
+  | { kind: "json"; json: unknown; headers?: Record<string, string> }
+  | { kind: "stream"; stream: ReadableStream<Uint8Array>; headers?: Record<string, string> }
+  | { kind: "error"; status: number; body: unknown; headers?: Record<string, string> };
+
+export interface NativeRequest {
+  model: string;
+  rawBody: Record<string, unknown>;
+  stream: boolean;
+  /** The wire family of the inbound surface (messages→anthropic, responses/chat→openai). */
+  inboundFamily: ModelFamily;
+  /** Upstream capability/endpoint to hit (messages | responses | chat). */
+  capability: Capability;
+  promptChars: number;
+  maxTokens: number;
+  hasTools: boolean;
+  /** Provider-native headers to forward upstream (anthropic-version/-beta, openai-beta). */
+  extraHeaders?: Record<string, string>;
+}
+
+export async function handleNative(
+  ctx: GatewayCtx,
+  n: NativeRequest,
+): Promise<NativeResult> {
+  const target = await resolveTarget(ctx, n.model);
+  if (!target)
+    return {
+      kind: "error",
+      status: 400,
+      body: errBody(
+        `No provider/credential available for model '${n.model}'.`,
+        "invalid_request_error",
+        "model_not_found",
+      ),
+    };
+
+  // Native forwards the client's own format → the target must serve that family.
+  // Cross-format (e.g. Claude Code → a GPT model) is deferred to smart routing.
+  if (target.family !== n.inboundFamily)
+    return {
+      kind: "error",
+      status: 400,
+      body: errBody(
+        `Model '${target.model}' is served in the '${target.family}' format; this endpoint speaks '${n.inboundFamily}'. Cross-format routing is not enabled.`,
+        "invalid_request_error",
+        "cross_format_unsupported",
+      ),
+    };
+
+  if (n.hasTools && target.supportedFeatures?.tools === false)
+    return {
+      kind: "error",
+      status: 400,
+      body: errBody(
+        `Model '${target.model}' on host '${target.provider}' does not support tools.`,
+        "invalid_request_error",
+        "feature_unsupported",
+      ),
+    };
+
+  const pf = await preflight(ctx, target, {
+    promptTokens: estTokensFromChars(n.promptChars),
+    maxTokens: n.maxTokens,
+  });
+  if (!pf.ok) return pf.result;
+  const { headers, slot, estTokens } = pf;
+
+  const provider = providerFor(target);
+  const adapter = getAdapter(target.family);
+
+  const wireModel = upstreamId(target);
+  let body: Record<string, unknown> = { ...n.rawBody, model: wireModel };
+  // Meter OpenAI-family Chat streaming via the trailing usage chunk.
+  if (
+    n.stream &&
+    target.family === "openai" &&
+    n.capability === "chat" &&
+    body.stream_options == null
+  ) {
+    body.stream_options = { include_usage: true };
+  }
+  body = provider.adjustBody(body, target.family);
+
+  const { url, headers: upstreamHeaders } = provider.resolveEndpoint({
+    token: target.token,
+    model: wireModel,
+    family: target.family,
+    capability: n.capability,
+    stream: n.stream,
+    options: target.options,
+  });
+  const merged = { ...upstreamHeaders, ...(n.extraHeaders ?? {}) };
+
+  const started = Date.now();
+  let resp: Response;
+  try {
+    resp = await fetch(url, {
+      method: "POST",
+      headers: merged,
+      body: JSON.stringify(body),
+    });
+  } catch (e) {
+    await finalize(
+      ctx,
+      target,
+      { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+      Date.now() - started,
+      "error",
+      { slot, estTokens },
+    );
+    return {
+      kind: "error",
+      status: 502,
+      body: errBody(`Upstream request failed: ${(e as Error).message}`, "api_error"),
+      headers,
+    };
+  }
+
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "");
+    await finalize(
+      ctx,
+      target,
+      { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+      Date.now() - started,
+      "error",
+      { slot, estTokens },
+    );
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      parsed = errBody(text || "Upstream error", "api_error");
+    }
+    return { kind: "error", status: resp.status, body: parsed, headers };
+  }
+
+  if (n.stream) {
+    if (!resp.body) {
+      await slot.release();
+      return {
+        kind: "error",
+        status: 502,
+        body: errBody("Upstream returned no stream body.", "api_error"),
+        headers,
+      };
+    }
+    // Bedrock event-stream → Anthropic SSE; every other host is byte-identical.
+    // tee: one branch to the client verbatim, one to the read-only usage sniffer.
+    const client = provider.wrapStream(resp.body, target.family);
+    const [toClient, toMeter] = client.tee();
+    const usage = adapter.sniffStreamUsage(toMeter, n.capability);
+    void usage.then((u) =>
+      finalize(ctx, target, u, Date.now() - started, "success", { slot, estTokens }),
+    );
+    return { kind: "stream", stream: toClient, headers };
+  }
+
+  const json = await resp.json().catch(() => ({}));
+  const usage = adapter.parseUsage(json, n.capability);
+  await finalize(ctx, target, usage, Date.now() - started, "success", {
+    slot,
+    estTokens,
+  });
+  return { kind: "json", json, headers };
+}
+
+// Native usage extraction (streamed + non-streamed) now lives on the family
+// adapter (sniffStreamUsage / parseUsage) — see ./providers/*.

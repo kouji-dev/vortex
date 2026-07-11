@@ -37,6 +37,8 @@ const envSchema = z.object({
   API_PORT: z.coerce.number().int().positive().default(8080),
   WEB_ORIGIN: z.string().url(),
   PLATFORM_ORIGIN: z.string().url(),
+  // Marketing landing origin — allowed CORS origin for the public catalog.
+  LANDING_ORIGIN: z.string().url().default("http://localhost:4400"),
 
   // Database
   DATABASE_URL: z.string().min(1),
@@ -113,6 +115,7 @@ const externalUrl = process.env.RENDER_EXTERNAL_URL;
 if (externalUrl) {
   process.env.WEB_ORIGIN ||= externalUrl;
   process.env.PLATFORM_ORIGIN ||= externalUrl;
+  process.env.LANDING_ORIGIN ||= externalUrl;
   process.env.BETTER_AUTH_URL ||= externalUrl;
 }
 

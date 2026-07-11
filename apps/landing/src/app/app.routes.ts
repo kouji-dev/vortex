@@ -10,5 +10,17 @@ export const routes: Routes = [
     path: '',
     loadComponent: () => import('./features/landing/landing').then((m) => m.Landing),
   },
+  {
+    path: 'models',
+    loadComponent: () => import('./features/catalog/catalog').then((m) => m.Catalog),
+  },
+  {
+    path: 'models/:id',
+    loadComponent: () => import('./features/catalog/model-detail').then((m) => m.ModelDetail),
+  },
+  {
+    path: 'providers/:id',
+    loadComponent: () => import('./features/catalog/provider-detail').then((m) => m.ProviderDetail),
+  },
   { path: '**', redirectTo: '' },
 ];

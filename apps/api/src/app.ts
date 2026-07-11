@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { serveStatic } from "@hono/node-server/serve-static";
-import { env } from "@vortex/core";
+import { env, CATALOG, HOSTS } from "@vortex/core";
 import { health } from "./shared/health.js";
 import { auth } from "./shared/auth.js";
 import { sessionMw, type AppEnv } from "./shared/ctx.js";
@@ -21,12 +21,18 @@ export function createApp() {
   app.use(
     "*",
     cors({
-      origin: [env.WEB_ORIGIN, env.PLATFORM_ORIGIN],
+      origin: [env.WEB_ORIGIN, env.PLATFORM_ORIGIN, env.LANDING_ORIGIN],
       credentials: true,
     }),
   );
 
   app.route("/health", health);
+
+  // Public, unauthenticated model catalog for the marketing landing (the full
+  // code catalog + host metadata). Mounted before the key-authed /v1 gateway.
+  app.get("/v1/catalog", (c) =>
+    c.json({ models: CATALOG, providers: HOSTS }),
+  );
 
   // better-auth mounts its own routes under /api/auth/*
   app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));

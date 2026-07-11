@@ -1,7 +1,7 @@
 import { test, expect, request } from "@playwright/test";
 import { resetTenants } from "./reset";
 
-const BASE = "http://localhost:8080";
+const BASE = process.env.E2E_BASE ?? "http://localhost:8080";
 
 // fresh single-org state before each test → first signup provisions as owner
 test.beforeEach(async () => {

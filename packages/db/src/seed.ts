@@ -1,6 +1,8 @@
 import { ADMIN_DATABASE_URL } from "./env.js";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
+import { sql } from "drizzle-orm";
+import { catalogSeedRows } from "@vortex/core";
 import { plans, models, planEntitlements, pricingTiers } from "./schema.js";
 
 const PLANS = [
@@ -59,14 +61,9 @@ const PRICING_TIERS = [
   { scopeType: "plan", scopeId: "plan_pro", meter: "requests", upToQty: null, unitPriceMicro: 1_000 },
 ] as const;
 
-// micro-USD per 1k tokens (1 USD = 1_000_000 micro)
-const MODELS = [
-  { provider: "openai", modelName: "gpt-4o", inputPer1kMicro: 2500, outputPer1kMicro: 10000, contextWindow: 128000 },
-  { provider: "openai", modelName: "gpt-4o-mini", inputPer1kMicro: 150, outputPer1kMicro: 600, contextWindow: 128000 },
-  { provider: "anthropic", modelName: "claude-sonnet-4-5", inputPer1kMicro: 3000, outputPer1kMicro: 15000, contextWindow: 200000 },
-  { provider: "anthropic", modelName: "claude-haiku-4-5", inputPer1kMicro: 800, outputPer1kMicro: 4000, contextWindow: 200000 },
-  { provider: "google", modelName: "gemini-2.5-pro", inputPer1kMicro: 1250, outputPer1kMicro: 10000, contextWindow: 1000000 },
-] as const;
+// The full (host, model) catalog — flattened from the code source of truth in
+// @vortex/core (per-host upstreamModelId, pricing, regions, supportedFeatures).
+const MODELS = catalogSeedRows();
 
 async function main() {
   const admin = postgres(ADMIN_DATABASE_URL, { max: 1 });
@@ -87,8 +84,33 @@ async function main() {
     .values(PRICING_TIERS.map((t) => ({ ...t })))
     .onConflictDoNothing();
 
-  console.log("→ seeding model catalog…");
-  await db.insert(models).values([...MODELS]).onConflictDoNothing();
+  console.log(`→ seeding model catalog (${MODELS.length} host×model rows)…`);
+  await db
+    .insert(models)
+    .values([...MODELS])
+    .onConflictDoUpdate({
+      target: [models.provider, models.modelName],
+      set: {
+        family: sql`excluded.family`,
+        upstreamModelId: sql`excluded.upstream_model_id`,
+        inputPer1kMicro: sql`excluded.input_per_1k_micro`,
+        outputPer1kMicro: sql`excluded.output_per_1k_micro`,
+        cachedInputPer1kMicro: sql`excluded.cached_input_per_1k_micro`,
+        cacheWritePer1kMicro: sql`excluded.cache_write_per_1k_micro`,
+        contextWindow: sql`excluded.context_window`,
+        maxOutput: sql`excluded.max_output`,
+        regions: sql`excluded.regions`,
+        supportedFeatures: sql`excluded.supported_features`,
+        modalities: sql`excluded.modalities`,
+        releaseDate: sql`excluded.release_date`,
+        knowledge: sql`excluded.knowledge`,
+        lastUpdated: sql`excluded.last_updated`,
+        openWeights: sql`excluded.open_weights`,
+        description: sql`excluded.description`,
+        config: sql`excluded.config`,
+        customPricing: sql`excluded.custom_pricing`,
+      },
+    });
 
   await admin.end();
   console.log("✓ seed complete");

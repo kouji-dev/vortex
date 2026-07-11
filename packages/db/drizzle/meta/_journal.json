@@ -29,6 +29,20 @@
       "when": 1783425778624,
       "tag": "0003_equal_nighthawk",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1783770535255,
+      "tag": "0004_legal_punisher",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1783784270484,
+      "tag": "0005_clean_pet_avengers",
+      "breakpoints": true
     }
   ]
 }

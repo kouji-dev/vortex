@@ -1,19 +1,21 @@
 import type { CanonicalChatRequest, Usage } from "@vortex/shared";
+import type { Capability } from "../hosts/types.js";
 import { iterSSELines, sseData } from "../sse.js";
 import {
   estTokens,
   newCompletionId,
+  sniffSSE,
   type OpenAIChatCompletion,
-  type ProviderAdapter,
+  type FamilyAdapter,
   type StreamTransformResult,
 } from "./types.js";
 
 // Anthropic spoke: canonical OpenAI-chat ↔ Anthropic Messages.
-export const anthropicAdapter: ProviderAdapter = {
-  id: "anthropic",
-  chatCapability: "messages",
+export class AnthropicFamilyAdapter implements FamilyAdapter {
+  readonly id = "anthropic";
+  readonly chatCapability: Capability = "messages";
 
-  toProviderBody(req: CanonicalChatRequest, model, streaming) {
+  toProviderBody(req: CanonicalChatRequest, model: string, streaming: boolean) {
     const systemParts: string[] = [];
     const messages: Array<{ role: string; content: unknown }> = [];
     for (const m of req.messages) {
@@ -37,9 +39,9 @@ export const anthropicAdapter: ProviderAdapter = {
     if (req.tools !== undefined) body.tools = req.tools;
     if (streaming) body.stream = true;
     return body;
-  },
+  }
 
-  fromProviderResponse(raw, model) {
+  fromProviderResponse(raw: unknown, model: string) {
     const r = (raw ?? {}) as any;
     const text = Array.isArray(r.content)
       ? r.content
@@ -50,8 +52,7 @@ export const anthropicAdapter: ProviderAdapter = {
     const usage: Usage = {
       promptTokens: r.usage?.input_tokens ?? 0,
       completionTokens: r.usage?.output_tokens ?? 0,
-      totalTokens:
-        (r.usage?.input_tokens ?? 0) + (r.usage?.output_tokens ?? 0),
+      totalTokens: (r.usage?.input_tokens ?? 0) + (r.usage?.output_tokens ?? 0),
     };
     const openai: OpenAIChatCompletion = {
       id: r.id ?? newCompletionId(),
@@ -72,9 +73,12 @@ export const anthropicAdapter: ProviderAdapter = {
       },
     };
     return { openai, usage };
-  },
+  }
 
-  streamTransform(upstream, model): StreamTransformResult {
+  streamTransform(
+    upstream: ReadableStream<Uint8Array>,
+    model: string,
+  ): StreamTransformResult {
     let resolve!: (u: Usage) => void;
     const usage = new Promise<Usage>((r) => (resolve = r));
     let settled = false;
@@ -148,8 +152,28 @@ export const anthropicAdapter: ProviderAdapter = {
     });
 
     return { stream, usage };
-  },
-};
+  }
+
+  parseUsage(raw: unknown): Usage {
+    const u = ((raw ?? {}) as any).usage ?? {};
+    const p = u.input_tokens ?? 0;
+    const c = u.output_tokens ?? 0;
+    return { promptTokens: p, completionTokens: c, totalTokens: p + c };
+  }
+
+  sniffStreamUsage(stream: ReadableStream<Uint8Array>): Promise<Usage> {
+    return sniffSSE(stream, (j, acc) => {
+      if (j.type === "message_start")
+        acc.prompt = j.message?.usage?.input_tokens ?? acc.prompt;
+      if (j.type === "message_delta") {
+        if (j.usage?.input_tokens != null) acc.prompt = j.usage.input_tokens;
+        if (j.usage?.output_tokens != null) acc.completion = j.usage.output_tokens;
+      }
+    });
+  }
+}
+
+export const anthropicAdapter = new AnthropicFamilyAdapter();
 
 function mapStop(reason: string | undefined): string {
   switch (reason) {

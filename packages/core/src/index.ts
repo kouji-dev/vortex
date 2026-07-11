@@ -15,16 +15,43 @@ export type { GcraResult, GcraOpts } from "./ratelimit/gcra.js";
 export { ttlMemo } from "./cache/ttl-memo.js";
 export type { TtlMemo } from "./cache/ttl-memo.js";
 
+// Provider (host) transport adapters.
 export {
+  getProviderAdapter,
   getProvider,
-  resolveBaseUrl,
+  inferProviderId,
   resolveEndpoint,
   listEnabledProviders,
-} from "./providers/registry.js";
+  BEDROCK_ANTHROPIC_VERSION,
+  VERTEX_ANTHROPIC_VERSION,
+} from "./providers/hosts/index.js";
 export type {
+  ProviderAdapter,
   ProviderDef,
   Capability,
   AuthStyle,
   ProviderOptions,
   EndpointCtx,
-} from "./providers/registry.js";
+} from "./providers/hosts/index.js";
+
+// Family (wire-envelope) adapters + SSE helpers.
+export { getAdapter } from "./providers/families/index.js";
+export type { FamilyAdapter } from "./providers/families/index.js";
+export type { OpenAIChatCompletion } from "./providers/families/types.js";
+export { iterSSELines, sseData } from "./providers/sse.js";
+
+export {
+  HOSTS,
+  CATALOG,
+  hostMeta,
+  catalogSeedRows,
+} from "./providers/catalog.js";
+export type {
+  ModelFamily,
+  SupportedFeatures,
+  Modalities,
+  HostModel,
+  CatalogModel,
+  HostMeta,
+  CatalogSeedRow,
+} from "./providers/catalog.js";

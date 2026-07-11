@@ -1,19 +1,21 @@
 import type { CanonicalChatRequest, Usage } from "@vortex/shared";
+import type { Capability } from "../hosts/types.js";
 import { iterSSELines, sseData } from "../sse.js";
 import {
   estTokens,
   newCompletionId,
+  sniffSSE,
   type OpenAIChatCompletion,
-  type ProviderAdapter,
+  type FamilyAdapter,
   type StreamTransformResult,
 } from "./types.js";
 
 // Google spoke: canonical OpenAI-chat ↔ Gemini generateContent. Best-effort.
-export const googleAdapter: ProviderAdapter = {
-  id: "google",
-  chatCapability: "chat",
+export class GoogleFamilyAdapter implements FamilyAdapter {
+  readonly id = "google";
+  readonly chatCapability: Capability = "chat";
 
-  toProviderBody(req: CanonicalChatRequest, _model, _streaming) {
+  toProviderBody(req: CanonicalChatRequest, _model: string, _streaming: boolean) {
     const systemParts: string[] = [];
     const contents: Array<{ role: string; parts: Array<{ text: string }> }> = [];
     for (const m of req.messages) {
@@ -38,9 +40,9 @@ export const googleAdapter: ProviderAdapter = {
     if (Object.keys(generationConfig).length)
       body.generationConfig = generationConfig;
     return body;
-  },
+  }
 
-  fromProviderResponse(raw, model) {
+  fromProviderResponse(raw: unknown, model: string) {
     const r = (raw ?? {}) as any;
     const text = extractText(r);
     const usage: Usage = {
@@ -70,9 +72,12 @@ export const googleAdapter: ProviderAdapter = {
       },
     };
     return { openai, usage };
-  },
+  }
 
-  streamTransform(upstream, model): StreamTransformResult {
+  streamTransform(
+    upstream: ReadableStream<Uint8Array>,
+    model: string,
+  ): StreamTransformResult {
     let resolve!: (u: Usage) => void;
     const usage = new Promise<Usage>((r) => (resolve = r));
     let settled = false;
@@ -138,8 +143,26 @@ export const googleAdapter: ProviderAdapter = {
     });
 
     return { stream, usage };
-  },
-};
+  }
+
+  parseUsage(raw: unknown): Usage {
+    const u = ((raw ?? {}) as any).usageMetadata ?? {};
+    const p = u.promptTokenCount ?? 0;
+    const c = u.candidatesTokenCount ?? 0;
+    return { promptTokens: p, completionTokens: c, totalTokens: u.totalTokenCount ?? p + c };
+  }
+
+  sniffStreamUsage(stream: ReadableStream<Uint8Array>): Promise<Usage> {
+    return sniffSSE(stream, (j, acc) => {
+      if (j.usageMetadata) {
+        acc.prompt = j.usageMetadata.promptTokenCount ?? acc.prompt;
+        acc.completion = j.usageMetadata.candidatesTokenCount ?? acc.completion;
+      }
+    });
+  }
+}
+
+export const googleAdapter = new GoogleFamilyAdapter();
 
 function extractText(r: any): string {
   const parts = r?.candidates?.[0]?.content?.parts;

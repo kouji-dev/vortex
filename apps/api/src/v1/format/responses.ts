@@ -2,8 +2,7 @@ import type {
   CanonicalChatRequest,
   OpenAIResponsesRequest,
 } from "@vortex/shared";
-import type { OpenAIChatCompletion } from "../providers/index.js";
-import { iterSSELines, sseData } from "../sse.js";
+import { iterSSELines, sseData, type OpenAIChatCompletion } from "@vortex/core";
 
 // OpenAI Responses ⇄ canonical OpenAI-chat. Thin inbound adapter (Codex CLI).
 
