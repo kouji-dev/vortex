@@ -8,5 +8,10 @@
   },
   "scripts": {
     "start": "node bin/vortex.mjs"
+  },
+  "dependencies": {
+    "@clack/prompts": "^1.7.0",
+    "picocolors": "^1.1.1",
+    "yargs": "^17.7.2"
   }
 }

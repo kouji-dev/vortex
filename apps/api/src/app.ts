@@ -4,7 +4,7 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { env } from "@vortex/core";
 import { health } from "./shared/health.js";
 import { auth } from "./shared/auth.js";
-import { sessionMw, type AppEnv } from "./shared/ctx.js";
+import { sessionMw, apiAuthMw, type AppEnv } from "./shared/ctx.js";
 import { account } from "./features/account/account.router.js";
 import { featureRouters } from "./features/index.js";
 import { governanceRouters } from "./features/governance/governance.router.js";
@@ -31,8 +31,8 @@ export function createApp() {
   // better-auth mounts its own routes under /api/auth/*
   app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 
-  // dashboard API (/api/*) — session loaded, then feature routers
-  app.use("/api/*", sessionMw);
+  // dashboard/org API (/api/*) — session OR vtx_ API key, then feature routers
+  app.use("/api/*", apiAuthMw);
   app.route("/api", account);
   for (const [path, router] of [
     ...featureRouters,
