@@ -124,15 +124,23 @@ export const googleAdapter: ProviderAdapter = {
             }
           }
         } finally {
-          emit({}, "stop");
-          controller.enqueue(enc.encode("data: [DONE]\n\n"));
+          // Resolve usage BEFORE controller ops (which may throw when the
+          // stream was cancelled) so finalize always fires downstream.
+          const estimated = completionTokens === 0;
           const out = completionTokens || estTokens(completionChars);
           done({
             promptTokens,
             completionTokens: out,
             totalTokens: promptTokens + out,
+            isEstimated: estimated,
           });
-          controller.close();
+          try {
+            emit({}, "stop");
+            controller.enqueue(enc.encode("data: [DONE]\n\n"));
+            controller.close();
+          } catch {
+            /* already cancelled/errored */
+          }
         }
       },
     });

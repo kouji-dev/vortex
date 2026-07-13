@@ -96,6 +96,8 @@ export const usageSchema = z.object({
   promptTokens: z.number().int(),
   completionTokens: z.number().int(),
   totalTokens: z.number().int(),
+  /** True when counts were estimated (e.g. chars/4 fallback), not provider-reported. */
+  isEstimated: z.boolean().optional(),
 });
 export type Usage = z.infer<typeof usageSchema>;
 

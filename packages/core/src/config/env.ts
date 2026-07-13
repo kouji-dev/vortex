@@ -35,6 +35,18 @@ const envSchema = z.object({
     .default("true")
     .transform((v) => v === "true"),
   API_PORT: z.coerce.number().int().positive().default(8080),
+  // Upstream provider fetch timeouts (ms). Connect = time to response headers
+  // (streaming aborts only if no first byte arrives); total = whole request.
+  UPSTREAM_CONNECT_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(10_000),
+  UPSTREAM_TOTAL_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(120_000),
   WEB_ORIGIN: z.string().url(),
   PLATFORM_ORIGIN: z.string().url(),
 
@@ -61,8 +73,19 @@ const envSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
 
-  // Encryption — per-org key derivation root
-  ENCRYPTION_KEY: z.string().min(1),
+  // Encryption — per-org key derivation root. Must decode (base64, else raw
+  // utf8 — same precedence as the crypto module) to ≥ 32 bytes of key material.
+  ENCRYPTION_KEY: z
+    .string()
+    .min(1)
+    .refine(
+      (raw) => {
+        const b64 = Buffer.from(raw, "base64");
+        const ikm = b64.length > 0 ? b64 : Buffer.from(raw, "utf8");
+        return ikm.length >= 32;
+      },
+      { message: "ENCRYPTION_KEY must decode to at least 32 bytes" },
+    ),
 
   // API-key hashing pepper — HMAC secret for virtual-key hashes. Must be stable
   // across all API replicas; rotating it invalidates every issued key.
@@ -106,6 +129,8 @@ const envSchema = z.object({
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
   STRIPE_PORTAL_RETURN_URL: z.string().url().optional().or(z.literal("")),
+  // Test/dev seam: point the Stripe SDK at a mock server (e.g. stripe-mock).
+  STRIPE_API_BASE: z.string().url().optional().or(z.literal("")),
 });
 
 // On Render, default the public origins + auth URL to the service URL when unset.

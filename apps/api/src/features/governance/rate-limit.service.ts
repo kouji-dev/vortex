@@ -1,20 +1,30 @@
-import { gcra, rlKey, redis, env } from "@vortex/core";
+import { gcra, gcraRefund, rlKey, redis, env } from "@vortex/core";
 import { resolveEntitlements } from "../../shared/entitlements.js";
 
 export class RateLimitExceededError extends Error {
   dimension: "rpm" | "tpm" | "concurrency";
+  /** Which bucket denied: plan/org-wide or the per-key custom limit. */
+  scope: "org" | "key";
   retryAfterMs: number;
   limit: number;
-  constructor(
-    dimension: "rpm" | "tpm" | "concurrency",
-    retryAfterMs: number,
-    limit: number,
-  ) {
-    super(`rate limit exceeded: ${dimension}`);
+  remaining: number;
+  resetMs: number;
+  constructor(a: {
+    dimension: "rpm" | "tpm" | "concurrency";
+    scope: "org" | "key";
+    retryAfterMs: number;
+    limit: number;
+    remaining?: number;
+    resetMs?: number;
+  }) {
+    super(`rate limit exceeded: ${a.dimension} (${a.scope})`);
     this.name = "RateLimitExceededError";
-    this.dimension = dimension;
-    this.retryAfterMs = retryAfterMs;
-    this.limit = limit;
+    this.dimension = a.dimension;
+    this.scope = a.scope;
+    this.retryAfterMs = a.retryAfterMs;
+    this.limit = a.limit;
+    this.remaining = a.remaining ?? 0;
+    this.resetMs = a.resetMs ?? a.retryAfterMs;
   }
 }
 
@@ -25,17 +35,12 @@ export type LimitHeaders = {
   resetSec: number;
 };
 
-/** Smallest of the defined values (null = unlimited on that axis). */
-function minDefined(...vals: (number | null | undefined)[]): number | null {
-  const nums = vals.filter((v): v is number => typeof v === "number");
-  return nums.length ? Math.min(...nums) : null;
-}
-
 /**
- * Pre-request rate check. Enforces RPM (cost 1) and TPM (cost = estimated
- * tokens) as GCRA buckets, most-restrictive of {plan entitlement, key custom}.
- * Throws RateLimitExceededError on the first denied bucket.
- * Returns headers for the RPM bucket (or a no-limit sentinel).
+ * Pre-request rate check. Plan entitlements (ent.rpm / ent.tpm) are org-wide
+ * buckets (rl:org:{orgId}:rpm|tpm); a per-key custom RPM (keyRpm) is a separate
+ * bucket (rl:key:{apiKeyId}:rpm). Org buckets are checked first. Throws
+ * RateLimitExceededError (carrying bucket scope + remaining/reset) on the first
+ * denied bucket. Returns headers for the most constrained RPM bucket checked.
  *
  * Fail-open: on a Redis error the request is allowed (RATE_LIMIT_FAIL_OPEN).
  */
@@ -46,37 +51,88 @@ export async function checkRateLimits(a: {
   estTokens: number;
 }): Promise<LimitHeaders> {
   const ent = await resolveEntitlements(a.orgId);
-  const rpm = minDefined(ent.rpm, a.keyRpm);
-  let headers: LimitHeaders = { limit: rpm ?? 0, remaining: 0, resetSec: 0 };
+  const minRpm = [ent.rpm, a.keyRpm].reduce<number | null>(
+    (m, v) => (typeof v === "number" ? (m == null ? v : Math.min(m, v)) : m),
+    null,
+  );
+  let headers: LimitHeaders = { limit: minRpm ?? 0, remaining: 0, resetSec: 0 };
 
   try {
-    if (rpm != null) {
-      const r = await gcra(rlKey("key", a.apiKeyId, "rpm"), { limit: rpm });
+    // 1) org-wide plan RPM
+    if (ent.rpm != null) {
+      const r = await gcra(rlKey("org", a.orgId, "rpm"), { limit: ent.rpm });
       headers = {
-        limit: rpm,
+        limit: ent.rpm,
         remaining: r.remaining,
         resetSec: Math.ceil(r.resetMs / 1000),
       };
-      if (!r.allowed) throw new RateLimitExceededError("rpm", r.retryAfterMs, rpm);
+      if (!r.allowed)
+        throw new RateLimitExceededError({
+          dimension: "rpm",
+          scope: "org",
+          retryAfterMs: r.retryAfterMs,
+          limit: ent.rpm,
+          remaining: r.remaining,
+          resetMs: r.resetMs,
+        });
     }
+    // 2) org-wide plan TPM (cost = estimated tokens)
     if (ent.tpm != null && a.estTokens > 0) {
-      const r = await gcra(rlKey("key", a.apiKeyId, "tpm"), {
+      const r = await gcra(rlKey("org", a.orgId, "tpm"), {
         limit: ent.tpm,
         cost: a.estTokens,
       });
-      if (!r.allowed) throw new RateLimitExceededError("tpm", r.retryAfterMs, ent.tpm);
+      if (!r.allowed)
+        throw new RateLimitExceededError({
+          dimension: "tpm",
+          scope: "org",
+          retryAfterMs: r.retryAfterMs,
+          limit: ent.tpm,
+          remaining: r.remaining,
+          resetMs: r.resetMs,
+        });
+    }
+    // 3) per-key custom RPM (separate bucket, checked after the org)
+    if (a.keyRpm != null) {
+      const r = await gcra(rlKey("key", a.apiKeyId, "rpm"), { limit: a.keyRpm });
+      // Report the more constrained RPM bucket in success headers.
+      if (ent.rpm == null || r.remaining < headers.remaining) {
+        headers = {
+          limit: a.keyRpm,
+          remaining: r.remaining,
+          resetSec: Math.ceil(r.resetMs / 1000),
+        };
+      }
+      if (!r.allowed)
+        throw new RateLimitExceededError({
+          dimension: "rpm",
+          scope: "key",
+          retryAfterMs: r.retryAfterMs,
+          limit: a.keyRpm,
+          remaining: r.remaining,
+          resetMs: r.resetMs,
+        });
     }
   } catch (e) {
     if (e instanceof RateLimitExceededError) throw e;
     // Redis/GCRA failure → fail open (or closed) per config.
     if (!env.RATE_LIMIT_FAIL_OPEN) {
-      throw new RateLimitExceededError("rpm", 1000, rpm ?? 0);
+      throw new RateLimitExceededError({
+        dimension: "rpm",
+        scope: "org",
+        retryAfterMs: 1000,
+        limit: minRpm ?? 0,
+      });
     }
   }
   return headers;
 }
 
-/** Reconcile the actual-vs-estimate token delta into the TPM bucket. */
+/**
+ * Reconcile the actual-vs-estimate token delta into the org-wide TPM bucket.
+ * Under-estimate (delta > 0) consumes the difference; over-estimate (delta < 0)
+ * refunds it (TAT moves back toward now).
+ */
 export async function commitTokenDelta(a: {
   orgId: string;
   apiKeyId: string;
@@ -86,12 +142,14 @@ export async function commitTokenDelta(a: {
   const ent = await resolveEntitlements(a.orgId);
   if (ent.tpm == null) return;
   const delta = a.actualTokens - a.estTokens;
-  if (delta <= 0) return; // conservative: never refund
+  if (delta === 0) return;
+  const key = rlKey("org", a.orgId, "tpm");
   try {
-    await gcra(rlKey("key", a.apiKeyId, "tpm"), {
-      limit: ent.tpm,
-      cost: delta,
-    });
+    if (delta > 0) {
+      await gcra(key, { limit: ent.tpm, cost: delta });
+    } else {
+      await gcraRefund(key, { limit: ent.tpm, delta: -delta });
+    }
   } catch {
     /* best-effort */
   }

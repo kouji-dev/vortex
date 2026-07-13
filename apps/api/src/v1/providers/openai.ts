@@ -71,6 +71,7 @@ export const openaiAdapter: ProviderAdapter = {
                     j.usage.total_tokens ??
                     (j.usage.prompt_tokens ?? 0) +
                       (j.usage.completion_tokens ?? 0),
+                  isEstimated: false,
                 });
               }
               const delta = j.choices?.[0]?.delta?.content;
@@ -80,13 +81,21 @@ export const openaiAdapter: ProviderAdapter = {
             }
           }
         } finally {
+          // Fallback when no usage chunk arrived: chars/4 estimate. `done` is
+          // resolved BEFORE any controller op so finalize always fires, and
+          // close is guarded — the stream may already be cancelled/errored.
           const est = estTokens(completionChars);
           done({
             promptTokens,
             completionTokens: est,
             totalTokens: promptTokens + est,
+            isEstimated: true,
           });
-          controller.close();
+          try {
+            controller.close();
+          } catch {
+            /* already cancelled/errored */
+          }
         }
       },
     });

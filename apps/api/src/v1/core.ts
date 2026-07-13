@@ -20,8 +20,8 @@ import {
 } from "@vortex/core";
 import type { CanonicalChatRequest, Usage } from "@vortex/shared";
 import {
-  assertWithinBudget,
-  commitSpend,
+  reserveSpend,
+  settleSpend,
 } from "../features/governance/budget.service.js";
 import {
   checkRateLimits,
@@ -32,10 +32,11 @@ import {
   type ConcurrencySlot,
 } from "../features/governance/rate-limit.service.js";
 import {
-  assertCredit,
+  walletBalance,
   deductCredit,
   CreditExhaustedError,
 } from "../features/billing/credits.service.js";
+import { recordBillingFailure } from "../features/billing/billing-dlq.service.js";
 import type { GatewayCtx } from "./gateway.auth.js";
 import { getAdapter, type OpenAIChatCompletion } from "./providers/index.js";
 import {
@@ -60,6 +61,10 @@ export type Target = {
   managed?: boolean;
   markupBps?: number;
 };
+
+type ResolveOutcome =
+  | { ok: true; candidates: [Target, ...Target[]] }
+  | { ok: false; reason: "model_not_found" | "no_credential" };
 
 function envKeyFor(providerId: string): string | undefined {
   switch (providerId) {
@@ -130,7 +135,11 @@ function inferProvider(model: string): string | null {
   return null;
 }
 
-/** Resolve `{provider, model}` from a request model string. */
+/**
+ * Resolve `{provider, model}` from a request model string.
+ * Returns null when the model can't be mapped to an enabled provider
+ * (unknown model → 400, never silently routed to an arbitrary provider).
+ */
 async function resolveModel(
   modelStr: string,
 ): Promise<{ provider: string; model: string } | null> {
@@ -142,27 +151,52 @@ async function resolveModel(
   }
   const enabled = listEnabledProviders().map((p) => p.id);
   if (enabled.length === 0) return null;
-  // 1) exact catalog match (in-memory, cached), 2) model-family inference,
-  // 3) first enabled.
+  // 1) exact catalog match (in-memory, cached), 2) model-family inference.
   const rows = (await catalogRows()).filter((r) => r.modelName === modelStr);
   const hit = rows.find((r) => enabled.includes(r.provider));
   if (hit) return { provider: hit.provider, model: modelStr };
   const inferred = inferProvider(modelStr);
   if (inferred && enabled.includes(inferred))
     return { provider: inferred, model: modelStr };
-  return { provider: enabled[0]!, model: modelStr };
+  return null;
 }
 
-/** Resolve a credential (app→org) or fall back to the env provider key. */
-async function resolveTarget(
+function credToTarget(
+  orgId: string,
+  cred: typeof providerCredentials.$inferSelect,
+  provider: string,
+  model: string,
+  appId: string | null,
+): Target {
+  return {
+    provider,
+    model,
+    token: decryptForOrg(orgId, cred.encryptedKey),
+    priceOverride: cred.priceOverride,
+    credentialId: cred.id,
+    appId,
+    options: {
+      ...(cred.options ?? {}),
+      ...(cred.region ? { region: cred.region } : {}),
+    } as ProviderOptions,
+  };
+}
+
+/**
+ * Resolve failover candidates for a model: the primary credential (app-scoped
+ * preferred, then org-scoped) followed by every other enabled org credential
+ * for the same provider. Falls back to managed pool / env key (single
+ * candidate) when the org holds no BYOK credential.
+ */
+async function resolveTargets(
   ctx: GatewayCtx,
   modelStr: string,
-): Promise<Target | null> {
+): Promise<ResolveOutcome> {
   const resolved = await resolveModel(modelStr);
-  if (!resolved) return null;
+  if (!resolved) return { ok: false, reason: "model_not_found" };
   const { provider, model } = resolved;
 
-  return withOrg(ctx.orgId, async (tx) => {
+  return withOrg(ctx.orgId, async (tx): Promise<ResolveOutcome> => {
     let appId: string | null = null;
     if (ctx.actingAppSlug) {
       const [a] = await tx
@@ -173,50 +207,30 @@ async function resolveTarget(
       appId = a?.id ?? null;
     }
 
-    let cred:
-      | typeof providerCredentials.$inferSelect
-      | undefined;
-    if (appId) {
-      [cred] = await tx
-        .select()
-        .from(providerCredentials)
-        .where(
-          and(
-            eq(providerCredentials.provider, provider),
-            eq(providerCredentials.enabled, true),
-            eq(providerCredentials.scopeType, "app"),
-            eq(providerCredentials.scopeId, appId),
-          ),
-        )
-        .limit(1);
-    }
-    if (!cred) {
-      [cred] = await tx
-        .select()
-        .from(providerCredentials)
-        .where(
-          and(
-            eq(providerCredentials.provider, provider),
-            eq(providerCredentials.enabled, true),
-            eq(providerCredentials.scopeType, "org"),
-          ),
-        )
-        .limit(1);
-    }
-
-    if (cred) {
-      return {
-        provider,
-        model,
-        token: decryptForOrg(ctx.orgId, cred.encryptedKey),
-        priceOverride: cred.priceOverride,
-        credentialId: cred.id,
-        appId,
-        options: {
-          ...(cred.options ?? {}),
-          ...(cred.region ? { region: cred.region } : {}),
-        } as ProviderOptions,
-      };
+    // All enabled credentials for this provider in one query; order the
+    // primary first (app-scoped for the acting app > org-scoped).
+    const creds = await tx
+      .select()
+      .from(providerCredentials)
+      .where(
+        and(
+          eq(providerCredentials.provider, provider),
+          eq(providerCredentials.enabled, true),
+        ),
+      );
+    const appCred = appId
+      ? creds.find((c) => c.scopeType === "app" && c.scopeId === appId)
+      : undefined;
+    const orgCreds = creds.filter((c) => c.scopeType === "org");
+    const ordered = [
+      ...(appCred ? [appCred] : []),
+      ...orgCreds.filter((c) => c.id !== appCred?.id),
+    ];
+    if (ordered.length > 0) {
+      const candidates = ordered.map((c) =>
+        credToTarget(ctx.orgId, c, provider, model, appId),
+      ) as [Target, ...Target[]];
+      return { ok: true, candidates };
     }
 
     // No BYOK credential → managed pool for managed/hybrid orgs. Self-hosted has
@@ -241,31 +255,41 @@ async function resolveTarget(
           .limit(1);
         if (mk) {
           return {
-            provider,
-            model,
-            token: decryptForOrg(PLATFORM_SCOPE, mk.encryptedKey),
-            priceOverride: mk.priceOverride,
-            credentialId: mk.id,
-            appId,
-            options: {
-              ...(mk.options ?? {}),
-              ...(mk.region ? { region: mk.region } : {}),
-            } as ProviderOptions,
-            managed: true,
-            markupBps: org.markupBps,
+            ok: true,
+            candidates: [
+              {
+                provider,
+                model,
+                token: decryptForOrg(PLATFORM_SCOPE, mk.encryptedKey),
+                priceOverride: mk.priceOverride,
+                credentialId: mk.id,
+                appId,
+                options: {
+                  ...(mk.options ?? {}),
+                  ...(mk.region ? { region: mk.region } : {}),
+                } as ProviderOptions,
+                managed: true,
+                markupBps: org.markupBps,
+              },
+            ],
           };
         }
       }
     }
 
     const envKey = envKeyFor(provider);
-    if (!envKey) return null;
+    if (!envKey) return { ok: false, reason: "no_credential" };
     return {
-      provider,
-      model,
-      token: envKey,
-      appId,
-      options: envOptionsFor(provider),
+      ok: true,
+      candidates: [
+        {
+          provider,
+          model,
+          token: envKey,
+          appId,
+          options: envOptionsFor(provider),
+        },
+      ],
     };
   });
 }
@@ -289,6 +313,107 @@ function buildUpstream(opts: {
   });
 }
 
+// ── upstream fetch: timeout + single retry / credential failover ──
+
+type FetchSuccess = {
+  ok: true;
+  resp: Response;
+  target: Target;
+  /** Abort the upstream request (client disconnect / stream cancel). */
+  ctrl: AbortController;
+  /** Clear the pending timeout (call once the request is settled/streaming). */
+  clearTimer: () => void;
+  timedOut: () => boolean;
+};
+type FetchFailure = {
+  ok: false;
+  kind: "timeout" | "network";
+  error: Error;
+  target: Target;
+};
+
+/**
+ * POST to the upstream with a timeout and at most 2 attempts.
+ * - non-stream: total timeout (UPSTREAM_TOTAL_TIMEOUT_MS) covering body read
+ *   (the caller keeps the timer armed until the body is consumed).
+ * - stream: connect timeout (UPSTREAM_CONNECT_TIMEOUT_MS) only; the caller
+ *   clears it on the first body byte.
+ * Retries once on a network error or connect timeout, and on a 5xx response
+ * (pre-first-byte only; a 5xx prefers the next credential). Never retries
+ * 4xx/429 or after streaming has begun.
+ */
+async function fetchWithFailover(opts: {
+  candidates: [Target, ...Target[]];
+  streaming: boolean;
+  buildBody: (t: Target) => string;
+  capability: Capability;
+}): Promise<FetchSuccess | FetchFailure> {
+  const MAX_ATTEMPTS = 2;
+  let target = opts.candidates[0];
+  let lastFailure: FetchFailure | null = null;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const { url, headers } = buildUpstream({
+      provider: target.provider,
+      model: target.model,
+      capability: opts.capability,
+      streaming: opts.streaming,
+      token: target.token,
+      options: target.options,
+    });
+    const ctrl = new AbortController();
+    let timedOut = false;
+    const ms = opts.streaming
+      ? env.UPSTREAM_CONNECT_TIMEOUT_MS
+      : env.UPSTREAM_TOTAL_TIMEOUT_MS;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      ctrl.abort();
+    }, ms);
+
+    let resp: Response;
+    try {
+      resp = await fetch(url, {
+        method: "POST",
+        headers,
+        body: opts.buildBody(target),
+        signal: ctrl.signal,
+      });
+    } catch (e) {
+      clearTimeout(timer);
+      lastFailure = {
+        ok: false,
+        kind: timedOut ? "timeout" : "network",
+        error: e as Error,
+        target,
+      };
+      // Non-stream abort = total timeout → surface 504, don't retry.
+      const retryable = opts.streaming || !timedOut;
+      if (retryable && attempt < MAX_ATTEMPTS) continue;
+      return lastFailure;
+    }
+
+    if (resp.status >= 500 && attempt < MAX_ATTEMPTS) {
+      clearTimeout(timer);
+      void resp.body?.cancel().catch(() => {});
+      // 5xx → prefer the next credential for the retry.
+      target = opts.candidates[attempt] ?? target;
+      continue;
+    }
+
+    return {
+      ok: true,
+      resp,
+      target,
+      ctrl,
+      clearTimer: () => clearTimeout(timer),
+      timedOut: () => timedOut,
+    };
+  }
+  /* istanbul ignore next -- loop always returns */
+  return lastFailure!;
+}
+
 // ── usage finalization (cost + spend + record) ───────────────
 
 async function finalize(
@@ -297,7 +422,7 @@ async function finalize(
   usage: Usage,
   latencyMs: number,
   status: "success" | "error",
-  extra?: { slot?: ConcurrencySlot; estTokens?: number },
+  extra?: { slot?: ConcurrencySlot; estTokens?: number; requestId?: string },
 ): Promise<void> {
   // Release the in-flight slot + reconcile the TPM estimate first (fast, local).
   if (extra?.slot) await extra.slot.release();
@@ -318,15 +443,32 @@ async function finalize(
     /* price lookup best-effort */
   }
   const cm = costMicro(usage, price);
-  const rid = randomUUID();
+  // Reuse the hold's request id when the caller reserved; embeddings and other
+  // no-reserve paths settle with a fresh id (nil hold → plain spend commit).
+  const rid = extra?.requestId ?? randomUUID();
   try {
-    await commitSpend({
+    await settleSpend({
       orgId: ctx.orgId,
       teamId: ctx.teamId,
+      memberId: ctx.memberId,
       actualMicro: cm,
+      requestId: rid,
+      usedCredits: target.managed === true,
     });
-  } catch {
-    /* spend commit best-effort — usage row is still recorded */
+  } catch (e) {
+    // Never silently drop spend accounting — DLQ replays it.
+    await recordBillingFailure(
+      "spend_settle",
+      {
+        orgId: ctx.orgId,
+        teamId: ctx.teamId,
+        memberId: ctx.memberId,
+        actualMicro: cm,
+        requestId: rid,
+        usedCredits: target.managed === true,
+      },
+      e,
+    );
   }
   // Managed pool → bill the org's credit wallet (cost + markup).
   if (target.managed) {
@@ -337,32 +479,38 @@ async function finalize(
         markupBps: target.markupBps ?? 0,
         requestId: rid,
       });
-    } catch {
-      /* credit deduction best-effort */
+    } catch (e) {
+      // Served but not billed (wallet short on estimate-under-actual, Redis/DB
+      // hiccup, …) — record the debt; the DLQ sweep replays idempotently.
+      await recordBillingFailure(
+        "credit_spend",
+        { orgId: ctx.orgId, costMicro: cm, markupBps: target.markupBps ?? 0, requestId: rid },
+        e,
+      );
     }
   }
+  const usageRow = {
+    requestId: rid,
+    orgId: ctx.orgId,
+    apiKeyId: ctx.apiKeyId,
+    memberId: ctx.memberId,
+    appId: target.appId,
+    teamId: ctx.teamId,
+    actingUserId: ctx.actingUserId,
+    provider: target.provider,
+    model: target.model,
+    promptTokens: usage.promptTokens,
+    completionTokens: usage.completionTokens,
+    totalTokens: usage.totalTokens,
+    usageEstimated: usage.isEstimated ?? false,
+    costMicro: cm,
+    status,
+    latencyMs,
+  };
   try {
-    await withOrg(ctx.orgId, (tx) =>
-      tx.insert(usageRecords).values({
-        requestId: rid,
-        orgId: ctx.orgId,
-        apiKeyId: ctx.apiKeyId,
-        memberId: ctx.memberId,
-        appId: target.appId,
-        teamId: ctx.teamId,
-        actingUserId: ctx.actingUserId,
-        provider: target.provider,
-        model: target.model,
-        promptTokens: usage.promptTokens,
-        completionTokens: usage.completionTokens,
-        totalTokens: usage.totalTokens,
-        costMicro: cm,
-        status,
-        latencyMs,
-      }),
-    );
-  } catch {
-    /* usage insert best-effort */
+    await withOrg(ctx.orgId, (tx) => tx.insert(usageRecords).values(usageRow));
+  } catch (e) {
+    await recordBillingFailure("usage_insert", usageRow, e);
   }
 }
 
@@ -382,6 +530,50 @@ function errBody(message: string, type: string, code?: string) {
   return { error: { message, type, param: null, code: code ?? null } };
 }
 
+function modelNotFoundError(model: string): ChatResult {
+  return {
+    kind: "error",
+    status: 400,
+    body: errBody(
+      `The model '${model}' does not exist or is not enabled.`,
+      "invalid_request_error",
+      "model_not_found",
+    ),
+  };
+}
+
+function noCredentialError(model: string): ChatResult {
+  return {
+    kind: "error",
+    status: 400,
+    body: errBody(
+      `No provider/credential available for model '${model}'.`,
+      "invalid_request_error",
+      "model_not_found",
+    ),
+  };
+}
+
+function upstreamFailureError(
+  f: FetchFailure,
+  headers: Record<string, string>,
+): ChatResult {
+  if (f.kind === "timeout") {
+    return {
+      kind: "error",
+      status: 504,
+      body: errBody("Upstream request timed out.", "api_error", "upstream_timeout"),
+      headers,
+    };
+  }
+  return {
+    kind: "error",
+    status: 502,
+    body: errBody(`Upstream request failed: ${f.error.message}`, "api_error"),
+    headers,
+  };
+}
+
 /** IETF + legacy rate-limit headers for the RPM bucket. */
 function rateHeaders(h: LimitHeaders): Record<string, string> {
   if (!h.limit) return {};
@@ -395,19 +587,78 @@ function rateHeaders(h: LimitHeaders): Record<string, string> {
   };
 }
 
-/** 429 result for a denied rate-limit bucket, with Retry-After. */
+/** 429 result for a denied rate-limit bucket, with limit/reset + Retry-After. */
 function rateLimitError(e: RateLimitExceededError): ChatResult {
   const retrySec = Math.max(1, Math.ceil(e.retryAfterMs / 1000));
+  const resetSec = Math.max(retrySec, Math.ceil(e.resetMs / 1000));
   return {
     kind: "error",
     status: 429,
     body: errBody(
-      `Rate limit exceeded (${e.dimension}). Retry in ${retrySec}s.`,
+      `Rate limit exceeded (${e.dimension}, ${e.scope} limit). Retry in ${retrySec}s.`,
       "rate_limit_exceeded",
       "rate_limit_exceeded",
     ),
-    headers: { "retry-after": String(retrySec) },
+    headers: {
+      "retry-after": String(retrySec),
+      "x-ratelimit-limit": String(e.limit),
+      "x-ratelimit-remaining": String(e.remaining),
+      "x-ratelimit-reset": String(resetSec),
+      "ratelimit-limit": String(e.limit),
+      "ratelimit-remaining": String(e.remaining),
+      "ratelimit-reset": String(resetSec),
+    },
   };
+}
+
+/** Clear `timer`-style connect timeout on the first upstream body byte. */
+function clearOnFirstByte(
+  body: ReadableStream<Uint8Array>,
+  onFirstByte: () => void,
+): ReadableStream<Uint8Array> {
+  let seen = false;
+  return body.pipeThrough(
+    new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        if (!seen) {
+          seen = true;
+          onFirstByte();
+        }
+        controller.enqueue(chunk);
+      },
+    }),
+  );
+}
+
+/**
+ * Wrap the adapter's output so a downstream cancel (client disconnect) aborts
+ * the upstream request and releases the adapter reader. The adapter's finally
+ * path then resolves its usage promise → finalize always runs (slot released).
+ */
+function cancelSafeStream(
+  stream: ReadableStream<Uint8Array>,
+  abortUpstream: () => void,
+): ReadableStream<Uint8Array> {
+  const reader = stream.getReader();
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      try {
+        const { done, value } = await reader.read();
+        if (done) controller.close();
+        else controller.enqueue(value);
+      } catch (e) {
+        controller.error(e);
+      }
+    },
+    async cancel(reason) {
+      abortUpstream();
+      try {
+        await reader.cancel(reason);
+      } catch {
+        /* already errored */
+      }
+    },
+  });
 }
 
 /**
@@ -418,18 +669,14 @@ export async function handleChat(
   ctx: GatewayCtx,
   canonical: CanonicalChatRequest,
 ): Promise<ChatResult> {
-  const target = await resolveTarget(ctx, canonical.model);
-  if (!target) {
-    return {
-      kind: "error",
-      status: 400,
-      body: errBody(
-        `No provider/credential available for model '${canonical.model}'.`,
-        "invalid_request_error",
-        "model_not_found",
-      ),
-    };
+  const outcome = await resolveTargets(ctx, canonical.model);
+  if (!outcome.ok) {
+    return outcome.reason === "model_not_found"
+      ? modelNotFoundError(canonical.model)
+      : noCredentialError(canonical.model);
   }
+  const { candidates } = outcome;
+  const target = candidates[0];
 
   const adapter = getAdapter(target.provider);
   const streaming = canonical.stream === true;
@@ -461,30 +708,46 @@ export async function handleChat(
     };
   }
 
-  // Governance order: budget ($/team, 402) → rate limit (RPM/TPM, 429) →
-  // concurrency (429) → proxy. Budget throws (caught upstream as 402).
-  await assertWithinBudget({
-    orgId: ctx.orgId,
-    teamId: ctx.teamId,
-    estimateMicro: estMicro,
-  });
-
-  // Managed pool → require credits to cover this request's estimated charge
-  // (cost + markup), not just a non-empty wallet. 402 when short.
+  // Governance order: budget+credits (atomic hold, 402) → rate limit (RPM/TPM,
+  // 429) → concurrency (429) → proxy. The hold is settled by finalize(); every
+  // early exit after the reserve must release it (settle at 0).
+  const rid = randomUUID();
+  // The credit slot holds the raw cost estimate, so scale the balance down by
+  // the markup factor: balance/(1+m) − Σholds ≥ 0  ⇔  balance − Σholds·(1+m) ≥ 0.
+  let creditBalanceMicro: number | null = null;
   if (target.managed) {
-    const estCharge = Math.round(estMicro * (1 + (target.markupBps ?? 0) / 10_000));
-    try {
-      await assertCredit(ctx.orgId, estCharge);
-    } catch (e) {
-      if (e instanceof CreditExhaustedError)
-        return {
-          kind: "error",
-          status: 402,
-          body: errBody("Managed credits exhausted.", "insufficient_quota", "credits_exhausted"),
-        };
-      throw e;
-    }
+    const balance = await walletBalance(ctx.orgId);
+    creditBalanceMicro = Math.floor(balance / (1 + (target.markupBps ?? 0) / 10_000));
   }
+  try {
+    await reserveSpend({
+      orgId: ctx.orgId,
+      teamId: ctx.teamId,
+      memberId: ctx.memberId,
+      estimateMicro: estMicro,
+      requestId: rid,
+      creditBalanceMicro,
+    });
+  } catch (e) {
+    if (e instanceof CreditExhaustedError)
+      return {
+        kind: "error",
+        status: 402,
+        body: errBody("Managed credits exhausted.", "insufficient_quota", "credits_exhausted"),
+      };
+    throw e; // BudgetExceededError → 402 upstream (typed mapping in v1/index)
+  }
+  const releaseHold = () =>
+    settleSpend({
+      orgId: ctx.orgId,
+      teamId: ctx.teamId,
+      memberId: ctx.memberId,
+      actualMicro: 0,
+      requestId: rid,
+      usedCredits: target.managed === true,
+    }).catch(() => {
+      /* hold self-expires (600s) if the release itself fails */
+    });
 
   let rlHeaders: LimitHeaders;
   try {
@@ -495,6 +758,7 @@ export async function handleChat(
       estTokens,
     });
   } catch (e) {
+    await releaseHold();
     if (e instanceof RateLimitExceededError) return rateLimitError(e);
     throw e;
   }
@@ -502,6 +766,7 @@ export async function handleChat(
 
   const slot = await acquireConcurrency(ctx.orgId, ctx.apiKeyId);
   if (!slot.ok) {
+    await releaseHold();
     return {
       kind: "error",
       status: 429,
@@ -510,53 +775,39 @@ export async function handleChat(
     };
   }
 
-  const body = adapter.toProviderBody(canonical, target.model, streaming);
-  const { url, headers: upstreamHeaders } = buildUpstream({
-    provider: target.provider,
-    model: target.model,
-    capability: adapter.chatCapability,
+  const started = Date.now();
+  const attempt = await fetchWithFailover({
+    candidates,
     streaming,
-    token: target.token,
-    options: target.options,
+    capability: adapter.chatCapability,
+    buildBody: (t) =>
+      JSON.stringify(adapter.toProviderBody(canonical, t.model, streaming)),
   });
 
-  const started = Date.now();
-  let resp: Response;
-  try {
-    resp = await fetch(url, {
-      method: "POST",
-      headers: upstreamHeaders,
-      body: JSON.stringify(body),
-    });
-  } catch (e) {
+  if (!attempt.ok) {
     await finalize(
       ctx,
-      target,
+      attempt.target,
       { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
       Date.now() - started,
       "error",
-      { slot, estTokens },
+      { slot, estTokens, requestId: rid },
     );
-    return {
-      kind: "error",
-      status: 502,
-      body: errBody(
-        `Upstream request failed: ${(e as Error).message}`,
-        "api_error",
-      ),
-      headers,
-    };
+    return upstreamFailureError(attempt, headers);
   }
+
+  const { resp, target: served, ctrl, clearTimer, timedOut } = attempt;
 
   if (!resp.ok) {
     const text = await resp.text().catch(() => "");
+    clearTimer();
     await finalize(
       ctx,
-      target,
+      served,
       { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
       Date.now() - started,
       "error",
-      { slot, estTokens },
+      { slot, estTokens, requestId: rid },
     );
     let parsed: unknown;
     try {
@@ -569,7 +820,9 @@ export async function handleChat(
 
   if (streaming) {
     if (!resp.body) {
+      clearTimer();
       await slot.release();
+      await releaseHold();
       return {
         kind: "error",
         status: 502,
@@ -577,22 +830,58 @@ export async function handleChat(
         headers,
       };
     }
-    const { stream, usage } = adapter.streamTransform(resp.body, target.model);
-    // Finalize (release slot + meter) once the stream is fully consumed.
+    // Connect-only timeout: cleared on the first upstream byte.
+    const upstream = clearOnFirstByte(resp.body, clearTimer);
+    const { stream, usage } = adapter.streamTransform(upstream, served.model);
+    // Finalize (release slot + meter) once the stream is fully consumed or
+    // aborted — the adapter's finally path resolves `usage` either way.
     void usage.then((u) =>
-      finalize(ctx, target, u, Date.now() - started, "success", {
+      finalize(ctx, served, u, Date.now() - started, "success", {
         slot,
         estTokens,
+        requestId: rid,
       }),
     );
-    return { kind: "stream", stream, model: target.model, headers };
+    const out = cancelSafeStream(stream, () => {
+      clearTimer();
+      ctrl.abort();
+    });
+    return { kind: "stream", stream: out, model: served.model, headers };
   }
 
-  const json = await resp.json().catch(() => ({}));
-  const { openai, usage } = adapter.fromProviderResponse(json, target.model);
-  await finalize(ctx, target, usage, Date.now() - started, "success", {
+  // Non-stream: the total timeout stays armed until the body is fully read.
+  let json: unknown;
+  try {
+    json = await resp.json();
+  } catch {
+    clearTimer();
+    await finalize(
+      ctx,
+      served,
+      { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+      Date.now() - started,
+      "error",
+      { slot, estTokens, requestId: rid },
+    );
+    if (timedOut()) {
+      return upstreamFailureError(
+        { ok: false, kind: "timeout", error: new Error("body timeout"), target: served },
+        headers,
+      );
+    }
+    return {
+      kind: "error",
+      status: 502,
+      body: errBody("Upstream returned an unreadable body.", "api_error"),
+      headers,
+    };
+  }
+  clearTimer();
+  const { openai, usage } = adapter.fromProviderResponse(json, served.model);
+  await finalize(ctx, served, usage, Date.now() - started, "success", {
     slot,
     estTokens,
+    requestId: rid,
   });
   return { kind: "json", openai, headers };
 }
@@ -603,18 +892,13 @@ export async function handleEmbeddings(
   ctx: GatewayCtx,
   req: { model: string; input: unknown } & Record<string, unknown>,
 ): Promise<ChatResult> {
-  const target = await resolveTarget(ctx, req.model);
-  if (!target) {
-    return {
-      kind: "error",
-      status: 400,
-      body: errBody(
-        `No provider/credential available for model '${req.model}'.`,
-        "invalid_request_error",
-        "model_not_found",
-      ),
-    };
+  const outcome = await resolveTargets(ctx, req.model);
+  if (!outcome.ok) {
+    return outcome.reason === "model_not_found"
+      ? modelNotFoundError(req.model)
+      : noCredentialError(req.model);
   }
+  const { candidates } = outcome;
   // Rate limit (RPM) + concurrency. TPM is metered post-response via the delta.
   let rlHeaders: LimitHeaders;
   try {
@@ -639,25 +923,34 @@ export async function handleEmbeddings(
     };
   }
 
-  const { url, headers } = buildUpstream({
-    provider: target.provider,
-    model: target.model,
-    capability: "embeddings",
-    streaming: false,
-    token: target.token,
-    options: target.options,
-  });
   const started = Date.now();
-  const resp = await fetch(url, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ ...req, model: target.model }),
+  const attempt = await fetchWithFailover({
+    candidates,
+    streaming: false,
+    capability: "embeddings",
+    buildBody: (t) => JSON.stringify({ ...req, model: t.model }),
   });
-  if (!resp.ok) {
-    const text = await resp.text().catch(() => "");
+
+  if (!attempt.ok) {
     await finalize(
       ctx,
-      target,
+      attempt.target,
+      { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+      Date.now() - started,
+      "error",
+      { slot, estTokens: 0 },
+    );
+    return upstreamFailureError(attempt, rHeaders);
+  }
+
+  const { resp, target: served, clearTimer, timedOut } = attempt;
+
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "");
+    clearTimer();
+    await finalize(
+      ctx,
+      served,
       { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
       Date.now() - started,
       "error",
@@ -671,13 +964,40 @@ export async function handleEmbeddings(
     }
     return { kind: "error", status: resp.status, body: parsed, headers: rHeaders };
   }
-  const json = (await resp.json().catch(() => ({}))) as any;
+
+  let json: any;
+  try {
+    json = await resp.json();
+  } catch {
+    clearTimer();
+    await finalize(
+      ctx,
+      served,
+      { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+      Date.now() - started,
+      "error",
+      { slot, estTokens: 0 },
+    );
+    if (timedOut()) {
+      return upstreamFailureError(
+        { ok: false, kind: "timeout", error: new Error("body timeout"), target: served },
+        rHeaders,
+      );
+    }
+    return {
+      kind: "error",
+      status: 502,
+      body: errBody("Upstream returned an unreadable body.", "api_error"),
+      headers: rHeaders,
+    };
+  }
+  clearTimer();
   const usage: Usage = {
     promptTokens: json.usage?.prompt_tokens ?? 0,
     completionTokens: 0,
     totalTokens: json.usage?.total_tokens ?? json.usage?.prompt_tokens ?? 0,
   };
-  await finalize(ctx, target, usage, Date.now() - started, "success", {
+  await finalize(ctx, served, usage, Date.now() - started, "success", {
     slot,
     estTokens: 0,
   });

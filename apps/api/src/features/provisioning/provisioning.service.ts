@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { asc, and, count, eq } from "drizzle-orm";
 import {
   withBypass,
   organizations,
@@ -10,7 +10,8 @@ import {
 } from "@vortex/db";
 import { env } from "@vortex/core";
 import { generateApiKey } from "../keys/keys.util.js";
-import { assertSeatAvailable } from "../../shared/caps.js";
+import { CapExceededError } from "../../shared/caps.js";
+import { resolveEntitlements } from "../../shared/entitlements.js";
 
 const SINGLE_ORG_NAME = process.env.SEED_ORG_NAME ?? "Acme";
 const DEFAULT_TEAM_BUDGET_MICRO = 500_000_000; // $500 / member / month
@@ -93,6 +94,7 @@ export async function getMembership(
       .select()
       .from(memberships)
       .where(eq(memberships.userId, userId))
+      .orderBy(asc(memberships.createdAt))
       .limit(1);
     if (!m) return null;
     return {
@@ -115,14 +117,6 @@ export async function provisionUser(
   userId: string,
   opts: { orgName?: string } = {},
 ): Promise<{ ctx: MemberContext; defaultKey: string }> {
-  // Single mode: the org already exists → enforce the plan seat cap before we
-  // add another human. Multi mode creates a fresh org (its first/owner seat).
-  if (env.TENANCY_MODE !== "multi") {
-    const [org] = await withBypass((tx) =>
-      tx.select({ id: organizations.id }).from(organizations).limit(1),
-    );
-    if (org) await assertSeatAvailable(org.id);
-  }
   return withBypass(async (tx) => {
     let orgId: string;
     let defaultTeamId: string;
@@ -147,20 +141,40 @@ export async function provisionUser(
       await seedChatApp(tx, orgId, defaultTeamId);
       role = "owner";
     } else {
-      const [org] = await tx.select().from(organizations).limit(1);
+      // Single mode: the org already exists. Lock the org row FOR UPDATE so
+      // concurrent signups serialize — the seat-cap check and the
+      // first-human-becomes-owner check are then race-free within this tx.
+      const [org] = await tx
+        .select()
+        .from(organizations)
+        .limit(1)
+        .for("update");
       orgId = org!.id;
+
+      const [humanRow] = await tx
+        .select({ n: count() })
+        .from(memberships)
+        .where(
+          and(eq(memberships.orgId, orgId), eq(memberships.type, "human")),
+        );
+      const humans = humanRow?.n ?? 0;
+
+      const ent = await resolveEntitlements(orgId);
+      if (ent.seatsPerOrg != null && humans >= ent.seatsPerOrg) {
+        throw new CapExceededError(
+          "seats",
+          `seat limit reached (${ent.seatsPerOrg})`,
+        );
+      }
+
       const [team] = await tx
         .select()
         .from(teams)
         .where(eq(teams.orgId, orgId))
         .limit(1);
       defaultTeamId = team!.id;
-      // first human member becomes owner
-      const humans = await tx
-        .select({ id: memberships.id })
-        .from(memberships)
-        .where(eq(memberships.type, "human"));
-      role = humans.length === 0 ? "owner" : "member";
+      // first human member becomes owner (guarded by the org row lock above)
+      role = humans === 0 ? "owner" : "member";
     }
 
     const [membership] = await tx
