@@ -34,6 +34,13 @@
   [data-density="comfortable"] .vx-table th{padding:9px 14px !important;}
   [data-density="comfortable"] .vx-side-item{min-height:32px !important;}
   .vx-navitem-collapsed span.lbl,.vx-navitem-collapsed span.cnt{display:none !important;}
+  .vx-range{-webkit-appearance:none;appearance:none;width:100%;height:4px;border-radius:4px;background:var(--vx-line-2);outline:none;cursor:pointer;margin:2px 0;}
+  .vx-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:15px;height:15px;border-radius:50%;background:var(--vx-accent);border:2px solid var(--vx-panel);box-shadow:0 0 0 1px var(--vx-accent);cursor:pointer;transition:transform .1s var(--vx-ease);}
+  .vx-range::-webkit-slider-thumb:hover{transform:scale(1.15);}
+  .vx-range::-moz-range-thumb{width:13px;height:13px;border:2px solid var(--vx-panel);border-radius:50%;background:var(--vx-accent);box-shadow:0 0 0 1px var(--vx-accent);cursor:pointer;}
+  .vx-range:focus{box-shadow:var(--vx-glow-ring);}
+  .vx-pg-fade{animation:vx-rise .28s var(--vx-ease);}
+  @keyframes vx-cursor{0%,100%{opacity:1;}50%{opacity:0;}}
 </style>
 </helmet>
 <div style="min-height:100vh">{{ app }}</div>
@@ -47,6 +54,7 @@ class Component extends DCLogic {
     role:'owner', costDim:'member', appTab:'overview',
     drawer:null, modal:null, menu:null, toasts:[],
     scr:{}, sort:{}, page:{}, tab:{}, sw:{},
+    pg:{ modelA:'claude-sonnet-4.5', modelB:'gpt-4o', compare:false, railSide:'A', params:{}, tools:{web:false,kb:false}, system:'', input:'', picker:null, msgs:{A:[],B:[]}, busy:{A:false,B:false} },
   };
 
   // ---- merged tabbed hubs: parent id -> tabs [id,label,method] ----
@@ -190,6 +198,9 @@ class Component extends DCLogic {
         {id:'g_audit',label:'Audit & Alerts',icon:'gov',cnt:3},
         {id:'settings',label:'Settings',icon:'wrench'},
       ]},
+      {group:'Tools', items:[
+        {id:'mchat',label:'Playground',icon:'sparkle',badge:'Live'},
+      ]},
     ];
     return [
       {group:'Workspace', items:[
@@ -197,8 +208,10 @@ class Component extends DCLogic {
         {id:'musage',label:'My Usage & Budget',icon:'cpu'},
         {id:'mkeys',label:'My Keys',icon:'key',cnt:this.keysOf(this.me().name).length},
         {id:'mapps',label:'My Apps',icon:'library'},
-        {id:'mchat',label:'Chat',icon:'chat',badge:'Preview'},
         {id:'mprofile',label:'Profile & Settings',icon:'wrench'},
+      ]},
+      {group:'Tools', items:[
+        {id:'mchat',label:'Playground',icon:'sparkle',badge:'Live'},
       ]},
     ];
   }
@@ -506,7 +519,7 @@ class Component extends DCLogic {
   screen(){
     const s=this.state.screen;
     if(this.GROUPS[s]) return this.scrGroup(s);
-    const map={overview:'scrOverview',usage:'scrUsage',budgets:'scrBudgets',teams:'scrTeams',members:'scrMembers',apps:'scrApps',appdetail:'scrAppDetail',credentials:'scrProviders',models:'scrModels',audit:'scrAudit',alerts:'scrAlerts',settings:'scrSettings',mhome:'scrMyHome',musage:'scrMyUsage',mkeys:'scrMyKeys',mapps:'scrMyApps',mchat:'scrChat',mprofile:'scrMyProfile'};
+    const map={overview:'scrOverview',usage:'scrUsage',budgets:'scrBudgets',teams:'scrTeams',members:'scrMembers',apps:'scrApps',appdetail:'scrAppDetail',credentials:'scrProviders',models:'scrModels',audit:'scrAudit',alerts:'scrAlerts',settings:'scrSettings',mhome:'scrMyHome',musage:'scrMyUsage',mkeys:'scrMyKeys',mapps:'scrMyApps',mchat:'scrPlayground',mprofile:'scrMyProfile'};
     const fn=map[s];
     return fn&&this[fn]?this[fn]():React.createElement('div',null,'\u2014');
   }
@@ -1104,7 +1117,7 @@ class Component extends DCLogic {
       {label:'My keys',value:String(keys.length),delta:'0',trend:'flat',spark:false,seed:2},
     ];
     return React.createElement(React.Fragment,null,
-      this.pageHead('Home','Welcome back, '+m.name.split(' ')[0]+'. Your spend, budget, apps and keys \u2014 scoped to you.', React.createElement(V.Button,{variant:'accent',iconLeft:React.createElement(V.Icon,{name:'chat',size:14}),onClick:()=>this.go('mchat')},'Open Chat')),
+      this.pageHead('Home','Welcome back, '+m.name.split(' ')[0]+'. Your spend, budget, apps and keys \u2014 scoped to you.', React.createElement(V.Button,{variant:'accent',iconLeft:React.createElement(V.Icon,{name:'sparkle',size:14}),onClick:()=>this.go('mchat')},'Open Playground')),
       React.createElement('div',{style:{display:'grid',gap:16,gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))'}}, kpis.map(k=>this.kpiTile(k))),
       React.createElement('div',{style:{display:'grid',gap:16,gridTemplateColumns:'1fr 1.4fr',marginTop:16}},
         React.createElement(V.Panel,{title:'My monthly budget',sub:m.team+' team \u00b7 '+(t&&t.enf==='hard'?'hard cap':'soft cap')}, React.createElement('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',textAlign:'center'}},
@@ -1197,6 +1210,231 @@ class Component extends DCLogic {
             React.createElement(V.Button,{variant:'accent',iconLeft:React.createElement(V.Icon,{name:'send',size:14}),onClick:()=>this.toast('Chat preview \u2014 not wired','info')},'Send')),
           React.createElement('div',{style:{textAlign:'center',fontSize:10.5,color:'var(--vx-ink-4)',marginTop:8,fontFamily:'var(--vx-font-mono)'}},'Usage counts against your monthly budget \u00b7 attributed to app=Chat')))
     );
+  }
+
+  // ============================================================
+  //  PLAYGROUND — multi-provider chat sandbox (ephemeral, live model)
+  // ============================================================
+  get PGMODELS(){ if(this._pgm) return this._pgm;
+    const T=(max,def)=>({min:0,max,step:max>1?0.1:0.05,def}), P={min:0,max:1,step:0.05,def:1}, MT=(def,max)=>({min:256,max:max||8192,step:256,def});
+    const EFF={opts:['low','medium','high'],def:'medium'};
+    return this._pgm=[
+      {alias:'claude-opus-4.1',prov:'anthropic',name:'Claude Opus 4.1',ctx:'200k',in:15,out:75,real:'claude-sonnet-4-5',caps:{temperature:T(1,1),top_p:P,max_tokens:MT(2048),thinking:{budgets:['off','8k','16k','32k'],def:'off'},tools:true}},
+      {alias:'claude-sonnet-4.5',prov:'anthropic',name:'Claude Sonnet 4.5',ctx:'200k',in:3,out:15,real:'claude-sonnet-4-5',caps:{temperature:T(1,1),top_p:P,max_tokens:MT(1024),thinking:{budgets:['off','4k','8k','16k'],def:'off'},tools:true}},
+      {alias:'claude-haiku-4',prov:'anthropic',name:'Claude Haiku 4',ctx:'200k',in:0.8,out:4,real:'claude-haiku-4-5',caps:{temperature:T(1,1),top_p:P,max_tokens:MT(1024),tools:true}},
+      {alias:'gpt-4o',prov:'openai',name:'GPT-4o',ctx:'128k',in:2.5,out:10,real:'claude-sonnet-4-5',caps:{temperature:T(2,1),top_p:P,freq_penalty:{min:-2,max:2,step:0.1,def:0},max_tokens:MT(1024,16384),tools:true}},
+      {alias:'gpt-4o-mini',prov:'openai',name:'GPT-4o mini',ctx:'128k',in:0.15,out:0.6,real:'claude-haiku-4-5',caps:{temperature:T(2,1),top_p:P,max_tokens:MT(1024,16384),tools:true}},
+      {alias:'o3',prov:'openai',name:'o3',ctx:'200k',in:2,out:8,real:'claude-sonnet-4-5',reasoning:true,caps:{effort:EFF,max_tokens:MT(4096,16384),tools:true}},
+      {alias:'o4-mini',prov:'openai',name:'o4-mini',ctx:'128k',in:1.1,out:4.4,real:'claude-haiku-4-5',reasoning:true,caps:{effort:EFF,max_tokens:MT(4096,16384),tools:true}},
+      {alias:'gemini-2.5-pro',prov:'google',name:'Gemini 2.5 Pro',ctx:'1M',in:1.25,out:5,real:'claude-sonnet-4-5',caps:{temperature:T(2,1),top_p:P,max_tokens:MT(2048,16384),thinking:{budgets:['off','auto','8k','24k'],def:'auto'},tools:true}},
+      {alias:'gemini-2.5-flash',prov:'google',name:'Gemini 2.5 Flash',ctx:'1M',in:0.3,out:2.5,real:'claude-haiku-4-5',caps:{temperature:T(2,1),top_p:P,max_tokens:MT(1024,16384),thinking:{budgets:['off','auto'],def:'off'},tools:true}},
+      {alias:'mistral-large',prov:'mistral',name:'Mistral Large 2',ctx:'128k',in:2,out:6,real:'claude-haiku-4-5',caps:{temperature:T(1,0.7),top_p:P,max_tokens:MT(1024),tools:true}},
+      {alias:'llama-3.3-70b',prov:'meta',name:'Llama 3.3 70B',ctx:'128k',in:0.2,out:0.2,real:'claude-haiku-4-5',caps:{temperature:T(2,0.8),top_p:P,max_tokens:MT(1024),tools:false}},
+    ];
+  }
+  pgModel(a){ return this.PGMODELS.find(m=>m.alias===a)||this.PGMODELS[1]; }
+  provName(p){ return {anthropic:'Anthropic',openai:'OpenAI',google:'Google',mistral:'Mistral AI',meta:'Meta'}[p]||p; }
+  provStatus(p){ const r=this.DATA.providers.find(x=>x.prov===p); return r?r.status:'valid'; }
+  estTokens(s){ return Math.max(0,Math.ceil((s||'').length/4)); }
+  pgFmtCost(n){ n=n||0; return '$'+(n>=1?n.toFixed(2):n>=0.01?n.toFixed(3):n.toFixed(4)); }
+  pgDefaults(a){ const c=this.pgModel(a).caps, d={};
+    ['temperature','top_p','freq_penalty','max_tokens'].forEach(k=>{ if(c[k]) d[k]=c[k].def; });
+    if(c.effort) d.effort=c.effort.def; if(c.thinking) d.thinking=c.thinking.def; return d; }
+  pgParams(a){ return Object.assign(this.pgDefaults(a), this.state.pg.params[a]||{}); }
+  pgSetParam(a,k,v){ this.setState(s=>({pg:{...s.pg,params:{...s.pg.params,[a]:{...(s.pg.params[a]||{}),[k]:v}}}})); }
+  pgReset(a){ this.setState(s=>{ const p={...s.pg.params}; delete p[a]; return {pg:{...s.pg,params:p}}; }); }
+  pgSetModel(side,a){ this.setState(s=>({pg:{...s.pg,[side==='A'?'modelA':'modelB']:a,picker:null}})); }
+  pgToggleTool(k){ this.setState(s=>({pg:{...s.pg,tools:{...s.pg.tools,[k]:!s.pg.tools[k]}}})); }
+  pgSetCompare(v){ this.setState(s=>({pg:{...s.pg,compare:v,picker:null}})); }
+  pgClear(){ Object.values(this._pgT||{}).forEach(t=>clearTimeout(t)); this.setState(s=>({pg:{...s.pg,msgs:{A:[],B:[]},busy:{A:false,B:false}}})); }
+  pgScroll(side){ ['A','B'].forEach(s=>{ if(side&&s!==side) return; const el=document.getElementById('pgscroll-'+s); if(el) el.scrollTop=el.scrollHeight; }); }
+  pgSystem(a,p){ const m=this.pgModel(a), out=[];
+    if((this.state.pg.system||'').trim()) out.push(this.state.pg.system.trim());
+    out.push('You are '+m.name+' ('+this.provName(m.prov)+'), accessed through the Vortex AI gateway. Keep answers focused, well-structured and free of filler.');
+    if(m.reasoning) out.push('Reasoning effort: '+p.effort+'. '+(p.effort==='high'?'Reason carefully and thoroughly before answering.':p.effort==='low'?'Answer quickly and concisely.':'Balance depth with brevity.'));
+    else if('temperature' in p){ const norm=p.temperature/(m.caps.temperature.max); out.push(norm<=0.25?'Be precise, factual and deterministic.':norm>=0.75?'Be creative, varied and exploratory in tone.':'Keep a balanced, natural tone.'); }
+    if(m.caps.thinking && p.thinking && p.thinking!=='off') out.push('Think step by step before giving the final answer.');
+    return out.join('\n');
+  }
+  pgSend(){ const pg=this.state.pg, text=(pg.input||'').trim();
+    if(!text||pg.busy.A||pg.busy.B) return; if(this._uid==null) this._uid=0;
+    const sides=pg.compare?['A','B']:['A'];
+    this.setState(s=>{ const msgs={A:[...s.pg.msgs.A],B:[...s.pg.msgs.B]}, busy={...s.pg.busy};
+      sides.forEach(side=>{ const alias=side==='A'?s.pg.modelA:s.pg.modelB, m=this.pgModel(alias), p=this.pgParams(alias);
+        msgs[side]=[...msgs[side], {id:++this._uid,role:'user',content:text}, {id:++this._uid,role:'assistant',model:alias,content:'',tools:[],done:false,thinking:false,reasoning:m.reasoning?p.effort:null,budget:(m.caps.thinking&&p.thinking&&p.thinking!=='off')?p.thinking:null}];
+        busy[side]=true; });
+      return {pg:{...s.pg,input:'',msgs,busy}};
+    }, ()=>{ sides.forEach(side=>this.pgRun(side,text)); this.pgScroll(); });
+  }
+  async pgRun(side,userText){
+    const alias=side==='A'?this.state.pg.modelA:this.state.pg.modelB, m=this.pgModel(alias), p=this.pgParams(alias), pg=this.state.pg;
+    const hist=this.state.pg.msgs[side].filter(x=>x.role==='user'||(x.role==='assistant'&&x.content&&!x.error)).map(x=>({role:x.role,content:x.content}));
+    const sys=this.pgSystem(alias,p);
+    const tokIn=this.estTokens(sys)+hist.reduce((a,x)=>a+this.estTokens(x.content),0);
+    const toolCalls=[], tools=[];
+    if(m.caps.tools&&pg.tools.kb) tools.push({name:'knowledge_base_search',description:'Search the Northwind AI internal knowledge base (support tickets, product docs, runbooks). Use for anything about internal or company data.',input_schema:{type:'object',properties:{query:{type:'string',description:'search query'}},required:['query']},run:async(input)=>{ toolCalls.push({tool:'kb',q:(input&&input.query)||''}); this.pgTouch(side,toolCalls); return JSON.stringify({source:'Northwind Support KB',results:[{id:'TICK-4821',title:'SSO login loop after Enterprise upgrade',snippet:'SAML redirect loop hit ~22% of upgraded orgs in March; resolved by clearing stale relay-state cookie.'},{id:'DOC-112',title:'Billing proration runbook',snippet:'Mid-cycle plan changes prorate daily; true-ups post on the next invoice.'},{id:'TICK-4903',title:'Mobile sync error E-217',snippet:'Offline queue fails to flush when the auth token refreshes mid-sync; 14% of Q1 mobile tickets.'}]}); }});
+    if(m.caps.tools&&pg.tools.web) tools.push({name:'web_search',description:'Search the public web for current information outside the internal knowledge base.',input_schema:{type:'object',properties:{query:{type:'string'}},required:['query']},run:async(input)=>{ toolCalls.push({tool:'web',q:(input&&input.query)||''}); this.pgTouch(side,toolCalls); return JSON.stringify({query:(input&&input.query)||'',results:[{title:'Synthesized web context',snippet:'Illustrative public-web results for: '+((input&&input.query)||'')+' (prototype web tool).'}]}); }});
+    const t0=Date.now();
+    try{
+      if(!(window.claude&&window.claude.complete)) throw new Error('Live model is unavailable in this preview environment.');
+      const req={messages:hist,system:sys,model:m.real,max_tokens:Math.min(p.max_tokens||1024,4096)};
+      if(tools.length) req.tools=tools;
+      const resp=await window.claude.complete(req);
+      this.pgReveal(side,((resp||'')+'').trim()||'(empty response)',alias,tokIn,toolCalls,Date.now()-t0);
+    }catch(e){ this.pgFail(side,(e&&e.message)?e.message:'Request failed',toolCalls); }
+  }
+  pgTouch(side,calls){ this.setState(s=>{ const arr=[...s.pg.msgs[side]], last=arr[arr.length-1];
+    if(last&&last.role==='assistant'&&!last.done){ arr[arr.length-1]={...last,thinking:true,tools:calls.slice()}; }
+    return {pg:{...s.pg,msgs:{...s.pg.msgs,[side]:arr}}}; }); this.pgScroll(side); }
+  pgEnsureStream(){ if(window.__PgStream) return; const R=React;
+    class PgStream extends R.Component{
+      constructor(p){ super(p); this.state={p:0}; }
+      loop(){ const t0=this.props.t0||this._t0, dur=this.props.dur||1200, p=Math.min(1,(Date.now()-t0)/dur); if(p!==this.state.p) this.setState({p}); if(p<1){ this._raf=requestAnimationFrame(()=>this.loop()); } else { this._raf=null; this.props.onDone&&this.props.onDone(); } }
+      componentDidMount(){ this._t0=this.props.t0||Date.now(); this._raf=requestAnimationFrame(()=>this.loop()); }
+      componentWillUnmount(){ if(this._raf) cancelAnimationFrame(this._raf); }
+      render(){ const full=this.props.text||'', t0=this.props.t0||this._t0||Date.now(), dur=this.props.dur||1200, p=Math.max(this.state.p, Math.min(1,(Date.now()-t0)/dur)), done=p>=1, cut=done?full.length:Math.ceil(full.length*p);
+        return R.createElement('span',null, done?full:full.slice(0,cut), !done?R.createElement('span',{style:{display:'inline-block',width:7,height:14,marginLeft:2,background:'var(--vx-accent)',verticalAlign:'text-bottom',animation:'vx-cursor 1s steps(1) infinite'}}):null); }
+    }
+    window.__PgStream=PgStream;
+  }
+  pgReveal(side,full,alias,tokIn,toolCalls,ms){ const m=this.pgModel(alias);
+    const tokOut=Math.max(1,Math.ceil(full.length/4)), cost=tokIn/1e6*m.in+tokOut/1e6*m.out, dur=Math.min(1600,Math.max(400,full.length*3.2));
+    const id=(this.state.pg.msgs[side].slice(-1)[0]||{}).id;
+    this.setState(s=>{ const arr=[...s.pg.msgs[side]], last=arr[arr.length-1];
+      if(last&&last.role==='assistant') arr[arr.length-1]={...last,content:full,thinking:false,tools:toolCalls.slice(),done:true,streaming:true,revealT0:Date.now(),revealDur:dur,tokIn,tokOut,cost,ms};
+      const busy={...s.pg.busy}; busy[side]=false;
+      return {pg:{...s.pg,msgs:{...s.pg.msgs,[side]:arr},busy}};
+    }, ()=>this.pgScroll(side));
+    if(id!=null) setTimeout(()=>this.pgStreamDone(side,id), dur+500);
+  }
+  pgStreamDone(side,id){ this.setState(s=>{ const arr=[...s.pg.msgs[side]], idx=arr.findIndex(x=>x.id===id);
+    if(idx>=0) arr[idx]={...arr[idx],streaming:false};
+    return {pg:{...s.pg,msgs:{...s.pg.msgs,[side]:arr}}}; }); }
+  pgFail(side,msg,toolCalls){ this.setState(s=>{ const arr=[...s.pg.msgs[side]], last=arr[arr.length-1];
+    if(last&&last.role==='assistant') arr[arr.length-1]={...last,done:true,error:true,thinking:false,tools:(toolCalls||[]).slice(),content:msg};
+    const busy={...s.pg.busy}; busy[side]=false; return {pg:{...s.pg,msgs:{...s.pg.msgs,[side]:arr},busy}}; }); }
+
+  pgPicker(side){ const h=React.createElement,V=window.Vortex_469485,pg=this.state.pg;
+    const alias=side==='A'?pg.modelA:pg.modelB, m=this.pgModel(alias), open=pg.picker===side;
+    const order=['anthropic','openai','google','mistral','meta'], groups={};
+    this.PGMODELS.forEach(x=>{(groups[x.prov]=groups[x.prov]||[]).push(x);});
+    const panel=open?h('div',{style:{position:'absolute',top:'calc(100% + 6px)',left:0,zIndex:60,width:334,maxHeight:392,overflowY:'auto',background:'var(--vx-panel)',border:'1px solid var(--vx-line-2)',borderRadius:'var(--vx-radius-lg)',boxShadow:'var(--vx-shadow-pop)',padding:6}},
+      order.map(prov=>h('div',{key:prov},
+        h('div',{style:{display:'flex',alignItems:'center',gap:7,padding:'9px 8px 5px',fontFamily:'var(--vx-font-mono)',fontSize:9.5,letterSpacing:'.1em',textTransform:'uppercase',color:'var(--vx-ink-4)'}}, this.pmark(prov,13), this.provName(prov), this.provStatus(prov)!=='valid'?h('span',{style:{marginLeft:'auto',color:'var(--vx-err)',fontSize:9,letterSpacing:'.06em'}},'CREDENTIAL FAILED'):null),
+        (groups[prov]||[]).map(x=>{ const bad=this.provStatus(x.prov)!=='valid', act=x.alias===alias;
+          return h('button',{key:x.alias,disabled:bad,onClick:()=>{ if(!bad) this.pgSetModel(side,x.alias); },style:{width:'100%',textAlign:'left',display:'flex',alignItems:'center',gap:10,padding:'8px',border:'none',borderRadius:8,background:act?'var(--vx-accent-soft)':'transparent',cursor:bad?'not-allowed':'pointer',opacity:bad?0.42:1,marginBottom:2}},
+            h('div',{style:{flex:1,minWidth:0}},
+              h('div',{style:{display:'flex',alignItems:'center',gap:7}}, h('span',{style:{fontWeight:600,fontSize:12.5,color:act?'var(--vx-accent)':'var(--vx-ink)'}},x.name), x.reasoning?h('span',{style:{fontFamily:'var(--vx-font-mono)',fontSize:8,padding:'1px 5px',borderRadius:20,background:'rgba(var(--vx-violet-rgb),.16)',color:'var(--vx-accent)',letterSpacing:'.04em'}},'REASONING'):null),
+              h('div',{style:{fontFamily:'var(--vx-font-mono)',fontSize:10,color:'var(--vx-ink-4)',marginTop:2}}, x.ctx+' ctx \u00b7 $'+x.in+' / $'+x.out+' per M')),
+            act?h(V.Icon,{name:'check',size:14,style:{color:'var(--vx-accent)'}}):null);
+        })
+      ))):null;
+    return h('div',{style:{position:'relative'}},
+      open?h('div',{onClick:()=>this.setState(s=>({pg:{...s.pg,picker:null}})),style:{position:'fixed',inset:0,zIndex:55}}):null,
+      h('button',{onClick:()=>this.setState(s=>({pg:{...s.pg,picker:open?null:side}})),style:{display:'flex',alignItems:'center',gap:8,height:30,padding:'0 10px',borderRadius:'var(--vx-radius-sm)',border:'1px solid '+(open?'var(--vx-accent)':'var(--vx-line-2)'),background:'var(--vx-panel-2)',color:'var(--vx-ink)',fontSize:12,cursor:'pointer',boxShadow:open?'var(--vx-glow-ring)':'none'}}, this.pmark(m.prov,16), h('span',{className:'vx-mono',style:{fontSize:11.5,whiteSpace:'nowrap'}},m.alias), m.reasoning?h(V.Icon,{name:'brain',size:12,style:{color:'var(--vx-accent)',flexShrink:0}}):null, h(V.Icon,{name:'chevron-down',size:12,style:{color:'var(--vx-ink-3)',flexShrink:0}})),
+      panel);
+  }
+  pgSlider(alias,key,cap,label,fmt){ const h=React.createElement, v=this.pgParams(alias)[key];
+    return h('div',{style:{marginBottom:15}},
+      h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:7}},
+        h('span',{style:{fontSize:12,fontWeight:600,color:'var(--vx-ink-2)'}},label),
+        h('span',{className:'vx-mono',style:{fontSize:11,color:'var(--vx-ink)',background:'var(--vx-bg-2)',border:'1px solid var(--vx-line-2)',borderRadius:5,padding:'1px 7px'}}, fmt?fmt(v):v)),
+      h('input',{type:'range',className:'vx-range',min:cap.min,max:cap.max,step:cap.step,value:v,onChange:e=>this.pgSetParam(alias,key,parseFloat(e.target.value))}));
+  }
+  pgToolRow(key,icon,title,desc,supported){ const h=React.createElement,V=window.Vortex_469485,pg=this.state.pg, on=!!pg.tools[key]&&supported;
+    return h('div',{style:{display:'flex',alignItems:'center',gap:10,padding:'10px 0',borderBottom:'1px solid var(--vx-line)',opacity:supported?1:0.55}},
+      h('span',{style:{width:28,height:28,flexShrink:0,borderRadius:7,display:'grid',placeItems:'center',background:on?'var(--vx-accent-soft)':'var(--vx-bg-2)',color:on?'var(--vx-accent)':'var(--vx-ink-3)'}}, h(V.Icon,{name:icon,size:15})),
+      h('div',{style:{flex:1,minWidth:0}}, h('div',{style:{fontSize:12.5,fontWeight:600}},title), h('div',{style:{fontSize:11,color:'var(--vx-ink-4)'}}, supported?desc:'Not supported by this model')),
+      h(V.Switch,{checked:on,onChange:()=>{ if(supported) this.pgToggleTool(key); }}));
+  }
+  pgRail(){ const h=React.createElement,V=window.Vortex_469485,pg=this.state.pg;
+    const side=pg.compare?(pg.railSide||'A'):'A', alias=side==='A'?pg.modelA:pg.modelB, m=this.pgModel(alias), c=m.caps;
+    const sec=t=>h('div',{style:{fontFamily:'var(--vx-font-mono)',fontSize:9.5,letterSpacing:'.12em',textTransform:'uppercase',color:'var(--vx-ink-4)',margin:'20px 0 11px'}},t);
+    const chips=[]; if(m.reasoning) chips.push(['brain','Reasoning']); if(c.thinking) chips.push(['sparkle','Ext. thinking']); if(c.tools) chips.push(['wrench','Tools']);
+    const p=this.pgParams(alias);
+    return h('aside',{style:{width:322,flexShrink:0,borderLeft:'1px solid var(--vx-line)',background:'var(--vx-panel)',overflowY:'auto',padding:'16px 16px 44px'}},
+      h('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:12}}, h('span',{style:{fontWeight:600,fontSize:13.5,fontFamily:'var(--vx-font-display)'}},'Parameters'), h('div',{style:{flex:1}}), h(V.Button,{size:'sm',variant:'ghost',onClick:()=>this.pgReset(alias)},'Reset')),
+      pg.compare?h('div',{style:{marginBottom:13}}, this.segRadio(['Model A','Model B'], side==='A'?'Model A':'Model B', v=>this.setState(s=>({pg:{...s.pg,railSide:v==='Model A'?'A':'B'}})))):null,
+      h('div',{style:{border:'1px solid var(--vx-line)',borderRadius:'var(--vx-radius)',padding:12,background:'var(--vx-bg-2)'}},
+        h('div',{style:{display:'flex',alignItems:'center',gap:10}}, this.pmark(m.prov,30), h('div',{style:{flex:1,minWidth:0}}, h('div',{style:{fontWeight:600,fontSize:13}},m.name), h('div',{style:{fontFamily:'var(--vx-font-mono)',fontSize:10,color:'var(--vx-ink-4)'}}, this.provName(m.prov)+' \u00b7 '+m.ctx+' ctx'))),
+        chips.length?h('div',{style:{display:'flex',gap:6,marginTop:11,flexWrap:'wrap'}}, chips.map(ch=>h('span',{key:ch[1],style:{display:'inline-flex',alignItems:'center',gap:5,fontSize:10.5,fontFamily:'var(--vx-font-mono)',color:'var(--vx-ink-3)',background:'var(--vx-panel)',border:'1px solid var(--vx-line-2)',borderRadius:20,padding:'3px 8px'}}, h(V.Icon,{name:ch[0],size:11}), ch[1]))):null,
+        h('div',{style:{display:'flex',justifyContent:'space-between',marginTop:11,fontFamily:'var(--vx-font-mono)',fontSize:10.5,color:'var(--vx-ink-3)'}}, h('span',null,'in $'+m.in+' /M'), h('span',null,'out $'+m.out+' /M'))),
+      (c.temperature||c.top_p||c.freq_penalty||c.effort||c.thinking)?sec(m.reasoning?'Reasoning':'Sampling'):null,
+      (m.reasoning&&c.effort)?h('div',{style:{marginBottom:15}}, h('div',{style:{fontSize:12,fontWeight:600,color:'var(--vx-ink-2)',marginBottom:8}},'Reasoning effort'), this.segRadio(c.effort.opts.map(o=>o[0].toUpperCase()+o.slice(1)), p.effort[0].toUpperCase()+p.effort.slice(1), v=>this.pgSetParam(alias,'effort',v.toLowerCase()))):null,
+      c.temperature?this.pgSlider(alias,'temperature',c.temperature,'Temperature',v=>Number(v).toFixed(2)):null,
+      c.top_p?this.pgSlider(alias,'top_p',c.top_p,'Top-p',v=>Number(v).toFixed(2)):null,
+      c.freq_penalty?this.pgSlider(alias,'freq_penalty',c.freq_penalty,'Frequency penalty',v=>Number(v).toFixed(1)):null,
+      c.thinking?h('div',{style:{marginBottom:15}}, h('div',{style:{fontSize:12,fontWeight:600,color:'var(--vx-ink-2)',marginBottom:8}},'Thinking budget'), this.segRadio(c.thinking.budgets, p.thinking, v=>this.pgSetParam(alias,'thinking',v))):null,
+      sec('Output'),
+      c.max_tokens?this.pgSlider(alias,'max_tokens',c.max_tokens,'Max output tokens',v=>Math.round(v).toLocaleString()):null,
+      sec('Tools & grounding'),
+      this.pgToolRow('kb','database','Knowledge base','Hybrid BM25 + vector retrieval',c.tools),
+      this.pgToolRow('web','globe','Web search','Live public web results',c.tools),
+      sec('System prompt'),
+      h('textarea',{value:pg.system,placeholder:'Optional \u2014 set role, tone or constraints\u2026',onChange:e=>this.setState(s=>({pg:{...s.pg,system:e.target.value}})),style:{width:'100%',minHeight:78,resize:'vertical',border:'1px solid var(--vx-line-2)',borderRadius:'var(--vx-radius-sm)',background:'var(--vx-bg-2)',color:'var(--vx-ink)',fontFamily:'var(--vx-font-sans)',fontSize:12.5,lineHeight:1.5,padding:'8px 10px',outline:'none'}}),
+      h('div',{style:{marginTop:16}}, this.warnbar('info','Parameters mirror each provider\u2019s native API. This prototype routes to a live model and presents it as the selected one.')));
+  }
+  pgEmpty(side){ const h=React.createElement,V=window.Vortex_469485, m=this.pgModel(side==='A'?this.state.pg.modelA:this.state.pg.modelB);
+    const ex=['Summarize our Q1 support ticket trends and flag the top drivers','Draft a crisp release note for v1 of the gateway','Explain hybrid BM25 + vector + rerank retrieval simply'];
+    return h('div',{style:{textAlign:'center',maxWidth:420}},
+      h('div',{style:{display:'grid',placeItems:'center',marginBottom:14}}, h(V.PrismLogo,{state:'idle',size:44})),
+      h('div',{style:{fontFamily:'var(--vx-font-display)',fontSize:17,marginBottom:6}},'Chat with '+m.name),
+      h('div',{style:{fontSize:12.5,color:'var(--vx-ink-3)',marginBottom:18}},'Pick a model, tune the parameters, and send a prompt. Nothing here is saved.'),
+      h('div',{style:{display:'flex',flexDirection:'column',gap:8}}, ex.map((e,i)=>h('button',{key:i,onClick:()=>this.setState(s=>({pg:{...s.pg,input:e}})),style:{textAlign:'left',border:'1px solid var(--vx-line-2)',background:'var(--vx-panel)',borderRadius:'var(--vx-radius-sm)',padding:'10px 12px',fontSize:12.5,color:'var(--vx-ink-2)',cursor:'pointer'}},e))));
+  }
+  pgMsg(m,side){ const h=React.createElement,V=window.Vortex_469485;
+    const pill=t=>h('span',{style:{fontFamily:'var(--vx-font-mono)',fontSize:9,padding:'1px 6px',borderRadius:20,background:'rgba(var(--vx-violet-rgb),.16)',color:'var(--vx-accent)',letterSpacing:'.03em'}},t);
+    if(m.role==='user') return h('div',{className:'vx-pg-fade',style:{display:'flex',gap:11}},
+      h(V.Avatar,{name:this.me().name,size:26}),
+      h('div',{style:{flex:1,minWidth:0}}, h('div',{style:{fontSize:11,fontWeight:700,color:'var(--vx-ink-3)',marginBottom:5}},'You'),
+        h('div',{style:{fontSize:13.5,lineHeight:1.6,whiteSpace:'pre-wrap',wordBreak:'break-word',color:'var(--vx-ink)'}}, m.content)));
+    const mm=this.pgModel(m.model), pstate=m.error?'error':(m.thinking?'thinking':(m.streaming?'streaming':(m.content?'idle':'loading')));
+    return h('div',{className:'vx-pg-fade',style:{display:'flex',gap:11}},
+      h('span',{style:{width:26,height:26,flexShrink:0,display:'grid',placeItems:'center'}}, h(V.PrismLogo,{state:pstate,size:22})),
+      h('div',{style:{flex:1,minWidth:0}},
+        h('div',{style:{display:'flex',alignItems:'center',gap:7,marginBottom:6,flexWrap:'wrap'}}, this.pmark(mm.prov,14), h('span',{style:{fontSize:11,fontWeight:700,color:'var(--vx-ink-3)'}},mm.name), m.reasoning?pill('effort: '+m.reasoning):null, m.budget?pill('thinking '+m.budget):null),
+        (m.tools&&m.tools.length)?h('div',{style:{display:'flex',flexDirection:'column',gap:6,marginBottom:9}}, m.tools.map((t,i)=>h('div',{key:i,style:{display:'inline-flex',alignItems:'center',gap:7,alignSelf:'flex-start',maxWidth:'100%',padding:'5px 10px',borderRadius:8,background:t.tool==='web'?'rgba(var(--vx-blue-rgb),.12)':'rgba(var(--vx-violet-rgb),.12)',color:t.tool==='web'?'var(--vx-blue)':'var(--vx-accent)',fontSize:11.5,fontFamily:'var(--vx-font-mono)'}}, h(V.Icon,{name:t.tool==='web'?'globe':'database',size:13}), h('span',null,t.tool==='web'?'web.search':'knowledge_base.search'), t.q?h('span',{style:{opacity:.7,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},'\u00b7 \u201c'+t.q+'\u201d'):null))):null,
+        (m.thinking&&!m.content)?h('div',{style:{display:'flex',alignItems:'center',gap:9,color:'var(--vx-ink-4)',fontSize:12,fontFamily:'var(--vx-font-mono)'}}, h(V.ThinkingDots,null), h('span',null,(m.tools&&m.tools.length)?'reading results\u2026':(m.reasoning?'reasoning\u2026':'thinking\u2026'))):null,
+        m.content?h('div',{style:{fontSize:13.5,lineHeight:1.68,whiteSpace:'pre-wrap',wordBreak:'break-word',color:m.error?'var(--vx-err)':'var(--vx-ink)'}}, (m.streaming&&window.__PgStream)?h(window.__PgStream,{key:'s'+m.id,text:m.content,t0:m.revealT0,dur:m.revealDur,onDone:()=>this.pgStreamDone(side,m.id)}):m.content):null,
+        (m.done&&!m.error)?h('div',{style:{display:'flex',alignItems:'center',gap:9,marginTop:10,fontFamily:'var(--vx-font-mono)',fontSize:10,color:'var(--vx-ink-4)'}}, h('span',null,(m.tokIn||0).toLocaleString()+' in'), h('span',null,'\u00b7'), h('span',null,(m.tokOut||0).toLocaleString()+' out'), h('span',null,'\u00b7'), h('span',{style:{color:'var(--vx-ink-3)'}},this.pgFmtCost(m.cost)), m.ms?h('span',null,'\u00b7'):null, m.ms?h('span',null,(m.ms/1000).toFixed(1)+'s'):null, h('div',{style:{flex:1}}), h('button',{title:'Copy',onClick:()=>this.copy(m.content),style:{border:'none',background:'transparent',color:'var(--vx-ink-4)',cursor:'pointer',display:'flex',alignItems:'center',gap:4}}, h(V.Icon,{name:'copy',size:12}))):null));
+  }
+  pgThread(side){ const h=React.createElement,pg=this.state.pg, msgs=pg.msgs[side];
+    if(!msgs.length) return h('div',{style:{flex:1,overflowY:'auto',display:'grid',placeItems:'center',padding:24}}, this.pgEmpty(side));
+    return h('div',{id:'pgscroll-'+side,style:{flex:1,overflowY:'auto',padding:pg.compare?'18px 16px':'22px'}},
+      h('div',{style:{maxWidth:pg.compare?'100%':760,margin:'0 auto',display:'flex',flexDirection:'column',gap:20}}, msgs.map(m=>h('div',{key:m.id}, this.pgMsg(m,side)))));
+  }
+  pgColumn(side,border){ const h=React.createElement,pg=this.state.pg;
+    return h('div',{style:{display:'flex',flexDirection:'column',minWidth:0,minHeight:0,flex:1,borderLeft:border?'1px solid var(--vx-line)':'none'}},
+      h('div',{style:{display:'flex',alignItems:'center',gap:9,padding:'9px 16px',borderBottom:'1px solid var(--vx-line)',flexShrink:0,background:'var(--vx-panel)'}},
+        pg.compare?h('span',{style:{fontFamily:'var(--vx-font-mono)',fontSize:9,fontWeight:700,letterSpacing:'.1em',color:'var(--vx-ink-4)',width:12}}, side):null,
+        this.pgPicker(side)),
+      this.pgThread(side));
+  }
+  pgComposer(){ const h=React.createElement,V=window.Vortex_469485,pg=this.state.pg;
+    const inTok=this.estTokens(pg.input), mA=this.pgModel(pg.modelA), mB=this.pgModel(pg.modelB);
+    const estCost=inTok/1e6*mA.in+(pg.compare?inTok/1e6*mB.in:0), busy=pg.busy.A||pg.busy.B;
+    const activeTools=[]; if(pg.tools.kb) activeTools.push(['database','Knowledge base']); if(pg.tools.web) activeTools.push(['globe','Web search']);
+    return h('div',{style:{flexShrink:0,borderTop:'1px solid var(--vx-line)',padding:'12px 20px 16px',background:'var(--vx-panel)'}},
+      h('div',{style:{maxWidth:pg.compare?'100%':820,margin:'0 auto'}},
+        activeTools.length?h('div',{style:{display:'flex',gap:7,marginBottom:8}}, activeTools.map(t=>h('span',{key:t[1],style:{display:'inline-flex',alignItems:'center',gap:5,fontSize:10.5,fontFamily:'var(--vx-font-mono)',color:'var(--vx-accent)',background:'var(--vx-accent-soft)',borderRadius:20,padding:'3px 9px'}}, h(V.Icon,{name:t[0],size:11}), t[1]))):null,
+        h('div',{style:{display:'flex',alignItems:'flex-end',gap:10,border:'1px solid var(--vx-line-2)',borderRadius:'var(--vx-radius-lg)',background:'var(--vx-bg-2)',padding:'8px 10px 8px 14px'}},
+          h('textarea',{value:pg.input,rows:1,placeholder:'Message '+(pg.compare?'both models':mA.name)+'\u2026',onInput:e=>{ e.target.style.height='auto'; e.target.style.height=Math.min(e.target.scrollHeight,150)+'px'; },onChange:e=>this.setState(s=>({pg:{...s.pg,input:e.target.value}})),onKeyDown:e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); this.pgSend(); } },style:{flex:1,border:'none',outline:'none',background:'transparent',resize:'none',fontFamily:'var(--vx-font-sans)',fontSize:13.5,lineHeight:1.5,color:'var(--vx-ink)',maxHeight:150,padding:'6px 0'}}),
+          h(V.Button,{variant:'accent',disabled:busy||!pg.input.trim(),iconLeft:h(V.Icon,{name:'send',size:14}),onClick:()=>this.pgSend()}, busy?'Sending':'Send')),
+        h('div',{style:{display:'flex',alignItems:'center',gap:10,marginTop:8,fontSize:10.5,fontFamily:'var(--vx-font-mono)',color:'var(--vx-ink-4)'}}, h('span',null,'~'+inTok.toLocaleString()+' input tokens'), h('span',null,'\u00b7'), h('span',null,'est. '+this.pgFmtCost(estCost)+' in'+(pg.compare?' (both)':'')), h('div',{style:{flex:1}}), h('span',{style:{whiteSpace:'nowrap'}},'Enter to send \u00b7 Shift+Enter for newline'))));
+  }
+  scrPlayground(){ const h=React.createElement,V=window.Vortex_469485,pg=this.state.pg;
+    this.pgEnsureStream();
+    const bar=h('div',{style:{display:'flex',alignItems:'center',gap:14,padding:'12px 20px',borderBottom:'1px solid var(--vx-line)',flexShrink:0,background:'var(--vx-panel)'}},
+      h(V.Icon,{name:'sparkle',size:17,style:{color:'var(--vx-accent)'}}),
+      h('div',null, h('div',{style:{fontWeight:600,fontSize:14,fontFamily:'var(--vx-font-display)'}},'Playground'), h('div',{style:{fontSize:11,color:'var(--vx-ink-4)'}},'Try any model \u00b7 nothing is saved')),
+      h('div',{style:{flex:1}}),
+      (pg.msgs.A.length||pg.msgs.B.length)?h(V.Button,{size:'sm',variant:'ghost',iconLeft:h(V.Icon,{name:'x',size:13}),onClick:()=>this.pgClear()},'Clear'):null,
+      h('label',{style:{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:12,fontWeight:600,color:'var(--vx-ink-2)'}}, h(V.Icon,{name:'library',size:14,style:{color:'var(--vx-ink-3)'}}), h('span',null,'Compare'), h(V.Switch,{checked:pg.compare,onChange:()=>this.pgSetCompare(!pg.compare)})));
+    const threads=pg.compare
+      ? h('div',{style:{flex:1,display:'flex',minHeight:0}}, this.pgColumn('A'), this.pgColumn('B',true))
+      : h('div',{style:{flex:1,minHeight:0,display:'flex',flexDirection:'column'}}, this.pgColumn('A'));
+    const left=h('div',{style:{display:'flex',flexDirection:'column',minWidth:0,flex:1,height:'100%',minHeight:0}}, bar, threads, this.pgComposer());
+    return h('div',{style:{display:'flex',height:'100%',minHeight:0}}, left, this.pgRail());
   }
 
   scrMyProfile(){

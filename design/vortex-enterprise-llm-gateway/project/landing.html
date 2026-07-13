@@ -29,6 +29,7 @@
   --vx-line:#161628; --vx-line-2:#1e1e35; --vx-line-3:#2a2a3e;
   --vx-ink:#e8e4ff; --vx-ink-2:#b8b4d8; --vx-ink-3:#8b93a7; --vx-ink-4:#4d5262;
   --vx-accent:var(--vx-violet); --vx-accent-soft:rgba(167,139,250,0.14);
+  --vx-hl:rgba(167,139,250,0.08);
   --vx-grid:rgba(255,255,255,0.03);
 
   /* type */
@@ -63,6 +64,8 @@ a { color:inherit; text-decoration:none; }
 /* --- background layers: atmosphere + masked grid --- */
 .vx-atmosphere {
   position:fixed; inset:0; z-index:0; pointer-events:none;
+  will-change:transform,opacity;
+  animation:vxBreathe 16s ease-in-out infinite;
   background:
     radial-gradient(ellipse 900px 700px at 8% -5%, rgba(var(--vx-pink-rgb),0.10), transparent 60%),
     radial-gradient(ellipse 800px 700px at 100% 6%, rgba(var(--vx-blue-rgb),0.09), transparent 60%),
@@ -74,6 +77,7 @@ a { color:inherit; text-decoration:none; }
     linear-gradient(to right, var(--vx-grid) 1px, transparent 1px),
     linear-gradient(to bottom, var(--vx-grid) 1px, transparent 1px);
   background-size:64px 64px;
+  animation:vxDrift 42s linear infinite;
   -webkit-mask-image:radial-gradient(ellipse 90% 70% at 50% 30%, #000 55%, transparent 100%);
   mask-image:radial-gradient(ellipse 90% 70% at 50% 30%, #000 55%, transparent 100%);
 }
@@ -82,18 +86,30 @@ a { color:inherit; text-decoration:none; }
 
 /* --- shared type helpers --- */
 .eyebrow {
-  display:inline-flex; align-items:center; gap:10px;
-  font-family:var(--vx-font-mono); font-size:11px; font-weight:500;
-  text-transform:uppercase; letter-spacing:0.14em; color:var(--vx-ink-3);
+  display:inline-flex; align-items:center; gap:7px;
+  font-family:var(--vx-font-mono); font-size:9.5px; font-weight:500;
+  text-transform:uppercase; letter-spacing:0.12em; color:var(--vx-ink-2); white-space:nowrap;
+  padding:4px 10px; border:1px solid transparent; border-radius:var(--vx-radius-pill);
+  background:linear-gradient(var(--vx-bg-3),var(--vx-bg-3)) padding-box,
+             linear-gradient(90deg,rgba(var(--vx-pink-rgb),.55),rgba(var(--vx-violet-rgb),.55),rgba(var(--vx-blue-rgb),.55)) border-box;
 }
-.eyebrow .tick { width:22px; height:1px; background:var(--vx-accent); }
+.eyebrow .tick { width:5px; height:5px; border-radius:50%; background:var(--vx-accent); box-shadow:0 0 7px rgba(var(--vx-violet-rgb),.8); animation:vxDotPulse 2.6s ease-in-out infinite; }
 .h-display {
   font-family:var(--vx-font-display); font-weight:700;
   letter-spacing:-0.035em; line-height:1.02; margin:0;
 }
 .grad-text {
-  background:var(--vx-grad); -webkit-background-clip:text; background-clip:text; color:transparent;
+  background:linear-gradient(90deg,#f472b6,#a78bfa,#60a5fa,#a78bfa,#f472b6);
+  background-size:220% 100%;
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+  animation:vxGradFlow 9s linear infinite;
 }
+@keyframes vxGradFlow { to { background-position:220% 0; } }
+@keyframes vxBreathe { 0%,100%{opacity:.82; transform:scale(1);} 50%{opacity:1; transform:scale(1.05);} }
+@keyframes vxDrift { to { background-position:64px 64px; } }
+@keyframes vxGlowPulse { 0%,100%{opacity:.7; transform:translate(-50%,-50%) scale(1);} 50%{opacity:1; transform:translate(-50%,-50%) scale(1.08);} }
+@keyframes vxDotPulse { 0%,100%{opacity:1;} 50%{opacity:.5;} }
+@keyframes vxFloat { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-9px);} }
 .lede { color:var(--vx-ink-2); font-size:17px; line-height:1.6; }
 
 /* --- buttons --- */
@@ -109,22 +125,85 @@ a { color:inherit; text-decoration:none; }
 .btn-lg { height:48px; padding:0 24px; font-size:15px; }
 /* gradient — the brand glow moment (hero + CTAs only) */
 .btn-gradient {
-  color:#0b0b16; background:var(--vx-grad-br);
+  color:#0b0b16;
+  position:relative; overflow:hidden;
+  background:linear-gradient(120deg,#f472b6,#a78bfa,#60a5fa,#a78bfa,#f472b6);
+  background-size:220% 100%;
   box-shadow:0 0 0 1px rgba(var(--vx-violet-rgb),0.4), var(--vx-glow-violet);
+  animation:vxGradFlow 9s linear infinite, vxBtnGlow 3.4s ease-in-out infinite;
+}
+.btn-gradient::after {
+  content:""; position:absolute; top:0; bottom:0; left:-70%; width:44%;
+  background:linear-gradient(105deg, transparent, rgba(255,255,255,.5), transparent);
+  transform:skewX(-18deg); pointer-events:none;
+  animation:vxShine 3.4s ease-in-out infinite;
+}
+@keyframes vxShine { 0%,55%{left:-70%;} 100%{left:150%;} }
+@keyframes vxBtnGlow {
+  0%,100%{box-shadow:0 0 0 1px rgba(var(--vx-violet-rgb),0.4), 0 0 18px -6px rgba(var(--vx-violet-rgb),0.45);}
+  50%{box-shadow:0 0 0 1px rgba(var(--vx-violet-rgb),0.65), 0 0 34px -4px rgba(var(--vx-violet-rgb),0.75);}
 }
 .btn-gradient:hover { transform:translateY(-1px); box-shadow:0 0 0 1px rgba(var(--vx-violet-rgb),0.6), 0 0 32px -2px rgba(var(--vx-violet-rgb),0.6); filter:brightness(1.06); }
 /* solid line button */
 .btn-line { color:var(--vx-ink); background:var(--vx-panel); border-color:var(--vx-line-2); }
+/* quiet text link (secondary action) */
+.link-quiet { display:inline-flex; align-items:center; gap:7px; height:48px; padding:0 10px; font-size:14.5px; font-weight:500; color:var(--vx-ink-3); transition:color var(--vx-dur) var(--vx-ease); }
+.link-quiet:hover { color:var(--vx-ink); }
+.link-quiet svg { transition:transform var(--vx-dur) var(--vx-ease); }
+.link-quiet:hover svg { transform:translateX(3px); }
 .btn-line:hover { background:var(--vx-panel-2); border-color:var(--vx-line-3); }
 /* ghost */
 .btn-ghost { color:var(--vx-ink-2); background:transparent; }
 .btn-ghost:hover { color:var(--vx-ink); background:var(--vx-panel); }
 
 /* --- Prism animation (from PrismLogo, idle sway + core pulse) --- */
+.vx-prism { display:inline-block; animation:vxFloat 6s ease-in-out infinite; }
 .vx-prism-box { transform-origin:40px 40px; animation:vxPrismSway 5s ease-in-out infinite; }
 .vx-prism-core { animation:vxPrismCore 3.4s ease-in-out infinite; }
 @keyframes vxPrismSway { 0%,100%{transform:rotate(-5deg);} 50%{transform:rotate(5deg);} }
 @keyframes vxPrismCore { 0%,100%{r:4; filter:drop-shadow(0 0 3px #a78bfa);} 50%{r:7; filter:drop-shadow(0 0 10px #a78bfa);} }
+
+/* --- cosmic starfield --- */
+.vx-stars { position:fixed; inset:0; z-index:0; pointer-events:none; }
+.vx-stars i { position:absolute; top:0; left:0; width:2px; height:2px; border-radius:50%;
+  box-shadow:8vw 12vh rgba(232,228,255,.7), 22vw 6vh rgba(167,139,250,.6), 35vw 18vh rgba(232,228,255,.4), 48vw 9vh rgba(96,165,250,.55), 61vw 15vh rgba(232,228,255,.65), 74vw 5vh rgba(244,114,182,.45), 88vw 13vh rgba(232,228,255,.5), 15vw 28vh rgba(232,228,255,.35), 55vw 30vh rgba(167,139,250,.4), 80vw 26vh rgba(232,228,255,.45), 30vw 42vh rgba(232,228,255,.3), 68vw 48vh rgba(96,165,250,.35), 10vw 60vh rgba(232,228,255,.3), 90vw 55vh rgba(232,228,255,.35), 42vw 70vh rgba(167,139,250,.3), 25vw 82vh rgba(232,228,255,.28), 72vw 78vh rgba(232,228,255,.3), 55vw 90vh rgba(96,165,250,.28);
+  animation:vxTwinkle 4.6s ease-in-out infinite; }
+.vx-stars i + i { transform:translate(4vw,3vh) scale(.75); animation-duration:6.4s; animation-delay:1.8s; }
+@keyframes vxTwinkle { 0%,100%{opacity:.85;} 50%{opacity:.22;} }
+
+/* --- orbiting comet border (cosmic border beam) --- */
+.vx-orbit { position:absolute; inset:0; border-radius:inherit; padding:1px; pointer-events:none; z-index:3;
+  -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite:xor;
+  mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite:exclude; }
+.vx-orbit::before { content:""; position:absolute; left:50%; top:50%; width:250%; aspect-ratio:1;
+  background:conic-gradient(transparent 0deg 316deg, rgba(var(--vx-pink-rgb),0) 320deg, rgba(var(--vx-pink-rgb),.9) 336deg, #a78bfa 349deg, rgba(var(--vx-blue-rgb),.95) 357deg, transparent 360deg);
+  animation:vxOrbitSpin 8s linear infinite; }
+@keyframes vxOrbitSpin { from{transform:translate(-50%,-50%) rotate(0deg);} to{transform:translate(-50%,-50%) rotate(360deg);} }
+
+/* --- code showcase (tabbed) --- */
+.code-showcase { position:relative; margin-top:44px; background:var(--vx-panel); border:1px solid var(--vx-line-2); border-radius:var(--vx-radius-lg); overflow:hidden; box-shadow:0 0 70px -34px rgba(var(--vx-violet-rgb),.55); }
+.cs-head { display:flex; align-items:center; gap:12px; padding:10px 16px; border-bottom:1px solid var(--vx-line); flex-wrap:wrap; }
+.cs-dots { display:flex; gap:6px; }
+.cs-dots i { width:10px; height:10px; border-radius:50%; }
+.cs-dots i:nth-child(1) { background:rgba(242,85,90,.7); }
+.cs-dots i:nth-child(2) { background:rgba(245,181,68,.7); }
+.cs-dots i:nth-child(3) { background:rgba(34,197,94,.7); }
+.cs-tabs { display:flex; gap:4px; margin-left:8px; }
+.cs-tab { font-family:var(--vx-font-mono); font-size:12px; color:var(--vx-ink-3); background:transparent; border:1px solid transparent; border-radius:var(--vx-radius-sm); padding:5px 11px; cursor:pointer; transition:color var(--vx-dur) var(--vx-ease), background var(--vx-dur) var(--vx-ease); }
+.cs-tab:hover { color:var(--vx-ink); }
+.cs-tab.on { color:var(--vx-ink); background:var(--vx-bg-3); border-color:var(--vx-line-2); }
+.cs-live { margin-left:auto; }
+.cs-copy { font-family:var(--vx-font-mono); font-size:11.5px; color:var(--vx-ink-2); background:var(--vx-bg-3); border:1px solid var(--vx-line-2); border-radius:var(--vx-radius-sm); padding:5px 12px; cursor:pointer; transition:color var(--vx-dur) var(--vx-ease), border-color var(--vx-dur) var(--vx-ease); }
+.cs-copy:hover { color:var(--vx-ink); border-color:var(--vx-line-3); }
+.cs-body { padding:20px 22px; min-height:238px; }
+.cs-pane { display:none; }
+.cs-pane.on { display:block; animation:vxPaneIn .25s var(--vx-ease); }
+@keyframes vxPaneIn { from{opacity:0; transform:translateY(5px);} to{opacity:1; transform:none;} }
+.hl-line { display:block; background:rgba(var(--vx-violet-rgb),.10); border-left:2px solid var(--vx-accent); margin:0 -22px; padding:0 22px 0 20px; }
+
+/* --- hero CTA reassurance --- */
+.cta-notes { display:flex; gap:20px; justify-content:center; flex-wrap:wrap; margin-top:16px; font-family:var(--vx-font-mono); font-size:11px; color:var(--vx-ink-3); letter-spacing:.04em; }
+.cta-notes span::before { content:"✦"; color:var(--vx-violet); margin-right:7px; font-size:10px; }
 
 /* --- entrance reveal --- */
 .reveal { opacity:0; transform:translateY(14px); transition:opacity .6s var(--vx-ease), transform .6s var(--vx-ease); }
@@ -166,7 +245,7 @@ section { position:relative; }
   background:var(--vx-panel); border:1px solid var(--vx-line-2);
   border-radius:var(--vx-radius-pill); padding:8px 15px;
 }
-.chip .dot { width:6px; height:6px; border-radius:50%; background:var(--vx-accent); box-shadow:0 0 8px rgba(var(--vx-violet-rgb),0.7); }
+.chip .dot { width:6px; height:6px; border-radius:50%; background:var(--vx-accent); box-shadow:0 0 8px rgba(var(--vx-violet-rgb),0.7); animation:vxDotPulse 2.6s ease-in-out infinite; }
 .chip b { color:var(--vx-ink); font-weight:600; }
 
 /* --- code block --- */
@@ -261,7 +340,7 @@ pre { margin:0; font-family:var(--vx-font-mono); font-size:13px; line-height:1.9
 /* --- final CTA --- */
 .cta-band { text-align:center; padding:130px 0 140px; position:relative; }
 .cta-band .glow { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:900px; height:520px; pointer-events:none;
-  background:radial-gradient(ellipse at center, rgba(var(--vx-violet-rgb),0.18), transparent 62%); }
+  background:radial-gradient(ellipse at center, rgba(var(--vx-violet-rgb),0.18), transparent 62%); animation:vxGlowPulse 7s ease-in-out infinite; }
 .cta-band h2 { font-size:60px; position:relative; }
 .cta-band .btn { margin-top:36px; position:relative; }
 
@@ -273,6 +352,245 @@ footer { border-top:1px solid var(--vx-line); background:var(--vx-bg-2); padding
 .foot-col a { display:block; color:var(--vx-ink-2); font-size:14px; padding:5px 0; transition:color var(--vx-dur) var(--vx-ease); }
 .foot-col a:hover { color:var(--vx-ink); }
 .foot-bottom { display:flex; align-items:center; justify-content:space-between; margin-top:56px; padding-top:26px; border-top:1px solid var(--vx-line); font-size:13px; color:var(--vx-ink-3); font-family:var(--vx-font-mono); }
+
+/* ============================================================
+   CATALOG — Models & Providers (interactive)
+   ============================================================ */
+.cat-tabs { display:flex; gap:4px; margin-top:36px; border:1px solid var(--vx-line-2); background:var(--vx-panel); border-radius:var(--vx-radius); padding:4px; width:max-content; }
+.cat-tab { font-family:var(--vx-font-mono); font-size:12px; letter-spacing:0.06em; text-transform:uppercase; color:var(--vx-ink-3); background:transparent; border:0; padding:8px 18px; border-radius:var(--vx-radius-sm); cursor:pointer; transition:color var(--vx-dur) var(--vx-ease), background var(--vx-dur) var(--vx-ease); }
+.cat-tab:hover { color:var(--vx-ink); }
+.cat-tab.active { color:var(--vx-ink); background:var(--vx-elev); box-shadow:inset 0 0 0 1px var(--vx-line-3); }
+
+/* filter bar */
+.filters { margin-top:24px; border:1px solid var(--vx-line-2); border-radius:var(--vx-radius-lg); background:var(--vx-panel); padding:18px 20px; display:flex; flex-direction:column; gap:16px; }
+.filters-row { display:flex; flex-wrap:wrap; gap:14px 22px; align-items:center; }
+.f-search { flex:1 1 260px; display:flex; align-items:center; gap:10px; background:var(--vx-bg-3); border:1px solid var(--vx-line-2); border-radius:var(--vx-radius-sm); padding:0 12px; height:40px; }
+.f-search:focus-within { border-color:var(--vx-accent); box-shadow:0 0 0 3px rgba(var(--vx-violet-rgb),0.18); }
+.f-search input { flex:1; background:transparent; border:0; outline:0; color:var(--vx-ink); font-family:var(--vx-font-sans); font-size:14px; }
+.f-search input::placeholder { color:var(--vx-ink-4); }
+.f-search svg { width:15px; height:15px; color:var(--vx-ink-3); flex:none; }
+.f-group { display:flex; flex-direction:column; gap:7px; }
+.f-label { font-family:var(--vx-font-mono); font-size:10.5px; text-transform:uppercase; letter-spacing:0.1em; color:var(--vx-ink-4); }
+.f-chips { display:flex; flex-wrap:wrap; gap:6px; }
+.fchip { font-family:var(--vx-font-mono); font-size:11.5px; color:var(--vx-ink-2); background:var(--vx-bg-3); border:1px solid var(--vx-line-2); border-radius:var(--vx-radius-pill); padding:5px 12px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:all var(--vx-dur) var(--vx-ease); white-space:nowrap; }
+.fchip:hover { border-color:var(--vx-line-3); color:var(--vx-ink); }
+.fchip svg { width:12px; height:12px; }
+.fchip.on { color:var(--vx-accent); background:var(--vx-accent-soft); border-color:rgba(var(--vx-violet-rgb),0.5); }
+.fchip .pdot { width:7px; height:7px; border-radius:50%; }
+.f-slider { display:flex; flex-direction:column; gap:6px; min-width:180px; }
+.f-slider .val { font-family:var(--vx-font-mono); font-size:11px; color:var(--vx-ink-2); }
+input[type=range] { -webkit-appearance:none; appearance:none; height:4px; border-radius:99px; background:var(--vx-line-3); outline:none; }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:15px; height:15px; border-radius:50%; background:var(--vx-violet); cursor:pointer; box-shadow:0 0 8px rgba(var(--vx-violet-rgb),0.6); }
+input[type=range]::-moz-range-thumb { width:15px; height:15px; border:0; border-radius:50%; background:var(--vx-violet); cursor:pointer; }
+.f-switch { display:inline-flex; align-items:center; gap:9px; cursor:pointer; font-size:13px; color:var(--vx-ink-2); }
+.f-switch .track { width:34px; height:19px; border-radius:99px; background:var(--vx-line-3); position:relative; transition:background var(--vx-dur) var(--vx-ease); flex:none; }
+.f-switch .track::after { content:""; position:absolute; top:2px; left:2px; width:15px; height:15px; border-radius:50%; background:#fff; transition:transform var(--vx-dur) var(--vx-ease); }
+.f-switch.on .track { background:var(--vx-violet); }
+.f-switch.on .track::after { transform:translateX(15px); }
+.filters-foot { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.f-count { font-family:var(--vx-font-mono); font-size:12px; color:var(--vx-ink-3); }
+.f-count b { color:var(--vx-ink); }
+.f-reset { font-family:var(--vx-font-mono); font-size:11.5px; color:var(--vx-ink-3); background:none; border:0; cursor:pointer; text-decoration:underline; text-underline-offset:3px; }
+.f-reset:hover { color:var(--vx-ink); }
+
+/* model grid + cards */
+.cat-grid { display:grid; grid-template-columns:repeat(3,1fr); grid-auto-rows:1fr; gap:16px; margin-top:22px; }
+.mcard { text-align:left; background:var(--vx-panel); border:1px solid var(--vx-line-2); border-radius:var(--vx-radius-lg); padding:20px; cursor:pointer; display:flex; flex-direction:column; gap:14px; transition:border-color var(--vx-dur) var(--vx-ease), transform var(--vx-dur) var(--vx-ease), background var(--vx-dur) var(--vx-ease); }
+.mcard:hover { border-color:var(--vx-line-3); transform:translateY(-2px); background:var(--vx-panel-2); }
+.mcard-top { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+.mcard-name { font-family:var(--vx-font-display); font-size:18px; font-weight:600; letter-spacing:-0.02em; line-height:1.15; }
+.modality { font-family:var(--vx-font-mono); font-size:10px; text-transform:uppercase; letter-spacing:0.08em; padding:3px 8px; border-radius:var(--vx-radius-pill); border:1px solid var(--vx-line-2); color:var(--vx-ink-3); white-space:nowrap; flex:none; }
+.modality.multimodal { color:var(--vx-violet); border-color:rgba(var(--vx-violet-rgb),0.4); background:rgba(var(--vx-violet-rgb),0.1); }
+.modality.text { color:var(--vx-blue); border-color:rgba(var(--vx-blue-rgb),0.4); background:rgba(var(--vx-blue-rgb),0.1); }
+.modality.embedding { color:var(--vx-good); border-color:rgba(34,197,94,0.4); background:rgba(34,197,94,0.1); }
+.caps { display:flex; flex-wrap:wrap; gap:5px; }
+.cap { display:inline-flex; align-items:center; gap:5px; font-family:var(--vx-font-mono); font-size:10.5px; color:var(--vx-ink-2); background:var(--vx-bg-3); border:1px solid var(--vx-line-2); border-radius:var(--vx-radius-sm); padding:3px 7px; }
+.cap svg { width:11px; height:11px; color:var(--vx-ink-3); }
+.mcard-dots { display:flex; align-items:center; gap:5px; }
+.mcard-dots .pdot { width:9px; height:9px; border-radius:50%; box-shadow:0 0 0 2px var(--vx-panel); }
+.mcard-dots .more { font-family:var(--vx-font-mono); font-size:10px; color:var(--vx-ink-3); margin-left:3px; }
+.mcard-foot { display:flex; align-items:flex-end; justify-content:space-between; gap:10px; margin-top:auto; padding-top:12px; border-top:1px solid var(--vx-line); }
+.mcard-price { font-family:var(--vx-font-mono); font-size:13px; color:var(--vx-ink); }
+.mcard-price small { display:block; font-size:10px; color:var(--vx-ink-4); letter-spacing:0.04em; text-transform:uppercase; margin-bottom:2px; }
+.mcard-ctx { font-family:var(--vx-font-mono); font-size:11px; color:var(--vx-ink-3); text-align:right; }
+.mcard-ctx b { display:block; color:var(--vx-ink-2); font-size:13px; }
+
+/* provider marks + grid */
+.pmark { flex:none; border-radius:7px; display:flex; align-items:center; justify-content:center; font-family:var(--vx-font-mono); font-weight:600; color:#fff; }
+.cat-prov-grid { display:grid; grid-template-columns:repeat(4,1fr); grid-auto-rows:1fr; gap:16px; margin-top:22px; }
+.pcard { height:100%; }
+.pcard { --pc:var(--vx-violet); text-align:left; display:flex; flex-direction:column; position:relative;
+  background:radial-gradient(130% 80% at 50% 0%, color-mix(in srgb, var(--pc) 11%, transparent), transparent 58%), var(--vx-panel);
+  border:1px solid var(--vx-line-2); border-radius:var(--vx-radius-lg); overflow:hidden; cursor:pointer;
+  transition:border-color var(--vx-dur) var(--vx-ease), transform var(--vx-dur) var(--vx-ease), box-shadow var(--vx-dur) var(--vx-ease); }
+.pcard:hover { border-color:color-mix(in srgb, var(--pc) 45%, var(--vx-line-3)); transform:translateY(-2px);
+  box-shadow:0 14px 44px -20px color-mix(in srgb, var(--pc) 55%, transparent); }
+.pcard-bar { height:2px; margin:0; flex:none; background:linear-gradient(90deg, transparent 3%, var(--pc) 50%, transparent 97%); opacity:.9; }
+.pcard-head .pmark { box-shadow:0 6px 22px -6px color-mix(in srgb, var(--pc) 60%, transparent); }
+.pcard-body { padding:16px 18px 18px; display:flex; flex-direction:column; gap:14px; flex:1; }
+.pcard-body .pcard-meta { margin-top:auto; }
+.pcard-head { display:flex; align-items:center; gap:12px; }
+.pcard-name { font-family:var(--vx-font-display); font-size:17px; font-weight:600; letter-spacing:-0.02em; }
+.pcard-fam { font-family:var(--vx-font-mono); font-size:10px; text-transform:uppercase; letter-spacing:0.08em; color:var(--vx-ink-4); margin-top:2px; }
+.pcard-meta { display:flex; align-items:center; justify-content:space-between; padding-top:12px; border-top:1px solid var(--vx-line); font-family:var(--vx-font-mono); font-size:11px; color:var(--vx-ink-3); }
+.pcard-meta b { color:var(--vx-ink); font-size:15px; }
+
+/* detail views */
+.cat-back { display:inline-flex; align-items:center; gap:7px; font-family:var(--vx-font-mono); font-size:12px; color:var(--vx-ink-3); background:none; border:0; cursor:pointer; margin-top:32px; padding:0; }
+.cat-back:hover { color:var(--vx-ink); }
+.cat-back svg { width:14px; height:14px; }
+.dhead { margin-top:20px; display:flex; align-items:flex-start; gap:20px; flex-wrap:wrap; }
+.dhead-main { flex:1 1 420px; }
+.dhead h2 { font-family:var(--vx-font-display); font-size:40px; font-weight:700; letter-spacing:-0.03em; margin:0; display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+.dhead p { color:var(--vx-ink-2); font-size:15.5px; margin:14px 0 0; max-width:620px; }
+.dmeta { display:flex; flex-wrap:wrap; gap:10px 22px; margin-top:20px; }
+.dmeta-item { display:flex; flex-direction:column; gap:3px; }
+.dmeta-item .k { font-family:var(--vx-font-mono); font-size:10px; text-transform:uppercase; letter-spacing:0.09em; color:var(--vx-ink-4); }
+.dmeta-item .v { font-family:var(--vx-font-mono); font-size:13px; color:var(--vx-ink); display:flex; align-items:center; gap:7px; }
+.dmeta-item .v svg { width:14px; height:14px; color:var(--vx-ink-3); }
+.ow-badge { font-family:var(--vx-font-mono); font-size:10.5px; text-transform:uppercase; letter-spacing:0.08em; color:var(--vx-good); background:rgba(34,197,94,0.12); border:1px solid rgba(34,197,94,0.4); border-radius:var(--vx-radius-pill); padding:4px 11px; }
+
+.table-scroll { margin-top:26px; border:1px solid var(--vx-line-2); border-radius:var(--vx-radius-lg); overflow-x:auto; background:var(--vx-panel); -webkit-overflow-scrolling:touch; }
+.htable { width:100%; min-width:960px; border-collapse:collapse; font-size:13px; }
+.htable thead th { font-family:var(--vx-font-mono); font-size:10.5px; text-transform:uppercase; letter-spacing:0.07em; color:var(--vx-ink-4); font-weight:500; text-align:left; padding:14px 16px; border-bottom:1px solid var(--vx-line-2); white-space:nowrap; background:var(--vx-bg-3); position:sticky; top:0; }
+.htable th.num, .htable td.num { text-align:right; font-variant-numeric:tabular-nums; }
+.htable tbody td { padding:15px 16px; border-bottom:1px solid var(--vx-line); vertical-align:middle; color:var(--vx-ink-2); }
+.htable tbody tr:last-child td { border-bottom:0; }
+.htable tbody tr:hover td { background:var(--vx-hl); }
+.htable .prov-cell { display:flex; align-items:center; gap:10px; white-space:nowrap; }
+.htable .prov-cell .pname { color:var(--vx-ink); font-weight:600; font-family:var(--vx-font-sans); font-size:13.5px; }
+.htable .mono { font-family:var(--vx-font-mono); color:var(--vx-ink-2); font-size:12px; }
+.htable .price { font-family:var(--vx-font-mono); color:var(--vx-ink); font-size:13px; }
+.htable .dim { color:var(--vx-ink-4); }
+.htable td.cheap { color:var(--vx-good); }
+.htable td.cheap .price { color:var(--vx-good); }
+.cheap-tag { display:inline-block; font-family:var(--vx-font-mono); font-size:9px; text-transform:uppercase; letter-spacing:0.06em; color:var(--vx-good); border:1px solid rgba(34,197,94,0.4); border-radius:var(--vx-radius-pill); padding:1px 6px; margin-left:7px; vertical-align:middle; }
+.htable .regions { display:flex; flex-wrap:wrap; gap:4px; }
+.htable .rg { font-family:var(--vx-font-mono); font-size:10px; text-transform:uppercase; color:var(--vx-ink-3); border:1px solid var(--vx-line-2); border-radius:var(--vx-radius-sm); padding:1px 6px; }
+.htable .caps { gap:4px; }
+.htable .cap { padding:2px 5px; }
+.cat-empty { margin-top:26px; padding:56px 20px; text-align:center; border:1px dashed var(--vx-line-3); border-radius:var(--vx-radius-lg); color:var(--vx-ink-3); font-family:var(--vx-font-mono); font-size:13px; }
+
+@media (max-width:960px) {
+  .cat-grid { grid-template-columns:repeat(2,1fr); }
+  .cat-prov-grid { grid-template-columns:repeat(2,1fr); }
+  .dhead h2 { font-size:30px; }
+}
+@media (max-width:560px) {
+  .cat-grid, .cat-prov-grid { grid-template-columns:1fr; }
+}
+
+/* teaser card on the landing base (compact band + provider marquee) */
+.ct2 { margin-top:30px; position:relative; border:1px solid rgba(var(--vx-violet-rgb),.30); border-radius:var(--vx-radius-xl); background:var(--vx-panel); overflow:hidden; }
+.ct2-top { display:flex; align-items:center; gap:32px; padding:26px 30px; flex-wrap:wrap; }
+.ct2-title { font-family:var(--vx-font-display); font-size:26px; font-weight:700; letter-spacing:-.03em; line-height:1.15; margin:12px 0 0; }
+.ct2-stats { display:flex; gap:30px; margin-left:auto; }
+.ct2-stat b { font-family:var(--vx-font-display); font-size:30px; font-weight:700; letter-spacing:-.03em; line-height:1; display:block; background:var(--vx-grad); -webkit-background-clip:text; background-clip:text; color:transparent; }
+.ct2-stat span { font-family:var(--vx-font-mono); font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:var(--vx-ink-3); margin-top:6px; display:block; }
+.ct2-marquee { position:relative; border-top:1px solid var(--vx-line); background:var(--vx-bg-2); overflow:hidden; padding:13px 0;
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent); mask-image:linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent); }
+.ct2-track { display:flex; width:max-content; animation:vxMarquee 36s linear infinite; }
+.ct2-marquee:hover .ct2-track { animation-play-state:paused; }
+.ct2-half { display:flex; gap:10px; padding-right:10px; }
+.ct2-pill { display:inline-flex; align-items:center; gap:9px; padding:6px 14px 6px 7px; border:1px solid var(--vx-line-2); border-radius:var(--vx-radius-pill); background:var(--vx-panel); font-size:13px; color:var(--vx-ink-2); white-space:nowrap; }
+.ct2-pill .mk2 { width:24px; height:24px; border-radius:7px; display:grid; place-items:center; font-family:var(--vx-font-mono); font-weight:600; font-size:11.5px; }
+@keyframes vxMarquee { to { transform:translateX(-50%); } }
+.ct2-byok { padding:12px 30px 14px; border-top:1px solid var(--vx-line); font-size:13px; color:var(--vx-ink-3); }
+.ct2-byok b { color:var(--vx-ink-2); font-weight:600; }
+/* legacy teaser styles (kept for catalog pages) */
+.cat-teaser { margin-top:40px; display:grid; grid-template-columns:1.55fr 1fr; border:1px solid var(--vx-line-2); border-radius:var(--vx-radius-xl); overflow:hidden; background:var(--vx-panel); position:relative; }
+.cat-teaser::before { content:""; position:absolute; inset:0; padding:1px; border-radius:inherit; background:linear-gradient(135deg, rgba(var(--vx-pink-rgb),.5), rgba(var(--vx-violet-rgb),.5), rgba(var(--vx-blue-rgb),.5)); -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite:xor; mask-composite:exclude; pointer-events:none; opacity:.55; }
+.ct-main { padding:38px 40px; display:flex; flex-direction:column; gap:24px; }
+.ct-stats { display:flex; gap:40px; }
+.ct-stat b { font-family:var(--vx-font-display); font-size:42px; font-weight:700; letter-spacing:-.03em; line-height:1; display:block; background:var(--vx-grad); -webkit-background-clip:text; background-clip:text; color:transparent; }
+.ct-stat span { font-family:var(--vx-font-mono); font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--vx-ink-3); margin-top:9px; display:block; }
+.ct-copy { color:var(--vx-ink-2); font-size:15px; max-width:460px; margin:0; line-height:1.6; }
+.ct-main .btn { align-self:flex-start; }
+.ct-marks { background:var(--vx-bg-2); border-left:1px solid var(--vx-line); display:grid; grid-template-columns:repeat(3,1fr); gap:12px; padding:30px; align-content:center; }
+.ct-marks .mk { aspect-ratio:1; border-radius:11px; display:flex; align-items:center; justify-content:center; font-family:var(--vx-font-mono); font-weight:600; font-size:15px; color:#fff; opacity:.92; }
+
+/* ---- catalog full page ---- */
+#cat-page { position:relative; z-index:1; min-height:60vh; }
+.cp-head { position:sticky; top:64px; z-index:20; background:rgba(4,4,7,0.82); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border-bottom:1px solid var(--vx-line); }
+.cp-head-inner { max-width:1180px; margin:0 auto; padding:16px 32px; display:flex; flex-direction:column; gap:15px; }
+.cp-top { display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+.cp-title { display:flex; align-items:center; gap:11px; font-family:var(--vx-font-display); font-size:19px; font-weight:600; letter-spacing:-.02em; }
+.cp-close { margin-left:auto; }
+.cp-filters { display:flex; flex-wrap:wrap; gap:12px 18px; align-items:center; }
+.cp-filters .f-search { flex:1 1 240px; height:38px; }
+.cp-body { position:relative; z-index:1; max-width:1180px; margin:0 auto; padding:40px 32px 110px; }
+.cp-kicker { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0 0 18px; }
+.cp-kicker .eyebrow { margin:0; }
+.prov-nav { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px; }
+.prov-nav .fchip { cursor:pointer; }
+.prov-section { margin-top:44px; }
+.prov-section-head { display:flex; align-items:center; gap:14px; padding-bottom:14px; border-bottom:1px solid var(--vx-line-2); }
+.prov-section-head .pname { font-family:var(--vx-font-display); font-size:22px; font-weight:600; letter-spacing:-.02em; }
+.prov-section-head .pfam { font-family:var(--vx-font-mono); font-size:10.5px; text-transform:uppercase; letter-spacing:.08em; color:var(--vx-ink-4); margin-top:3px; }
+.prov-section-head .pcount { margin-left:auto; font-family:var(--vx-font-mono); font-size:12px; color:var(--vx-ink-3); }
+.htable a.mlink { color:var(--vx-ink); font-weight:600; font-family:var(--vx-font-sans); font-size:13.5px; cursor:pointer; border-bottom:1px solid transparent; transition:border-color var(--vx-dur) var(--vx-ease); }
+.htable a.mlink:hover { border-color:var(--vx-accent); }
+.mlink-mod { font-family:var(--vx-font-mono); font-size:9px; text-transform:uppercase; letter-spacing:.06em; color:var(--vx-ink-4); margin-left:8px; }
+
+/* ---- catalog page header (distinct from the navbar) ---- */
+.cp-hero { position:relative; padding:46px 0 34px; border-bottom:1px solid var(--vx-line); overflow:hidden; }
+.cp-hero .wrap { position:relative; z-index:1; }
+.cp-h1 { font-family:var(--vx-font-display); font-weight:700; font-size:52px; letter-spacing:-.035em; line-height:1.03; margin:16px 0 0; }
+.cp-lede { color:var(--vx-ink-2); font-size:17px; line-height:1.6; max-width:640px; margin:18px 0 0; }
+.cp-hero .cat-back { margin:0 0 6px; }
+.cp-hero-prov { border-bottom:1px solid var(--vx-line-2); }
+.cp-hero-prov::after { content:""; position:absolute; inset:0; pointer-events:none; background:radial-gradient(ellipse 560px 240px at 3% 0%, color-mix(in srgb, var(--pc) 20%, transparent), transparent 70%); }
+.prov-id { display:flex; align-items:center; gap:18px; margin-top:16px; }
+.prov-id .pmark { border-radius:13px; box-shadow:0 12px 32px -10px color-mix(in srgb, var(--pc) 65%, transparent); }
+.prov-id-name { margin:0; font-size:46px; }
+.prov-id-sub { font-family:var(--vx-font-mono); font-size:12.5px; color:var(--vx-ink-3); margin-top:9px; display:flex; align-items:center; gap:10px; }
+.prov-id-fam { color:var(--vx-ink-2); }
+.dotsep { color:var(--vx-ink-4); }
+.model-h1 { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+
+/* sticky filter bar under the navbar */
+.cp-filterbar { position:sticky; top:64px; z-index:20; background:rgba(4,4,7,0.85); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border-bottom:1px solid var(--vx-line); }
+.cp-filterbar-inner { display:flex; flex-wrap:wrap; gap:11px 16px; align-items:center; padding:14px 0; }
+.cp-filterbar .f-search { flex:1 1 220px; height:38px; }
+.fb-count { font-family:var(--vx-font-mono); font-size:12px; color:var(--vx-ink-3); margin-left:auto; }
+.fb-count b { color:var(--vx-ink); }
+/* --- filter bar groups + compact table density --- */
+.cp-filterbar-inner { flex-direction:column; align-items:stretch; gap:9px; }
+.cp-filterbar .cp-filterbar-inner { padding:12px 32px; }
+.fb-row { display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center; width:100%; }
+.fb-row .f-switch { margin-left:auto; }
+.fb-group { display:inline-flex; align-items:center; gap:6px; }
+.fb-lbl { font-family:var(--vx-font-mono); font-size:9.5px; text-transform:uppercase; letter-spacing:.1em; color:var(--vx-ink-4); margin-right:3px; }
+.fb-sep { width:1px; height:22px; background:var(--vx-line-2); }
+.cp-filterbar .fchip { padding:4px 10px; font-size:11px; }
+.table-scroll { margin-top:22px; }
+.htable { min-width:1120px; font-size:12.5px; }
+.htable thead th { padding:8px 12px; white-space:nowrap; }
+.htable tbody td { padding:8px 12px; white-space:nowrap; }
+.htable .caps { display:flex; flex-wrap:wrap; min-width:200px; white-space:normal; }
+.htable .regions { min-width:130px; white-space:normal; }
+.htable .prov-cell { gap:8px; }
+html[data-theme="light"] .cp-filterbar, html[data-theme="light"] .cp-head { background:rgba(247,247,251,0.87); }
+html[data-theme="light"] { --vx-hl:rgba(124,58,237,0.06); }
+.cp-kicker { margin:0 0 18px; }
+
+/* provider card chips + price */
+.pm-chips { display:flex; flex-wrap:wrap; gap:6px; }
+.pm-chip { font-family:var(--vx-font-mono); font-size:11px; white-space:nowrap; color:var(--vx-ink-2); background:var(--vx-bg-3); border:1px solid var(--vx-line-2); border-radius:var(--vx-radius-sm); padding:3px 8px; }
+.pm-chip.more { color:var(--vx-ink-3); }
+.pcard-meta .pm-from { color:var(--vx-ink); font-family:var(--vx-font-mono); }
+
+@media (max-width:900px) {
+  .cp-h1 { font-size:38px; }
+  .prov-id-name { font-size:34px; }
+  .cp-filterbar-inner { padding:12px 0; }
+}
+
+@media (max-width:900px) {
+  .cat-teaser { grid-template-columns:1fr; }
+  .ct-marks { border-left:0; border-top:1px solid var(--vx-line); grid-template-columns:repeat(6,1fr); }
+  .cp-head-inner, .cp-body { padding-left:20px; padding-right:20px; }
+}
 
 /* --- responsive --- */
 @media (max-width:900px) {
@@ -290,24 +608,38 @@ footer { border-top:1px solid var(--vx-line); background:var(--vx-bg-2); padding
   .plan-price { font-size:32px; }
 }
 @media (prefers-reduced-motion:reduce) {
-  .vx-prism-box, .vx-prism-core { animation:none !important; }
+  .vx-prism-box, .vx-prism-core, .vx-prism, .grad-text, .btn-gradient, .btn-gradient::after, .vx-atmosphere, .vx-grid, .cta-band .glow, .chip .dot, .eyebrow .tick, .ct2-track, .vx-orbit::before, .vx-stars i { animation:none !important; }
   .reveal { transition:none; opacity:1; transform:none; }
 }
+
+/* ============ LIGHT THEME (tweakable) ============ */
+html[data-theme="light"] {
+  --vx-bg:#f7f7fb; --vx-bg-2:#f0f0f6; --vx-bg-3:#e9e9f2;
+  --vx-panel:#ffffff; --vx-panel-2:#fbfbfe; --vx-elev:#ffffff;
+  --vx-line:#e4e4ef; --vx-line-2:#d6d6e4; --vx-line-3:#c4c4d6;
+  --vx-ink:#1a1830; --vx-ink-2:#4a4766; --vx-ink-3:#6b6885; --vx-ink-4:#a2a0b8;
+  --vx-accent:var(--vx-violet-deep); --vx-accent-soft:rgba(124,58,237,0.10);
+  --vx-grid:rgba(20,24,40,0.04);
+  --vx-shadow-lg:0 40px 80px -30px rgba(23,23,60,0.18);
+  color-scheme:light;
+}
+html[data-theme="light"] .vx-stars { display:none; }
+html[data-theme="light"] .vx-atmosphere { opacity:.45; }
+html[data-theme="light"] .nav { background:rgba(247,247,251,0.82); }
+html[data-theme="light"] .k-grn { color:#0a8f5e; }
+html[data-theme="light"] .k-vio { color:#6d28d9; }
+html[data-theme="light"] .k-red { color:#d43d44; }
+html[data-theme="light"] .cta-band .glow { opacity:.55; }
+html[data-theme="light"] .code-showcase { box-shadow:0 24px 60px -34px rgba(124,58,237,.35); }
 </style>
 </head>
 <body>
 
 <div class="vx-atmosphere"></div>
 <div class="vx-grid"></div>
+<div class="vx-stars" aria-hidden="true"><i></i><i></i></div>
 
 <div class="page">
-
-  <!-- ============ ANNOUNCE BAR ============ -->
-  <div class="announce">
-    <div class="announce-inner">
-      <b>Vortex is open for enterprise beta</b> — one endpoint, every provider, full governance. <span style="color:var(--vx-violet);">→</span>
-    </div>
-  </div>
 
   <!-- ============ NAV (maps to kouji-ui: BrandLockup + Button) ============ -->
   <nav class="nav">
@@ -325,9 +657,7 @@ footer { border-top:1px solid var(--vx-line); background:var(--vx-bg-2); padding
         <span class="wordmark">Vortex</span>
       </a>
       <div class="nav-links">
-        <a href="#product">Product</a>
-        <a href="#providers">Providers</a>
-        <a href="#governance">Governance</a>
+        <a href="#/catalog">Models</a>
         <a href="#pricing">Pricing</a>
         <a href="#">Docs</a>
       </div>
@@ -339,6 +669,9 @@ footer { border-top:1px solid var(--vx-line); background:var(--vx-bg-2); padding
   </nav>
 
   <span id="top"></span>
+
+  <!-- ============ HOME (marketing content — swaps with the catalog) ============ -->
+  <div id="home">
 
   <!-- ============ HERO ============ -->
   <section class="wrap" style="padding:104px 32px 84px; text-align:center;">
@@ -374,7 +707,15 @@ footer { border-top:1px solid var(--vx-line); background:var(--vx-bg-2); padding
 
     <div class="reveal in" style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
       <a class="btn btn-gradient btn-lg" href="#pricing">Start free</a>
-      <a class="btn btn-line btn-lg" href="#product">Read the docs</a>
+      <a class="link-quiet" href="#product">Read the docs
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </a>
+    </div>
+
+    <div class="cta-notes reveal in">
+      <span>BYOK — 0% markup</span>
+      <span>No credit card</span>
+      <span>Live in 30 seconds</span>
     </div>
 
     <!-- trust strip -->
@@ -394,69 +735,107 @@ footer { border-top:1px solid var(--vx-line); background:var(--vx-bg-2); padding
       <p class="lede">Point your base URL at Vortex. Claude Code, Codex, Cursor, and the OpenAI / Anthropic SDKs keep working — chat, messages, responses, embeddings. No rewrites, no proxy shims.</p>
     </div>
 
-    <div class="code-grid reveal">
-      <!-- before -->
-      <div class="code-card">
-        <div class="code-head">
-          <span class="code-label">Before</span>
-          <span class="code-tag muted">direct to provider</span>
+    <div class="code-showcase reveal">
+      <span class="vx-orbit" aria-hidden="true"></span>
+      <div class="cs-head">
+        <span class="cs-dots"><i></i><i></i><i></i></span>
+        <div class="cs-tabs">
+          <button class="cs-tab on" data-cs="env">.env</button>
+          <button class="cs-tab" data-cs="curl">cURL</button>
+          <button class="cs-tab" data-cs="ts">TypeScript</button>
+          <button class="cs-tab" data-cs="py">Python</button>
         </div>
-        <div class="code-body">
-<pre><span class="cmt"># .env — one provider, no governance</span>
-<span class="k-red">ANTHROPIC_BASE_URL</span>=<span class="k-dim">https://api.anthropic.com</span>
-<span class="k-red">ANTHROPIC_API_KEY</span>=<span class="k-dim">sk-ant-•••••</span>
-
-<span class="cmt"># every app carries its own key.</span>
-<span class="cmt"># no budgets. no audit. no attribution.</span></pre>
-        </div>
+        <span class="code-tag live cs-live">through Vortex</span>
+        <button class="cs-copy" id="cs-copy">Copy</button>
       </div>
-      <!-- after -->
-      <div class="code-card after">
-        <div class="code-head">
-          <span class="code-label">After</span>
-          <span class="code-tag live">through Vortex</span>
-        </div>
-        <div class="code-body">
-<pre><span class="cmt"># .env — same SDK, one endpoint</span>
-<span class="k-grn">ANTHROPIC_BASE_URL</span>=<span class="k-vio">https://gateway.vortex.ai</span>
+      <div class="code-body cs-body">
+<pre class="cs-pane on" data-cs="env"><span class="cmt"># .env — same SDK, one endpoint. change one line:</span>
+<span class="strike">ANTHROPIC_BASE_URL=https://api.anthropic.com</span>
+<span class="hl-line"><span class="k-grn">ANTHROPIC_BASE_URL</span>=<span class="k-vio">https://gateway.vortex.ai</span></span>
 <span class="k-grn">ANTHROPIC_API_KEY</span>=<span class="k-vio">vtx-live-•••••</span>
 
-<span class="cmt"># budgets, RBAC, and hash-chained</span>
-<span class="cmt"># audit apply automatically.</span></pre>
-        </div>
-      </div>
-    </div>
+<span class="cmt"># budgets, RBAC, and hash-chained audit</span>
+<span class="cmt"># apply automatically. nothing else changes.</span></pre>
+<pre class="cs-pane" data-cs="curl"><span class="cmt"># any OpenAI-compatible client works</span>
+curl <span class="k-vio">https://gateway.vortex.ai/v1/chat/completions</span> \
+  -H <span class="k-grn">"Authorization: Bearer $VORTEX_API_KEY"</span> \
+  -d <span class="k-grn">'{
+    "model": "claude-sonnet-4.5",
+    "messages": [{"role":"user","content":"Hello"}]
+  }'</span></pre>
+<pre class="cs-pane" data-cs="ts"><span class="k-vio">import</span> OpenAI <span class="k-vio">from</span> <span class="k-grn">"openai"</span>;
 
-    <div class="works-row reveal">
-      <span class="works-pill"><span>✓</span> Claude Code</span>
-      <span class="works-pill"><span>✓</span> Codex</span>
-      <span class="works-pill"><span>✓</span> Cursor</span>
-      <span class="works-pill"><span>✓</span> OpenAI SDK</span>
-      <span class="works-pill"><span>✓</span> Anthropic SDK</span>
-      <span class="works-pill"><span>✓</span> Embeddings</span>
+<span class="k-vio">const</span> client = <span class="k-vio">new</span> OpenAI({
+<span class="hl-line">  baseURL: <span class="k-grn">"https://gateway.vortex.ai/v1"</span>,</span>
+  apiKey: process.env.<span class="k-grn">VORTEX_API_KEY</span>,
+});
+
+<span class="k-vio">const</span> res = <span class="k-vio">await</span> client.chat.completions.create({
+  model: <span class="k-grn">"gpt-4o"</span>, <span class="cmt">// or any model in the catalog</span>
+  messages: [{ role: <span class="k-grn">"user"</span>, content: <span class="k-grn">"Hello"</span> }],
+});</pre>
+<pre class="cs-pane" data-cs="py"><span class="k-vio">from</span> openai <span class="k-vio">import</span> OpenAI
+
+client = OpenAI(
+<span class="hl-line">    base_url=<span class="k-grn">"https://gateway.vortex.ai/v1"</span>,</span>
+    api_key=os.environ[<span class="k-grn">"VORTEX_API_KEY"</span>],
+)
+
+res = client.chat.completions.create(
+    model=<span class="k-grn">"gemini-2.5-pro"</span>,  <span class="cmt"># route anywhere</span>
+    messages=[{<span class="k-grn">"role"</span>: <span class="k-grn">"user"</span>, <span class="k-grn">"content"</span>: <span class="k-grn">"Hello"</span>}],
+)</pre>
+      </div>
     </div>
   </section>
 
-  <!-- ============ PROVIDERS ============ -->
-  <section id="providers" class="wrap section-pad" style="padding-top:0;">
+
+  <!-- ============ HOW IT WORKS ============ -->
+  <section class="wrap section-pad" style="padding-top:0;">
     <div class="section-head reveal">
-      <div class="eyebrow"><span class="tick"></span>EVERY PROVIDER</div>
-      <h2 class="h-display">One key in. All of them out.</h2>
-      <p class="lede">Route to any provider through a single interface — including the enterprise clouds. Or bring your own keys and pay the provider directly.</p>
+      <div class="eyebrow"><span class="tick"></span>HOW IT WORKS</div>
+      <h2 class="h-display">Three steps to shipped.</h2>
     </div>
+    <div class="steps reveal">
+      <div class="step">
+        <div class="step-num">01 · CONNECT</div>
+        <h3>Point the base URL</h3>
+        <p>Swap one environment variable. Your existing SDK, agent, or IDE talks to Vortex with zero code changes.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">02 · GOVERN</div>
+        <h3>Set budgets &amp; roles</h3>
+        <p>Add teams and apps, assign budgets and caps, and enable audit. Policy applies to every request from that moment.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">03 · SHIP</div>
+        <h3>Route to any model</h3>
+        <p>Send traffic to any of 40+ models across six providers, with fallback, attribution, and live cost in one place.</p>
+      </div>
+    </div>
+  </section>
 
-    <div class="prov-row reveal">
-      <div class="prov"><span class="prov-mark" style="background:#10a37f;">O</span><div><div class="prov-name">OpenAI</div><div class="prov-kind">GPT · o-series</div></div></div>
-      <div class="prov"><span class="prov-mark" style="background:#cc785c;">A</span><div><div class="prov-name">Anthropic</div><div class="prov-kind">Claude</div></div></div>
-      <div class="prov"><span class="prov-mark" style="background:#4285f4;">G</span><div><div class="prov-name">Google</div><div class="prov-kind">Gemini</div></div></div>
+  <!-- ============ MODELS & PROVIDERS (compact teaser) ============ -->
+  <section id="catalog" class="wrap section-pad" style="padding-top:0;">
+    <div class="ct2 reveal" id="providers">
+      <span class="vx-orbit" aria-hidden="true"></span>
+      <div class="ct2-top">
+        <div style="min-width:250px;">
+          <div class="eyebrow"><span class="tick"></span>MODELS &amp; PROVIDERS</div>
+          <h2 class="ct2-title">One logical model.<br><span class="grad-text">Every host it runs on.</span></h2>
+        </div>
+        <div class="ct2-stats">
+          <div class="ct2-stat"><b>16</b><span>models</span></div>
+          <div class="ct2-stat"><b>12</b><span>providers</span></div>
+          <div class="ct2-stat"><b>1</b><span>endpoint</span></div>
+        </div>
+        <a class="btn btn-gradient" href="#/catalog">Browse the catalog
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </a>
+      </div>
+      <div class="ct2-marquee"><div class="ct2-track" id="ct-marks"></div></div>
+      <div class="ct2-byok"><b>One key in. All of them out.</b> Bring your own keys — 0% markup, encrypted per-org — or use Vortex-managed capacity. Either way, Vortex governs the traffic.</div>
     </div>
-    <div class="prov-row reveal" style="margin-top:14px;">
-      <div class="prov"><span class="prov-mark" style="background:#0078d4;">Az</span><div><div class="prov-name">Azure</div><div class="prov-kind">Azure OpenAI</div></div></div>
-      <div class="prov"><span class="prov-mark" style="background:#ff9900; color:#111;">Bk</span><div><div class="prov-name">Bedrock</div><div class="prov-kind">AWS</div></div></div>
-      <div class="prov"><span class="prov-mark" style="background:#34a853;">Vx</span><div><div class="prov-name">Vertex</div><div class="prov-kind">Google Cloud</div></div></div>
-    </div>
-
-    <p class="byok-note reveal"><b>Bring your own keys — 0% markup.</b> Use Vortex-managed capacity, or attach your org's provider keys (encrypted per-org) and Vortex governs the traffic without touching the bill.</p>
   </section>
 
   <!-- ============ GOVERNANCE (THE MOAT) ============ -->
@@ -495,28 +874,11 @@ footer { border-top:1px solid var(--vx-line); background:var(--vx-bg-2); padding
     </div>
   </section>
 
-  <!-- ============ HOW IT WORKS ============ -->
-  <section class="wrap section-pad" style="padding-top:0;">
-    <div class="section-head reveal">
-      <div class="eyebrow"><span class="tick"></span>HOW IT WORKS</div>
-      <h2 class="h-display">Three steps to shipped.</h2>
-    </div>
-    <div class="steps reveal">
-      <div class="step">
-        <div class="step-num">01 · CONNECT</div>
-        <h3>Point the base URL</h3>
-        <p>Swap one environment variable. Your existing SDK, agent, or IDE talks to Vortex with zero code changes.</p>
-      </div>
-      <div class="step">
-        <div class="step-num">02 · GOVERN</div>
-        <h3>Set budgets &amp; roles</h3>
-        <p>Add teams and apps, assign budgets and caps, and enable audit. Policy applies to every request from that moment.</p>
-      </div>
-      <div class="step">
-        <div class="step-num">03 · SHIP</div>
-        <h3>Route to any model</h3>
-        <p>Send traffic to any of 40+ models across six providers, with fallback, attribution, and live cost in one place.</p>
-      </div>
+  <!-- ============ MID-PAGE CTA ============ -->
+  <section class="wrap" style="padding:0 32px 112px; text-align:center;">
+    <div class="reveal" style="display:flex; flex-direction:column; align-items:center; gap:18px;">
+      <p class="lede" style="margin:0; max-width:520px;">Every request governed. Every dollar attributed. See it on your own traffic in minutes.</p>
+      <a class="btn btn-gradient btn-lg" href="#pricing">Start free</a>
     </div>
   </section>
 
@@ -613,6 +975,11 @@ footer { border-top:1px solid var(--vx-line); background:var(--vx-bg-2); padding
     </div>
   </section>
 
+  </div><!-- /#home -->
+
+  <!-- ============ CATALOG (content, swaps with #home; navbar stays) ============ -->
+  <div id="cat-page" style="display:none;"></div>
+
   <!-- ============ FOOTER ============ -->
   <footer>
     <div class="wrap">
@@ -626,7 +993,7 @@ footer { border-top:1px solid var(--vx-line); background:var(--vx-bg-2); padding
             </svg>
             <span class="wordmark" style="font-size:17px;">Vortex</span>
           </a>
-          <p>The enterprise LLM gateway. One endpoint, every provider, full governance — SaaS or self-hosted.</p>
+          <p>Vortex Enterprise. One endpoint, every provider, full governance — SaaS or self-hosted.</p>
         </div>
         <div class="foot-col">
           <h4>Product</h4>
@@ -658,13 +1025,33 @@ footer { border-top:1px solid var(--vx-line); background:var(--vx-bg-2); padding
         </div>
       </div>
       <div class="foot-bottom">
-        <span>© 2026 Vortex — Enterprise LLM Gateway</span>
+        <span>© 2026 Vortex Enterprise</span>
         <span>gateway.vortex.ai</span>
       </div>
     </div>
   </footer>
 
 </div>
+
+<div id="vx-tweaks"></div>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script>
+// Tweaks bootstrap — explicit fetch + transform (avoids Babel's auto script scanning).
+(function () {
+  function run(code, url) {
+    try { (0, eval)(Babel.transform(code, { presets: [['react', { runtime: 'classic' }]], filename: url }).code); }
+    catch (e) { console.error('[tweaks] ' + url + ': ' + (e && e.message)); }
+  }
+  fetch('tweaks-panel.jsx').then(function (r) { return r.text(); }).then(function (panelSrc) {
+    run(panelSrc, 'tweaks-panel.jsx');
+    return fetch('tweaks-app.jsx').then(function (r) { return r.text(); }).then(function (appSrc) {
+      run(appSrc, 'tweaks-app.jsx');
+    });
+  }).catch(function (e) { console.error('[tweaks] load failed', e); });
+})();
+</script>
 
 <script>
 // Entrance reveals — content animates FROM hidden (DS motion discipline).
@@ -675,11 +1062,29 @@ footer { border-top:1px solid var(--vx-line); background:var(--vx-bg-2); padding
     return;
   }
   var io = new IntersectionObserver(function (entries) {
+    var d = 0;
     entries.forEach(function (en) {
-      if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); }
+      if (en.isIntersecting) { en.target.style.transitionDelay = d + 'ms'; d += 80; en.target.classList.add('in'); io.unobserve(en.target); }
     });
   }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
   els.forEach(function (e) { io.observe(e); });
+})();
+
+// Code showcase — language tabs + copy
+(function () {
+  var tabs = document.querySelectorAll('.cs-tab'), panes = document.querySelectorAll('.cs-pane');
+  tabs.forEach(function (t) {
+    t.addEventListener('click', function () {
+      tabs.forEach(function (x) { x.classList.toggle('on', x === t); });
+      panes.forEach(function (p) { p.classList.toggle('on', p.getAttribute('data-cs') === t.getAttribute('data-cs')); });
+    });
+  });
+  var cp = document.getElementById('cs-copy');
+  if (cp) cp.addEventListener('click', function () {
+    var p = document.querySelector('.cs-pane.on'); if (!p) return;
+    try { navigator.clipboard.writeText(p.textContent); } catch (e) {}
+    cp.textContent = 'Copied ✓'; setTimeout(function () { cp.textContent = 'Copy'; }, 1400);
+  });
 })();
 
 // Smooth in-page anchor scrolling (no scrollIntoView).
@@ -687,13 +1092,478 @@ document.querySelectorAll('a[href^="#"]').forEach(function (a) {
   a.addEventListener('click', function (ev) {
     var id = a.getAttribute('href');
     if (id.length < 2) return;
-    var t = document.querySelector(id);
-    if (!t) return;
+    if (id.charAt(1) === '/') return; // catalog route — handled by the hash router
     ev.preventDefault();
-    var y = t.getBoundingClientRect().top + window.pageYOffset - 72;
-    window.scrollTo({ top: y, behavior: 'smooth' });
+    var wasCatalog = location.hash.indexOf('#/catalog') === 0;
+    if (wasCatalog) { location.hash = ''; } // leave the catalog; the router restores #home
+    var doScroll = function () {
+      var t = document.querySelector(id);
+      if (!t) return;
+      var y = t.getBoundingClientRect().top + window.pageYOffset - 72;
+      window.scrollTo({ top: y, behavior: wasCatalog ? 'auto' : 'smooth' });
+    };
+    if (wasCatalog) { setTimeout(doScroll, 60); } else { doScroll(); }
   });
 });
+</script>
+
+<!-- ============ CATALOG ENGINE ============
+     Seeded, enriched catalog (mirrors GET /v1/catalog).
+     Prices stored as micro-USD per 1k tokens; displayed as $/1M = value/1000. -->
+<script>
+(function () {
+  "use strict";
+
+  /* ---- providers (HostMeta) ---- */
+  var P = {
+    openai:    { name:'OpenAI',    defaultFamily:'openai',    brandColor:'#10a37f' },
+    anthropic: { name:'Anthropic', defaultFamily:'anthropic', brandColor:'#cc785c' },
+    google:    { name:'Google',    defaultFamily:'google',    brandColor:'#4285f4' },
+    azure:     { name:'Azure',     defaultFamily:'openai',    brandColor:'#0078d4' },
+    bedrock:   { name:'Bedrock',   defaultFamily:'anthropic', brandColor:'#ff9900' },
+    vertex:    { name:'Vertex',    defaultFamily:'google',    brandColor:'#34a853' },
+    groq:      { name:'Groq',      defaultFamily:'openai',    brandColor:'#f55036' },
+    mistral:   { name:'Mistral',   defaultFamily:'openai',    brandColor:'#ff7000' },
+    deepseek:  { name:'DeepSeek',  defaultFamily:'openai',    brandColor:'#4d6bfe' },
+    xai:       { name:'xAI',       defaultFamily:'openai',    brandColor:'#a7adba' },
+    together:  { name:'Together',  defaultFamily:'openai',    brandColor:'#1668ff' },
+    fireworks: { name:'Fireworks', defaultFamily:'openai',    brandColor:'#ff5b2e' }
+  };
+  var PORDER = ['openai','anthropic','google','azure','bedrock','vertex','groq','mistral','deepseek','xai','together','fireworks'];
+
+  /* host helper: h(host, upstream, in, out, cachedIn, cacheWrite, ctx, max, regions) */
+  function h(host, up, ci, co, cin, cw, ctx, max, regions) {
+    return { host:host, family:P[host].defaultFamily, upstreamModelId:up,
+             inputPer1kMicro:ci, outputPer1kMicro:co, cachedInputPer1kMicro:cin,
+             cacheWritePer1kMicro:cw, contextWindow:ctx, maxOutput:max, regions:regions };
+  }
+
+  /* ---- logical models with host fan-out ---- */
+  var M = [
+    { id:'gpt-4o', displayName:'GPT-4o', modality:'multimodal', openWeights:false,
+      releaseDate:'2024-05-13', knowledge:'2023-10',
+      features:{tools:1,vision:1,streaming:1,jsonSchema:1,caching:1,webSearch:1},
+      desc:'OpenAI\u2019s flagship multimodal model \u2014 text and vision, fast, with tool use, JSON schema and prompt caching.',
+      hosts:[ h('openai','gpt-4o',2500,10000,1250,null,128000,16384,['global']),
+              h('azure','gpt-4o',2500,10000,1250,null,128000,16384,['us','eu']) ] },
+
+    { id:'gpt-4o-mini', displayName:'GPT-4o mini', modality:'multimodal', openWeights:false,
+      releaseDate:'2024-07-18', knowledge:'2023-10',
+      features:{tools:1,vision:1,streaming:1,jsonSchema:1,caching:1},
+      desc:'The cost-efficient small multimodal model \u2014 vision + tools at a fraction of the flagship price.',
+      hosts:[ h('openai','gpt-4o-mini',150,600,75,null,128000,16384,['global']),
+              h('azure','gpt-4o-mini',150,600,75,null,128000,16384,['us','eu']) ] },
+
+    { id:'o3', displayName:'o3', modality:'text', openWeights:false,
+      releaseDate:'2025-04-16', knowledge:'2024-05',
+      features:{tools:1,vision:1,reasoning:1,streaming:1,jsonSchema:1,caching:1},
+      desc:'OpenAI\u2019s frontier reasoning model \u2014 deliberate multi-step thinking with tool use and vision.',
+      hosts:[ h('openai','o3',2000,8000,500,null,200000,100000,['global']),
+              h('azure','o3',2000,8000,500,null,200000,100000,['us']) ] },
+
+    { id:'o4-mini', displayName:'o4-mini', modality:'text', openWeights:false,
+      releaseDate:'2025-04-16', knowledge:'2024-05',
+      features:{tools:1,vision:1,reasoning:1,streaming:1,jsonSchema:1,caching:1},
+      desc:'Fast, affordable reasoning \u2014 strong math and code at small-model prices.',
+      hosts:[ h('openai','o4-mini',1100,4400,275,null,200000,100000,['global']),
+              h('azure','o4-mini',1100,4400,275,null,200000,100000,['us','eu']) ] },
+
+    { id:'claude-opus-4', displayName:'Claude Opus 4', modality:'multimodal', openWeights:false,
+      releaseDate:'2025-05-22', knowledge:'2025-03',
+      features:{tools:1,vision:1,reasoning:1,streaming:1,jsonSchema:1,caching:1},
+      desc:'Anthropic\u2019s most capable model \u2014 sustained agentic reasoning, coding and long-horizon tasks.',
+      hosts:[ h('anthropic','claude-opus-4-20250514',15000,75000,1500,18750,200000,32000,['global']),
+              h('bedrock','anthropic.claude-opus-4-20250514-v1:0',15000,75000,1500,18750,200000,32000,['us','eu','apac']),
+              h('vertex','claude-opus-4@20250514',15000,75000,1500,18750,200000,32000,['us','eu']) ] },
+
+    { id:'claude-sonnet-4', displayName:'Claude Sonnet 4', modality:'multimodal', openWeights:false,
+      releaseDate:'2025-05-22', knowledge:'2025-03',
+      features:{tools:1,vision:1,reasoning:1,streaming:1,jsonSchema:1,caching:1,webSearch:1},
+      desc:'The balanced workhorse \u2014 near-frontier quality with fast, economical throughput and prompt caching.',
+      hosts:[ h('anthropic','claude-sonnet-4-20250514',3000,15000,300,3750,200000,64000,['global']),
+              h('bedrock','anthropic.claude-sonnet-4-20250514-v1:0',3000,15000,300,3750,200000,64000,['us','eu','apac']),
+              h('vertex','claude-sonnet-4@20250514',3000,15000,300,3750,200000,64000,['us','eu','global']) ] },
+
+    { id:'claude-haiku-3-5', displayName:'Claude Haiku 3.5', modality:'multimodal', openWeights:false,
+      releaseDate:'2024-10-22', knowledge:'2024-07',
+      features:{tools:1,vision:1,streaming:1,jsonSchema:1,caching:1},
+      desc:'Fastest Claude \u2014 low-latency vision + tools for high-volume workloads.',
+      hosts:[ h('anthropic','claude-3-5-haiku-20241022',800,4000,80,1000,200000,8192,['global']),
+              h('bedrock','anthropic.claude-3-5-haiku-20241022-v1:0',800,4000,80,1000,200000,8192,['us','eu']) ] },
+
+    { id:'gemini-2-5-pro', displayName:'Gemini 2.5 Pro', modality:'multimodal', openWeights:false,
+      releaseDate:'2025-03-25', knowledge:'2025-01',
+      features:{tools:1,vision:1,reasoning:1,streaming:1,jsonSchema:1,caching:1,webSearch:1},
+      desc:'Google\u2019s frontier model \u2014 native reasoning and a 1M-token context across text, image and PDF.',
+      hosts:[ h('google','gemini-2.5-pro',1250,10000,310,null,1048576,65536,['global']),
+              h('vertex','gemini-2.5-pro',1250,10000,310,null,1048576,65536,['us','eu','global']) ] },
+
+    { id:'gemini-2-5-flash', displayName:'Gemini 2.5 Flash', modality:'multimodal', openWeights:false,
+      releaseDate:'2025-04-17', knowledge:'2025-01',
+      features:{tools:1,vision:1,reasoning:1,streaming:1,jsonSchema:1,caching:1},
+      desc:'Low-latency, high-throughput multimodal \u2014 1M context with optional thinking budget.',
+      hosts:[ h('google','gemini-2.5-flash',300,2500,75,null,1048576,65536,['global']),
+              h('vertex','gemini-2.5-flash',300,2500,75,null,1048576,65536,['us','eu','global']) ] },
+
+    { id:'llama-3-3-70b', displayName:'Llama 3.3 70B', modality:'text', openWeights:true,
+      releaseDate:'2024-12-06', knowledge:'2023-12',
+      features:{tools:1,streaming:1,jsonSchema:1},
+      desc:'Meta\u2019s open-weights 70B instruct model \u2014 served fast and cheap across four inference hosts.',
+      hosts:[ h('groq','llama-3.3-70b-versatile',590,790,null,null,128000,32768,['us']),
+              h('together','meta-llama/Llama-3.3-70B-Instruct-Turbo',880,880,null,null,128000,4096,['us']),
+              h('fireworks','accounts/fireworks/models/llama-v3p3-70b-instruct',900,900,null,null,128000,4096,['us']),
+              h('bedrock','meta.llama3-3-70b-instruct-v1:0',720,720,null,null,128000,4096,['us','eu']) ] },
+
+    { id:'llama-4-maverick', displayName:'Llama 4 Maverick', modality:'multimodal', openWeights:true,
+      releaseDate:'2025-04-05', knowledge:'2024-08',
+      features:{tools:1,vision:1,streaming:1,jsonSchema:1},
+      desc:'Meta\u2019s open-weights MoE multimodal model \u2014 vision + tools with a very long context.',
+      hosts:[ h('groq','meta-llama/llama-4-maverick-17b-128e-instruct',200,600,null,null,1048576,8192,['us']),
+              h('together','meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8',270,850,null,null,1048576,8192,['us']),
+              h('fireworks','accounts/fireworks/models/llama4-maverick-instruct-basic',220,880,null,null,1048576,8192,['us']) ] },
+
+    { id:'mistral-large', displayName:'Mistral Large', modality:'text', openWeights:false,
+      releaseDate:'2024-11-18', knowledge:'2024-06',
+      features:{tools:1,streaming:1,jsonSchema:1},
+      desc:'Mistral\u2019s flagship dense model \u2014 strong multilingual reasoning and function calling.',
+      hosts:[ h('mistral','mistral-large-latest',2000,6000,null,null,128000,8192,['eu']),
+              h('bedrock','mistral.mistral-large-2407-v1:0',2000,6000,null,null,128000,8192,['us','eu']),
+              h('azure','mistral-large-2411',2000,6000,null,null,128000,8192,['eu']) ] },
+
+    { id:'deepseek-v3', displayName:'DeepSeek V3', modality:'text', openWeights:true,
+      releaseDate:'2024-12-26', knowledge:'2024-07',
+      features:{tools:1,streaming:1,jsonSchema:1,caching:1},
+      desc:'Open-weights 671B MoE \u2014 frontier-class general model with disk-based prompt caching on the native host.',
+      hosts:[ h('deepseek','deepseek-chat',270,1100,70,null,128000,8192,['global']),
+              h('together','deepseek-ai/DeepSeek-V3',1250,1250,null,null,128000,8192,['us']),
+              h('fireworks','accounts/fireworks/models/deepseek-v3',900,900,null,null,128000,8192,['us']) ] },
+
+    { id:'deepseek-r1', displayName:'DeepSeek R1', modality:'text', openWeights:true,
+      releaseDate:'2025-01-20', knowledge:'2024-07',
+      features:{reasoning:1,streaming:1,caching:1},
+      desc:'Open-weights reasoning model \u2014 visible chain-of-thought at a fraction of closed-model reasoning prices.',
+      hosts:[ h('deepseek','deepseek-reasoner',550,2190,140,null,128000,8192,['global']),
+              h('together','deepseek-ai/DeepSeek-R1',3000,7000,null,null,128000,8192,['us']),
+              h('fireworks','accounts/fireworks/models/deepseek-r1',3000,8000,null,null,128000,8192,['us']) ] },
+
+    { id:'grok-3', displayName:'Grok 3', modality:'text', openWeights:false,
+      releaseDate:'2025-02-19', knowledge:'2024-11',
+      features:{tools:1,streaming:1,jsonSchema:1,webSearch:1},
+      desc:'xAI\u2019s flagship \u2014 strong reasoning with live web/search grounding.',
+      hosts:[ h('xai','grok-3',3000,15000,750,null,131072,8192,['us']) ] },
+
+    { id:'text-embedding-3-large', displayName:'text-embedding-3-large', modality:'embedding', openWeights:false,
+      releaseDate:'2024-01-25', knowledge:'2023-09',
+      features:{},
+      desc:'OpenAI\u2019s highest-quality embedding model \u2014 up to 3072 dimensions for retrieval and clustering.',
+      hosts:[ h('openai','text-embedding-3-large',130,null,null,null,8191,null,['global']),
+              h('azure','text-embedding-3-large',130,null,null,null,8191,null,['us','eu']) ] }
+  ];
+
+  /* ---- capability icons (16px line) ---- */
+  var CAP = {
+    tools:      { label:'Tools',     d:'M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.3-.3-.3-2.3z' },
+    vision:     { label:'Vision',    d:'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z' },
+    reasoning:  { label:'Reasoning', d:'M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z' },
+    streaming:  { label:'Streaming', d:'M3 12h4l2 6 4-13 2 7h6' },
+    jsonSchema: { label:'JSON',      d:'M8 4a3 3 0 0 0-3 3v2a2 2 0 0 1-2 2 2 2 0 0 1 2 2v2a3 3 0 0 0 3 3 M16 4a3 3 0 0 1 3 3v2a2 2 0 0 0 2 2 2 2 0 0 0-2 2v2a3 3 0 0 1-3 3' },
+    caching:    { label:'Caching',   d:'M12 3c4.4 0 8 1.3 8 3s-3.6 3-8 3-8-1.3-8-3 3.6-3 8-3z M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6 M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3' },
+    webSearch:  { label:'Web',       d:'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M3 12h18 M12 3c2.5 2.6 3.5 6 3.5 9s-1 6.4-3.5 9c-2.5-2.6-3.5-6-3.5-9s1-6.4 3.5-9z' }
+  };
+  var CAP_ORDER = ['tools','vision','reasoning','streaming','jsonSchema','caching','webSearch'];
+
+  /* ---- formatters ---- */
+  function money1M(micro) {
+    if (micro === null || micro === undefined) return null;
+    return '$' + (micro / 1000).toFixed(2);
+  }
+  function fmtCtx(n) {
+    if (n === null || n === undefined) return '\u2014';
+    if (n >= 1000000) return (n / 1048576 >= 0.98 ? '1M' : (n / 1000000).toFixed(1) + 'M');
+    if (n >= 1000) return Math.round(n / 1000) + 'K';
+    return String(n);
+  }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function cheapestIn(m) { return Math.min.apply(null, m.hosts.map(function (x) { return x.inputPer1kMicro == null ? Infinity : x.inputPer1kMicro; })); }
+  function largestCtx(m) { return Math.max.apply(null, m.hosts.map(function (x) { return x.contextWindow || 0; })); }
+  function capIcon(k) { var c = CAP[k]; if (!c) return ''; return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="' + c.d + '"/></svg>'; }
+  function pmark(pid, size, fs) {
+    var p = P[pid]; var initial = p.name.slice(0, pid === 'deepseek' ? 2 : 1);
+    if (pid === 'azure') initial = 'Az'; if (pid === 'bedrock') initial = 'Bk'; if (pid === 'vertex') initial = 'Vx';
+    if (pid === 'together') initial = 'Tg'; if (pid === 'fireworks') initial = 'Fw'; if (pid === 'mistral') initial = 'M';
+    if (pid === 'deepseek') initial = 'Ds'; if (pid === 'xai') initial = 'x';
+    var dark = (pid === 'xai'); // light brand color needs dark text
+    return '<span class="pmark" style="width:' + size + 'px;height:' + size + 'px;font-size:' + fs + 'px;background:' + p.brandColor + ';color:' + (dark ? '#111' : '#fff') + '">' + initial + '</span>';
+  }
+
+  function modelCaps(m) {
+    return CAP_ORDER.filter(function (k) { return m.features && m.features[k]; });
+  }
+  function hostCaps(m, host) {
+    return modelCaps(m).filter(function (k) { return k === 'caching' ? host.cachedInputPer1kMicro != null : true; });
+  }
+
+  /* ---- state (URL-synced, scoped to the open provider) ---- */
+  var state = { q:'', caps:[], mod:'all', ow:false, pid:null };
+
+  function readHash() {
+    var h = location.hash.replace(/^#/, '');
+    if (h.charAt(0) !== '/') return null;
+    var parts = h.split('?'); var path = parts[0]; var qs = parts[1] || '';
+    var seg = path.split('/').filter(Boolean); // ['catalog'] | ['catalog','p','openai'] | ['catalog','m','gpt-4o']
+    var params = {}; qs.split('&').forEach(function (kv) { if (!kv) return; var a = kv.split('='); params[a[0]] = decodeURIComponent(a[1] || ''); });
+    return { seg:seg, params:params };
+  }
+  function writeFilterHash() {
+    if (!state.pid) return;
+    var q = [];
+    if (state.q) q.push('q=' + encodeURIComponent(state.q));
+    if (state.caps.length) q.push('cap=' + state.caps.join(','));
+    if (state.mod !== 'all') q.push('mod=' + state.mod);
+    if (state.ow) q.push('ow=1');
+    history.replaceState(null, '', '#/catalog/p/' + state.pid + (q.length ? '?' + q.join('&') : ''));
+  }
+  function applyParamsToState(params) {
+    state.q = params.q || '';
+    state.caps = params.cap ? params.cap.split(',').filter(Boolean) : [];
+    state.mod = params.mod || 'all';
+    state.ow = params.ow === '1';
+  }
+
+  /* ---- filtering (scoped to a single provider's models) ---- */
+  function providerModels(pid) { return M.filter(function (m) { return m.hosts.some(function (x) { return x.host === pid; }); }); }
+  function matchesFilters(m) {
+    if (state.q) {
+      var hay = (m.displayName + ' ' + m.id + ' ' + m.hosts.map(function (x) { return x.upstreamModelId; }).join(' ')).toLowerCase();
+      if (hay.indexOf(state.q.toLowerCase()) === -1) return false;
+    }
+    if (state.mod !== 'all' && m.modality !== state.mod) return false;
+    if (state.ow && !m.openWeights) return false;
+    if (state.caps.length && !state.caps.every(function (k) { return m.features && m.features[k]; })) return false;
+    return true;
+  }
+
+  /* ---- DOM refs ---- */
+  var page = document.getElementById('cat-page');
+  var home = document.getElementById('home');
+
+  function markInitial(pid) {
+    var map = { azure:'Az', bedrock:'Bk', vertex:'Vx', together:'Tg', fireworks:'Fw', mistral:'M', deepseek:'Ds', xai:'x' };
+    return map[pid] || P[pid].name.slice(0, 1);
+  }
+
+  /* fill the teaser cluster on the landing base */
+  (function fillTeaser() {
+    var el = document.getElementById('ct-marks'); if (!el) return;
+    var pills = PORDER.map(function (pid) {
+      return '<span class="ct2-pill"><span class="mk2" style="background:' + P[pid].brandColor + ';color:' + (pid === 'xai' ? '#111' : '#fff') + '">' + markInitial(pid) + '</span>' + esc(P[pid].name) + '</span>';
+    }).join('');
+    el.innerHTML = '<span class="ct2-half">' + pills + '</span><span class="ct2-half">' + pills + '</span>';
+  })();
+
+  function catActive() { var hh = location.hash.replace(/^#/, ''); return hh.indexOf('/catalog') === 0; }
+  function byId(id) { return M.filter(function (x) { return x.id === id; })[0]; }
+  function servedBy(pid, list) { return list.filter(function (m) { return m.hosts.some(function (x) { return x.host === pid; }); }); }
+  function jumpTo(id) { var el = document.getElementById(id); if (!el) return; var y = el.getBoundingClientRect().top + window.pageYOffset - 118; window.scrollTo({ top:y, behavior:'smooth' }); }
+  function toggle(arr, v) { var i = arr.indexOf(v); if (i === -1) arr.push(v); else arr.splice(i, 1); }
+
+  var PRISM = '<svg viewBox="0 0 80 80" width="24" height="24" style="display:block"><defs><linearGradient id="pmCp" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f472b6"/><stop offset="50%" stop-color="#a78bfa"/><stop offset="100%" stop-color="#60a5fa"/></linearGradient></defs><polygon points="40,8 68,40 40,72 12,40" fill="none" stroke="url(#pmCp)" stroke-width="3" stroke-linejoin="round"/><circle cx="40" cy="40" r="5" fill="#e0d7ff"/></svg>';
+  var BACK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>';
+
+  /* ---- row builder (mode: 'byModel' shows the provider; 'byProvider' shows the model) ---- */
+  function hostRow(m, x, mode) {
+    var cheap = cheapestIn(m);
+    var isCheap = x.inputPer1kMicro != null && x.inputPer1kMicro === cheap && m.hosts.length > 1;
+    var caps = hostCaps(m, x).map(function (k) { return '<span class="cap">' + capIcon(k) + esc(CAP[k].label) + '</span>'; }).join('');
+    function cell(micro) { var v = money1M(micro); return v ? '<span class="price">' + v + '</span>' : '<span class="dim">\u2014</span>'; }
+    var first = mode === 'byModel'
+      ? '<td><div class="prov-cell">' + pmark(x.host, 26, 12) + '<span class="pname">' + esc(P[x.host].name) + '</span></div></td>'
+      : '<td><a class="mlink" data-model="' + m.id + '">' + esc(m.displayName) + '</a><span class="mlink-mod">' + m.modality + '</span></td>';
+    var regions = mode === 'byModel'
+      ? '<td><div class="regions">' + ((x.regions || []).map(function (r) { return '<span class="rg">' + esc(r) + '</span>'; }).join('') || '<span class="dim">\u2014</span>') + '</div></td>'
+      : '';
+    return '<tr>' + first +
+      '<td><span class="mono">' + esc(x.upstreamModelId) + '</span></td>' +
+      '<td class="num' + (isCheap ? ' cheap' : '') + '">' + cell(x.inputPer1kMicro) + (isCheap ? '<span class="cheap-tag">cheapest</span>' : '') + '</td>' +
+      '<td class="num">' + cell(x.outputPer1kMicro) + '</td>' +
+      '<td class="num">' + cell(x.cachedInputPer1kMicro) + '</td>' +
+      '<td class="num">' + cell(x.cacheWritePer1kMicro) + '</td>' +
+      '<td class="num"><span class="mono">' + fmtCtx(x.contextWindow) + '</span></td>' +
+      '<td class="num"><span class="mono">' + (x.maxOutput ? fmtCtx(x.maxOutput) : '\u2014') + '</span></td>' +
+      regions +
+      '<td><div class="caps">' + (caps || '<span class="dim">\u2014</span>') + '</div></td>' +
+    '</tr>';
+  }
+
+  /* ---- provider blurbs ---- */
+  function providerDesc(pid) {
+    return ({
+      openai:'GPT and o-series models, served directly from OpenAI.',
+      anthropic:'The Claude family, direct from Anthropic.',
+      google:'Gemini models on Google AI.',
+      azure:'OpenAI models on Microsoft Azure, with regional deployments and enterprise controls.',
+      bedrock:'Frontier and open-weights models through AWS Bedrock.',
+      vertex:'Claude and Gemini on Google Cloud Vertex AI.',
+      groq:'Open-weights models at very low latency on Groq LPUs.',
+      mistral:'Mistral\u2019s own hosted models, from the source.',
+      deepseek:'DeepSeek\u2019s chat and reasoning models, direct.',
+      xai:'Grok models from xAI, with live search grounding.',
+      together:'Open-weights models hosted on Together AI.',
+      fireworks:'Open-weights models hosted on Fireworks AI.'
+    })[pid] || '';
+  }
+  function cheapestForProvider(pid) {
+    return Math.min.apply(null, providerModels(pid).map(function (m) {
+      var x = m.hosts.filter(function (hh) { return hh.host === pid; })[0];
+      return x.inputPer1kMicro == null ? Infinity : x.inputPer1kMicro;
+    }));
+  }
+
+  /* ---- view 1: providers listing (cards only, no filters) ---- */
+  function renderProvidersView() {
+    state.pid = null;
+    var cards = PORDER.map(function (pid) {
+      var p = P[pid];
+      var served = providerModels(pid);
+      var cheap = cheapestForProvider(pid);
+      var chips = served.slice(0, 3).map(function (m) { return '<span class="pm-chip">' + esc(m.displayName) + '</span>'; }).join('') +
+        (served.length > 3 ? '<span class="pm-chip more">+' + (served.length - 3) + ' more</span>' : '');
+      return '<button class="pcard" data-goto="#/catalog/p/' + pid + '" style="--pc:' + p.brandColor + '">' +
+        '<div class="pcard-bar"></div>' +
+        '<div class="pcard-body">' +
+          '<div class="pcard-head">' + pmark(pid, 42, 17) + '<div><div class="pcard-name">' + esc(p.name) + '</div><div class="pcard-fam">' + esc(p.defaultFamily) + ' family</div></div></div>' +
+          '<div class="pm-chips">' + chips + '</div>' +
+          '<div class="pcard-meta"><span>' + served.length + ' model' + (served.length > 1 ? 's' : '') + '</span><span class="pm-from">from ' + (cheap === Infinity ? '\u2014' : money1M(cheap)) + ' / 1M</span></div>' +
+        '</div></button>';
+    }).join('');
+    page.innerHTML =
+      '<section class="cp-hero"><div class="wrap">' +
+        '<div class="eyebrow"><span class="tick"></span>THE CATALOG</div>' +
+        '<h1 class="cp-h1">Every provider,<br><span class="grad-text">one interface.</span></h1>' +
+        '<p class="cp-lede">Vortex routes to twelve providers behind a single endpoint. Choose one to explore the models it serves — with live pricing, context windows and capabilities.</p>' +
+      '</div></section>' +
+      '<div class="cp-body"><div class="cat-prov-grid">' + cards + '</div></div>';
+  }
+
+  /* ---- view 2: one provider (filters scoped to its models) ---- */
+  function providerFilterBar() {
+    var modChips = ['all','text','multimodal','embedding'].map(function (md) {
+      return '<button class="fchip' + (state.mod === md ? ' on' : '') + '" data-mod="' + md + '">' + (md === 'all' ? 'All' : md.charAt(0).toUpperCase() + md.slice(1)) + '</button>';
+    }).join('');
+    var capChips = CAP_ORDER.map(function (k) {
+      return '<button class="fchip' + (state.caps.indexOf(k) !== -1 ? ' on' : '') + '" data-cap="' + k + '">' + capIcon(k) + esc(CAP[k].label) + '</button>';
+    }).join('');
+    return '<div class="cp-filterbar"><div class="wrap cp-filterbar-inner">' +
+      '<div class="fb-row">' +
+        '<label class="f-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>' +
+          '<input id="cp-q" type="text" placeholder="Search these models\u2026" value="' + esc(state.q) + '"></label>' +
+        '<span class="fb-group"><span class="fb-lbl">Type</span><span class="f-chips">' + modChips + '</span></span>' +
+        '<span class="fb-count"><b id="fb-n">0</b> models</span>' +
+      '</div>' +
+      '<div class="fb-row">' +
+        '<span class="fb-group" style="flex:1 1 auto;"><span class="fb-lbl">Caps</span><span class="f-chips">' + capChips + '</span></span>' +
+        '<label class="f-switch' + (state.ow ? ' on' : '') + '" id="cp-ow"><span class="track"></span>Open weights</label>' +
+        '<button class="f-reset" data-reset>Reset</button>' +
+      '</div>' +
+    '</div></div>';
+  }
+
+  function renderProviderView(pid, params) {
+    state.pid = pid;
+    applyParamsToState(params);
+    var p = P[pid];
+    var all = providerModels(pid);
+    page.innerHTML =
+      '<section class="cp-hero cp-hero-prov" style="--pc:' + p.brandColor + '"><div class="wrap">' +
+        '<button class="cat-back" data-goto="#/catalog">' + BACK + 'All providers</button>' +
+        '<div class="prov-id">' + pmark(pid, 58, 24) +
+          '<div><h1 class="cp-h1 prov-id-name">' + esc(p.name) + '</h1>' +
+          '<div class="prov-id-sub"><span class="prov-id-fam">' + esc(p.defaultFamily) + ' wire format</span><span class="dotsep">\u00b7</span>' + all.length + ' models</div></div></div>' +
+        '<p class="cp-lede">' + esc(providerDesc(pid)) + '</p>' +
+      '</div></section>' +
+      providerFilterBar() +
+      '<div class="cp-body"><div id="cp-content"></div></div>';
+    renderProviderBody();
+    var q = document.getElementById('cp-q');
+    q.addEventListener('input', function () { state.q = q.value; writeFilterHash(); renderProviderBody(); });
+  }
+
+  function renderProviderBody() {
+    var wrap = document.getElementById('cp-content'); if (!wrap) return;
+    var pid = state.pid;
+    var list = providerModels(pid).filter(matchesFilters);
+    var n = document.getElementById('fb-n'); if (n) n.textContent = list.length;
+    if (!list.length) { wrap.innerHTML = '<div class="cat-empty">No models match these filters.</div>'; return; }
+    var rows = list.map(function (m) { var x = m.hosts.filter(function (hh) { return hh.host === pid; })[0]; return hostRow(m, x, 'byProvider'); }).join('');
+    wrap.innerHTML = '<div class="table-scroll"><table class="htable"><thead><tr>' +
+      '<th>Model</th><th>Upstream id</th><th class="num">Input $/1M</th><th class="num">Output $/1M</th>' +
+      '<th class="num">Cached in $/1M</th><th class="num">Cache write $/1M</th><th class="num">Context</th><th class="num">Max out</th>' +
+      '<th>Capabilities</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+  }
+
+  /* ---- view 3: model detail (multi-host table) ---- */
+  function renderModelPage(m) {
+    var modIcons = { text:'Text', image:'Image', pdf:'PDF', audio:'Audio' };
+    var inputMods = m.modality === 'multimodal' ? ['text','image','pdf'] : ['text'];
+    var backHash = state.pid ? '#/catalog/p/' + state.pid : '#/catalog';
+    var backLabel = state.pid ? 'Back to ' + esc(P[state.pid].name) : 'All providers';
+    page.innerHTML =
+      '<section class="cp-hero"><div class="wrap">' +
+        '<button class="cat-back" data-goto="' + backHash + '">' + BACK + backLabel + '</button>' +
+        '<h1 class="cp-h1 model-h1">' + esc(m.displayName) + (m.openWeights ? '<span class="ow-badge">Open weights</span>' : '') + '<span class="modality ' + m.modality + '" style="font-size:12px">' + m.modality + '</span></h1>' +
+        '<p class="cp-lede">' + esc(m.desc) + '</p>' +
+        '<div class="dmeta">' +
+          '<div class="dmeta-item"><span class="k">Knowledge cutoff</span><span class="v">' + esc(m.knowledge || '\u2014') + '</span></div>' +
+          '<div class="dmeta-item"><span class="k">Released</span><span class="v">' + esc(m.releaseDate || '\u2014') + '</span></div>' +
+          '<div class="dmeta-item"><span class="k">Input modalities</span><span class="v">' + inputMods.map(function (x) { return modIcons[x]; }).join(' \u00b7 ') + '</span></div>' +
+          '<div class="dmeta-item"><span class="k">Hosts</span><span class="v">' + m.hosts.length + ' provider' + (m.hosts.length > 1 ? 's' : '') + '</span></div>' +
+        '</div>' +
+      '</div></section>' +
+      '<div class="cp-body">' +
+        '<div class="cp-kicker"><span class="eyebrow"><span class="tick"></span>AVAILABLE ON ' + m.hosts.length + ' PROVIDER' + (m.hosts.length > 1 ? 'S' : '') + '</span></div>' +
+        '<div class="table-scroll"><table class="htable"><thead><tr>' +
+          '<th>Provider</th><th>Upstream id</th><th class="num">Input $/1M</th><th class="num">Output $/1M</th>' +
+          '<th class="num">Cached in $/1M</th><th class="num">Cache write $/1M</th><th class="num">Context</th><th class="num">Max out</th>' +
+          '<th>Regions</th><th>Capabilities</th></tr></thead><tbody>' +
+          m.hosts.map(function (x) { return hostRow(m, x, 'byModel'); }).join('') +
+        '</tbody></table></div>' +
+      '</div>';
+  }
+
+  /* ---- swap the content region; the navbar + footer stay put ---- */
+  function showPage(on) {
+    if (home) home.style.display = on ? 'none' : '';
+    page.style.display = on ? 'block' : 'none';
+  }
+
+  /* ---- delegated clicks inside the catalog content ---- */
+  page.addEventListener('click', function (ev) {
+    var g = ev.target.closest('[data-goto]'); if (g) { location.hash = g.getAttribute('data-goto'); return; }
+    var ml = ev.target.closest('[data-model]'); if (ml) { location.hash = '#/catalog/m/' + ml.getAttribute('data-model'); return; }
+    var cap = ev.target.closest('[data-cap]'); if (cap) { toggle(state.caps, cap.getAttribute('data-cap')); cap.classList.toggle('on'); writeFilterHash(); renderProviderBody(); return; }
+    var md = ev.target.closest('[data-mod]'); if (md) { state.mod = md.getAttribute('data-mod'); page.querySelectorAll('[data-mod]').forEach(function (o) { o.classList.toggle('on', o === md); }); writeFilterHash(); renderProviderBody(); return; }
+    var ow = ev.target.closest('#cp-ow'); if (ow) { state.ow = !state.ow; ow.classList.toggle('on', state.ow); writeFilterHash(); renderProviderBody(); return; }
+    var rs = ev.target.closest('[data-reset]'); if (rs) { state.q = ''; state.caps = []; state.mod = 'all'; state.ow = false; writeFilterHash(); renderProviderView(state.pid, {}); return; }
+  });
+
+  /* ---- router: home <-> providers <-> provider <-> model detail ---- */
+  function route() {
+    if (catActive()) {
+      var r = readHash(); var seg = r.seg;
+      showPage(true);
+      if (seg[1] === 'p' && seg[2] && P[seg[2]]) renderProviderView(seg[2], r.params);
+      else if (seg[1] === 'm' && seg[2]) { var m = byId(seg[2]); if (m) renderModelPage(m); else renderProvidersView(); }
+      else renderProvidersView();
+      window.scrollTo(0, 0);
+    } else {
+      showPage(false);
+    }
+  }
+  window.addEventListener('hashchange', route);
+
+  // initial paint (honor a catalog deep-link on load)
+  route();
+})();
 </script>
 
 </body>
