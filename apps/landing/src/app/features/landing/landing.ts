@@ -4,28 +4,30 @@ import { Dropin } from './sections/dropin';
 import { Providers } from './sections/providers';
 import { Governance } from './sections/governance';
 import { HowItWorks } from './sections/how-it-works';
+import { MidCta } from './sections/mid-cta';
 import { Deploy } from './sections/deploy';
 import { Pricing } from './sections/pricing';
 import { FinalCta } from './sections/final-cta';
 
 /**
  * Vortex marketing landing — the dark brand stage. Composes every section from
- * the design (announce + nav → hero → drop-in → providers → governance →
- * how-it-works → deploy → pricing → final CTA → footer) over the atmosphere +
- * masked-grid background. Rendered server-side (SSR) for a fast, crawlable
- * first paint; interactive reveals + smooth scroll hydrate in the browser.
+ * the design (nav → hero → drop-in → how-it-works → models & providers teaser →
+ * governance → mid-page CTA → deploy → pricing → final CTA → footer) over the
+ * atmosphere + masked-grid background. Rendered server-side (SSR) for a fast,
+ * crawlable first paint; interactive reveals + smooth scroll hydrate in the browser.
  */
 @Component({
   selector: 'vx-landing',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Hero, Dropin, Providers, Governance, HowItWorks, Deploy, Pricing, FinalCta],
+  imports: [Hero, Dropin, HowItWorks, Providers, Governance, MidCta, Deploy, Pricing, FinalCta],
   template: `
     <vx-hero />
     <vx-dropin />
+    <vx-how-it-works />
     <vx-providers />
     <vx-governance />
-    <vx-how-it-works />
+    <vx-mid-cta />
     <vx-deploy />
     <vx-pricing />
     <vx-final-cta />

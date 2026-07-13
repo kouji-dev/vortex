@@ -10,14 +10,6 @@ import { APP_URL } from '../landing.tokens';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [Prism, ThemeToggle, RouterLink, RouterLinkActive],
   template: `
-    <!-- announce bar -->
-    <div class="announce">
-      <div class="announce-inner">
-        <b>Vortex is open for enterprise beta</b> — one endpoint, every provider, full
-        governance. <span style="color:var(--vx-violet);">→</span>
-      </div>
-    </div>
-
     <!-- nav (maps to kouji-ui: BrandLockup + Button) -->
     <nav class="nav">
       <div class="wrap nav-inner">

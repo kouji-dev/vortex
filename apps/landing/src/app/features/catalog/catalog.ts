@@ -1,35 +1,28 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CatalogService } from './catalog.service';
-import { FilterBar } from './filter-bar';
-import { money1M, pmark, matchesFilters, emptyFilter, type FilterState } from './catalog.util';
+import { money1M, pmark, pmarkInk, providerDisplayName } from './catalog.util';
 
-/** /models — filter bar + provider cards (each → provider detail). */
+/** /models — catalog hero + provider cards (each → provider detail). */
 @Component({
   selector: 'vx-catalog',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, FilterBar],
+  imports: [RouterLink],
   template: `
     <section class="cp-hero">
       <div class="wrap">
-        <div class="eyebrow"><span class="tick"></span>MODELS &amp; PROVIDERS</div>
+        <div class="eyebrow"><span class="tick"></span>THE CATALOG</div>
         <h1 class="cp-h1">Every provider,<br /><span class="grad-text">one interface.</span></h1>
         <p class="cp-lede">
-          One logical model is often served by several providers. Browse the live catalog — Vortex
-          shows the price, context, and capabilities of each, so you route to the right one.
+          Vortex routes to twelve providers behind a single endpoint. Choose one to explore the
+          models it serves — with live pricing, context windows and capabilities.
         </p>
       </div>
     </section>
 
-    <vx-filterbar [(filter)]="filter" [count]="totalMatched()" />
-
     <section class="cp-body">
       <div class="wrap">
-        <div class="section-head" style="margin-bottom:18px;">
-          <div class="eyebrow"><span class="tick"></span>PROVIDERS</div>
-        </div>
-
         @if (svc.models() === null) {
           <div class="cp-empty">Loading catalog…</div>
         } @else if (svc.error()) {
@@ -37,20 +30,25 @@ import { money1M, pmark, matchesFilters, emptyFilter, type FilterState } from '.
         } @else {
           <div class="cat-prov-grid">
             @for (c of cards(); track c.p.id) {
-              <button class="pcard" [routerLink]="['/providers', c.p.id]">
-                <span class="pcard-bar" [style.background]="c.p.brandColor"></span>
+              <button
+                class="pcard"
+                [routerLink]="['/providers', c.p.id]"
+                [style.--pc]="c.p.brandColor"
+              >
+                <span class="pcard-bar"></span>
                 <span class="pcard-body">
                   <span class="pcard-head">
                     <span
                       class="pmark"
                       [style.background]="c.p.brandColor"
+                      [style.color]="ink(c.p.id)"
                       [style.width.px]="42"
                       [style.height.px]="42"
                       [style.fontSize.px]="17"
                       >{{ mark(c.p.id) }}</span
                     >
                     <span>
-                      <span class="pcard-name" style="display:block;">{{ c.p.name }}</span>
+                      <span class="pcard-name" style="display:block;">{{ c.name }}</span>
                       <span class="pcard-fam">{{ c.p.defaultFamily }} family</span>
                     </span>
                   </span>
@@ -59,9 +57,9 @@ import { money1M, pmark, matchesFilters, emptyFilter, type FilterState } from '.
                     @if (c.more > 0) { <span class="pm-chip more">+{{ c.more }} more</span> }
                   </span>
                   <span class="pcard-meta">
-                    <span><b>{{ c.count }}</b> models</span>
+                    <span>{{ c.count }} model{{ c.count === 1 ? '' : 's' }}</span>
                     @if (c.from !== null) {
-                      <span class="pm-from">from <b>{{ price(c.from) }}</b> / 1M</span>
+                      <span class="pm-from">from {{ price(c.from) }} / 1M</span>
                     }
                   </span>
                 </span>
@@ -75,37 +73,31 @@ import { money1M, pmark, matchesFilters, emptyFilter, type FilterState } from '.
 })
 export class Catalog {
   readonly svc = inject(CatalogService);
-  readonly filter = signal<FilterState>(emptyFilter());
 
   constructor() {
     this.svc.load();
   }
 
-  private matched = computed(() => {
-    const f = this.filter();
-    return (this.svc.models() ?? []).filter((m) => matchesFilters(m, f));
-  });
-
-  readonly totalMatched = computed(() => this.matched().length);
-
   readonly cards = computed(() => {
-    const matched = this.matched();
+    const models = this.svc.models() ?? [];
     return this.svc.providers().map((p) => {
-      const models = matched.filter((m) => m.hosts.some((h) => h.host === p.id));
-      const prices = models.flatMap((m) =>
+      const served = models.filter((m) => m.hosts.some((h) => h.host === p.id));
+      const prices = served.flatMap((m) =>
         m.hosts.filter((h) => h.host === p.id).map((h) => h.inputPer1kMicro),
       );
       const from = prices.length ? Math.min(...prices) : null;
       return {
         p,
-        count: models.length,
-        chips: models.slice(0, 3).map((m) => m.displayName),
-        more: Math.max(0, models.length - 3),
+        name: providerDisplayName(p.id, p.name),
+        count: served.length,
+        chips: served.slice(0, 3).map((m) => m.displayName),
+        more: Math.max(0, served.length - 3),
         from,
       };
     });
   });
 
   mark = pmark;
+  ink = pmarkInk;
   price = money1M;
 }

@@ -103,10 +103,10 @@ export const HOSTS: HostMeta[] = [
   { id: "vertex", name: "Google Vertex AI", defaultFamily: "google", brandColor: "#34a853" },
   { id: "groq", name: "Groq", defaultFamily: "openai", brandColor: "#f55036" },
   { id: "mistral", name: "Mistral AI", defaultFamily: "openai", brandColor: "#ff7000" },
-  { id: "deepseek", name: "DeepSeek", defaultFamily: "openai", brandColor: "#ff6b00" },
-  { id: "xai", name: "xAI", defaultFamily: "openai", brandColor: "#000000" },
-  { id: "together", name: "Together AI", defaultFamily: "openai", brandColor: "#ff6b35" },
-  { id: "fireworks", name: "Fireworks AI", defaultFamily: "openai", brandColor: "#6366f1" },
+  { id: "deepseek", name: "DeepSeek", defaultFamily: "openai", brandColor: "#4d6bfe" },
+  { id: "xai", name: "xAI", defaultFamily: "openai", brandColor: "#a7adba" },
+  { id: "together", name: "Together AI", defaultFamily: "openai", brandColor: "#1668ff" },
+  { id: "fireworks", name: "Fireworks AI", defaultFamily: "openai", brandColor: "#ff5b2e" },
 ];
 
 const HOST_META = new Map(HOSTS.map((h) => [h.id, h]));

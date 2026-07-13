@@ -11,6 +11,8 @@ import {
   modelOpenWeights,
   money1M,
   pmark,
+  pmarkInk,
+  providerDisplayName,
 } from './catalog.util';
 
 /** /models/:id — one logical model across every host that serves it. */
@@ -32,7 +34,7 @@ import {
     } @else {
       <section class="cp-hero">
         <div class="wrap">
-          <button class="cat-back" routerLink="/models"><vx-icon name="back" />All providers &amp; models</button>
+          <button class="cat-back" routerLink="/models"><vx-icon name="back" />All providers</button>
           <h1 class="cp-h1 model-h1">
             {{ model()!.displayName }}
             @if (openWeights()) { <span class="ow-badge">Open weights</span> }
@@ -43,7 +45,7 @@ import {
             <div class="dmeta-item"><div class="k">Knowledge cutoff</div><div class="v">{{ knowledge() || '—' }}</div></div>
             <div class="dmeta-item"><div class="k">Released</div><div class="v">{{ released() || '—' }}</div></div>
             <div class="dmeta-item"><div class="k">Input modalities</div><div class="v">{{ inputMods() || '—' }}</div></div>
-            <div class="dmeta-item"><div class="k">Hosts</div><div class="v">{{ model()!.hosts.length }} providers</div></div>
+            <div class="dmeta-item"><div class="k">Hosts</div><div class="v">{{ model()!.hosts.length }} provider{{ model()!.hosts.length === 1 ? '' : 's' }}</div></div>
             @if (model()!.intelligenceIndex != null) {
               <div class="dmeta-item"><div class="k">Intelligence</div><div class="v">{{ model()!.intelligenceIndex }}</div></div>
             }
@@ -57,7 +59,7 @@ import {
       <section class="cp-body">
         <div class="wrap">
           <div class="cp-kicker">
-            <div class="eyebrow"><span class="tick"></span>AVAILABLE ON {{ model()!.hosts.length }} PROVIDERS</div>
+            <div class="eyebrow"><span class="tick"></span>AVAILABLE ON {{ model()!.hosts.length }} PROVIDER{{ model()!.hosts.length === 1 ? '' : 'S' }}</div>
           </div>
           <div class="table-scroll">
             <table class="htable">
@@ -75,7 +77,7 @@ import {
                   <tr>
                     <td>
                       <a class="prov-cell" [routerLink]="['/providers', h.host]">
-                        <span class="pmark" [style.background]="brand(h.host)" [style.width.px]="26" [style.height.px]="26" [style.fontSize.px]="12">{{ mark(h.host) }}</span>
+                        <span class="pmark" [style.background]="brand(h.host)" [style.color]="ink(h.host)" [style.width.px]="26" [style.height.px]="26" [style.fontSize.px]="12">{{ mark(h.host) }}</span>
                         <span class="pname">{{ name(h.host) }}</span>
                       </a>
                     </td>
@@ -126,7 +128,9 @@ export class ModelDetail {
   readonly released = computed(() => this.model()?.hosts.find((h) => h.releaseDate)?.releaseDate ?? '');
   readonly inputMods = computed(() => {
     const m = this.model()?.hosts.find((h) => h.modalities)?.modalities?.input ?? [];
-    return m.map((s) => s[0].toUpperCase() + s.slice(1)).join(' · ');
+    return m
+      .map((s) => (s === 'pdf' ? 'PDF' : s[0].toUpperCase() + s.slice(1)))
+      .join(' · ');
   });
 
   private providerMap = computed(() => new Map(this.svc.providers().map((p) => [p.id, p])));
@@ -134,7 +138,7 @@ export class ModelDetail {
     return this.providerMap().get(host)?.brandColor ?? '#666';
   }
   name(host: string): string {
-    return this.providerMap().get(host)?.name ?? host;
+    return providerDisplayName(host, this.providerMap().get(host)?.name);
   }
   cheapest(h: HostModel): boolean {
     return this.model() ? isCheapest(this.model()!, h) : false;
@@ -143,6 +147,7 @@ export class ModelDetail {
     return CAPS.filter((c) => h.supportedFeatures?.[c.key as keyof SupportedFeatures]);
   }
   mark = pmark;
+  ink = pmarkInk;
   price = money1M;
   ctx = fmtCtx;
 }

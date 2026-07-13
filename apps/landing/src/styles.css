@@ -51,6 +51,7 @@
   --vx-line:#161628; --vx-line-2:#1e1e35; --vx-line-3:#2a2a3e;
   --vx-ink:#e8e4ff; --vx-ink-2:#b8b4d8; --vx-ink-3:#8b93a7; --vx-ink-4:#4d5262;
   --vx-accent:var(--vx-violet); --vx-accent-soft:rgba(167,139,250,0.14);
+  --vx-hl:rgba(167,139,250,0.08);
   --vx-grid:rgba(255,255,255,0.03);
   color-scheme:dark;
 }
@@ -88,6 +89,8 @@ a {
   inset: 0;
   z-index: 0;
   pointer-events: none;
+  will-change: transform, opacity;
+  animation: vxBreathe 16s ease-in-out infinite;
   background:
     radial-gradient(ellipse 900px 700px at 8% -5%, rgba(var(--vx-pink-rgb), 0.1), transparent 60%),
     radial-gradient(ellipse 800px 700px at 100% 6%, rgba(var(--vx-blue-rgb), 0.09), transparent 60%),
@@ -102,6 +105,7 @@ a {
     linear-gradient(to right, var(--vx-grid) 1px, transparent 1px),
     linear-gradient(to bottom, var(--vx-grid) 1px, transparent 1px);
   background-size: 64px 64px;
+  animation: vxDrift 42s linear infinite;
   -webkit-mask-image: radial-gradient(ellipse 90% 70% at 50% 30%, #000 55%, transparent 100%);
   mask-image: radial-gradient(ellipse 90% 70% at 50% 30%, #000 55%, transparent 100%);
 }
@@ -127,18 +131,28 @@ a {
 .eyebrow {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 7px;
   font-family: var(--vx-font-mono);
-  font-size: 11px;
+  font-size: 9.5px;
   font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.14em;
-  color: var(--vx-ink-3);
+  letter-spacing: 0.12em;
+  color: var(--vx-ink-2);
+  white-space: nowrap;
+  padding: 4px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--vx-radius-pill);
+  background:
+    linear-gradient(var(--vx-bg-3), var(--vx-bg-3)) padding-box,
+    linear-gradient(90deg, rgba(var(--vx-pink-rgb), 0.55), rgba(var(--vx-violet-rgb), 0.55), rgba(var(--vx-blue-rgb), 0.55)) border-box;
 }
 .eyebrow .tick {
-  width: 22px;
-  height: 1px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
   background: var(--vx-accent);
+  box-shadow: 0 0 7px rgba(var(--vx-violet-rgb), 0.8);
+  animation: vxDotPulse 2.6s ease-in-out infinite;
 }
 .h-display {
   font-family: var(--vx-font-display);
@@ -148,10 +162,34 @@ a {
   margin: 0;
 }
 .grad-text {
-  background: var(--vx-grad);
+  background: linear-gradient(90deg, #f472b6, #a78bfa, #60a5fa, #a78bfa, #f472b6);
+  background-size: 220% 100%;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+  animation: vxGradFlow 9s linear infinite;
+}
+@keyframes vxGradFlow {
+  to { background-position: 220% 0; }
+}
+@keyframes vxBreathe {
+  0%, 100% { opacity: 0.82; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.05); }
+}
+@keyframes vxDrift {
+  to { background-position: 64px 64px; }
+}
+@keyframes vxGlowPulse {
+  0%, 100% { opacity: 0.7; transform: translate(-50%, -50%) scale(1); }
+  50% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+}
+@keyframes vxDotPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+@keyframes vxFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-9px); }
 }
 .lede {
   color: var(--vx-ink-2);
@@ -193,10 +231,34 @@ a {
 /* gradient — the brand glow moment (hero + CTAs only) */
 .btn-gradient {
   color: #0b0b16;
-  background: var(--vx-grad-br);
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(120deg, #f472b6, #a78bfa, #60a5fa, #a78bfa, #f472b6);
+  background-size: 220% 100%;
   box-shadow:
     0 0 0 1px rgba(var(--vx-violet-rgb), 0.4),
     var(--vx-glow-violet);
+  animation: vxGradFlow 9s linear infinite, vxBtnGlow 3.4s ease-in-out infinite;
+}
+.btn-gradient::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -70%;
+  width: 44%;
+  background: linear-gradient(105deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+  transform: skewX(-18deg);
+  pointer-events: none;
+  animation: vxShine 3.4s ease-in-out infinite;
+}
+@keyframes vxShine {
+  0%, 55% { left: -70%; }
+  100% { left: 150%; }
+}
+@keyframes vxBtnGlow {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(var(--vx-violet-rgb), 0.4), 0 0 18px -6px rgba(var(--vx-violet-rgb), 0.45); }
+  50% { box-shadow: 0 0 0 1px rgba(var(--vx-violet-rgb), 0.65), 0 0 34px -4px rgba(var(--vx-violet-rgb), 0.75); }
 }
 .btn-gradient:hover {
   transform: translateY(-1px);
@@ -210,6 +272,27 @@ a {
   color: var(--vx-ink);
   background: var(--vx-panel);
   border-color: var(--vx-line-2);
+}
+/* quiet text link (secondary action) */
+.link-quiet {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 48px;
+  padding: 0 10px;
+  font-size: 14.5px;
+  font-weight: 500;
+  color: var(--vx-ink-3);
+  transition: color var(--vx-dur) var(--vx-ease);
+}
+.link-quiet:hover {
+  color: var(--vx-ink);
+}
+.link-quiet svg {
+  transition: transform var(--vx-dur) var(--vx-ease);
+}
+.link-quiet:hover svg {
+  transform: translateX(3px);
 }
 .btn-line:hover {
   background: var(--vx-panel-2);
@@ -226,6 +309,10 @@ a {
 }
 
 /* --- Prism animation (from PrismLogo, idle sway + core pulse) --- */
+.vx-prism {
+  display: inline-block;
+  animation: vxFloat 6s ease-in-out infinite;
+}
 .vx-prism-box {
   transform-origin: 40px 40px;
   animation: vxPrismSway 5s ease-in-out infinite;
@@ -252,6 +339,175 @@ a {
     r: 7;
     filter: drop-shadow(0 0 10px #a78bfa);
   }
+}
+
+/* --- cosmic starfield --- */
+.vx-stars {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+.vx-stars i {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  box-shadow: 8vw 12vh rgba(232,228,255,.7), 22vw 6vh rgba(167,139,250,.6), 35vw 18vh rgba(232,228,255,.4), 48vw 9vh rgba(96,165,250,.55), 61vw 15vh rgba(232,228,255,.65), 74vw 5vh rgba(244,114,182,.45), 88vw 13vh rgba(232,228,255,.5), 15vw 28vh rgba(232,228,255,.35), 55vw 30vh rgba(167,139,250,.4), 80vw 26vh rgba(232,228,255,.45), 30vw 42vh rgba(232,228,255,.3), 68vw 48vh rgba(96,165,250,.35), 10vw 60vh rgba(232,228,255,.3), 90vw 55vh rgba(232,228,255,.35), 42vw 70vh rgba(167,139,250,.3), 25vw 82vh rgba(232,228,255,.28), 72vw 78vh rgba(232,228,255,.3), 55vw 90vh rgba(96,165,250,.28);
+  animation: vxTwinkle 4.6s ease-in-out infinite;
+}
+.vx-stars i + i {
+  transform: translate(4vw, 3vh) scale(0.75);
+  animation-duration: 6.4s;
+  animation-delay: 1.8s;
+}
+@keyframes vxTwinkle {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 0.22; }
+}
+
+/* --- orbiting comet border (cosmic border beam) --- */
+.vx-orbit {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  z-index: 3;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+}
+.vx-orbit::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 250%;
+  aspect-ratio: 1;
+  background: conic-gradient(transparent 0deg 316deg, rgba(var(--vx-pink-rgb), 0) 320deg, rgba(var(--vx-pink-rgb), 0.9) 336deg, #a78bfa 349deg, rgba(var(--vx-blue-rgb), 0.95) 357deg, transparent 360deg);
+  animation: vxOrbitSpin 8s linear infinite;
+}
+@keyframes vxOrbitSpin {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* --- code showcase (tabbed) --- */
+.code-showcase {
+  position: relative;
+  margin-top: 44px;
+  background: var(--vx-panel);
+  border: 1px solid var(--vx-line-2);
+  border-radius: var(--vx-radius-lg);
+  overflow: hidden;
+  box-shadow: 0 0 70px -34px rgba(var(--vx-violet-rgb), 0.55);
+}
+.cs-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--vx-line);
+  flex-wrap: wrap;
+}
+.cs-dots {
+  display: flex;
+  gap: 6px;
+}
+.cs-dots i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.cs-dots i:nth-child(1) { background: rgba(242, 85, 90, 0.7); }
+.cs-dots i:nth-child(2) { background: rgba(245, 181, 68, 0.7); }
+.cs-dots i:nth-child(3) { background: rgba(34, 197, 94, 0.7); }
+.cs-tabs {
+  display: flex;
+  gap: 4px;
+  margin-left: 8px;
+}
+.cs-tab {
+  font-family: var(--vx-font-mono);
+  font-size: 12px;
+  color: var(--vx-ink-3);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--vx-radius-sm);
+  padding: 5px 11px;
+  cursor: pointer;
+  transition: color var(--vx-dur) var(--vx-ease), background var(--vx-dur) var(--vx-ease);
+}
+.cs-tab:hover {
+  color: var(--vx-ink);
+}
+.cs-tab.on {
+  color: var(--vx-ink);
+  background: var(--vx-bg-3);
+  border-color: var(--vx-line-2);
+}
+.cs-live {
+  margin-left: auto;
+}
+.cs-copy {
+  font-family: var(--vx-font-mono);
+  font-size: 11.5px;
+  color: var(--vx-ink-2);
+  background: var(--vx-bg-3);
+  border: 1px solid var(--vx-line-2);
+  border-radius: var(--vx-radius-sm);
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: color var(--vx-dur) var(--vx-ease), border-color var(--vx-dur) var(--vx-ease);
+}
+.cs-copy:hover {
+  color: var(--vx-ink);
+  border-color: var(--vx-line-3);
+}
+.cs-body {
+  padding: 20px 22px;
+  min-height: 238px;
+}
+.cs-pane {
+  display: none;
+}
+.cs-pane.on {
+  display: block;
+  animation: vxPaneIn 0.25s var(--vx-ease);
+}
+@keyframes vxPaneIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: none; }
+}
+.hl-line {
+  display: block;
+  background: rgba(var(--vx-violet-rgb), 0.1);
+  border-left: 2px solid var(--vx-accent);
+  margin: 0 -22px;
+  padding: 0 22px 0 20px;
+}
+
+/* --- hero CTA reassurance --- */
+.cta-notes {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  font-family: var(--vx-font-mono);
+  font-size: 11px;
+  color: var(--vx-ink-3);
+  letter-spacing: 0.04em;
+}
+.cta-notes span::before {
+  content: "✦";
+  color: var(--vx-violet);
+  margin-right: 7px;
+  font-size: 10px;
 }
 
 /* --- entrance reveal --- */
@@ -308,30 +564,21 @@ a {
   letter-spacing: -0.02em;
 }
 
-/* --- announce bar --- */
-.announce {
-  border-bottom: 1px solid var(--vx-line);
-  background: linear-gradient(
-    90deg,
-    rgba(var(--vx-pink-rgb), 0.07),
-    rgba(var(--vx-violet-rgb), 0.07),
-    rgba(var(--vx-blue-rgb), 0.07)
-  );
-}
-.announce-inner {
-  text-align: center;
-  padding: 9px 32px;
-  font-size: 13px;
-  color: var(--vx-ink-2);
-}
-.announce-inner b {
-  color: var(--vx-ink);
-  font-weight: 600;
-}
-
 /* --- sections --- */
 section {
   position: relative;
+}
+/* Hero fills the opening viewport (nav is 64px sticky), so the CTA stage is
+   the only section on screen when the page loads; the drop-in starts below
+   the fold. */
+.hero-stage {
+  min-height: calc(100vh - 64px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 32px 56px;
+  text-align: center;
 }
 .section-pad {
   padding: 112px 0;
@@ -373,6 +620,7 @@ section {
   border-radius: 50%;
   background: var(--vx-accent);
   box-shadow: 0 0 8px rgba(var(--vx-violet-rgb), 0.7);
+  animation: vxDotPulse 2.6s ease-in-out infinite;
 }
 .chip b {
   color: var(--vx-ink);
@@ -478,62 +726,111 @@ pre {
   color: var(--vx-good);
 }
 
-/* --- providers --- */
-.prov-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-  margin-top: 40px;
-}
-.prov {
-  flex: 1 1 150px;
-  display: flex;
-  align-items: center;
-  gap: 13px;
+/* --- models & providers teaser (compact band + provider marquee) --- */
+.ct2 {
+  margin-top: 30px;
+  position: relative;
+  border: 1px solid rgba(var(--vx-violet-rgb), 0.3);
+  border-radius: var(--vx-radius-xl);
   background: var(--vx-panel);
-  border: 1px solid var(--vx-line-2);
-  border-radius: var(--vx-radius-lg);
-  padding: 18px 20px;
-  transition:
-    border-color var(--vx-dur) var(--vx-ease),
-    background var(--vx-dur) var(--vx-ease);
+  overflow: hidden;
 }
-.prov:hover {
-  border-color: var(--vx-line-3);
-  background: var(--vx-panel-2);
-}
-.prov-mark {
-  width: 36px;
-  height: 36px;
-  flex: none;
-  border-radius: 8px;
+.ct2-top {
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-family: var(--vx-font-mono);
-  font-weight: 600;
-  font-size: 16px;
-  color: #fff;
+  gap: 32px;
+  padding: 26px 30px;
+  flex-wrap: wrap;
 }
-.prov-name {
-  font-weight: 600;
-  font-size: 14.5px;
+.ct2-title {
+  font-family: var(--vx-font-display);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  margin: 12px 0 0;
 }
-.prov-kind {
+.ct2-stats {
+  display: flex;
+  gap: 30px;
+  margin-left: auto;
+}
+.ct2-stat b {
+  font-family: var(--vx-font-display);
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  display: block;
+  background: var(--vx-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.ct2-stat span {
   font-family: var(--vx-font-mono);
-  font-size: 10.5px;
+  font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--vx-ink-3);
-  margin-top: 2px;
+  margin-top: 6px;
+  display: block;
 }
-.byok-note {
-  margin-top: 22px;
-  font-size: 14px;
+.ct2-marquee {
+  position: relative;
+  border-top: 1px solid var(--vx-line);
+  background: var(--vx-bg-2);
+  overflow: hidden;
+  padding: 13px 0;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+}
+.ct2-track {
+  display: flex;
+  width: max-content;
+  animation: vxMarquee 36s linear infinite;
+}
+.ct2-marquee:hover .ct2-track {
+  animation-play-state: paused;
+}
+.ct2-half {
+  display: flex;
+  gap: 10px;
+  padding-right: 10px;
+}
+.ct2-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 14px 6px 7px;
+  border: 1px solid var(--vx-line-2);
+  border-radius: var(--vx-radius-pill);
+  background: var(--vx-panel);
+  font-size: 13px;
   color: var(--vx-ink-2);
+  white-space: nowrap;
 }
-.byok-note b {
-  color: var(--vx-ink);
+.ct2-pill .mk2 {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  font-family: var(--vx-font-mono);
+  font-weight: 600;
+  font-size: 11.5px;
+}
+@keyframes vxMarquee {
+  to { transform: translateX(-50%); }
+}
+.ct2-byok {
+  padding: 12px 30px 14px;
+  border-top: 1px solid var(--vx-line);
+  font-size: 13px;
+  color: var(--vx-ink-3);
+}
+.ct2-byok b {
+  color: var(--vx-ink-2);
   font-weight: 600;
 }
 
@@ -787,6 +1084,7 @@ pre {
   height: 520px;
   pointer-events: none;
   background: radial-gradient(ellipse at center, rgba(var(--vx-violet-rgb), 0.18), transparent 62%);
+  animation: vxGlowPulse 7s ease-in-out infinite;
 }
 .cta-band h2 {
   font-size: 60px;
@@ -917,22 +1215,54 @@ footer {
    palette. Here we only re-tune the brand-stage textures + dark-hardcoded
    chrome so the page reads as a real light surface. The gradient CTAs and
    Prism accents stay full-strength in both themes. */
+:root[data-theme="light"] {
+  --vx-hl: rgba(124, 58, 237, 0.06);
+  --vx-grid: rgba(20, 24, 40, 0.04);
+  --vx-shadow-lg: 0 40px 80px -30px rgba(23, 23, 60, 0.18);
+}
+:root[data-theme="light"] .vx-stars {
+  display: none;
+}
 :root[data-theme="light"] .vx-atmosphere {
   opacity: 0.45;
 }
-:root[data-theme="light"] .vx-grid {
-  opacity: 0.6;
-}
 :root[data-theme="light"] .nav {
-  background: rgba(247, 247, 251, 0.72);
+  background: rgba(247, 247, 251, 0.82);
 }
 :root[data-theme="light"] .theme-toggle {
   color: var(--vx-ink-2);
 }
+:root[data-theme="light"] .k-grn {
+  color: #0a8f5e;
+}
+:root[data-theme="light"] .k-vio {
+  color: #6d28d9;
+}
+:root[data-theme="light"] .k-red {
+  color: #d43d44;
+}
+:root[data-theme="light"] .cta-band .glow {
+  opacity: 0.55;
+}
+:root[data-theme="light"] .code-showcase {
+  box-shadow: 0 24px 60px -34px rgba(124, 58, 237, 0.35);
+}
 
 @media (prefers-reduced-motion: reduce) {
   .vx-prism-box,
-  .vx-prism-core {
+  .vx-prism-core,
+  .vx-prism,
+  .grad-text,
+  .btn-gradient,
+  .btn-gradient::after,
+  .vx-atmosphere,
+  .vx-grid,
+  .cta-band .glow,
+  .chip .dot,
+  .eyebrow .tick,
+  .ct2-track,
+  .vx-orbit::before,
+  .vx-stars i {
     animation: none !important;
   }
   .reveal {

@@ -7,10 +7,33 @@ import {
 
 /**
  * Entrance-reveal directive (DS motion discipline): content animates *from*
- * hidden via the `.reveal` → `.reveal.in` transition. Uses IntersectionObserver
- * in the browser only; on the server (and when reduced motion is requested) the
- * element is revealed immediately so nothing is ever stuck invisible.
+ * hidden via the `.reveal` → `.reveal.in` transition. Uses a SHARED
+ * IntersectionObserver in the browser only, so elements entering the viewport
+ * in the same batch stagger by 80ms (design's reveal cadence). On the server
+ * (and when reduced motion is requested) the element is revealed immediately
+ * so nothing is ever stuck invisible.
  */
+
+let sharedIo: IntersectionObserver | null = null;
+
+function observe(el: HTMLElement): void {
+  sharedIo ??= new IntersectionObserver(
+    (entries) => {
+      let d = 0;
+      for (const entry of entries) {
+        if (entry.isIntersecting) {
+          (entry.target as HTMLElement).style.transitionDelay = `${d}ms`;
+          d += 80;
+          entry.target.classList.add('in');
+          sharedIo!.unobserve(entry.target);
+        }
+      }
+    },
+    { threshold: 0.12, rootMargin: '0px 0px -8% 0px' },
+  );
+  sharedIo.observe(el);
+}
+
 @Directive({
   selector: '[vxReveal]',
   standalone: true,
@@ -29,19 +52,7 @@ export class RevealDirective {
         el.classList.add('in');
         return;
       }
-
-      const io = new IntersectionObserver(
-        (entries) => {
-          for (const entry of entries) {
-            if (entry.isIntersecting) {
-              entry.target.classList.add('in');
-              io.unobserve(entry.target);
-            }
-          }
-        },
-        { threshold: 0.12, rootMargin: '0px 0px -8% 0px' },
-      );
-      io.observe(el);
+      observe(el);
     });
   }
 }

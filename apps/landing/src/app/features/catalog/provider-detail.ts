@@ -12,10 +12,28 @@ import {
   matchesFilters,
   money1M,
   pmark,
+  pmarkInk,
+  providerDisplayName,
   sortRows,
   type FilterState,
   type SortKey,
 } from './catalog.util';
+
+/** Provider blurbs — design-exact marketing copy (not in /v1/catalog). */
+const PROVIDER_DESC: Record<string, string> = {
+  openai: 'GPT and o-series models, served directly from OpenAI.',
+  anthropic: 'The Claude family, direct from Anthropic.',
+  google: 'Gemini models on Google AI.',
+  azure: 'OpenAI models on Microsoft Azure, with regional deployments and enterprise controls.',
+  bedrock: 'Frontier and open-weights models through AWS Bedrock.',
+  vertex: 'Claude and Gemini on Google Cloud Vertex AI.',
+  groq: 'Open-weights models at very low latency on Groq LPUs.',
+  mistral: 'Mistral’s own hosted models, from the source.',
+  deepseek: 'DeepSeek’s chat and reasoning models, direct.',
+  xai: 'Grok models from xAI, with live search grounding.',
+  together: 'Open-weights models hosted on Together AI.',
+  fireworks: 'Open-weights models hosted on Fireworks AI.',
+};
 
 /** /providers/:id — provider header + filter bar + its models as a table. */
 @Component({
@@ -41,19 +59,23 @@ import {
             <span
               class="pmark"
               [style.background]="provider()!.brandColor"
+              [style.color]="ink(provider()!.id)"
               [style.width.px]="58"
               [style.height.px]="58"
               [style.fontSize.px]="24"
               >{{ mark(provider()!.id) }}</span
             >
             <div>
-              <h1 class="cp-h1 prov-id-name">{{ provider()!.name }}</h1>
+              <h1 class="cp-h1 prov-id-name">{{ displayName() }}</h1>
               <div class="prov-id-sub">
                 <span class="prov-id-fam">{{ provider()!.defaultFamily }} wire format</span>
-                <span>·</span><span>{{ allCount() }} models</span>
+                <span class="dotsep">·</span><span>{{ allCount() }} models</span>
               </div>
             </div>
           </div>
+          @if (desc()) {
+            <p class="cp-lede">{{ desc() }}</p>
+          }
         </div>
       </section>
 
@@ -86,7 +108,7 @@ import {
                     <tr>
                       <td>
                         <a class="mlink" [routerLink]="['/models', r.id]">{{ r.name }}</a>
-                        <div class="mlink-mod">{{ r.modality }}</div>
+                        <span class="mlink-mod">{{ r.modality }}</span>
                       </td>
                       <td class="mono">{{ r.h.upstreamModelId }}</td>
                       <td class="num price">{{ price(r.h.inputPer1kMicro) }}</td>
@@ -126,6 +148,11 @@ export class ProviderDetail {
   }
 
   readonly provider = computed(() => this.svc.providers().find((p) => p.id === this.id()));
+  readonly displayName = computed(() => {
+    const p = this.provider();
+    return p ? providerDisplayName(p.id, p.name) : '';
+  });
+  readonly desc = computed(() => PROVIDER_DESC[this.id()] ?? '');
   readonly allCount = computed(
     () => (this.svc.models() ?? []).filter((m) => m.hosts.some((h) => h.host === this.id())).length,
   );
@@ -149,6 +176,7 @@ export class ProviderDetail {
     return CAPS.filter((c) => h.supportedFeatures?.[c.key as keyof SupportedFeatures]);
   }
   mark = pmark;
+  ink = pmarkInk;
   price = money1M;
   ctx = fmtCtx;
 }

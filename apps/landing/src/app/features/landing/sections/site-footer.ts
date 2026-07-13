@@ -16,7 +16,7 @@ import { Prism } from '../../../shared/prism/prism';
               <span class="wordmark" style="font-size:17px;">Vortex</span>
             </a>
             <p>
-              The enterprise LLM gateway. One endpoint, every provider, full governance — SaaS or
+              Vortex Enterprise. One endpoint, every provider, full governance — SaaS or
               self-hosted.
             </p>
           </div>
@@ -50,7 +50,7 @@ import { Prism } from '../../../shared/prism/prism';
           </div>
         </div>
         <div class="foot-bottom">
-          <span>© 2026 Vortex — Enterprise LLM Gateway</span>
+          <span>© 2026 Vortex Enterprise</span>
           <span>gateway.vortex.ai</span>
         </div>
       </div>

@@ -15,6 +15,29 @@ export function fmtCtx(n: number | undefined): string {
   return String(n);
 }
 
+// ── provider display names ───────────────────────────────────
+// Short marketing names (design landing.html `P` map). The API /v1/catalog
+// ships the full HostMeta names ("AWS Bedrock", "Google Vertex AI", …) — the
+// landing UI always renders these short forms. Ids stay untouched.
+const PROVIDER_SHORT_NAME: Record<string, string> = {
+  openai: 'OpenAI',
+  anthropic: 'Anthropic',
+  google: 'Google',
+  azure: 'Azure',
+  bedrock: 'Bedrock',
+  vertex: 'Vertex',
+  groq: 'Groq',
+  mistral: 'Mistral',
+  deepseek: 'DeepSeek',
+  xai: 'xAI',
+  together: 'Together',
+  fireworks: 'Fireworks',
+};
+/** Short display name for a host id — falls back to the API name, then the id. */
+export function providerDisplayName(hostId: string, apiName?: string): string {
+  return PROVIDER_SHORT_NAME[hostId] ?? apiName ?? hostId;
+}
+
 // ── provider avatar initials ─────────────────────────────────
 const PMARK: Record<string, string> = {
   azure: 'Az',
@@ -27,6 +50,10 @@ const PMARK: Record<string, string> = {
 };
 export function pmark(hostId: string): string {
   return PMARK[hostId] ?? (hostId[0] ?? '?').toUpperCase();
+}
+/** Mark ink — xAI's light brand colour needs dark text (design). */
+export function pmarkInk(hostId: string): string {
+  return hostId === 'xai' ? '#111' : '#fff';
 }
 
 // ── capabilities (order + label + inline icon path) ──────────
@@ -69,8 +96,10 @@ export interface FilterState {
   q: string;
   mod: 'all' | 'text' | 'multimodal' | 'embedding';
   caps: (keyof SupportedFeatures)[];
+  /** Open-weights models only. */
+  ow: boolean;
 }
-export const emptyFilter = (): FilterState => ({ q: '', mod: 'all', caps: [] });
+export const emptyFilter = (): FilterState => ({ q: '', mod: 'all', caps: [], ow: false });
 
 // ── sorting ──────────────────────────────────────────────────
 export type SortKey = 'newest' | 'price' | 'intelligence' | 'effective';
@@ -126,6 +155,7 @@ export function sortRows<T extends { h: HostModel; intel: number | null; id: str
 
 export function matchesFilters(m: CatalogModel, s: FilterState): boolean {
   if (s.mod !== 'all' && m.modality !== s.mod) return false;
+  if (s.ow && !modelOpenWeights(m)) return false;
   if (s.caps.length) {
     const f = modelFeatures(m);
     if (!s.caps.every((k) => f[k])) return false;

@@ -8,7 +8,7 @@ import { APP_URL } from '../landing.tokens';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [Prism],
   template: `
-    <section class="wrap" style="padding:104px 32px 84px; text-align:center;">
+    <section class="wrap hero-stage">
       <!-- Animated Prism (PrismLogo, idle state) -->
       <div
         class="reveal in"
@@ -45,7 +45,27 @@ import { APP_URL } from '../landing.tokens';
         style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;"
       >
         <a class="btn btn-gradient btn-lg" [href]="appUrl">Start free</a>
-        <a class="btn btn-line btn-lg" href="#product">Read the docs</a>
+        <a class="link-quiet" href="#product"
+          >Read the docs
+          <svg
+            viewBox="0 0 24 24"
+            width="15"
+            height="15"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M5 12h14M13 6l6 6-6 6" />
+          </svg>
+        </a>
+      </div>
+
+      <div class="cta-notes reveal in">
+        <span>BYOK — 0% markup</span>
+        <span>No credit card</span>
+        <span>Live in 30 seconds</span>
       </div>
 
       <!-- trust strip -->

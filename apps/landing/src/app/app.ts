@@ -14,6 +14,7 @@ import { SiteFooter } from './features/landing/sections/site-footer';
   template: `
     <div class="vx-atmosphere"></div>
     <div class="vx-grid"></div>
+    <div class="vx-stars" aria-hidden="true"><i></i><i></i></div>
     <div class="page">
       <vx-site-nav />
       <router-outlet />
