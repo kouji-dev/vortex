@@ -10,6 +10,10 @@ import {
   type CanonicalChatRequest,
 } from "@vortex/shared";
 import { gatewayAuth, type GatewayEnv } from "./gateway.auth.js";
+import {
+  BudgetExceededError,
+  CreditExhaustedError,
+} from "../shared/errors.js";
 import { runWithRequestCache } from "../shared/request-context.js";
 import { handleChat, handleEmbeddings, type ChatResult } from "./core.js";
 import {
@@ -40,13 +44,34 @@ function errJson(message: string, type: string, code?: string) {
   return { error: { message, type, param: null, code: code ?? null } };
 }
 
-/** True when the thrown error is a hard-cap budget rejection. */
-function isBudgetError(e: unknown): boolean {
-  return (
-    typeof e === "object" &&
-    e !== null &&
-    ((e as { name?: string }).name === "BudgetExceededError" || "scope" in e)
-  );
+/**
+ * Typed money-path denial → 402 body (with the scope that tripped), or null
+ * when the error is not a budget/credit rejection.
+ */
+function moneyDenied(e: unknown): object | null {
+  if (e instanceof BudgetExceededError) {
+    return {
+      error: {
+        message: `Monthly budget exceeded (${e.scope}).`,
+        type: "insufficient_quota",
+        param: null,
+        code: "budget_exceeded",
+        scope: e.scope,
+      },
+    };
+  }
+  if (e instanceof CreditExhaustedError) {
+    return {
+      error: {
+        message: "Managed credits exhausted.",
+        type: "insufficient_quota",
+        param: null,
+        code: "credits_exhausted",
+        scope: "credits",
+      },
+    };
+  }
+  return null;
 }
 
 function chatToCanonical(req: ChatCompletionRequest): CanonicalChatRequest {
@@ -82,8 +107,8 @@ gatewayRouter.post("/chat/completions", async (c) => {
   try {
     result = await handleChat(ctx, canonical);
   } catch (e) {
-    if (isBudgetError(e))
-      return c.json(errJson("Monthly budget exceeded.", "insufficient_quota", "budget_exceeded"), 402);
+    const denied = moneyDenied(e);
+    if (denied) return c.json(denied, 402);
     throw e;
   }
   if (result.kind === "error")
@@ -107,8 +132,8 @@ gatewayRouter.post("/messages", async (c) => {
   try {
     result = await handleChat(ctx, canonical);
   } catch (e) {
-    if (isBudgetError(e))
-      return c.json(errJson("Monthly budget exceeded.", "insufficient_quota", "budget_exceeded"), 402);
+    const denied = moneyDenied(e);
+    if (denied) return c.json(denied, 402);
     throw e;
   }
   if (result.kind === "error")
@@ -132,8 +157,8 @@ gatewayRouter.post("/responses", async (c) => {
   try {
     result = await handleChat(ctx, canonical);
   } catch (e) {
-    if (isBudgetError(e))
-      return c.json(errJson("Monthly budget exceeded.", "insufficient_quota", "budget_exceeded"), 402);
+    const denied = moneyDenied(e);
+    if (denied) return c.json(denied, 402);
     throw e;
   }
   if (result.kind === "error")
@@ -156,8 +181,8 @@ gatewayRouter.post("/embeddings", async (c) => {
   try {
     result = await handleEmbeddings(ctx, parsed.data);
   } catch (e) {
-    if (isBudgetError(e))
-      return c.json(errJson("Monthly budget exceeded.", "insufficient_quota", "budget_exceeded"), 402);
+    const denied = moneyDenied(e);
+    if (denied) return c.json(denied, 402);
     throw e;
   }
   if (result.kind === "error")

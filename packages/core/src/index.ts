@@ -9,8 +9,15 @@ export {
 
 export { redis, budgetKey } from "./redis.js";
 
-export { gcra, rlKey } from "./ratelimit/gcra.js";
-export type { GcraResult, GcraOpts } from "./ratelimit/gcra.js";
+export { gcra, gcraRefund, rlKey } from "./ratelimit/gcra.js";
+export type { GcraResult, GcraOpts, GcraRefundOpts } from "./ratelimit/gcra.js";
+
+export { reserveSpend, settleSpend, holdKey } from "./ratelimit/budget-hold.js";
+export type {
+  HoldScope,
+  BudgetHoldSlot,
+  ReserveSpendResult,
+} from "./ratelimit/budget-hold.js";
 
 export { ttlMemo } from "./cache/ttl-memo.js";
 export type { TtlMemo } from "./cache/ttl-memo.js";

@@ -8,11 +8,11 @@ export const redis = new Redis(env.REDIS_URL, {
 
 /**
  * Org-scoped monthly spend counter key for a budget pool.
- * `scope` is "team" | "org"; `month` is a period token, e.g. "2026-07".
+ * `scope` is "member" | "team" | "org"; `month` is a period token, e.g. "2026-07".
  */
 export function budgetKey(
   orgId: string,
-  scope: "team" | "org",
+  scope: "member" | "team" | "org",
   scopeId: string,
   month: string,
 ): string {
