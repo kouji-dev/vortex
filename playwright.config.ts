@@ -7,17 +7,41 @@ import { defineConfig } from "@playwright/test";
 // Both share the same Postgres + Redis (docker compose, ports 5433/6380).
 // Ports are env-driven so parallel worktrees don't collide: set API_PORT_E2E /
 // MOCK_PORT_E2E (defaults 8080 / 9099).
+//
+// LANDING UI suite (browser): opt-in via `playwright test --project=landing`
+// (or LANDING_E2E=1). It boots ONLY `ng serve landing` (catalog is stubbed via
+// page.route) — default/API-only runs are completely unaffected: no landing
+// project, no Angular dev server.
 const API_PORT = process.env.API_PORT_E2E ?? "8080";
 const MOCK_PORT = process.env.MOCK_PORT_E2E ?? "9099";
 const MOCK_URL = `http://localhost:${MOCK_PORT}`;
+const LANDING_PORT = process.env.LANDING_PORT_E2E ?? "4401";
+const LANDING_URL = `http://127.0.0.1:${LANDING_PORT}`;
 
-export default defineConfig({
-  testDir: "./e2e",
-  timeout: 60_000,
-  fullyParallel: false,
-  workers: 1,
-  reporter: [["list"]],
-  webServer: [
+// Which projects were requested on the CLI (`--project foo` / `--project=foo`).
+const requestedProjects: string[] = [];
+process.argv.forEach((a, i) => {
+  if (a === "--project") requestedProjects.push(process.argv[i + 1] ?? "");
+  else if (a.startsWith("--project=")) requestedProjects.push(a.slice("--project=".length));
+});
+const runLanding =
+  process.env.LANDING_E2E === "1" || requestedProjects.includes("landing");
+const landingOnly =
+  process.env.LANDING_E2E_ONLY === "1" ||
+  (runLanding && requestedProjects.length > 0 && requestedProjects.every((p) => p === "landing"));
+// Worker processes re-evaluate this config WITHOUT the CLI args — propagate
+// the decision through the environment so the project set stays identical.
+if (runLanding) process.env.LANDING_E2E = "1";
+if (landingOnly) process.env.LANDING_E2E_ONLY = "1";
+
+const landingServer = {
+  command: `pnpm exec ng serve landing --configuration development --port ${LANDING_PORT} --host 127.0.0.1`,
+  url: LANDING_URL,
+  reuseExistingServer: false,
+  timeout: 240_000,
+};
+
+const apiServers = [
     {
       command: "node e2e/mock-provider.mjs",
       url: `${MOCK_URL}/models`,
@@ -80,5 +104,36 @@ export default defineConfig({
         DLQ_SWEEP_MS: "1500",
       },
     },
+];
+
+export default defineConfig({
+  testDir: "./e2e",
+  timeout: 60_000,
+  fullyParallel: false,
+  workers: 1,
+  reporter: [["list"]],
+  projects: [
+    // API/gateway suite — request-level specs, no browser. Unchanged default.
+    ...(landingOnly
+      ? []
+      : [{ name: "api", testIgnore: /landing\.spec\.ts/ }]),
+    // Landing UI suite — real Chromium against `ng serve landing`.
+    ...(runLanding
+      ? [
+          {
+            name: "landing",
+            testMatch: /landing\.spec\.ts/,
+            use: {
+              baseURL: LANDING_URL,
+              permissions: ["clipboard-read", "clipboard-write"],
+            },
+          },
+        ]
+      : []),
   ],
+  webServer: landingOnly
+    ? [landingServer]
+    : runLanding
+      ? [...apiServers, landingServer]
+      : apiServers,
 });
