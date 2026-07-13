@@ -3,12 +3,14 @@ import { withOrg, apps, appAccess, memberships } from "@vortex/db";
 import type { MemberContext } from "../provisioning/provisioning.service.js";
 import type { CreateApp } from "@vortex/shared";
 import { assertServiceQuota } from "../../shared/caps.js";
+import type { Page } from "../../shared/pagination.js";
+import { isOrgManager } from "../../shared/rbac.js";
 
 /** Apps the member may see: owner/admin → all; else owned + granted (member/team). */
-export async function listAccessibleApps(member: MemberContext) {
+export async function listAccessibleApps(member: MemberContext, page: Page) {
   return withOrg(member.orgId, async (tx) => {
-    if (member.role === "owner" || member.role === "admin") {
-      return tx.select().from(apps);
+    if (isOrgManager(member)) {
+      return tx.select().from(apps).limit(page.limit).offset(page.offset);
     }
     const grants = await tx
       .select({ appId: appAccess.appId })
@@ -36,7 +38,9 @@ export async function listAccessibleApps(member: MemberContext) {
           eq(apps.ownerMemberId, member.membershipId),
           grantedIds.length ? inArray(apps.id, grantedIds) : undefined,
         ),
-      );
+      )
+      .limit(page.limit)
+      .offset(page.offset);
   });
 }
 
@@ -96,7 +100,7 @@ export async function canManageApp(
   member: MemberContext,
   appId: string,
 ): Promise<boolean> {
-  if (member.role === "owner" || member.role === "admin") return true;
+  if (isOrgManager(member)) return true;
   return withOrg(member.orgId, async (tx) => {
     const [app] = await tx
       .select({ ownerMemberId: apps.ownerMemberId })

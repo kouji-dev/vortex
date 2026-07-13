@@ -1,14 +1,23 @@
 import { Hono } from "hono";
-import { desc, eq } from "drizzle-orm";
+import { z } from "zod";
+import { desc, eq, and } from "drizzle-orm";
 import { withOrg, teams, memberships, auditLogs } from "@vortex/db";
+import { budgetEnforcementSchema } from "@vortex/shared";
 import { requireMember, type AppEnv } from "../../shared/ctx.js";
+import { requireOrgManager } from "../../shared/rbac.js";
 import { redis, budgetKey } from "@vortex/core";
 import { reconcileMonth } from "./budget.service.js";
 import { appendAudit } from "./audit.service.js";
 
-function isAdmin(role: string): boolean {
-  return role === "owner" || role === "admin";
-}
+const teamBudgetSchema = z.object({
+  budgetMicro: z.number().int().nonnegative().nullish(),
+  defaultMemberBudgetMicro: z.number().int().nonnegative().nullish(),
+  enforcement: budgetEnforcementSchema.optional(),
+});
+
+const memberBudgetSchema = z.object({
+  budgetOverrideMicro: z.number().int().nonnegative().nullish(),
+});
 
 // ── budgets ──────────────────────────────────────────────────
 export const budgets = new Hono<AppEnv>();
@@ -48,14 +57,14 @@ budgets.get("/", async (c) => {
 });
 
 budgets.patch("/team/:teamId", async (c) => {
+  const forbidden = requireOrgManager(c);
+  if (forbidden) return forbidden;
   const m = c.get("member");
-  if (!isAdmin(m.role)) return c.json({ error: "forbidden" }, 403);
   const teamId = c.req.param("teamId");
-  const body = (await c.req.json().catch(() => ({}))) as {
-    budgetMicro?: number | null;
-    defaultMemberBudgetMicro?: number | null;
-    enforcement?: "hard" | "soft";
-  };
+  const parsed = teamBudgetSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success)
+    return c.json({ error: "invalid_body", details: parsed.error.flatten() }, 400);
+  const body = parsed.data;
   await withOrg(m.orgId, async (tx) => {
     await tx
       .update(teams)
@@ -66,7 +75,7 @@ budgets.patch("/team/:teamId", async (c) => {
         }),
         ...(body.enforcement && { budgetEnforcement: body.enforcement }),
       })
-      .where(eq(teams.id, teamId));
+      .where(and(eq(teams.id, teamId), eq(teams.orgId, m.orgId)));
   });
   await appendAudit({
     orgId: m.orgId,
@@ -79,17 +88,19 @@ budgets.patch("/team/:teamId", async (c) => {
 });
 
 budgets.patch("/member/:memberId", async (c) => {
+  const forbidden = requireOrgManager(c);
+  if (forbidden) return forbidden;
   const m = c.get("member");
-  if (!isAdmin(m.role)) return c.json({ error: "forbidden" }, 403);
   const memberId = c.req.param("memberId");
-  const body = (await c.req.json().catch(() => ({}))) as {
-    budgetOverrideMicro?: number | null;
-  };
+  const parsed = memberBudgetSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success)
+    return c.json({ error: "invalid_body", details: parsed.error.flatten() }, 400);
+  const body = parsed.data;
   await withOrg(m.orgId, async (tx) => {
     await tx
       .update(memberships)
       .set({ budgetOverrideMicro: body.budgetOverrideMicro ?? null })
-      .where(eq(memberships.id, memberId));
+      .where(and(eq(memberships.id, memberId), eq(memberships.orgId, m.orgId)));
   });
   await appendAudit({
     orgId: m.orgId,
@@ -102,9 +113,9 @@ budgets.patch("/member/:memberId", async (c) => {
 });
 
 budgets.post("/reconcile", async (c) => {
-  const m = c.get("member");
-  if (!isAdmin(m.role)) return c.json({ error: "forbidden" }, 403);
-  await reconcileMonth(m.orgId);
+  const forbidden = requireOrgManager(c);
+  if (forbidden) return forbidden;
+  await reconcileMonth(c.get("member").orgId);
   return c.json({ ok: true });
 });
 
@@ -113,8 +124,9 @@ export const audit = new Hono<AppEnv>();
 audit.use("*", requireMember);
 
 audit.get("/", async (c) => {
+  const forbidden = requireOrgManager(c);
+  if (forbidden) return forbidden;
   const m = c.get("member");
-  if (!isAdmin(m.role)) return c.json({ error: "forbidden" }, 403);
   const rows = await withOrg(m.orgId, (tx) =>
     tx
       .select()
