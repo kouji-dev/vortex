@@ -17,6 +17,7 @@ export type Entitlements = {
   seatsPerOrg: number | null;
   servicePerMember: number | null;
   teamBudgetMicro: number | null;
+  orgBudgetMicro: number | null;
   rpm: number | null;
   tpm: number | null;
   concurrency: number | null;
@@ -73,6 +74,7 @@ async function loadEntitlements(orgId: string): Promise<Entitlements> {
       seatsPerOrg,
       servicePerMember: ent?.servicePerMember ?? null,
       teamBudgetMicro: ent?.teamBudgetMicro ?? null,
+      orgBudgetMicro: ent?.orgBudgetMicro ?? null,
       rpm: ent?.rpm ?? null,
       tpm: ent?.tpm ?? null,
       concurrency: ent?.concurrency ?? null,

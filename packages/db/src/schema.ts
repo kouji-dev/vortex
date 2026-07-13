@@ -149,14 +149,18 @@ export const plans = pgTable("plans", {
   createdAt: createdAt(),
 });
 
-export const platformAdmins = pgTable("platform_admins", {
-  id: id(),
-  userId: text("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  role: platformRole("role").notNull().default("platform_admin"),
-  createdAt: createdAt(),
-});
+export const platformAdmins = pgTable(
+  "platform_admins",
+  {
+    id: id(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    role: platformRole("role").notNull().default("platform_admin"),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("platform_admins_user_uq").on(t.userId)],
+);
 
 export const platformAuditLogs = pgTable("platform_audit_logs", {
   id: id(),
@@ -185,17 +189,42 @@ export const organizations = pgTable("organizations", {
   createdAt: createdAt(),
 });
 
-export const subscriptions = pgTable("subscriptions", {
+export const subscriptions = pgTable(
+  "subscriptions",
+  {
+    id: id(),
+    orgId: text("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    stripeCustomerId: text("stripe_customer_id"),
+    stripeSubscriptionId: text("stripe_subscription_id"),
+    planId: text("plan_id").references(() => plans.id),
+    status: subStatus("status").notNull().default("incomplete"),
+    currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
+    cancelAt: timestamp("cancel_at", { withTimezone: true }),
+    // timestamp of the last Stripe event applied — guards stale webhook replays
+    lastEventAt: timestamp("last_event_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("subscriptions_org_uq").on(t.orgId)],
+);
+
+// Stripe webhook event dedupe/idempotency store (id = Stripe event id).
+export const stripeEvents = pgTable("stripe_events", {
+  id: text("id").primaryKey(),
+  type: text("type"),
+  created: timestamp("created", { withTimezone: true }),
+  processedAt: timestamp("processed_at", { withTimezone: true }),
+});
+
+// Dead-letter queue for billing-plane work that failed and must be retried.
+export const failedBillingEvents = pgTable("failed_billing_events", {
   id: id(),
-  orgId: text("org_id")
-    .notNull()
-    .references(() => organizations.id, { onDelete: "cascade" }),
-  stripeCustomerId: text("stripe_customer_id"),
-  stripeSubscriptionId: text("stripe_subscription_id"),
-  planId: text("plan_id").references(() => plans.id),
-  status: subStatus("status").notNull().default("incomplete"),
-  currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
-  cancelAt: timestamp("cancel_at", { withTimezone: true }),
+  kind: text("kind").notNull(), // e.g. stripe_webhook | rollup | credit_spend
+  payload: jsonb("payload").$type<Record<string, unknown>>(),
+  error: text("error"),
+  retryCount: integer("retry_count").default(0).notNull(),
+  nextRetryAt: timestamp("next_retry_at", { withTimezone: true }),
   createdAt: createdAt(),
 });
 
@@ -373,6 +402,8 @@ export const usageRecords = pgTable(
     totalTokens: integer("total_tokens").default(0).notNull(),
     costMicro: money("cost_micro").default(0).notNull(),
     status: usageStatus("status").notNull().default("success"),
+    // true when token counts were estimated (e.g. stream aborted mid-flight)
+    usageEstimated: boolean("usage_estimated").default(false).notNull(),
     latencyMs: integer("latency_ms"),
     ttfbMs: integer("ttfb_ms"),
     createdAt: createdAt(),
@@ -410,6 +441,8 @@ export const planEntitlements = pgTable("plan_entitlements", {
   seatsPerOrg: integer("seats_per_org"),
   servicePerMember: integer("service_per_member"),
   teamBudgetMicro: money("team_budget_micro"),
+  orgBudgetMicro: money("org_budget_micro"), // org-wide monthly spend cap
+
   rpm: integer("rpm"),
   tpm: integer("tpm"),
   concurrency: integer("concurrency"),
@@ -492,7 +525,13 @@ export const creditLedger = pgTable(
     requestId: text("request_id"), // links a spend to its usage record
     createdAt: createdAt(),
   },
-  (t) => [index("credit_ledger_org_idx").on(t.orgId, t.createdAt)],
+  (t) => [
+    index("credit_ledger_org_idx").on(t.orgId, t.createdAt),
+    // idempotent spend: at most one ledger entry per request
+    uniqueIndex("credit_ledger_request_id_uq")
+      .on(t.requestId)
+      .where(sqlNotNull(t.requestId)),
+  ],
 );
 
 // Platform-owned managed provider pool (NOT tenant-scoped; managed mode only).

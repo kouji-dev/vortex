@@ -11,10 +11,14 @@ import {
 
 export type AuthUser = { id: string; email: string; name?: string | null };
 
+export type PlatformRole = "platform_owner" | "platform_admin" | "support";
+
 export type AppEnv = {
   Variables: {
     user: AuthUser | null;
     member: MemberContext;
+    /** Set by the platform surface after the platform_admins lookup. */
+    platformRole: PlatformRole | null;
   };
 };
 

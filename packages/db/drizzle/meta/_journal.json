@@ -29,6 +29,13 @@
       "when": 1783425778624,
       "tag": "0003_equal_nighthawk",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1783934630644,
+      "tag": "0004_elite_ultimates",
+      "breakpoints": true
     }
   ]
 }
