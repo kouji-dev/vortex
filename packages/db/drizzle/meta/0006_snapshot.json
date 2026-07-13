@@ -1,6 +1,6 @@
 {
-  "id": "a4196a34-ba70-4cd1-9e5e-f5da3b90219e",
-  "prevId": "05c4bf46-7dd7-43fd-a919-f8d6df9d3db5",
+  "id": "4199cf75-bd15-4fad-8377-de3175a27c8c",
+  "prevId": "bffca1f0-65a6-4c30-bc20-149ebdee1d05",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -758,6 +758,22 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "credit_ledger_request_id_uq": {
+          "name": "credit_ledger_request_id_uq",
+          "columns": [
+            {
+              "expression": "request_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"credit_ledger\".\"request_id\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -845,6 +861,63 @@
           ]
         }
       },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.failed_billing_events": {
+      "name": "failed_billing_events",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "payload": {
+          "name": "payload",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "error": {
+          "name": "error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "retry_count": {
+          "name": "retry_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "next_retry_at": {
+          "name": "next_retry_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -1124,6 +1197,18 @@
           "primaryKey": false,
           "notNull": true
         },
+        "cached_input_per_1k_micro": {
+          "name": "cached_input_per_1k_micro",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cache_write_per_1k_micro": {
+          "name": "cache_write_per_1k_micro",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
         "context_window": {
           "name": "context_window",
           "type": "integer",
@@ -1145,6 +1230,42 @@
         "supported_features": {
           "name": "supported_features",
           "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "modalities": {
+          "name": "modalities",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "release_date": {
+          "name": "release_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "knowledge": {
+          "name": "knowledge",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_updated": {
+          "name": "last_updated",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "open_weights": {
+          "name": "open_weights",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -1314,6 +1435,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "org_budget_micro": {
+          "name": "org_budget_micro",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
         "rpm": {
           "name": "rpm",
           "type": "integer",
@@ -1460,7 +1587,23 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "platform_admins_user_uq": {
+          "name": "platform_admins_user_uq",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "platform_admins_user_id_users_id_fk": {
           "name": "platform_admins_user_id_users_id_fk",
@@ -1853,6 +1996,43 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.stripe_events": {
+      "name": "stripe_events",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created": {
+          "name": "created",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "processed_at": {
+          "name": "processed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.subscriptions": {
       "name": "subscriptions",
       "schema": "",
@@ -1907,6 +2087,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "last_event_at": {
+          "name": "last_event_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -1915,7 +2101,23 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "subscriptions_org_uq": {
+          "name": "subscriptions_org_uq",
+          "columns": [
+            {
+              "expression": "org_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "subscriptions_org_id_organizations_id_fk": {
           "name": "subscriptions_org_id_organizations_id_fk",
@@ -2121,6 +2323,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'success'"
+        },
+        "usage_estimated": {
+          "name": "usage_estimated",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "latency_ms": {
           "name": "latency_ms",

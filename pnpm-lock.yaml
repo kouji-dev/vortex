@@ -125,7 +125,11 @@ importers:
         specifier: ^5.6.3
         version: 5.9.3
 
-  apps/landing: {}
+  apps/landing:
+    dependencies:
+      '@vortex/core':
+        specifier: workspace:*
+        version: link:../../packages/core
 
   apps/platform: {}
 
@@ -145,6 +149,9 @@ importers:
 
   packages/core:
     dependencies:
+      '@vortex/shared':
+        specifier: workspace:*
+        version: link:../shared
       dotenv:
         specifier: ^16.4.7
         version: 16.6.1
@@ -170,6 +177,9 @@ importers:
 
   packages/db:
     dependencies:
+      '@vortex/core':
+        specifier: workspace:*
+        version: link:../core
       dotenv:
         specifier: ^16.4.7
         version: 16.6.1

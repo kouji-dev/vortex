@@ -1,9 +1,11 @@
-// Fake OpenAI-compatible provider for E2E. The gateway is pointed here via
-// OPENAI_BASE_URL. Returns a deterministic completion + usage.
+// Multi-envelope fake provider for E2E. The gateway is pointed here per host via
+// *_BASE_URL env vars. Speaks OpenAI Chat, Anthropic Messages, Bedrock invoke,
+// and Azure-deployment paths, and records the last upstream request so tests can
+// assert envelope-by-family + model-id translation.
 //
 // Test controls (POST /__control JSON):
-//   { fail500Times: N }  → the next N chat requests answer 500
-//   { hangMs: N }        → the next ONE chat request stalls N ms before replying
+//   { fail500Times: N }  → the next N POST requests answer 500
+//   { hangMs: N }        → the next ONE POST request stalls N ms before replying
 //   { streamChunks: N, streamDelayMs: M } → shape of streamed responses
 //   {}                   → reset all controls to defaults
 import { createServer } from "node:http";
@@ -21,7 +23,10 @@ const state = {
 
 const USAGE = { prompt_tokens: 12, completion_tokens: 7, total_tokens: 19 };
 
-function completionBody(model) {
+// Last upstream request seen (path/body/model), for assertions via GET /__last.
+let last = null;
+
+function openaiCompletion(model) {
   return {
     id: "chatcmpl-mock",
     object: "chat.completion",
@@ -71,9 +76,69 @@ function streamResponse(res, model) {
   }, state.streamDelayMs);
 }
 
+function anthropicMessage(model, body) {
+  // If the client sent tools, answer with a tool_use block (proves tool
+  // definitions survive the passthrough in both directions).
+  const content = [{ type: "text", text: "Hello from the mock provider." }];
+  let stop = "end_turn";
+  if (Array.isArray(body?.tools) && body.tools.length) {
+    content.push({
+      type: "tool_use",
+      id: "toolu_mock",
+      name: body.tools[0].name ?? "tool",
+      input: { ok: true },
+    });
+    stop = "tool_use";
+  }
+  return {
+    id: "msg_mock",
+    type: "message",
+    role: "assistant",
+    model: model || "mock",
+    content,
+    stop_reason: stop,
+    stop_sequence: null,
+    usage: { input_tokens: 12, output_tokens: 7 },
+  };
+}
+
+function responsesObject(model, body) {
+  const output = [
+    {
+      type: "message",
+      id: "msg_mock",
+      status: "completed",
+      role: "assistant",
+      content: [{ type: "output_text", text: "Hello from the mock provider.", annotations: [] }],
+    },
+  ];
+  if (Array.isArray(body?.tools) && body.tools.length) {
+    output.push({
+      type: "function_call",
+      id: "fc_mock",
+      call_id: "call_mock",
+      name: body.tools[0].name ?? "tool",
+      arguments: "{}",
+      status: "completed",
+    });
+  }
+  return {
+    id: "resp_mock",
+    object: "response",
+    created_at: 1,
+    status: "completed",
+    model: model || "mock",
+    output,
+    output_text: "Hello from the mock provider.",
+    usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 },
+  };
+}
+
 createServer((req, res) => {
   const url = req.url ?? "";
-  if (req.method === "POST" && url.includes("/__control")) {
+  const method = req.method ?? "GET";
+
+  if (method === "POST" && url.includes("/__control")) {
     let b = "";
     req.on("data", (d) => (b += d));
     req.on("end", () => {
@@ -85,12 +150,28 @@ createServer((req, res) => {
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify(state));
     });
-  } else if (req.method === "POST" && url.includes("/chat/completions")) {
+    return;
+  }
+
+  if (method === "GET" && url.startsWith("/__last")) {
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify(last ?? {}));
+    return;
+  }
+
+  if (method === "GET" && url.includes("/models")) {
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ object: "list", data: [{ id: "gpt-4o-mini" }] }));
+    return;
+  }
+
+  if (method === "POST") {
     let b = "";
     req.on("data", (d) => (b += d));
     req.on("end", () => {
       const body = JSON.parse(b || "{}");
-      const send = () => {
+
+      const answer = () => {
         // client gave up (timeout test) — the response socket is gone
         if (res.destroyed || res.writableEnded) return;
         if (state.fail500Times > 0) {
@@ -99,24 +180,78 @@ createServer((req, res) => {
           res.end(JSON.stringify({ error: { message: "mock upstream boom" } }));
           return;
         }
+
+        const json = (obj) => {
+          res.writeHead(200, { "content-type": "application/json" });
+          res.end(JSON.stringify(obj));
+        };
+
+        // Bedrock native invoke: POST /model/{id}/invoke — id is in the URL.
+        const bedrock = url.match(/\/model\/([^/]+)\/invoke/);
+        if (bedrock) {
+          const upstreamId = decodeURIComponent(bedrock[1]);
+          last = { path: url, envelope: "anthropic-bedrock", model: upstreamId, body };
+          json(anthropicMessage(upstreamId, body));
+          return;
+        }
+
+        // OpenAI Responses (Codex).
+        if (url.includes("/responses")) {
+          last = { path: url, envelope: "responses", model: body.model, body };
+          json(responsesObject(body.model, body));
+          return;
+        }
+
+        // Anthropic Messages (direct or Vertex rawPredict).
+        if (url.includes("/v1/messages") || url.includes(":rawPredict")) {
+          last = { path: url, envelope: "anthropic", model: body.model, body };
+          json(anthropicMessage(body.model, body));
+          return;
+        }
+
+        // Gemini generateContent.
+        if (url.includes(":generateContent")) {
+          last = { path: url, envelope: "google", model: null, body };
+          json({
+            candidates: [
+              { content: { parts: [{ text: "Hello from the mock provider." }] } },
+            ],
+            usageMetadata: { promptTokenCount: 12, candidatesTokenCount: 7, totalTokenCount: 19 },
+          });
+          return;
+        }
+
+        if (url.includes("/embeddings")) {
+          last = { path: url, envelope: "openai-embeddings", model: body.model, body };
+          json({
+            object: "list",
+            data: [{ object: "embedding", index: 0, embedding: [0.1, 0.2, 0.3] }],
+            model: body.model,
+            usage: { prompt_tokens: 5, total_tokens: 5 },
+          });
+          return;
+        }
+
+        // OpenAI Chat (direct or Azure deployment path) — the default.
+        last = { path: url, envelope: "openai", model: body.model, body };
         if (body.stream === true) {
           streamResponse(res, body.model);
           return;
         }
-        res.writeHead(200, { "content-type": "application/json" });
-        res.end(JSON.stringify(completionBody(body.model)));
+        json(openaiCompletion(body.model));
       };
+
       const hang = state.hangMs;
       state.hangMs = 0; // one-shot
       const wait = hang > 0 ? hang : DELAY;
-      if (wait > 0) setTimeout(send, wait);
-      else send();
+      if (wait > 0) setTimeout(answer, wait);
+      else answer();
     });
-  } else if (url.includes("/models")) {
-    res.writeHead(200, { "content-type": "application/json" });
-    res.end(JSON.stringify({ object: "list", data: [{ id: "gpt-4o-mini" }] }));
-  } else {
-    res.writeHead(404);
-    res.end("{}");
+    return;
   }
-}).listen(9099, () => console.log("mock provider on :9099"));
+
+  res.writeHead(404);
+  res.end("{}");
+}).listen(Number(process.env.MOCK_PORT) || 9099, () =>
+  console.log(`mock provider on :${Number(process.env.MOCK_PORT) || 9099}`),
+);

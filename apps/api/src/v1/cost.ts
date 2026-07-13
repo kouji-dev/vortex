@@ -38,7 +38,7 @@ export function clearCatalog(): void {
   catalog.clear();
 }
 
-/** Rough token estimate from character count (≈ chars / 4). */
+/** Rough token estimate from character count (≈ chars / 4). Exported for reuse. */
 export function estTokensFromChars(chars: number): number {
   return Math.max(0, Math.ceil(chars / 4));
 }

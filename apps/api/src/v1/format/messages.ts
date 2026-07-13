@@ -2,8 +2,7 @@ import type {
   AnthropicMessagesRequest,
   CanonicalChatRequest,
 } from "@vortex/shared";
-import type { OpenAIChatCompletion } from "../providers/index.js";
-import { iterSSELines, sseData } from "../sse.js";
+import { iterSSELines, sseData, type OpenAIChatCompletion } from "@vortex/core";
 
 // Anthropic Messages ⇄ canonical OpenAI-chat. Inbound thin adapter: validate
 // native → transcode to canonical → run the ONE core handler → transcode back.

@@ -1,6 +1,6 @@
 {
-  "id": "a4196a34-ba70-4cd1-9e5e-f5da3b90219e",
-  "prevId": "05c4bf46-7dd7-43fd-a919-f8d6df9d3db5",
+  "id": "bffca1f0-65a6-4c30-bc20-149ebdee1d05",
+  "prevId": "a4196a34-ba70-4cd1-9e5e-f5da3b90219e",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1124,6 +1124,18 @@
           "primaryKey": false,
           "notNull": true
         },
+        "cached_input_per_1k_micro": {
+          "name": "cached_input_per_1k_micro",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cache_write_per_1k_micro": {
+          "name": "cache_write_per_1k_micro",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
         "context_window": {
           "name": "context_window",
           "type": "integer",
@@ -1145,6 +1157,42 @@
         "supported_features": {
           "name": "supported_features",
           "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "modalities": {
+          "name": "modalities",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "release_date": {
+          "name": "release_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "knowledge": {
+          "name": "knowledge",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_updated": {
+          "name": "last_updated",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "open_weights": {
+          "name": "open_weights",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },

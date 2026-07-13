@@ -1,5 +1,4 @@
 import { ChangeDetectionStrategy, Component, afterNextRender } from '@angular/core';
-import { SiteNav } from './sections/site-nav';
 import { Hero } from './sections/hero';
 import { Dropin } from './sections/dropin';
 import { Providers } from './sections/providers';
@@ -8,7 +7,6 @@ import { HowItWorks } from './sections/how-it-works';
 import { Deploy } from './sections/deploy';
 import { Pricing } from './sections/pricing';
 import { FinalCta } from './sections/final-cta';
-import { SiteFooter } from './sections/site-footer';
 
 /**
  * Vortex marketing landing — the dark brand stage. Composes every section from
@@ -21,34 +19,16 @@ import { SiteFooter } from './sections/site-footer';
   selector: 'vx-landing',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
-    SiteNav,
-    Hero,
-    Dropin,
-    Providers,
-    Governance,
-    HowItWorks,
-    Deploy,
-    Pricing,
-    FinalCta,
-    SiteFooter,
-  ],
+  imports: [Hero, Dropin, Providers, Governance, HowItWorks, Deploy, Pricing, FinalCta],
   template: `
-    <div class="vx-atmosphere"></div>
-    <div class="vx-grid"></div>
-
-    <div class="page">
-      <vx-site-nav />
-      <vx-hero />
-      <vx-dropin />
-      <vx-providers />
-      <vx-governance />
-      <vx-how-it-works />
-      <vx-deploy />
-      <vx-pricing />
-      <vx-final-cta />
-      <vx-site-footer />
-    </div>
+    <vx-hero />
+    <vx-dropin />
+    <vx-providers />
+    <vx-governance />
+    <vx-how-it-works />
+    <vx-deploy />
+    <vx-pricing />
+    <vx-final-cta />
   `,
 })
 export class Landing {

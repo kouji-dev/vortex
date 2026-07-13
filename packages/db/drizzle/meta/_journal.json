@@ -33,8 +33,22 @@
     {
       "idx": 4,
       "version": "7",
-      "when": 1783934630644,
-      "tag": "0004_elite_ultimates",
+      "when": 1783770535255,
+      "tag": "0004_legal_punisher",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1783784270484,
+      "tag": "0005_clean_pet_avengers",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1783939917794,
+      "tag": "0006_foamy_blacklash",
       "breakpoints": true
     }
   ]

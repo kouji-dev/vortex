@@ -26,7 +26,9 @@
                 "input": "apps/web/public"
               }
             ],
-            "styles": ["packages/design-system/vortex.css"]
+            "styles": [
+              "packages/design-system/vortex.css"
+            ]
           },
           "configurations": {
             "production": {
@@ -91,7 +93,9 @@
                 "input": "apps/platform/public"
               }
             ],
-            "styles": ["packages/design-system/vortex.css"]
+            "styles": [
+              "packages/design-system/vortex.css"
+            ]
           },
           "configurations": {
             "production": {
@@ -156,7 +160,11 @@
                 "input": "apps/landing/public"
               }
             ],
-            "styles": ["packages/design-system/vortex.css", "apps/landing/src/styles.css"],
+            "styles": [
+              "packages/design-system/vortex.css",
+              "apps/landing/src/styles.css",
+              "apps/landing/src/catalog.css"
+            ],
             "server": "apps/landing/src/main.server.ts",
             "outputMode": "server",
             "ssr": {
@@ -177,7 +185,13 @@
                   "maximumError": "16kB"
                 }
               ],
-              "outputHashing": "all"
+              "outputHashing": "all",
+              "fileReplacements": [
+                {
+                  "replace": "apps/landing/src/environments/environment.ts",
+                  "with": "apps/landing/src/environments/environment.prod.ts"
+                }
+              ]
             },
             "development": {
               "optimization": false,

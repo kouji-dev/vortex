@@ -2,7 +2,7 @@ import { test, expect, request } from "@playwright/test";
 import { resetAll } from "./reset";
 import { mockControl, withDb, pollUntil } from "./helpers";
 
-const BASE = "http://localhost:8080";
+const BASE = process.env.E2E_BASE ?? "http://localhost:8080";
 
 // fresh single-org state (DB + Redis buckets) before each test →
 // first signup provisions as owner

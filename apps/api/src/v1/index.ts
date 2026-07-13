@@ -15,17 +15,35 @@ import {
   CreditExhaustedError,
 } from "../shared/errors.js";
 import { runWithRequestCache } from "../shared/request-context.js";
-import { handleChat, handleEmbeddings, type ChatResult } from "./core.js";
 import {
-  messagesToCanonical,
-  canonicalToMessagesResponse,
-  canonicalStreamToMessages,
-} from "./format/messages.js";
-import {
-  responsesToCanonical,
-  canonicalToResponses,
-  canonicalStreamToResponses,
-} from "./format/responses.js";
+  handleChat,
+  handleEmbeddings,
+  handleNative,
+  type ChatResult,
+  type NativeResult,
+} from "./core.js";
+import type { Context } from "hono";
+
+/** Forward provider-native request headers upstream (version/beta negotiation). */
+function forwardHeaders(c: Context, names: string[]): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const n of names) {
+    const v = c.req.header(n);
+    if (v) out[n] = v;
+  }
+  return out;
+}
+
+/** Render a native-passthrough result (raw upstream shape, no transcode). */
+function renderNative(c: Context, result: NativeResult): Response {
+  if (result.kind === "error")
+    return c.json(result.body as object, result.status as never, result.headers);
+  if (result.kind === "stream")
+    return new Response(result.stream, {
+      headers: withHeaders(SSE_HEADERS, result.headers),
+    });
+  return c.json(result.json as object, 200, result.headers);
+}
 
 const SSE_HEADERS = {
   "content-type": "text/event-stream; charset=utf-8",
@@ -120,54 +138,76 @@ gatewayRouter.post("/chat/completions", async (c) => {
   return c.json(result.openai, 200, result.headers);
 });
 
-// ── POST /v1/messages (Anthropic Messages → canonical) ────────
+// ── POST /v1/messages (Anthropic Messages — native passthrough) ──
+// Claude Code speaks Anthropic Messages → forward verbatim to an Anthropic-family
+// host (anthropic / bedrock / vertex). Tools, tool_use/result, images, thinking,
+// and cache_control pass through intact; the response stays native Anthropic.
 gatewayRouter.post("/messages", async (c) => {
-  const parsed = anthropicMessagesRequestSchema.safeParse(await c.req.json().catch(() => null));
-  if (!parsed.success) {
+  const raw = await c.req.json().catch(() => null);
+  const parsed = anthropicMessagesRequestSchema.safeParse(raw);
+  if (!parsed.success)
     return c.json(errJson("Invalid messages request.", "invalid_request_error"), 400);
-  }
+  const body = parsed.data as Record<string, unknown>;
   const ctx = c.get("gateway");
-  const canonical = messagesToCanonical(parsed.data);
-  let result: ChatResult;
+  let result: NativeResult;
   try {
-    result = await handleChat(ctx, canonical);
+    result = await handleNative(ctx, {
+      model: body.model as string,
+      rawBody: body,
+      stream: body.stream === true,
+      inboundFamily: "anthropic",
+      capability: "messages",
+      promptChars: JSON.stringify(raw).length,
+      maxTokens: (body.max_tokens as number) ?? 0,
+      hasTools: Array.isArray(body.tools) && body.tools.length > 0,
+      extraHeaders: forwardHeaders(c, ["anthropic-version", "anthropic-beta"]),
+    });
   } catch (e) {
     const denied = moneyDenied(e);
     if (denied) return c.json(denied, 402);
     throw e;
   }
-  if (result.kind === "error")
-    return c.json(result.body as object, result.status as any, result.headers);
-  if (result.kind === "stream")
-    return new Response(canonicalStreamToMessages(result.stream, result.model), {
-      headers: withHeaders(SSE_HEADERS, result.headers),
-    });
-  return c.json(canonicalToMessagesResponse(result.openai), 200, result.headers);
+  return renderNative(c, result);
 });
 
-// ── POST /v1/responses (OpenAI Responses → canonical) ─────────
+// ── POST /v1/responses (OpenAI Responses — native passthrough) ──
+// Codex speaks the Responses API → forward verbatim to an OpenAI-family host.
+// Stateless: `previous_response_id`/`store` are not honoured (resend full input).
 gatewayRouter.post("/responses", async (c) => {
-  const parsed = openAIResponsesRequestSchema.safeParse(await c.req.json().catch(() => null));
-  if (!parsed.success) {
+  const raw = await c.req.json().catch(() => null);
+  const parsed = openAIResponsesRequestSchema.safeParse(raw);
+  if (!parsed.success)
     return c.json(errJson("Invalid responses request.", "invalid_request_error"), 400);
-  }
+  const body = parsed.data as Record<string, unknown>;
+  if (body.previous_response_id != null)
+    return c.json(
+      errJson(
+        "previous_response_id is not supported (stateless gateway); resend the full input.",
+        "invalid_request_error",
+        "stateful_unsupported",
+      ),
+      400,
+    );
   const ctx = c.get("gateway");
-  const canonical = responsesToCanonical(parsed.data);
-  let result: ChatResult;
+  let result: NativeResult;
   try {
-    result = await handleChat(ctx, canonical);
+    result = await handleNative(ctx, {
+      model: body.model as string,
+      rawBody: body,
+      stream: body.stream === true,
+      inboundFamily: "openai",
+      capability: "responses",
+      promptChars: JSON.stringify(raw).length,
+      maxTokens: (body.max_output_tokens as number) ?? 0,
+      hasTools: Array.isArray(body.tools) && body.tools.length > 0,
+      extraHeaders: forwardHeaders(c, ["openai-beta"]),
+    });
   } catch (e) {
     const denied = moneyDenied(e);
     if (denied) return c.json(denied, 402);
     throw e;
   }
-  if (result.kind === "error")
-    return c.json(result.body as object, result.status as any, result.headers);
-  if (result.kind === "stream")
-    return new Response(canonicalStreamToResponses(result.stream, result.model), {
-      headers: withHeaders(SSE_HEADERS, result.headers),
-    });
-  return c.json(canonicalToResponses(result.openai), 200, result.headers);
+  return renderNative(c, result);
 });
 
 // ── POST /v1/embeddings ───────────────────────────────────────

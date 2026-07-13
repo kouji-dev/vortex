@@ -58,6 +58,13 @@ export const keyRuleType = pgEnum("key_rule_type", [
   "ip_cidrs",
 ]);
 export const usageStatus = pgEnum("usage_status", ["success", "error"]);
+// wire envelope a model speaks — decides which adapter transcodes it. Distinct
+// from the `host` (provider column), which decides endpoint/auth/model-id.
+export const modelFamily = pgEnum("model_family", [
+  "openai",
+  "anthropic",
+  "google",
+]);
 export const keyMode = pgEnum("key_mode", ["byok", "managed", "hybrid"]);
 export const meterType = pgEnum("meter_type", [
   "requests",
@@ -366,16 +373,53 @@ export const models = pgTable(
   "models",
   {
     id: id(),
+    // host = where the model is served (openai, anthropic, azure, bedrock,
+    // vertex, groq…). The wire envelope is `family`; one logical model can have
+    // several rows (Opus on anthropic/bedrock/vertex), each a distinct host.
     provider: text("provider").notNull(),
+    family: modelFamily("family").notNull().default("openai"),
     modelName: text("model_name").notNull(),
+    // Provider-specific upstream id used on the wire (Bedrock `anthropic.…-v1:0`,
+    // Azure deployment, Vertex publisher model). Defaults to modelName when equal.
+    upstreamModelId: text("upstream_model_id"),
     inputPer1kMicro: money("input_per_1k_micro").notNull(),
     outputPer1kMicro: money("output_per_1k_micro").notNull(),
+    // Prompt-caching prices (Anthropic/OpenAI), per 1k micro-USD. Null when the
+    // host×model has no cache tier.
+    cachedInputPer1kMicro: money("cached_input_per_1k_micro"),
+    cacheWritePer1kMicro: money("cache_write_per_1k_micro"),
     contextWindow: integer("context_window"),
+    maxOutput: integer("max_output"),
+    // Hosts that region-scope the id (Bedrock global/us/eu → `us.`… prefix).
+    regions: jsonb("regions").$type<string[]>(),
+    // Capabilities THIS host×model accepts — validated & rejected when unsupported.
+    supportedFeatures: jsonb("supported_features").$type<{
+      tools?: boolean;
+      vision?: boolean;
+      reasoning?: boolean;
+      caching?: boolean;
+      webSearch?: boolean;
+      streaming?: boolean;
+      jsonSchema?: boolean;
+    }>(),
+    // Input/output modalities (text/image/pdf/audio…) for the console model card.
+    modalities: jsonb("modalities").$type<{ input: string[]; output: string[] }>(),
+    // Display metadata (from models.dev): release/knowledge/updated dates, etc.
+    releaseDate: text("release_date"),
+    knowledge: text("knowledge"),
+    lastUpdated: text("last_updated"),
+    openWeights: boolean("open_weights"),
+    description: text("description"),
+    // Host routing knobs (e.g. region→model-id prefix rule, publisher).
+    config: jsonb("config").$type<Record<string, unknown>>(),
+    // Pricing beyond per-token (per-second, tiered, image/audio).
+    customPricing: jsonb("custom_pricing").$type<Record<string, unknown>>(),
     effectiveAt: timestamp("effective_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
   },
-  (t) => [index("models_provider_name_idx").on(t.provider, t.modelName)],
+  // One row per (host, logical model). Unique so re-seeds upsert cleanly.
+  (t) => [uniqueIndex("models_provider_name_idx").on(t.provider, t.modelName)],
 );
 
 export const usageRecords = pgTable(

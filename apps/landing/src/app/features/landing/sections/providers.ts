@@ -1,11 +1,12 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { RevealDirective } from '../../../shared/reveal/reveal.directive';
 
 @Component({
   selector: 'vx-providers',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RevealDirective],
+  imports: [RevealDirective, RouterLink],
   template: `
     <section id="providers" class="wrap section-pad" style="padding-top:0;">
       <div class="section-head" vxReveal>
@@ -51,6 +52,10 @@ import { RevealDirective } from '../../../shared/reveal/reveal.directive';
         provider keys (encrypted per-org) and Vortex governs the traffic without touching the
         bill.
       </p>
+
+      <div style="margin-top:28px;" vxReveal>
+        <a class="btn btn-ghost" routerLink="/models">Browse the model catalog →</a>
+      </div>
     </section>
   `,
 })
